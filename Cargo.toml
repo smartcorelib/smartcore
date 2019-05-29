@@ -1,0 +1,18 @@
+[package]
+name = "smartcore"
+version = "0.1.0"
+authors = ["Vlad Orlov"]
+edition = "2018"
+
+[dependencies]
+ndarray = "0.12.1"
+ndarray-linalg = "0.10"
+num-traits = "0.2"
+
+[dev-dependencies]
+ndarray = "0.12.1"
+criterion = "0.2"
+
+[[bench]]
+name = "distance"
+harness = false
