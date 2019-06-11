@@ -1,21 +1,22 @@
 use super::Distance;
 use ndarray::{ArrayBase, Data, Dimension};
-use num_traits::Float;
+use num_traits::{Num, ToPrimitive};
+use ndarray::{ScalarOperand};
 
 pub struct EuclidianDistance{}
 
-impl<A, S, D> Distance<ArrayBase<S, D>, A> for EuclidianDistance
+impl<A, S, D> Distance<ArrayBase<S, D>> for EuclidianDistance
 where
-    A: Float,        
+    A: Num + ScalarOperand + ToPrimitive,      
     S: Data<Elem = A>,
     D: Dimension
 {
 
-    fn distance(a: &ArrayBase<S, D>, b: &ArrayBase<S, D>) -> A {
+    fn distance(a: &ArrayBase<S, D>, b: &ArrayBase<S, D>) -> f64 {
         if a.len() != b.len() {
             panic!("vectors a and b have different length");
         } else {     
-            ((a - b)*(a - b)).sum().sqrt()            
+            ((a - b)*(a - b)).sum().to_f64().unwrap().sqrt()            
         }
     }
 }
@@ -28,8 +29,8 @@ mod tests {
 
     #[test]
     fn measure_simple_euclidian_distance() {
-        let a = Array::from_vec(vec![1., 2., 3.]);
-        let b = Array::from_vec(vec![4., 5., 6.]);        
+        let a = arr1(&[1, 2, 3]);
+        let b = arr1(&[4, 5, 6]);        
 
         let d = EuclidianDistance::distance(&a, &b);
 
