@@ -1,13 +1,12 @@
 use super::Distance;
 use ndarray::{ArrayBase, Data, Dimension};
-use num_traits::{Num, ToPrimitive};
-use ndarray::{ScalarOperand};
+use crate::common::AnyNumber;
 
 pub struct EuclidianDistance{}
 
 impl<A, S, D> Distance<ArrayBase<S, D>> for EuclidianDistance
 where
-    A: Num + ScalarOperand + ToPrimitive,      
+    A: AnyNumber,      
     S: Data<Elem = A>,
     D: Dimension
 {
@@ -25,17 +24,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{arr1, Array};    
+    use ndarray::arr1;    
 
     #[test]
     fn measure_simple_euclidian_distance() {
         let a = arr1(&[1, 2, 3]);
-        let b = arr1(&[4, 5, 6]);        
+        let b = arr1(&[4, 5, 6]);             
 
-        let d = EuclidianDistance::distance(&a, &b);
+        let d_arr = EuclidianDistance::distance(&a, &b);
+        let d_view = EuclidianDistance::distance(&a.view(), &b.view());
 
-        assert!((d - 5.19615242).abs() < 1e-8);
-    }
+        assert!((d_arr - 5.19615242).abs() < 1e-8);
+        assert!((d_view - 5.19615242).abs() < 1e-8);
+    }    
 
     #[test]
     fn measure_simple_euclidian_distance_static() {
