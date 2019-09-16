@@ -1,8 +1,9 @@
 pub mod euclidian;
 
-use num_traits::Float;
+pub trait Distance<T> {
 
-pub trait Distance<T>
-{
-    fn distance(a: &T, b: &T) -> f64;
+    fn distance_to(&self, other: &Self) -> f64;
+
+    fn distance(a: &Self, b: &T) -> f64;     
+
 }

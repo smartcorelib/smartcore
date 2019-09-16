@@ -1,15 +1,20 @@
-use crate::common::AnyNumber;
-use ndarray::{Array1, ArrayBase, Data, Ix2};
+use crate::common::Nominal;
 
 pub mod knn;
 
-pub trait Classifier<X, Y, SX>
+pub trait Classifier<X, Y>
 where 
-    X: AnyNumber,
-    Y: AnyNumber,
-    SX: Data<Elem = X>    
+    Y: Nominal
 {    
 
-    fn predict(&self, x: &ArrayBase<SX, Ix2>) -> Array1<Y>;
+    fn predict(&self, x: &X) -> Y;
+
+    fn predict_vec(&self, x: &Vec<X>) -> Vec<Y>{
+        let mut result = Vec::new();        
+        for xv in x.iter() {
+            result.push(self.predict(xv));
+        }          
+        result
+    }
 
 }

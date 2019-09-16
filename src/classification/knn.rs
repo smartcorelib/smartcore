@@ -1,85 +1,92 @@
 use super::Classifier;
+use std::collections::HashSet;
 use crate::algorithm::sort::heap_select::HeapSelect;
-use crate::common::AnyNumber;
-use ndarray::prelude::*;
+use crate::common::Nominal;
 use ndarray::{ArrayBase, Data, Ix1, Ix2};
 use num_traits::{Float};
 use std::cmp::{Ordering, PartialOrd};
-use ndarray::arr1;
 
-pub struct KNNClassifier<X, Y, F> 
+
+type F<X> = Fn(&X, &X) -> f64;
+
+pub struct KNNClassifier<X, Y> 
 where
-    X: AnyNumber,
-    Y: AnyNumber,    
-    F: Fn(&Array1<X>, &Array1<X>) -> f64
+    Y: Nominal
 {     
-    y: Vec<Y>,  
-    distance: F,
-    k: usize,
-    knn_algorithm: Box<KNNAlgorithm<Array1<X>, F>>    
+    classes: Vec<Y>,
+    y: Vec<usize>,  
+    data: Vec<X>,      
+    distance: Box<F<X>>,
+    k: usize,        
 }
 
-impl<X, Y, F> KNNClassifier<X, Y, F> 
+impl<X, Y> KNNClassifier<X, Y> 
 where
-    X: AnyNumber,
-    Y: AnyNumber,    
-    F: Fn(&Array1<X>, &Array1<X>) -> f64
+    Y: Nominal
 {
 
-    pub fn fit<SX: Data<Elem = X>, SY: Data<Elem = Y>>(x: &ArrayBase<SX, Ix2>, y: &ArrayBase<SY, Ix1>, k: usize, distance: F) -> KNNClassifier<X, Y, F> {
+    pub fn fit(x: Vec<X>, y: Vec<Y>, k: usize, distance: &'static F<X>) -> KNNClassifier<X, Y> {
 
-        assert!(ArrayBase::shape(x)[0] == ArrayBase::shape(y)[0], format!("Size of x should equal size of y; |x|=[{}], |y|=[{}]", ArrayBase::shape(x)[0], ArrayBase::shape(y)[0]));
+        assert!(Vec::len(&x) == Vec::len(&y), format!("Size of x should equal size of y; |x|=[{}], |y|=[{}]", Vec::len(&x), Vec::len(&y)));
 
-        assert!(k > 1, format!("k should be > 1, k=[{}]", k));        
-                  
-        let v: Vec<Array1<X>> = x.outer_iter().map(|x| x.to_owned()).collect(); 
+        assert!(k > 1, format!("k should be > 1, k=[{}]", k));      
+        
+        let c_hash: HashSet<Y> = y.clone().into_iter().collect(); 
+        let classes: Vec<Y> = c_hash.into_iter().collect();
+        let y_i:Vec<usize> = y.into_iter().map(|y| classes.iter().position(|yy| yy == &y).unwrap()).collect();   
 
-        let knn = Box::new(SimpleKNNAlgorithm{
-            data: v
-        });       
-
-        KNNClassifier{y: y.to_owned().to_vec(), k: k, distance: distance, knn_algorithm: knn}
+        KNNClassifier{classes:classes, y: y_i, data: x, k: k, distance: Box::new(distance)}
     }
+    
 }
 
-impl<X, Y, SX, F> Classifier<X, Y, SX> for KNNClassifier<X, Y, F> 
+impl<X, Y> Classifier<X, Y> for KNNClassifier<X, Y> 
 where    
-    X: AnyNumber,
-    Y: AnyNumber,
-    SX: Data<Elem = X>,    
-    F: Fn(&Array1<X>, &Array1<X>) -> f64
+    Y: Nominal
  {    
 
-    fn predict(&self, x: &ArrayBase<SX, Ix2>) -> Array1<Y> {             
-        let mut result = Vec::new();
-        for x in x.outer_iter() {
-            let idxs = self.knn_algorithm.find(&x.to_owned(), self.k, &self.distance);
-            let mut sum: Y = Y::zero();
-            let mut count = 0;
-            for i in idxs {
-                sum = sum + self.y[i].to_owned();
-                count += 1;
-            }
-            result.push(sum / Y::from_u64(count).unwrap());
-        }          
-        arr1(&result)
+    fn predict(&self, x: &X) -> Y {                       
+        let idxs = self.data.find(x, self.k, &self.distance);        
+        let mut c = vec![0; self.classes.len()];
+        let mut max_c = 0;
+        let mut max_i = 0;
+        for i in idxs {
+            c[self.y[i]] += 1;  
+            if c[self.y[i]] > max_c {
+                max_c = c[self.y[i]];
+                max_i = self.y[i];
+            }          
+        }                    
+
+        self.classes[max_i].clone()
     }
 
 }
 
-pub trait KNNAlgorithm<T: Clone, F: Fn(&T, &T) -> f64>{
-    fn find(&self, from: &T, k: usize, d: &F) -> Vec<usize>;
+pub struct NDArrayUtils {
+
 }
 
-pub struct SimpleKNNAlgorithm<T>
-{
-    data: Vec<T> 
+impl NDArrayUtils {
+
+    pub fn array2_to_vec<E, S>(x: &ArrayBase<S, Ix2>) -> Vec<ArrayBase<S, Ix1>> 
+    where
+        E: Nominal,
+        S: Data<Elem = E>,
+        std::vec::Vec<ArrayBase<S, Ix1>>: std::iter::FromIterator<ndarray::ArrayBase<ndarray::OwnedRepr<E>, Ix1>>{            
+            let x_vec: Vec<ArrayBase<S, Ix1>> = x.outer_iter().map(|x| x.to_owned()).collect();            
+            x_vec
+    }
 }
 
-impl<T: Clone, F: Fn(&T, &T) -> f64> KNNAlgorithm<T, F> for SimpleKNNAlgorithm<T>
+pub trait KNNAlgorithm<T>{
+    fn find(&self, from: &T, k: usize, d: &Fn(&T, &T) -> f64) -> Vec<usize>;
+}
+
+impl<T> KNNAlgorithm<T> for Vec<T>
 {
-    fn find(&self, from: &T, k: usize, d: &F) -> Vec<usize> {
-        if k < 1 || k > self.data.len() {
+    fn find(&self, from: &T, k: usize, d: &Fn(&T, &T) -> f64) -> Vec<usize> {
+        if k < 1 || k > self.len() {
             panic!("k should be >= 1 and <= length(data)");
         }        
         
@@ -92,9 +99,9 @@ impl<T: Clone, F: Fn(&T, &T) -> f64> KNNAlgorithm<T, F> for SimpleKNNAlgorithm<T
             });
         }
 
-        for i in 0..self.data.len() {
+        for i in 0..self.len() {
 
-            let d = d(&from, &self.data[i]);
+            let d = d(&from, &self[i]);
             let datum = heap.peek_mut();            
             if d < datum.distance {
                 datum.distance = d;
@@ -131,41 +138,37 @@ impl Eq for KNNPoint {}
 
 #[cfg(test)]
 mod tests {    
-    use super::*;  
+    use super::*;          
     use crate::math::distance::Distance;
-    use crate::math::distance::euclidian::EuclidianDistance; 
+    use ndarray::{arr1, arr2, Array1};
 
     struct SimpleDistance{}
 
-    impl Distance<i32> for SimpleDistance {
+    impl SimpleDistance {
         fn distance(a: &i32, b: &i32) -> f64 {
             (a - b).abs() as f64
         }
-    }     
+    }   
 
     #[test]
     fn knn_fit_predict() {                
-        let x = arr2(&[[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]);        
-        let y = arr1(&[1, 2, 3, 4, 5]);
-        let knn = KNNClassifier::fit(&x, &y, 3, EuclidianDistance::distance);
-        let r = knn.predict(&x);
-        assert_eq!(5, ArrayBase::len(&r));
-        assert_eq!(arr1(&[2, 2, 3, 4, 4]), r);
+        let x = arr2(&[[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]); 
+        let y = arr1(&[2, 2, 2, 3, 3]);        
+        let knn = KNNClassifier::fit(NDArrayUtils::array2_to_vec(&x), y.to_vec(), 3, &Array1::distance);
+        let r = knn.predict_vec(&NDArrayUtils::array2_to_vec(&x));
+        assert_eq!(5, Vec::len(&r));
+        assert_eq!(y.to_vec(), r);
     }
 
     #[test]
     fn knn_find() {        
-        let simple_knn = SimpleKNNAlgorithm{
-            data: vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-        };            
+        let data1 = vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);            
 
-        assert_eq!(vec!(1, 2, 0), simple_knn.find(&2, 3, &SimpleDistance::distance));
+        assert_eq!(vec!(1, 2, 0), data1.find(&2, 3, &SimpleDistance::distance));
 
-        let knn2 = SimpleKNNAlgorithm{
-            data: vec!(arr1(&[1, 1]), arr1(&[2, 2]), arr1(&[3, 3]), arr1(&[4, 4]), arr1(&[5, 5]))
-        }; 
+        let data2 = vec!(arr1(&[1, 1]), arr1(&[2, 2]), arr1(&[3, 3]), arr1(&[4, 4]), arr1(&[5, 5]));
 
-        assert_eq!(vec!(2, 3, 1), knn2.find(&arr1(&[3, 3]), 3, &EuclidianDistance::distance));
+        assert_eq!(vec!(2, 3, 1), data2.find(&arr1(&[3, 3]), 3, &Array1::distance));
     }
 
     #[test]
