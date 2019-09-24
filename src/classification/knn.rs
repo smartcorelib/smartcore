@@ -1,31 +1,33 @@
 use super::Classifier;
 use std::collections::HashSet;
-use crate::algorithm::sort::heap_select::HeapSelect;
+use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
+use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
+use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::common::Nominal;
 use ndarray::{ArrayBase, Data, Ix1, Ix2};
-use num_traits::{Float};
-use std::cmp::{Ordering, PartialOrd};
+use std::fmt::Debug;
 
 
 type F<X> = Fn(&X, &X) -> f64;
 
-pub struct KNNClassifier<X, Y> 
+pub struct KNNClassifier<'a, X, Y> 
 where
-    Y: Nominal
+    Y: Nominal,
+    X: Debug
 {     
     classes: Vec<Y>,
-    y: Vec<usize>,  
-    data: Vec<X>,      
-    distance: Box<F<X>>,
+    y: Vec<usize>,    
+    knn_algorithm: Box<KNNAlgorithm<X> + 'a>,
     k: usize,        
 }
 
-impl<X, Y> KNNClassifier<X, Y> 
+impl<'a, X, Y> KNNClassifier<'a, X, Y> 
 where
-    Y: Nominal
+    Y: Nominal,
+    X: Debug
 {
 
-    pub fn fit(x: Vec<X>, y: Vec<Y>, k: usize, distance: &'static F<X>) -> KNNClassifier<X, Y> {
+    pub fn fit(x: Vec<X>, y: Vec<Y>, k: usize, distance: &'a F<X>, algorithm: KNNAlgorithmName) -> KNNClassifier<X, Y> {
 
         assert!(Vec::len(&x) == Vec::len(&y), format!("Size of x should equal size of y; |x|=[{}], |y|=[{}]", Vec::len(&x), Vec::len(&y)));
 
@@ -33,20 +35,27 @@ where
         
         let c_hash: HashSet<Y> = y.clone().into_iter().collect(); 
         let classes: Vec<Y> = c_hash.into_iter().collect();
-        let y_i:Vec<usize> = y.into_iter().map(|y| classes.iter().position(|yy| yy == &y).unwrap()).collect();   
+        let y_i:Vec<usize> = y.into_iter().map(|y| classes.iter().position(|yy| yy == &y).unwrap()).collect();    
 
-        KNNClassifier{classes:classes, y: y_i, data: x, k: k, distance: Box::new(distance)}
+        let knn_algorithm: Box<KNNAlgorithm<X> + 'a> = match algorithm {
+            KNNAlgorithmName::CoverTree => Box::new(CoverTree::<X>::new(x, distance)),
+            KNNAlgorithmName::LinearSearch => Box::new(LinearKNNSearch::<X>::new(x, distance))
+        };
+
+        KNNClassifier{classes:classes, y: y_i, k: k, knn_algorithm: knn_algorithm}
+
     }
     
 }
 
-impl<X, Y> Classifier<X, Y> for KNNClassifier<X, Y> 
+impl<'a, X, Y> Classifier<X, Y> for KNNClassifier<'a, X, Y> 
 where    
-    Y: Nominal
+    Y: Nominal,
+    X: Debug
  {    
 
     fn predict(&self, x: &X) -> Y {                       
-        let idxs = self.data.find(x, self.k, &self.distance);        
+        let idxs = self.knn_algorithm.find(x, self.k);        
         let mut c = vec![0; self.classes.len()];
         let mut max_c = 0;
         let mut max_i = 0;
@@ -79,123 +88,19 @@ impl NDArrayUtils {
     }
 }
 
-pub trait KNNAlgorithm<T>{
-    fn find(&self, from: &T, k: usize, d: &Fn(&T, &T) -> f64) -> Vec<usize>;
-}
-
-impl<T> KNNAlgorithm<T> for Vec<T>
-{
-    fn find(&self, from: &T, k: usize, d: &Fn(&T, &T) -> f64) -> Vec<usize> {
-        if k < 1 || k > self.len() {
-            panic!("k should be >= 1 and <= length(data)");
-        }        
-        
-        let mut heap = HeapSelect::<KNNPoint>::with_capacity(k); 
-
-        for _ in 0..k {
-            heap.add(KNNPoint{
-                distance: Float::infinity(),
-                index: None
-            });
-        }
-
-        for i in 0..self.len() {
-
-            let d = d(&from, &self[i]);
-            let datum = heap.peek_mut();            
-            if d < datum.distance {
-                datum.distance = d;
-                datum.index = Some(i);
-                heap.heapify();
-            }
-        }   
-
-        heap.sort(); 
-
-        heap.get().into_iter().flat_map(|x| x.index).collect()
-    }
-}
-
-#[derive(Debug)]
-struct KNNPoint {
-    distance: f64,
-    index: Option<usize>
-}
-
-impl PartialOrd for KNNPoint {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance.partial_cmp(&other.distance)
-    }
-}
-
-impl PartialEq for KNNPoint {
-    fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance
-    }
-}
-
-impl Eq for KNNPoint {}
-
 #[cfg(test)]
 mod tests {    
     use super::*;          
     use crate::math::distance::Distance;
-    use ndarray::{arr1, arr2, Array1};
-
-    struct SimpleDistance{}
-
-    impl SimpleDistance {
-        fn distance(a: &i32, b: &i32) -> f64 {
-            (a - b).abs() as f64
-        }
-    }   
+    use ndarray::{arr1, arr2, Array1}; 
 
     #[test]
     fn knn_fit_predict() {                
         let x = arr2(&[[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]); 
         let y = arr1(&[2, 2, 2, 3, 3]);        
-        let knn = KNNClassifier::fit(NDArrayUtils::array2_to_vec(&x), y.to_vec(), 3, &Array1::distance);
+        let knn = KNNClassifier::fit(NDArrayUtils::array2_to_vec(&x), y.to_vec(), 3, &Array1::distance, KNNAlgorithmName::LinearSearch);        
         let r = knn.predict_vec(&NDArrayUtils::array2_to_vec(&x));
         assert_eq!(5, Vec::len(&r));
         assert_eq!(y.to_vec(), r);
-    }
-
-    #[test]
-    fn knn_find() {        
-        let data1 = vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);            
-
-        assert_eq!(vec!(1, 2, 0), data1.find(&2, 3, &SimpleDistance::distance));
-
-        let data2 = vec!(arr1(&[1, 1]), arr1(&[2, 2]), arr1(&[3, 3]), arr1(&[4, 4]), arr1(&[5, 5]));
-
-        assert_eq!(vec!(2, 3, 1), data2.find(&arr1(&[3, 3]), 3, &Array1::distance));
-    }
-
-    #[test]
-    fn knn_point_eq() {
-        let point1 = KNNPoint{
-            distance: 10.,
-            index: Some(0)
-        };
-
-        let point2 = KNNPoint{
-            distance: 100.,
-            index: Some(1)
-        };
-
-        let point3 = KNNPoint{
-            distance: 10.,
-            index: Some(2)
-        };
-
-        let point_inf = KNNPoint{
-            distance: Float::infinity(),
-            index: Some(3)
-        };
-
-        assert!(point2 > point1);
-        assert_eq!(point3, point1);
-        assert_ne!(point3, point2);
-        assert!(point_inf > point3 && point_inf > point2 && point_inf > point1);        
     }
 }
