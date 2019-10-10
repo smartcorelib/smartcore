@@ -36,16 +36,10 @@ mod tests {
     fn measure_simple_euclidian_distance() {
         let a = arr1(&[1, 2, 3]);
         let b = arr1(&[4, 5, 6]);             
-
-        // let r1 = a.distance_to(&b);
-        // let r2 = a.view().distance_to(&b.view());
+        
         let d_arr = Array1::distance(&a, &b);
         let d_view = ArrayView1::distance(&a.view(), &b.view());
 
-        
-
-        // assert!((r1 - 5.19615242).abs() < 1e-8);
-        // assert!((r2 - 5.19615242).abs() < 1e-8);
         assert!((d_arr - 5.19615242).abs() < 1e-8);
         assert!((d_view - 5.19615242).abs() < 1e-8);
     }    
