@@ -2,11 +2,13 @@ use std::ops::Range;
 
 pub mod naive;
 
-pub trait Matrix: Into<Vec<f64>>{ 
+pub trait Matrix: Into<Vec<f64>> + Clone{ 
 
     fn get(&self, row: usize, col: usize) -> f64; 
 
     fn qr_solve_mut(&mut self, b: Self) -> Self;
+
+    fn svd_solve_mut(&mut self, b: Self) -> Self;
 
     fn zeros(nrows: usize, ncols: usize) -> Self;
 

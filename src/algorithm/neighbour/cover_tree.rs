@@ -13,7 +13,7 @@ where T: Debug
     base: f64,
     max_level: i8,
     min_level: i8,
-    distance: &'a Fn(&T, &T) -> f64,
+    distance: &'a dyn Fn(&T, &T) -> f64,
     nodes: Vec<Node<T>>
 }
 
@@ -21,7 +21,7 @@ impl<'a, T> CoverTree<'a, T>
 where T: Debug
 {
 
-    pub fn new(mut data: Vec<T>, distance: &'a Fn(&T, &T) -> f64) -> CoverTree<T> {
+    pub fn new(mut data: Vec<T>, distance: &'a dyn Fn(&T, &T) -> f64) -> CoverTree<T> {
         let mut tree = CoverTree {
             base: 2f64,
             max_level: 100,
@@ -49,7 +49,7 @@ where T: Debug
                 let i_d = self.base.powf(i as f64);
                 let q_p_ds = self.get_children_dist(&p, &qi_p_ds, i);
                 let d_p_q = self.min_by_distance(&q_p_ds);                
-                if d_p_q < math::SMALL_ERROR {
+                if d_p_q < math::EPSILON {
                     return
                 } else if d_p_q > i_d {
                     break;

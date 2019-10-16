@@ -1,3 +1,3 @@
 pub mod distance;
 
-pub static SMALL_ERROR:f64 = 0.0000000000000001f64;
+pub static EPSILON:f64 = 2.2204460492503131e-16_f64;

@@ -8,7 +8,7 @@ use ndarray::{ArrayBase, Data, Ix1, Ix2};
 use std::fmt::Debug;
 
 
-type F<X> = Fn(&X, &X) -> f64;
+type F<X> = dyn Fn(&X, &X) -> f64;
 
 pub struct KNNClassifier<'a, X, Y> 
 where
@@ -17,7 +17,7 @@ where
 {     
     classes: Vec<Y>,
     y: Vec<usize>,    
-    knn_algorithm: Box<KNNAlgorithm<X> + 'a>,
+    knn_algorithm: Box<dyn KNNAlgorithm<X> + 'a>,
     k: usize,        
 }
 
@@ -37,7 +37,7 @@ where
         let classes: Vec<Y> = c_hash.into_iter().collect();
         let y_i:Vec<usize> = y.into_iter().map(|y| classes.iter().position(|yy| yy == &y).unwrap()).collect();    
 
-        let knn_algorithm: Box<KNNAlgorithm<X> + 'a> = match algorithm {
+        let knn_algorithm: Box<dyn KNNAlgorithm<X> + 'a> = match algorithm {
             KNNAlgorithmName::CoverTree => Box::new(CoverTree::<X>::new(x, distance)),
             KNNAlgorithmName::LinearSearch => Box::new(LinearKNNSearch::<X>::new(x, distance))
         };

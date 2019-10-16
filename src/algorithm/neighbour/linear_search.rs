@@ -4,7 +4,7 @@ use std::cmp::{Ordering, PartialOrd};
 use num_traits::Float;
 
 pub struct LinearKNNSearch<'a, T> {
-    distance: Box<Fn(&T, &T) -> f64 + 'a>,
+    distance: Box<dyn Fn(&T, &T) -> f64 + 'a>,
     data: Vec<T>
 }
 
@@ -42,7 +42,7 @@ impl<'a, T> KNNAlgorithm<T> for LinearKNNSearch<'a, T>
 }
 
 impl<'a, T> LinearKNNSearch<'a, T> {
-    pub fn new(data: Vec<T>, distance: &'a Fn(&T, &T) -> f64) -> LinearKNNSearch<T>{
+    pub fn new(data: Vec<T>, distance: &'a dyn Fn(&T, &T) -> f64) -> LinearKNNSearch<T>{
         LinearKNNSearch{
             data: data,
             distance: Box::new(distance)

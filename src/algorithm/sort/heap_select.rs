@@ -1,10 +1,7 @@
 use std::cmp::Ordering;
-use std::mem;
-use std::fmt::Display;
 
 #[derive(Debug)]
 pub struct HeapSelect<T: PartialOrd> {
-
     k: usize,
     n: usize,
     sorted: bool,
