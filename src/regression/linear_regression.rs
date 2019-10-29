@@ -25,8 +25,7 @@ impl<M: Matrix> LinearRegression<M> {
         if x_nrows != y_nrows {
             panic!("Number of rows of X doesn't match number of rows of Y");
         }
-
-        // let b = y.v_stack(&M::ones(1, 1));
+        
         let b = y.clone();
         let mut a = x.h_stack(&M::ones(x_nrows, 1));
 

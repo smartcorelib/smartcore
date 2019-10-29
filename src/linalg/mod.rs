@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::fmt::Debug;
 
 pub mod naive;
 
@@ -30,4 +31,56 @@ pub trait Matrix: Into<Vec<f64>> + Clone{
 
     fn add_mut(&mut self, other: &Self);
 
+    fn add_scalar_mut(&mut self, scalar: f64);
+
+    fn sub_scalar_mut(&mut self, scalar: f64);
+
+    fn mul_scalar_mut(&mut self, scalar: f64);
+
+    fn div_scalar_mut(&mut self, scalar: f64);
+
+    fn transpose(&self) -> Self;
+
+    fn generate_positive_definite(nrows: usize, ncols: usize) -> Self;
+
+    fn rand(nrows: usize, ncols: usize) -> Self;
+
+    fn norm2(&self) -> f64;
+
+    fn negative_mut(&mut self);
+
 }
+
+pub trait Vector: Into<Vec<f64>> + Clone + Debug {
+
+    fn get(&self, i: usize) -> f64; 
+
+    fn set(&mut self, i: usize, value: f64); 
+
+    fn zeros(size: usize) -> Self;
+
+    fn ones(size: usize) -> Self;
+
+    fn fill(size: usize, value: f64) -> Self;
+
+    fn shape(&self) -> (usize, usize);
+
+    fn norm2(&self) -> f64;
+
+    fn negative_mut(&mut self) -> &Self;
+
+    fn negative(&self) -> Self;
+
+    fn add_mut(&mut self, other: &Self) -> &Self;
+
+    fn add_scalar_mut(&mut self, scalar: f64) -> &Self;
+
+    fn sub_scalar_mut(&mut self, scalar: f64) -> &Self;
+
+    fn mul_scalar_mut(&mut self, scalar: f64) -> &Self;
+
+    fn div_scalar_mut(&mut self, scalar: f64) -> &Self;
+
+    fn dot(&self, other: &Self) -> f64;
+
+} 

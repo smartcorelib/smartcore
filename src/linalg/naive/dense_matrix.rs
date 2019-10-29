@@ -1,6 +1,7 @@
 use std::ops::Range;
 use crate::linalg::Matrix;
 use crate::math;
+use rand::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct DenseMatrix {
@@ -673,6 +674,78 @@ impl Matrix for DenseMatrix {
         }
     }
 
+    fn generate_positive_definite(nrows: usize, ncols: usize) -> Self {
+        let m = DenseMatrix::rand(nrows, ncols);
+        m.dot(&m.transpose())
+    }
+
+    fn transpose(&self) -> Self {
+        let mut m = DenseMatrix {
+            ncols: self.nrows,
+            nrows: self.ncols,
+            values: vec![0f64; self.ncols * self.nrows]
+        };
+        for c in 0..self.ncols {
+            for r in 0..self.nrows {
+                m.set(c, r, self.get(r, c));
+            }
+        }
+        m
+
+    }
+
+    fn rand(nrows: usize, ncols: usize) -> Self {
+        let mut rng = rand::thread_rng();
+        let values: Vec<f64> = (0..nrows*ncols).map(|_| {
+            rng.gen()
+        }).collect();
+        DenseMatrix {
+            ncols: ncols,
+            nrows: nrows,
+            values: values
+        }
+    }    
+
+    fn norm2(&self) -> f64 {
+        let mut norm = 0f64;
+
+        for xi in self.values.iter() {
+            norm += xi * xi;
+        }
+
+        norm.sqrt()
+    }
+
+    fn add_scalar_mut(&mut self, scalar: f64) {
+        for i in 0..self.values.len() {
+            self.values[i] += scalar;
+        }
+    }
+
+    fn sub_scalar_mut(&mut self, scalar: f64) {
+        for i in 0..self.values.len() {
+            self.values[i] -= scalar;
+        }
+    }
+
+    fn mul_scalar_mut(&mut self, scalar: f64) {
+        for i in 0..self.values.len() {
+            self.values[i] *= scalar;
+        }
+    }
+
+    fn div_scalar_mut(&mut self, scalar: f64) {
+        for i in 0..self.values.len() {
+            self.values[i] /= scalar;
+        }
+    }
+
+    fn negative_mut(&mut self) {
+        for i in 0..self.values.len() {
+            self.values[i] = -self.values[i];
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -797,6 +870,33 @@ mod tests {
                     &[5., 6.5]]);            
             assert!(m.approximate_eq(&m_eq, 0.5));
             assert!(!m.approximate_eq(&m_neq, 0.5));
+    }
+
+    #[test]
+    fn rand() {
+        let m = DenseMatrix::rand(3, 3);
+        for c in 0..3 {
+            for r in 0..3 {
+                assert!(m.get(r, c) != 0f64);
+            }
+        }
+    }
+
+    #[test]
+    fn transpose() {
+        let m = DenseMatrix::from_2d_array(&[&[1.0, 3.0], &[2.0, 4.0]]);
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]);
+        let m_transposed = m.transpose();
+        for c in 0..2 {
+            for r in 0..2 {
+                assert!(m_transposed.get(r, c) == expected.get(r, c));
+            }
+        }
+    }
+
+    #[test]
+    fn generate_positive_definite() {
+        let m = DenseMatrix::generate_positive_definite(3, 3);        
     }
 
 }
