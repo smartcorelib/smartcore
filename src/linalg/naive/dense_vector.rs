@@ -66,6 +66,39 @@ impl Vector for DenseVector {
         self
     }
 
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        if self.size != other.size {
+            panic!("A and B should have the same shape");
+        }        
+        for i in 0..self.size {
+            self.values[i] *= other.values[i];           
+        }
+
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        if self.size != other.size {
+            panic!("A and B should have the same shape");
+        }        
+        for i in 0..self.size {
+            self.values[i] -= other.values[i];           
+        }
+
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        if self.size != other.size {
+            panic!("A and B should have the same shape");
+        }        
+        for i in 0..self.size {
+            self.values[i] /= other.values[i];           
+        }
+
+        self
+    }
+
     fn dot(&self, other: &Self) -> f64 {
         if self.size != other.size {
             panic!("A and B should be of the same size");
@@ -87,6 +120,24 @@ impl Vector for DenseVector {
         }
 
         norm.sqrt()
+    }
+
+    fn norm(&self, p:f64) -> f64 {
+
+        if p.is_infinite() && p.is_sign_positive() {
+            self.values.iter().map(|x| x.abs()).fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.values.iter().map(|x| x.abs()).fold(std::f64::INFINITY, |a, b| a.min(b))
+        } else {
+
+            let mut norm = 0f64;
+
+            for xi in self.values.iter() {
+                norm += xi.abs().powf(p);
+            }
+
+            norm.powf(1.0/p)
+        }
     }
 
     fn add_scalar_mut(&mut self, scalar: f64) -> &Self {
@@ -124,6 +175,28 @@ impl Vector for DenseVector {
         self
     }
 
+    fn abs_mut(&mut self) -> &Self{
+        for i in 0..self.values.len() {
+            self.values[i] = self.values[i].abs();
+        }
+        self
+    }
+
+    fn pow_mut(&mut self, p: f64) -> &Self{
+        for i in 0..self.values.len() {
+            self.values[i] = self.values[i].powf(p);
+        }
+        self
+    }
+
+    fn sum(&self) -> f64 {
+        let mut sum = 0.;
+        for i in 0..self.values.len() {
+            sum += self.values[i];
+        }
+        sum
+    }
+
     fn negative(&self) -> Self {
         let mut result = DenseVector {
             size: self.size,
@@ -133,6 +206,48 @@ impl Vector for DenseVector {
             result.values[i] = -self.values[i];
         }
         result
+    }
+
+    fn copy_from(&mut self, other: &Self) {
+        for i in 0..self.values.len() {
+            self.values[i] = other.values[i];
+        }
+    }
+
+    fn max_diff(&self, other: &Self) -> f64{
+        let mut max_diff = 0f64;
+        for i in 0..self.values.len() {
+            max_diff = max_diff.max((self.values[i] - other.values[i]).abs());
+        }
+        max_diff
+
+    }
+
+}
+
+#[cfg(test)]
+mod tests {    
+    use super::*; 
+
+    #[test]
+    fn qr_solve_mut() { 
+
+            let v = DenseVector::from_array(&[3., -2., 6.]);            
+            assert_eq!(v.norm(1.), 11.);
+            assert_eq!(v.norm(2.), 7.);
+            assert_eq!(v.norm(std::f64::INFINITY), 6.);
+            assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
+    }
+
+    #[test]
+    fn copy_from() { 
+
+            let mut a = DenseVector::from_array(&[0., 0., 0.]);  
+            let b = DenseVector::from_array(&[-1., 0., 2.]);    
+            a.copy_from(&b);
+            assert_eq!(a.get(0), b.get(0));     
+            assert_eq!(a.get(1), b.get(1));     
+            assert_eq!(a.get(2), b.get(2));            
     }
 
 }

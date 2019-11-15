@@ -3,18 +3,7 @@ use crate::math::EPSILON;
 use crate::linalg::Vector;
 use crate::optimization::{F, DF};
 use crate::optimization::line_search::LineSearchMethod;
-
-pub trait FirstOrderOptimizer {
-    fn optimize<'a, X: Vector, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X>;
-}
-
-#[derive(Debug, Clone)]
-pub struct OptimizerResult<X> 
-where X: Vector
-{
-    pub x: X,
-    pub f_x: f64
-}
+use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 
 pub struct GradientDescent {
     pub max_iter: usize,
@@ -23,7 +12,7 @@ pub struct GradientDescent {
 }
 
 impl Default for GradientDescent {
-    fn default() -> Self { 
+    fn default() -> Self {
         GradientDescent {
             max_iter: 10000,
             g_rtol: EPSILON.sqrt(),
@@ -68,7 +57,7 @@ impl FirstOrderOptimizer for GradientDescent
                 gvec.dot(&dg)
             };
 
-            let df0 = step.dot(&gvec);
+            let df0 = step.dot(&gvec);            
 
             let ls_r = ls.search(&f_alpha, &df_alpha, alpha, fx, df0);
             alpha = ls_r.alpha;
@@ -82,7 +71,8 @@ impl FirstOrderOptimizer for GradientDescent
 
         OptimizerResult{
             x: x,
-            f_x: f_x
+            f_x: f_x,
+            iterations: iter
         }
     }
 }
@@ -97,25 +87,26 @@ mod tests {
     #[test]
     fn gradient_descent() { 
 
-            let x0 = DenseVector::from_array(&[-1., 1.]);
-            let f = |x: &DenseVector| {                
-                (1.0 - x.get(0)).powf(2.) + 100.0 * (x.get(1) - x.get(0).powf(2.)).powf(2.)
-            };
+        let x0 = DenseVector::from_array(&[-1., 1.]);
+        let f = |x: &DenseVector| {                
+            (1.0 - x.get(0)).powf(2.) + 100.0 * (x.get(1) - x.get(0).powf(2.)).powf(2.)
+        };
 
-            let df = |g: &mut DenseVector, x: &DenseVector| {                                         
-                g.set(0, -2. * (1. - x.get(0)) - 400. * (x.get(1) - x.get(0).powf(2.)) * x.get(0));
-                g.set(1, 200. * (x.get(1) - x.get(0).powf(2.)));                
-            };
+        let df = |g: &mut DenseVector, x: &DenseVector| {                                         
+            g.set(0, -2. * (1. - x.get(0)) - 400. * (x.get(1) - x.get(0).powf(2.)) * x.get(0));
+            g.set(1, 200. * (x.get(1) - x.get(0).powf(2.)));                
+        };
 
-            let mut ls: Backtracking = Default::default();
-            ls.order = FunctionOrder::THIRD;
-            let optimizer: GradientDescent = Default::default();
-            
-            let result = optimizer.optimize(&f, &df, &x0, &ls);
-            
-            assert!((result.f_x - 0.0).abs() < EPSILON);
-            assert!((result.x.get(0) - 1.0).abs() < EPSILON);
-            assert!((result.x.get(1) - 1.0).abs() < EPSILON);
+        let mut ls: Backtracking = Default::default();
+        ls.order = FunctionOrder::THIRD;
+        let optimizer: GradientDescent = Default::default();
+        
+        let result = optimizer.optimize(&f, &df, &x0, &ls);
+        
+        assert!((result.f_x - 0.0).abs() < EPSILON);
+        assert!((result.x.get(0) - 1.0).abs() < EPSILON);
+        assert!((result.x.get(1) - 1.0).abs() < EPSILON);
 
     }
+
 }
