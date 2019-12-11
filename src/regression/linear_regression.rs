@@ -63,7 +63,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
-    fn knn_fit_predict() { 
+    fn ols_fit_predict() { 
 
             let x = DenseMatrix::from_2d_array(&[
                 &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

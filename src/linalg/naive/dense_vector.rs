@@ -1,4 +1,6 @@
-use crate::linalg::Vector;
+use crate::linalg::{Vector, Matrix};
+use crate::math;
+use crate::linalg::naive::dense_matrix::DenseMatrix;
 
 #[derive(Debug, Clone)]
 pub struct DenseVector {
@@ -8,28 +10,47 @@ pub struct DenseVector {
 
 }
 
-impl DenseVector {
-
-    pub fn from_array(values: &[f64]) -> DenseVector {
-       DenseVector::from_vec(Vec::from(values)) 
-    }
-
-    pub fn from_vec(values: Vec<f64>) -> DenseVector {
-        DenseVector {
-            size: values.len(),
-            values: values
-        }
-    }
-    
-}
-
 impl Into<Vec<f64>> for DenseVector {
     fn into(self) -> Vec<f64> {
         self.values
     }
 }
 
+impl PartialEq for DenseVector {
+    fn eq(&self, other: &Self) -> bool {
+        if self.size != other.size {
+            return false
+        }
+
+        let len = self.values.len();
+        let other_len = other.values.len();
+
+        if len != other_len {
+            return false;
+        }
+
+        for i in 0..len {
+            if (self.values[i] - other.values[i]).abs() > math::EPSILON {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
 impl Vector for DenseVector {
+
+    fn from_array(values: &[f64]) -> Self {
+        DenseVector::from_vec(&Vec::from(values)) 
+     }
+ 
+    fn from_vec(values: &Vec<f64>) -> Self {
+        DenseVector {
+            size: values.len(),
+            values: values.clone()
+        }
+    }
 
     fn get(&self, i: usize) -> f64 {
         self.values[i]
@@ -48,7 +69,7 @@ impl Vector for DenseVector {
     }
 
     fn fill(size: usize, value: f64) -> Self {
-        DenseVector::from_vec(vec![value; size])
+        DenseVector::from_vec(&vec![value; size])
     }
 
     fn shape(&self) -> (usize, usize) {
@@ -223,6 +244,26 @@ impl Vector for DenseVector {
 
     }
 
+    fn softmax_mut(&mut self) {
+        let max = self.values.iter().map(|x| x.abs()).fold(std::f64::NEG_INFINITY, |a, b| a.max(b));
+        let mut z = 0.;
+        for i in 0..self.size {
+            let p = (self.values[i] - max).exp();
+            self.values[i] = p;
+            z += p;
+        }
+        for i in 0..self.size {
+            self.values[i] /= z;
+        }
+    }
+
+    fn unique(&self) -> Vec<f64> {
+        let mut result = self.values.clone();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
+    }
+
 }
 
 #[cfg(test)]
@@ -248,6 +289,16 @@ mod tests {
             assert_eq!(a.get(0), b.get(0));     
             assert_eq!(a.get(1), b.get(1));     
             assert_eq!(a.get(2), b.get(2));            
+    }
+
+    #[test]
+    fn softmax_mut() { 
+
+            let mut prob = DenseVector::from_array(&[1., 2., 3.]);  
+            prob.softmax_mut();            
+            assert!((prob.get(0) - 0.09).abs() < 0.01);     
+            assert!((prob.get(1) - 0.24).abs() < 0.01);     
+            assert!((prob.get(2) - 0.66).abs() < 0.01);            
     }
 
 }

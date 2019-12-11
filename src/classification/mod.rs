@@ -1,6 +1,7 @@
 use crate::common::Nominal;
 
 pub mod knn;
+pub mod logistic_regression;
 
 pub trait Classifier<X, Y>
 where 

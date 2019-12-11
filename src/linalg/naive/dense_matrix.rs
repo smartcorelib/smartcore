@@ -1,5 +1,5 @@
 use std::ops::Range;
-use crate::linalg::Matrix;
+use crate::linalg::{Matrix, Vector};
 use crate::math;
 use rand::prelude::*;
 
@@ -46,6 +46,18 @@ impl DenseMatrix {
         }
     }
 
+    pub fn vector_from_array(values: &[f64]) -> DenseMatrix {
+        DenseMatrix::vector_from_vec(Vec::from(values)) 
+     }
+
+    pub fn vector_from_vec(values: Vec<f64>) -> DenseMatrix {
+        DenseMatrix {
+            ncols: values.len(),
+            nrows: 1,
+            values: values
+        }
+    }
+
     pub fn div_mut(&mut self, b: DenseMatrix) -> () {
         if self.nrows != b.nrows || self.ncols != b.ncols {
             panic!("Can't divide matrices of different sizes.");
@@ -56,7 +68,7 @@ impl DenseMatrix {
         }
     }
 
-    fn set(&mut self, row: usize, col: usize, x: f64) {
+    pub fn set(&mut self, row: usize, col: usize, x: f64) {
         self.values[col*self.nrows + row] = x;        
     }
 
@@ -121,6 +133,26 @@ impl Matrix for DenseMatrix {
         DenseMatrix::fill(nrows, ncols, 1f64)
     }
 
+    fn from_vector<V:Vector>(v: &V, nrows: usize, ncols: usize) -> Self {
+        let (_, v_size) = v.shape();
+        if nrows * ncols != v_size {
+            panic!("Can't reshape {}-long vector into {}x{} matrix.", v_size, nrows, ncols);
+        }
+        let mut dst = DenseMatrix::zeros(nrows, ncols);
+        let mut dst_r = 0;
+        let mut dst_c = 0;
+        for i in 0..v_size {
+            dst.set(dst_r, dst_c, v.get(i));
+            if dst_c + 1 >= ncols {
+                dst_c = 0;
+                dst_r += 1;
+            } else {
+                dst_c += 1;
+            }            
+        }
+        dst
+    }
+
     fn shape(&self) -> (usize, usize) {
         (self.nrows, self.ncols)
     }
@@ -160,6 +192,7 @@ impl Matrix for DenseMatrix {
     }
 
     fn dot(&self, other: &Self) -> Self {
+
         if self.ncols != other.nrows {
             panic!("Number of rows of A should equal number of columns of B");
         }
@@ -663,7 +696,7 @@ impl Matrix for DenseMatrix {
         DenseMatrix::from_vec(nrows, ncols, vec![value; ncols * nrows])
     }
 
-    fn add_mut(&mut self, other: &Self) {
+    fn add_mut(&mut self, other: &Self) -> &Self {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             panic!("A and B should have the same shape");
         }        
@@ -672,6 +705,47 @@ impl Matrix for DenseMatrix {
                 self.add_element_mut(r, c, other.get(r, c));
             }
         }
+
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        if self.ncols != other.ncols || self.nrows != other.nrows {
+            panic!("A and B should have the same shape");
+        }        
+        for c in 0..self.ncols {
+            for r in 0..self.nrows {
+                self.sub_element_mut(r, c, other.get(r, c));
+            }
+        }
+
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        if self.ncols != other.ncols || self.nrows != other.nrows {
+            panic!("A and B should have the same shape");
+        }        
+        for c in 0..self.ncols {
+            for r in 0..self.nrows {
+                self.mul_element_mut(r, c, other.get(r, c));
+            }
+        }
+
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        if self.ncols != other.ncols || self.nrows != other.nrows {
+            panic!("A and B should have the same shape");
+        }        
+        for c in 0..self.ncols {
+            for r in 0..self.nrows {
+                self.div_element_mut(r, c, other.get(r, c));
+            }
+        }
+
+        self
     }
 
     fn generate_positive_definite(nrows: usize, ncols: usize) -> Self {
@@ -716,34 +790,157 @@ impl Matrix for DenseMatrix {
         norm.sqrt()
     }
 
-    fn add_scalar_mut(&mut self, scalar: f64) {
+    fn norm(&self, p:f64) -> f64 {
+
+        if p.is_infinite() && p.is_sign_positive() {
+            self.values.iter().map(|x| x.abs()).fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.values.iter().map(|x| x.abs()).fold(std::f64::INFINITY, |a, b| a.min(b))
+        } else {
+
+            let mut norm = 0f64;
+
+            for xi in self.values.iter() {
+                norm += xi.abs().powf(p);
+            }
+
+            norm.powf(1.0/p)
+        }
+    }
+
+    fn add_scalar_mut(&mut self, scalar: f64) -> &Self {
         for i in 0..self.values.len() {
             self.values[i] += scalar;
         }
+        self
     }
 
-    fn sub_scalar_mut(&mut self, scalar: f64) {
+    fn sub_scalar_mut(&mut self, scalar: f64) -> &Self {
         for i in 0..self.values.len() {
             self.values[i] -= scalar;
         }
+        self
     }
 
-    fn mul_scalar_mut(&mut self, scalar: f64) {
+    fn mul_scalar_mut(&mut self, scalar: f64) -> &Self {
         for i in 0..self.values.len() {
             self.values[i] *= scalar;
         }
+        self
     }
 
-    fn div_scalar_mut(&mut self, scalar: f64) {
+    fn div_scalar_mut(&mut self, scalar: f64) -> &Self {
         for i in 0..self.values.len() {
             self.values[i] /= scalar;
         }
+        self
     }
 
     fn negative_mut(&mut self) {
         for i in 0..self.values.len() {
             self.values[i] = -self.values[i];
         }
+    }    
+
+    fn reshape(&self, nrows: usize, ncols: usize) -> Self {
+        if self.nrows * self.ncols != nrows * ncols {
+            panic!("Can't reshape {}x{} matrix into {}x{}.", self.nrows, self.ncols, nrows, ncols);
+        }
+        let mut dst = DenseMatrix::zeros(nrows, ncols);
+        let mut dst_r = 0;
+        let mut dst_c = 0;
+        for r in 0..self.nrows {
+            for c in 0..self.ncols {
+                dst.set(dst_r, dst_c, self.get(r, c));
+                if dst_c + 1 >= ncols {
+                    dst_c = 0;
+                    dst_r += 1;
+                } else {
+                    dst_c += 1;
+                }
+            }
+        }
+        dst
+    }
+
+    fn copy_from(&mut self, other: &Self) {
+
+        if self.nrows != other.nrows || self.ncols != other.ncols {
+            panic!("Can't copy {}x{} matrix into {}x{}.", self.nrows, self.ncols, other.nrows, other.ncols);
+        }
+
+        for i in 0..self.values.len() {
+            self.values[i] = other.values[i];
+        }
+    }
+
+    fn abs_mut(&mut self) -> &Self{
+        for i in 0..self.values.len() {
+            self.values[i] = self.values[i].abs();
+        }
+        self
+    }
+
+    fn max_diff(&self, other: &Self) -> f64{
+        let mut max_diff = 0f64;
+        for i in 0..self.values.len() {
+            max_diff = max_diff.max((self.values[i] - other.values[i]).abs());
+        }
+        max_diff
+
+    }
+
+    fn sum(&self) -> f64 {
+        let mut sum = 0.;
+        for i in 0..self.values.len() {
+            sum += self.values[i];
+        }
+        sum
+    }
+
+    fn softmax_mut(&mut self) {
+        let max = self.values.iter().map(|x| x.abs()).fold(std::f64::NEG_INFINITY, |a, b| a.max(b));
+        let mut z = 0.;
+        for r in 0..self.nrows {
+            for c in 0..self.ncols {
+                let p = (self.get(r, c) - max).exp();
+                self.set(r, c, p);
+                z += p;
+            }
+        }
+        for r in 0..self.nrows {
+            for c in 0..self.ncols {
+                self.set(r, c, self.get(r, c) / z);
+            }
+        }
+    }
+
+    fn pow_mut(&mut self, p: f64) -> &Self {
+        for i in 0..self.values.len() {
+            self.values[i] = self.values[i].powf(p);
+        }
+        self
+    }
+
+    fn argmax(&self) -> Vec<usize> {
+
+        let mut res = vec![0usize; self.nrows];
+
+        for r in 0..self.nrows {
+            let mut max = std::f64::NEG_INFINITY;
+            let mut max_pos = 0usize;
+            for c in 0..self.ncols {
+                let v = self.get(r, c);
+                if max < v{
+                    max = v;
+                    max_pos = c; 
+                }
+            }
+            res[r] = max_pos;
+        }
+
+        res
+
     }
 
 }
@@ -899,5 +1096,35 @@ mod tests {
         let m = DenseMatrix::generate_positive_definite(3, 3);        
     }
 
-}
+    #[test]
+    fn reshape() {
+        let m_orig = DenseMatrix::vector_from_array(&[1., 2., 3., 4., 5., 6.]);
+        let m_2_by_3 = m_orig.reshape(2, 3);
+        let m_result = m_2_by_3.reshape(1, 6);        
+        assert_eq!(m_2_by_3.shape(), (2, 3));
+        assert_eq!(m_2_by_3.get(1, 1), 5.);
+        assert_eq!(m_result.get(0, 1), 2.);
+        assert_eq!(m_result.get(0, 3), 4.);
+    }
 
+    #[test]
+    fn norm() { 
+
+            let v = DenseMatrix::vector_from_array(&[3., -2., 6.]);            
+            assert_eq!(v.norm(1.), 11.);
+            assert_eq!(v.norm(2.), 7.);
+            assert_eq!(v.norm(std::f64::INFINITY), 6.);
+            assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
+    }
+
+    #[test]
+    fn softmax_mut() { 
+
+            let mut prob = DenseMatrix::vector_from_array(&[1., 2., 3.]);  
+            prob.softmax_mut();            
+            assert!((prob.get(0, 0) - 0.09).abs() < 0.01);     
+            assert!((prob.get(0, 1) - 0.24).abs() < 0.01);     
+            assert!((prob.get(0, 2) - 0.66).abs() < 0.01);            
+    }
+
+}

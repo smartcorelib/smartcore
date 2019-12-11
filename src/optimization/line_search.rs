@@ -38,7 +38,7 @@ impl LineSearchMethod for Backtracking {
     fn search<'a>(&self, f: &(dyn Fn(f64) -> f64), _: &(dyn Fn(f64) -> f64), alpha: f64, f0: f64, df0: f64) -> LineSearchResult {        
 
         let (mut a1, mut a2) = (alpha, alpha);
-        let (mut fx0, mut fx1) = (f0, f(a1));        
+        let (mut fx0, mut fx1) = (f0, f(a1));             
 
         let mut iterfinite = 0;
         while !fx1.is_finite() && iterfinite < self.max_infinity_iterations {
@@ -58,26 +58,21 @@ impl LineSearchMethod for Backtracking {
 
             let a_tmp;
 
-            match self.order {
+            if self.order == FunctionOrder::SECOND || iteration == 0 {
 
-                FunctionOrder::FIRST | FunctionOrder::SECOND => {                    
-                    a_tmp = - (df0 * a2.powf(2.)) / (2. * (fx1 - f0 - df0*a2))
-                },
+                a_tmp = - (df0 * a2.powf(2.)) / (2. * (fx1 - f0 - df0*a2))
+                
+            } else {
 
-                FunctionOrder::THIRD => {
+                let div = 1. / (a1.powf(2.) * a2.powf(2.) * (a2 - a1));
+                let a = (a1.powf(2.) * (fx1 - f0 - df0*a2) - a2.powf(2.)*(fx0 - f0 - df0*a1))*div;
+                let b = (-a1.powf(3.) * (fx1 - f0 - df0*a2) + a2.powf(3.)*(fx0 - f0 - df0*a1))*div;                
 
-                    let div = 1. / (a1.powf(2.) * a2.powf(2.) * (a2 - a1));
-                    let a = (a1.powf(2.) * (fx1 - f0 - df0*a2) - a2.powf(2.)*(fx0 - f0 - df0*a1))*div;
-                    let b = (-a1.powf(3.) * (fx1 - f0 - df0*a2) + a2.powf(3.)*(fx0 - f0 - df0*a1))*div;
-
-                    
-
-                    if (a - 0.).powf(2.).sqrt() <= EPSILON {
-                        a_tmp = df0 / (2. * b);
-                    } else {
-                        let d = f64::max(b.powf(2.) - 3. * a * df0, 0.);
-                        a_tmp = (-b + d.sqrt()) / (3.*a); //root of quadratic equation
-                    }
+                if (a - 0.).powf(2.).sqrt() <= EPSILON {
+                    a_tmp = df0 / (2. * b);
+                } else {
+                    let d = f64::max(b.powf(2.) - 3. * a * df0, 0.);
+                    a_tmp = (-b + d.sqrt()) / (3.*a); //root of quadratic equation
                 }
             }
 
@@ -85,7 +80,7 @@ impl LineSearchMethod for Backtracking {
             a2 = f64::max(f64::min(a_tmp, a2*self.phi), a2*self.plo);
 
             fx0 = fx1;
-            fx1 = f(a2);            
+            fx1 = f(a2);                      
 
             iteration += 1;
         }

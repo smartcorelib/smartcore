@@ -5,7 +5,7 @@ use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{F, DF};
 
 pub trait FirstOrderOptimizer {
-    fn optimize<'a, X: Vector, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X>;    
+    fn optimize<'a, X: Vector, LS: LineSearchMethod>(&self, f: &F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X>;    
 }
 
 #[derive(Debug, Clone)]
