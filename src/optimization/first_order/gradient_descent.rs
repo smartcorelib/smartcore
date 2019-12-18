@@ -1,6 +1,6 @@
 use std::default::Default;
 use crate::math::EPSILON;
-use crate::linalg::Vector;
+use crate::linalg::Matrix;
 use crate::optimization::{F, DF};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
@@ -24,7 +24,7 @@ impl Default for GradientDescent {
 impl FirstOrderOptimizer for GradientDescent
 {
 
-    fn optimize<'a, X: Vector, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X> {        
+    fn optimize<'a, X: Matrix, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X> {        
 
         let mut x = x0.clone();     
         let mut fx = f(&x);
@@ -54,10 +54,10 @@ impl FirstOrderOptimizer for GradientDescent
                 let mut dg = gvec.clone();
                 dx.mul_scalar_mut(alpha);
                 df(&mut dg, &dx.add_mut(&x)); //df(x) = df(x .+ gvec .* alpha)
-                gvec.dot(&dg)
+                gvec.vector_dot(&dg)
             };
 
-            let df0 = step.dot(&gvec);            
+            let df0 = step.vector_dot(&gvec);            
 
             let ls_r = ls.search(&f_alpha, &df_alpha, alpha, fx, df0);
             alpha = ls_r.alpha;
@@ -80,21 +80,21 @@ impl FirstOrderOptimizer for GradientDescent
 #[cfg(test)]
 mod tests {    
     use super::*; 
-    use crate::linalg::naive::dense_vector::DenseVector;
+    use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
     #[test]
     fn gradient_descent() { 
 
-        let x0 = DenseVector::from_array(&[-1., 1.]);
-        let f = |x: &DenseVector| {                
-            (1.0 - x.get(0)).powf(2.) + 100.0 * (x.get(1) - x.get(0).powf(2.)).powf(2.)
+        let x0 = DenseMatrix::vector_from_array(&[-1., 1.]);
+        let f = |x: &DenseMatrix| {                
+            (1.0 - x.get(0, 0)).powf(2.) + 100.0 * (x.get(0, 1) - x.get(0, 0).powf(2.)).powf(2.)
         };
 
-        let df = |g: &mut DenseVector, x: &DenseVector| {                                         
-            g.set(0, -2. * (1. - x.get(0)) - 400. * (x.get(1) - x.get(0).powf(2.)) * x.get(0));
-            g.set(1, 200. * (x.get(1) - x.get(0).powf(2.)));                
+        let df = |g: &mut DenseMatrix, x: &DenseMatrix| {                                         
+            g.set(0, 0, -2. * (1. - x.get(0, 0)) - 400. * (x.get(0, 1) - x.get(0, 0).powf(2.)) * x.get(0, 0));
+            g.set(0, 1, 200. * (x.get(0, 1) - x.get(0, 0).powf(2.)));                
         };
 
         let mut ls: Backtracking = Default::default();
@@ -106,8 +106,8 @@ mod tests {
         println!("{:?}", result);
         
         assert!((result.f_x - 0.0).abs() < 1e-5);
-        assert!((result.x.get(0) - 1.0).abs() < 1e-2);
-        assert!((result.x.get(1) - 1.0).abs() < 1e-2);
+        assert!((result.x.get(0, 0) - 1.0).abs() < 1e-2);
+        assert!((result.x.get(0, 1) - 1.0).abs() < 1e-2);
 
     }
 

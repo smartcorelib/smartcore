@@ -1,5 +1,5 @@
 use std::ops::Range;
-use crate::linalg::{Matrix, Vector};
+use crate::linalg::{Matrix};
 use crate::math;
 use rand::prelude::*;
 
@@ -12,7 +12,7 @@ pub struct DenseMatrix {
 
 }
 
-impl DenseMatrix {
+impl DenseMatrix {     
 
     pub fn from_2d_array(values: &[&[f64]]) -> DenseMatrix {
         DenseMatrix::from_2d_vec(&values.into_iter().map(|row| Vec::from(*row)).collect())
@@ -32,19 +32,7 @@ impl DenseMatrix {
             }
         }
         m
-    }
-
-    pub fn from_array(nrows: usize, ncols: usize, values: &[f64]) -> DenseMatrix {
-       DenseMatrix::from_vec(nrows, ncols, Vec::from(values)) 
-    }
-
-    pub fn from_vec(nrows: usize, ncols: usize, values: Vec<f64>) -> DenseMatrix {
-        DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
-            values: values
-        }
-    }
+    }      
 
     pub fn vector_from_array(values: &[f64]) -> DenseMatrix {
         DenseMatrix::vector_from_vec(Vec::from(values)) 
@@ -66,10 +54,10 @@ impl DenseMatrix {
         for i in 0..self.values.len() {
             self.values[i] /= b.values[i];
         }
-    }
+    }    
 
-    pub fn set(&mut self, row: usize, col: usize, x: f64) {
-        self.values[col*self.nrows + row] = x;        
+    pub fn get_raw_values(&self) -> &Vec<f64> {
+        &self.values
     }
 
     fn div_element_mut(&mut self, row: usize, col: usize, x: f64) {
@@ -86,7 +74,7 @@ impl DenseMatrix {
 
     fn sub_element_mut(&mut self, row: usize, col: usize, x: f64) {
         self.values[col*self.nrows + row] -= x;
-    }
+    }    
     
 }
 
@@ -119,10 +107,26 @@ impl Into<Vec<f64>> for DenseMatrix {
     }
 }
 
-impl Matrix for DenseMatrix {
+impl Matrix for DenseMatrix {    
+
+    fn from_array(nrows: usize, ncols: usize, values: &[f64]) -> DenseMatrix {
+        DenseMatrix::from_vec(nrows, ncols, Vec::from(values)) 
+    }
+ 
+    fn from_vec(nrows: usize, ncols: usize, values: Vec<f64>) -> DenseMatrix {
+        DenseMatrix {
+            ncols: ncols,
+            nrows: nrows,
+            values: values
+        }
+    }  
 
     fn get(&self, row: usize, col: usize) -> f64 {
         self.values[col*self.nrows + row]
+    }
+
+    fn set(&mut self, row: usize, col: usize, x: f64) {
+        self.values[col*self.nrows + row] = x;        
     }
 
     fn zeros(nrows: usize, ncols: usize) -> DenseMatrix {
@@ -131,26 +135,18 @@ impl Matrix for DenseMatrix {
 
     fn ones(nrows: usize, ncols: usize) -> DenseMatrix {
         DenseMatrix::fill(nrows, ncols, 1f64)
-    }
+    }    
 
-    fn from_vector<V:Vector>(v: &V, nrows: usize, ncols: usize) -> Self {
-        let (_, v_size) = v.shape();
-        if nrows * ncols != v_size {
-            panic!("Can't reshape {}-long vector into {}x{} matrix.", v_size, nrows, ncols);
+    fn to_raw_vector(&self) -> Vec<f64>{
+        let mut v = vec![0.; self.nrows * self.ncols];
+
+        for r in 0..self.nrows{
+            for c in 0..self.ncols {
+                v[r * self.ncols + c] = self.get(r, c);
+            }
         }
-        let mut dst = DenseMatrix::zeros(nrows, ncols);
-        let mut dst_r = 0;
-        let mut dst_c = 0;
-        for i in 0..v_size {
-            dst.set(dst_r, dst_c, v.get(i));
-            if dst_c + 1 >= ncols {
-                dst_c = 0;
-                dst_r += 1;
-            } else {
-                dst_c += 1;
-            }            
-        }
-        dst
+        
+        v
     }
 
     fn shape(&self) -> (usize, usize) {
@@ -212,6 +208,22 @@ impl Matrix for DenseMatrix {
         result
     }
 
+    fn vector_dot(&self, other: &Self) -> f64 {
+        if (self.nrows != 1 || self.nrows != 1) && (other.nrows != 1 || other.ncols != 1) {
+            panic!("A and B should both be 1-dimentional vectors.");
+        }
+        if self.nrows * self.ncols != other.nrows * other.ncols {
+            panic!("A and B should have the same size");
+        }        
+
+        let mut result = 0f64;
+        for i in 0..(self.nrows * self.ncols) {
+            result += self.values[i] * other.values[i];            
+        }
+
+        result
+    }  
+
     fn slice(&self, rows: Range<usize>, cols: Range<usize>) -> DenseMatrix {
 
         let ncols = cols.len();
@@ -226,7 +238,7 @@ impl Matrix for DenseMatrix {
         }
 
         m
-    }
+    }    
 
     fn qr_solve_mut(&mut self, mut b: DenseMatrix) -> DenseMatrix {
         let m = self.nrows;
@@ -941,6 +953,13 @@ impl Matrix for DenseMatrix {
 
         res
 
+    }
+
+    fn unique(&self) -> Vec<f64> {
+        let mut result = self.values.clone();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
     }
 
 }

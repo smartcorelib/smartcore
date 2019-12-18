@@ -1,5 +1,5 @@
 use std::default::Default;
-use crate::linalg::Vector;
+use crate::linalg::Matrix;
 use crate::optimization::{F, DF};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
@@ -35,7 +35,7 @@ impl Default for LBFGS {
 
 impl LBFGS {
 
-    fn two_loops<X: Vector>(&self, state: &mut LBFGSState<X>) {        
+    fn two_loops<X: Matrix>(&self, state: &mut LBFGSState<X>) {        
 
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;        
@@ -46,7 +46,7 @@ impl LBFGS {
             let i = index.rem_euclid(self.m);                       
             let dgi = &state.dg_history[i];
             let dxi = &state.dx_history[i];            
-            state.twoloop_alpha[i] = state.rho[i] * dxi.dot(&state.twoloop_q);
+            state.twoloop_alpha[i] = state.rho[i] * dxi.vector_dot(&state.twoloop_q);
             state.twoloop_q.sub_mut(&dgi.mul_scalar(state.twoloop_alpha[i]));
         }        
 
@@ -54,7 +54,7 @@ impl LBFGS {
             let i = (upper - 1).rem_euclid(self.m);              
             let dxi = &state.dx_history[i];
             let dgi = &state.dg_history[i];
-            let scaling = dxi.dot(dgi) / dgi.abs().pow_mut(2.).sum();                                            
+            let scaling = dxi.vector_dot(dgi) / dgi.abs().pow_mut(2.).sum();                                            
             state.s.copy_from(&state.twoloop_q.mul_scalar(scaling));
         } else {
             state.s.copy_from(&state.twoloop_q);
@@ -64,7 +64,7 @@ impl LBFGS {
             let i = index.rem_euclid(self.m);                     
             let dgi = &state.dg_history[i];
             let dxi = &state.dx_history[i];                 
-            let beta = state.rho[i] * dgi.dot(&state.s);              
+            let beta = state.rho[i] * dgi.vector_dot(&state.s);              
             state.s.add_mut(&dxi.mul_scalar(state.twoloop_alpha[i] - beta));                             
         }               
 
@@ -72,7 +72,7 @@ impl LBFGS {
          
     }
 
-    fn init_state<X: Vector>(&self, x: &X) -> LBFGSState<X> {
+    fn init_state<X: Matrix>(&self, x: &X) -> LBFGSState<X> {
         LBFGSState {
             x: x.clone(),
             x_prev: x.clone(),
@@ -95,14 +95,14 @@ impl LBFGS {
         }
     }
 
-    fn update_state<'a, X: Vector, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, ls: &'a LS, state: &mut LBFGSState<X>) {        
+    fn update_state<'a, X: Matrix, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, ls: &'a LS, state: &mut LBFGSState<X>) {        
         self.two_loops(state);        
 
         df(&mut state.x_df_prev, &state.x);
         state.x_f_prev = f(&state.x);
         state.x_prev.copy_from(&state.x);
 
-        let df0 = state.x_df.dot(&state.s);        
+        let df0 = state.x_df.vector_dot(&state.s);        
 
         let f_alpha = |alpha: f64| -> f64 {
             let mut dx = state.s.clone();
@@ -115,7 +115,7 @@ impl LBFGS {
             let mut dg = state.x_df.clone();
             dx.mul_scalar_mut(alpha);
             df(&mut dg, &dx.add_mut(&state.x)); //df(x) = df(x .+ gvec .* alpha)
-            state.x_df.dot(&dg)
+            state.x_df.vector_dot(&dg)
         };                    
 
         let ls_r = ls.search(&f_alpha, &df_alpha, 1.0, state.x_f_prev, df0);
@@ -128,7 +128,7 @@ impl LBFGS {
 
     }
 
-    fn assess_convergence<X: Vector>(&self, state: &mut LBFGSState<X>) -> bool {
+    fn assess_convergence<X: Matrix>(&self, state: &mut LBFGSState<X>) -> bool {
         let (mut x_converged, mut g_converged) = (false, false);
 
         if state.x.max_diff(&state.x_prev) <= self.x_atol {
@@ -154,9 +154,9 @@ impl LBFGS {
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    fn update_hessian<'a, X: Vector>(&self, df: &'a DF<X>, state: &mut LBFGSState<X>) {                      
-        state.dg = state.x_df.sub(&state.x_df_prev);                
-        let rho_iteration = 1. / state.dx.dot(&state.dg);
+    fn update_hessian<'a, X: Matrix>(&self, df: &'a DF<X>, state: &mut LBFGSState<X>) {                      
+        state.dg = state.x_df.sub(&state.x_df_prev);            
+        let rho_iteration = 1. / state.dx.vector_dot(&state.dg);
         if !rho_iteration.is_infinite() {
             let idx = state.iteration.rem_euclid(self.m);                                      
             state.dx_history[idx].copy_from(&state.dx);
@@ -167,7 +167,7 @@ impl LBFGS {
 }
 
 #[derive(Debug)]
-struct LBFGSState<X: Vector> {
+struct LBFGSState<X: Matrix> {
     x: X,
     x_prev: X,
     x_f: f64,
@@ -189,7 +189,7 @@ struct LBFGSState<X: Vector> {
 
 impl FirstOrderOptimizer for LBFGS {
 
-    fn optimize<'a, X: Vector, LS: LineSearchMethod>(&self, f: &F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X> {     
+    fn optimize<'a, X: Matrix, LS: LineSearchMethod>(&self, f: &F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X> {     
         
         let mut state = self.init_state(x0);
 
@@ -207,7 +207,7 @@ impl FirstOrderOptimizer for LBFGS {
 
             if !converged { 
                 self.update_hessian(df, &mut state);
-            }        
+            }                    
 
             state.iteration += 1;            
 
@@ -226,33 +226,31 @@ impl FirstOrderOptimizer for LBFGS {
 #[cfg(test)]
 mod tests {    
     use super::*; 
-    use crate::linalg::naive::dense_vector::DenseVector;
+    use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
     use crate::math::EPSILON;
 
     #[test]
     fn lbfgs() { 
-        let x0 = DenseVector::from_array(&[0., 0.]);
-        let f = |x: &DenseVector| {                
-            (1.0 - x.get(0)).powf(2.) + 100.0 * (x.get(1) - x.get(0).powf(2.)).powf(2.)
+        let x0 = DenseMatrix::vector_from_array(&[0., 0.]);
+        let f = |x: &DenseMatrix| {                
+            (1.0 - x.get(0, 0)).powf(2.) + 100.0 * (x.get(0, 1) - x.get(0, 0).powf(2.)).powf(2.)
         };
 
-        let df = |g: &mut DenseVector, x: &DenseVector| {                                         
-            g.set(0, -2. * (1. - x.get(0)) - 400. * (x.get(1) - x.get(0).powf(2.)) * x.get(0));
-            g.set(1, 200. * (x.get(1) - x.get(0).powf(2.)));                
+        let df = |g: &mut DenseMatrix, x: &DenseMatrix| {                                         
+            g.set(0, 0, -2. * (1. - x.get(0, 0)) - 400. * (x.get(0, 1) - x.get(0, 0).powf(2.)) * x.get(0, 0));
+            g.set(0, 1, 200. * (x.get(0, 1) - x.get(0, 0).powf(2.)));                
         };
         let mut ls: Backtracking = Default::default();
         ls.order = FunctionOrder::THIRD;
         let optimizer: LBFGS = Default::default();
         
-        let result = optimizer.optimize(&f, &df, &x0, &ls);  
-        
-        println!("result: {:?}", result);
+        let result = optimizer.optimize(&f, &df, &x0, &ls);          
         
         assert!((result.f_x - 0.0).abs() < EPSILON);        
-        assert!((result.x.get(0) - 1.0).abs() < 1e-8);
-        assert!((result.x.get(1) - 1.0).abs() < 1e-8);
+        assert!((result.x.get(0, 0) - 1.0).abs() < 1e-8);
+        assert!((result.x.get(0, 1) - 1.0).abs() < 1e-8);
         assert!(result.iterations <= 24);
     }
 }
