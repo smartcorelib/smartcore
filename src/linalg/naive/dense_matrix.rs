@@ -107,7 +107,17 @@ impl Into<Vec<f64>> for DenseMatrix {
     }
 }
 
-impl Matrix for DenseMatrix {    
+impl Matrix for DenseMatrix {   
+    
+    type RowVector = Vec<f64>;
+
+    fn from_row_vector(vec: Self::RowVector) -> Self{
+        DenseMatrix::from_vec(1, vec.len(), vec)
+    }
+
+    fn to_row_vector(self) -> Self::RowVector{
+        self.to_raw_vector()
+    }
 
     fn from_array(nrows: usize, ncols: usize, values: &[f64]) -> DenseMatrix {
         DenseMatrix::from_vec(nrows, ncols, Vec::from(values)) 
@@ -967,6 +977,15 @@ impl Matrix for DenseMatrix {
 #[cfg(test)]
 mod tests {    
     use super::*; 
+
+    #[test]
+    fn from_to_row_vec() { 
+
+        let vec = vec![ 1.,  2.,  3.];
+        assert_eq!(DenseMatrix::from_row_vector(vec.clone()), DenseMatrix::from_vec(1, 3, vec![1., 2., 3.]));
+        assert_eq!(DenseMatrix::from_row_vector(vec.clone()).to_row_vector(), vec![1., 2., 3.]);
+
+    }
 
     #[test]
     fn qr_solve_mut() { 

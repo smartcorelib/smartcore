@@ -6,6 +6,12 @@ pub mod ndarray_bindings;
 
 pub trait Matrix: Clone + Debug {  
 
+    type RowVector: Clone + Debug;
+
+    fn from_row_vector(vec: Self::RowVector) -> Self;
+
+    fn to_row_vector(self) -> Self::RowVector;
+
     fn from_array(nrows: usize, ncols: usize, values: &[f64]) -> Self;
     
     fn from_vec(nrows: usize, ncols: usize, values: Vec<f64>) -> Self;
