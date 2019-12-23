@@ -5,14 +5,13 @@ authors = ["Vlad Orlov"]
 edition = "2018"
 
 [dependencies]
-ndarray = "0.12.1"
-ndarray-linalg = "0.10"
+ndarray = "0.13"
 num-traits = "0.2"
 rand = "0.7.2"
 
 [dev-dependencies]
-ndarray = "0.12.1"
-criterion = "0.2"
+ndarray = "0.13"
+criterion = "0.3"
 
 [[bench]]
 name = "distance"

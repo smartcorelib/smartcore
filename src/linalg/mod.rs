@@ -2,6 +2,7 @@ use std::ops::Range;
 use std::fmt::Debug;
 
 pub mod naive;
+pub mod ndarray_bindings;
 
 pub trait Matrix: Clone + Debug {  
 

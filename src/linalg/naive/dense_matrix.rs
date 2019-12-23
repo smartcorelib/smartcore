@@ -153,7 +153,7 @@ impl Matrix for DenseMatrix {
         (self.nrows, self.ncols)
     }
 
-    fn v_stack(&self, other: &Self) -> Self {
+    fn h_stack(&self, other: &Self) -> Self {
         if self.ncols != other.ncols {
             panic!("Number of columns in both matrices should be equal");
         }
@@ -170,7 +170,7 @@ impl Matrix for DenseMatrix {
         result    
     }
 
-    fn h_stack(&self, other: &Self) -> Self{
+    fn v_stack(&self, other: &Self) -> Self{
         if self.nrows != other.nrows {
             panic!("Number of rows in both matrices should be equal");
         }
@@ -989,7 +989,7 @@ mod tests {
     }
 
     #[test]
-    fn v_stack() { 
+    fn h_stack() { 
 
             let a = DenseMatrix::from_2d_array(
                 &[
@@ -1007,12 +1007,12 @@ mod tests {
                     &[7., 8., 9.], 
                     &[1., 2., 3.], 
                     &[4., 5., 6.]]);
-            let result = a.v_stack(&b);               
+            let result = a.h_stack(&b);               
             assert_eq!(result, expected);
     }
 
     #[test]
-    fn h_stack() { 
+    fn v_stack() { 
 
             let a = DenseMatrix::from_2d_array(
                 &[
@@ -1029,7 +1029,7 @@ mod tests {
                     &[1., 2., 3., 1., 2.], 
                     &[4., 5., 6., 3., 4.], 
                     &[7., 8., 9., 5., 6.]]);
-            let result = a.h_stack(&b);               
+            let result = a.v_stack(&b);               
             assert_eq!(result, expected);
     }
 
@@ -1144,6 +1144,6 @@ mod tests {
             assert!((prob.get(0, 0) - 0.09).abs() < 0.01);     
             assert!((prob.get(0, 1) - 0.24).abs() < 0.01);     
             assert!((prob.get(0, 2) - 0.66).abs() < 0.01);            
-    }
+    }    
 
 }

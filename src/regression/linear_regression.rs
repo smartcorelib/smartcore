@@ -27,7 +27,7 @@ impl<M: Matrix> LinearRegression<M> {
         }
         
         let b = y.clone();
-        let mut a = x.h_stack(&M::ones(x_nrows, 1));
+        let mut a = x.v_stack(&M::ones(x_nrows, 1));
 
         let w = match solver {
             LinearRegressionSolver::QR => a.qr_solve_mut(b),
