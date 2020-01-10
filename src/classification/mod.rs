@@ -2,6 +2,7 @@ use crate::common::Nominal;
 
 pub mod knn;
 pub mod logistic_regression;
+pub mod decision_tree;
 
 pub trait Classifier<X, Y>
 where 

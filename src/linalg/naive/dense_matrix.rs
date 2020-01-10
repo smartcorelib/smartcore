@@ -135,6 +135,22 @@ impl Matrix for DenseMatrix {
         self.values[col*self.nrows + row]
     }
 
+    fn get_row_as_vec(&self, row: usize) -> Vec<f64>{
+        let mut result = vec![0f64; self.ncols];
+        for c in 0..self.ncols {
+            result[c] = self.get(row, c);
+        }
+        result
+    }
+
+    fn get_col_as_vec(&self, col: usize) -> Vec<f64>{
+        let mut result = vec![0f64; self.nrows];
+        for r in 0..self.nrows {
+            result[r] = self.get(r, col);
+        }        
+        result
+    }
+
     fn set(&mut self, row: usize, col: usize, x: f64) {
         self.values[col*self.nrows + row] = x;        
     }

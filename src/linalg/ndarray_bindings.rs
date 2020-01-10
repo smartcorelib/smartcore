@@ -28,6 +28,14 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
         self[[row, col]]
     }
 
+    fn get_row_as_vec(&self, row: usize) -> Vec<f64> {
+        self.row(row).to_vec()
+    }
+
+    fn get_col_as_vec(&self, col: usize) -> Vec<f64> {
+        self.column(col).to_vec()
+    }
+
     fn set(&mut self, row: usize, col: usize, x: f64) {
         self[[row, col]] = x;
     }
@@ -508,5 +516,19 @@ mod tests {
         let res = a.unique();
         assert_eq!(res.len(), 7);
         assert_eq!(res, vec![-7., -6., -2., 1., 2., 3., 4.]);
+    }
+
+    #[test]
+    fn get_row_as_vector(){
+        let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);  
+        let res = a.get_row_as_vec(1);
+        assert_eq!(res, vec![4., 5., 6.]);        
+    }
+
+    #[test]
+    fn get_col_as_vector(){
+        let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);  
+        let res = a.get_col_as_vec(1);
+        assert_eq!(res, vec![2., 5., 8.]);        
     }
 }
