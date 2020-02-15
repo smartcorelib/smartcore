@@ -5,9 +5,9 @@ use crate::algorithm::sort::quick_sort::QuickArgSort;
 
 #[derive(Debug)]
 pub struct DecisionTreeParameters {           
-    criterion: SplitCriterion,
-    max_depth: Option<u16>,
-    min_samples_leaf: u16
+    pub criterion: SplitCriterion,
+    pub max_depth: Option<u16>,
+    pub min_samples_leaf: u16    
 }
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ pub struct DecisionTree {
     depth: u16
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SplitCriterion {
     Gini,
     Entropy,
@@ -125,7 +125,7 @@ impl<'a, M: Matrix> NodeVisitor<'a, M> {
 
 }
 
-fn which_max(x: &Vec<u32>) -> usize {
+pub(in crate) fn which_max(x: &Vec<u32>) -> usize {
     let mut m = x[0];
     let mut which = 0;
 
@@ -142,9 +142,15 @@ fn which_max(x: &Vec<u32>) -> usize {
 impl DecisionTree {
 
     pub fn fit<M: Matrix>(x: &M, y: &M::RowVector, parameters: DecisionTreeParameters) -> DecisionTree {
+        let (x_nrows, num_attributes) = x.shape();
+        let samples = vec![1; x_nrows];
+        DecisionTree::fit_weak_learner(x, y, samples, num_attributes, parameters)
+    }
+
+    pub fn fit_weak_learner<M: Matrix>(x: &M, y: &M::RowVector, samples: Vec<u32>, mtry: usize, parameters: DecisionTreeParameters) -> DecisionTree {
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
-        let (x_nrows, num_attributes) = x.shape();
+        let (_, num_attributes) = x.shape();
         let classes = y_m.unique();        
         let k = classes.len(); 
         if k < 2 {
@@ -158,8 +164,7 @@ impl DecisionTree {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
-        let mut nodes: Vec<Node> = Vec::new();
-        let samples = vec![1; x_nrows];
+        let mut nodes: Vec<Node> = Vec::new();        
 
         let mut count = vec![0; k];
         for i in 0..y_ncols {
@@ -186,13 +191,13 @@ impl DecisionTree {
 
         let mut visitor_queue: LinkedList<NodeVisitor<M>> = LinkedList::new();
 
-        if tree.find_best_cutoff(&mut visitor) {
+        if tree.find_best_cutoff(&mut visitor, mtry) {
             visitor_queue.push_back(visitor);
         }
 
         while tree.depth < tree.parameters.max_depth.unwrap_or(std::u16::MAX) {            
             match visitor_queue.pop_front() {
-                Some(node) => tree.split(node, &mut visitor_queue),
+                Some(node) => tree.split(node, mtry, &mut visitor_queue,),
                 None => break
             };     
         }        
@@ -212,7 +217,7 @@ impl DecisionTree {
         result.to_row_vector()
     }
 
-    fn predict_for_row<M: Matrix>(&self, x: &M, row: usize) -> usize {
+    pub(in crate) fn predict_for_row<M: Matrix>(&self, x: &M, row: usize) -> usize {
         let mut result = 0;
         let mut queue: LinkedList<usize> = LinkedList::new();
 
@@ -240,7 +245,7 @@ impl DecisionTree {
         
     }   
     
-    fn find_best_cutoff<M: Matrix>(&mut self, visitor: &mut NodeVisitor<M>) -> bool {
+    fn find_best_cutoff<M: Matrix>(&mut self, visitor: &mut NodeVisitor<M>, mtry: usize) -> bool {
 
         let (n_rows, n_attr) = visitor.x.shape();        
 
@@ -282,7 +287,7 @@ impl DecisionTree {
             variables[i] = i;
         }
 
-        for j in 0..n_attr {
+        for j in 0..mtry {
             self.find_best_split(visitor, n, &count, &mut false_count, parent_impurity, variables[j]);            
         }        
 
@@ -340,7 +345,7 @@ impl DecisionTree {
 
     }
 
-    fn split<'a, M: Matrix>(&mut self, mut visitor: NodeVisitor<'a, M>, visitor_queue: &mut LinkedList<NodeVisitor<'a, M>>) -> bool {
+    fn split<'a, M: Matrix>(&mut self, mut visitor: NodeVisitor<'a, M>, mtry: usize, visitor_queue: &mut LinkedList<NodeVisitor<'a, M>>) -> bool {
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
         let mut fc = 0;        
@@ -377,13 +382,13 @@ impl DecisionTree {
 
         let mut true_visitor = NodeVisitor::<M>::new(true_child_idx, true_samples, visitor.order, visitor.x, visitor.y, visitor.level + 1);            
             
-        if tc > self.parameters.min_samples_leaf as u32 && self.find_best_cutoff(&mut true_visitor) {
+        if tc > self.parameters.min_samples_leaf as u32 && self.find_best_cutoff(&mut true_visitor, mtry) {
             visitor_queue.push_back(true_visitor);
         }
 
         let mut false_visitor = NodeVisitor::<M>::new(false_child_idx, visitor.samples, visitor.order, visitor.x, visitor.y, visitor.level + 1);
             
-        if fc > self.parameters.min_samples_leaf as u32 && self.find_best_cutoff(&mut false_visitor) {
+        if fc > self.parameters.min_samples_leaf as u32 && self.find_best_cutoff(&mut false_visitor, mtry) {
             visitor_queue.push_back(false_visitor);
         }
 
