@@ -12,10 +12,6 @@ pub trait Matrix: Clone + Debug {
 
     fn to_row_vector(self) -> Self::RowVector;
 
-    fn from_array(nrows: usize, ncols: usize, values: &[f64]) -> Self;
-    
-    fn from_vec(nrows: usize, ncols: usize, values: Vec<f64>) -> Self;
-
     fn get(&self, row: usize, col: usize) -> f64; 
 
     fn get_row_as_vec(&self, row: usize) -> Vec<f64>;

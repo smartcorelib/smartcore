@@ -16,14 +16,6 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
         self.into_shape(vec_size).unwrap()
     }
 
-    fn from_array(nrows: usize, ncols: usize, values: &[f64]) -> Self {
-        Array::from_shape_vec((nrows, ncols), values.to_vec()).unwrap()     
-    }
-    
-    fn from_vec(nrows: usize, ncols: usize, values: Vec<f64>) -> Self {
-        Array::from_shape_vec((nrows, ncols), values).unwrap()     
-    }
-
     fn get(&self, row: usize, col: usize) -> f64 {
         self[[row, col]]
     }
@@ -326,19 +318,6 @@ mod tests {
         let a3 = a1.clone() / a2.clone();
         a1.div_mut(&a2);        
 
-        assert_eq!(a1, a3);        
-
-    }
-
-    #[test]
-    fn from_array_from_vec() { 
-
-        let a1 = arr2(&[[ 1.,  2.,  3.],
-                        [4., 5., 6.]]);
-        let a2 = Array2::from_array(2, 3, &[1., 2., 3., 4., 5., 6.]);
-        let a3 = Array2::from_vec(2, 3, vec![1., 2., 3., 4., 5., 6.]);
-        
-        assert_eq!(a1, a2);
         assert_eq!(a1, a3);        
 
     }
