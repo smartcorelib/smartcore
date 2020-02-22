@@ -1,6 +1,5 @@
-use std::collections::LinkedList;
-
 use crate::linalg::Matrix;
+use crate::math::distance::euclidian;
 
 #[derive(Debug)]
 pub struct BBDTree {    
@@ -77,10 +76,10 @@ impl BBDTree {
         let d = centroids[0].len();
 
         // Determine which mean the node mean is closest to
-        let mut min_dist = BBDTree::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
+        let mut min_dist = euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
         let mut closest = candidates[0];
         for i in 1..k {
-            let dist = BBDTree::squared_distance(&self.nodes[node].center, &centroids[candidates[i]]);
+            let dist = euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[i]]);
             if dist < min_dist {
                 min_dist = dist;
                 closest = candidates[i];
@@ -146,20 +145,7 @@ impl BBDTree {
         }
 
         return lhs >= 2f64 * rhs;
-    }
-
-    fn squared_distance(x: &Vec<f64>,y: &Vec<f64>) -> f64 {
-        if x.len() != y.len() {
-            panic!("Input vector sizes are different.");
-        }
-
-        let mut sum = 0f64;
-        for i in 0..x.len() {
-            sum += (x[i] - y[i]).powf(2.);
-        }
-
-        return sum;
-    }
+    }    
 
     fn build_node<M: Matrix>(&mut self, data: &M, begin: usize, end: usize) -> usize {
         let (_, d) = data.shape();

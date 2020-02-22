@@ -18,6 +18,18 @@ pub trait Matrix: Clone + Debug {
 
     fn get_col_as_vec(&self, col: usize) -> Vec<f64>;
 
+    fn to_vector(&self) -> Vec<Vec<f64>> {
+
+        let (n, _) = self.shape();
+        let mut data = Vec::new();
+
+        for i in 0..n {
+            data.push(self.get_row_as_vec(i));
+        }
+
+        data
+    }
+
     fn set(&mut self, row: usize, col: usize, x: f64);
 
     fn qr_solve_mut(&mut self, b: Self) -> Self;

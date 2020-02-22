@@ -72,9 +72,8 @@ impl Eq for KNNPoint {}
 
 #[cfg(test)]
 mod tests {    
-    use super::*;          
-    use crate::math::distance::Distance;
-    use ndarray::{arr1, Array1};
+    use super::*;      
+    use crate::math::distance::euclidian;  
 
     struct SimpleDistance{}
 
@@ -92,11 +91,11 @@ mod tests {
 
         assert_eq!(vec!(1, 2, 0), algorithm1.find(&2, 3));
 
-        let data2 = vec!(arr1(&[1, 1]), arr1(&[2, 2]), arr1(&[3, 3]), arr1(&[4, 4]), arr1(&[5, 5]));
+        let data2 = vec!(vec![1., 1.], vec![2., 2.], vec![3., 3.], vec![4., 4.], vec![5., 5.]);
 
-        let algorithm2 = LinearKNNSearch::new(data2, &Array1::distance);
+        let algorithm2 = LinearKNNSearch::new(data2, &euclidian::distance);
 
-        assert_eq!(vec!(2, 3, 1), algorithm2.find(&arr1(&[3, 3]), 3));
+        assert_eq!(vec!(2, 3, 1), algorithm2.find(&vec![3., 3.], 3));
     }
 
     #[test]
