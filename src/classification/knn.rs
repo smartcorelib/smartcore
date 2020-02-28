@@ -1,9 +1,7 @@
-use crate::linalg::Matrix;
+use crate::linalg::{Matrix, row_iter};
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::algorithm::neighbour::cover_tree::CoverTree;
-use crate::common::Nominal;
-use ndarray::{ArrayBase, Data, Ix1, Ix2};
 
 
 type F = dyn Fn(&Vec<f64>, &Vec<f64>) -> f64;
@@ -24,7 +22,7 @@ impl<'a> KNNClassifier<'a> {
         let (_, y_n) = y_m.shape();
         let (x_n, _) = x.shape();
 
-        let data = x.to_vector();
+        let data = row_iter(x).collect();
 
         let mut yi: Vec<usize> = vec![0; y_n];
         let classes = y_m.unique();                
@@ -48,20 +46,16 @@ impl<'a> KNNClassifier<'a> {
     }
 
     pub fn predict<M: Matrix>(&self, x: &M) -> M::RowVector {    
-        let mut result = M::zeros(1, x.shape().0);
-
-        let (n, _) = x.shape();                               
+        let mut result = M::zeros(1, x.shape().0);           
         
-        for i in 0..n {
-            result.set(0, i, self.classes[self.predict_for_row(x, i)]);
-        }
+        row_iter(x).enumerate().for_each(|(i, x)| result.set(0, i, self.classes[self.predict_for_row(x)]));
 
         result.to_row_vector()
     }
 
-    pub(in crate) fn predict_for_row<M: Matrix>(&self, x: &M, row: usize) -> usize {
+    fn predict_for_row(&self, x: Vec<f64>) -> usize {        
 
-        let idxs = self.knn_algorithm.find(&x.get_row_as_vec(row), self.k);        
+        let idxs = self.knn_algorithm.find(&x, self.k);        
         let mut c = vec![0; self.classes.len()];
         let mut max_c = 0;
         let mut max_i = 0;

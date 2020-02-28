@@ -1,5 +1,6 @@
 use std::ops::Range;
 use crate::linalg::{Matrix};
+use crate::linalg::svd::SVD;
 use ndarray::{Array, ArrayBase, OwnedRepr, Ix2, Ix1, Axis, stack, s};
 
 impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
@@ -32,13 +33,13 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
         self[[row, col]] = x;
     }
 
-    fn qr_solve_mut(&mut self, b: Self) -> Self {
-        panic!("qr_solve_mut method is not implemented for ndarray");
+    fn svd(&self) -> SVD<Self>{
+        panic!("svd method is not implemented for ndarray");
     }
 
-    fn svd_solve_mut(&mut self, b: Self) -> Self {
+    fn qr_solve_mut(&mut self, b: Self) -> Self {
         panic!("qr_solve_mut method is not implemented for ndarray");
-    }
+    }    
 
     fn zeros(nrows: usize, ncols: usize) -> Self {
         Array::zeros((nrows, ncols))
