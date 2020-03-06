@@ -1,6 +1,7 @@
 pub mod classification;
 pub mod regression;
 pub mod cluster;
+pub mod decomposition;
 pub mod linalg;
 pub mod math;
 pub mod error;

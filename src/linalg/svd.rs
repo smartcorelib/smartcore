@@ -2,9 +2,9 @@ use crate::linalg::{Matrix};
 
 #[derive(Debug, Clone)]
 pub struct SVD<M: Matrix> {
-    U: M,
-    V: M,
-    s: Vec<f64>,
+    pub U: M,
+    pub V: M,
+    pub s: Vec<f64>,
     full: bool,
     m: usize,
     n: usize,

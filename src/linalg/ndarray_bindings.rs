@@ -1,6 +1,7 @@
 use std::ops::Range;
 use crate::linalg::{Matrix};
 use crate::linalg::svd::SVD;
+use crate::linalg::evd::EVD;
 use ndarray::{Array, ArrayBase, OwnedRepr, Ix2, Ix1, Axis, stack, s};
 
 impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
@@ -37,9 +38,17 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
         panic!("svd method is not implemented for ndarray");
     }
 
+    fn evd_mut(self, symmetric: bool) -> EVD<Self>{
+        panic!("evd method is not implemented for ndarray");
+    }
+
     fn qr_solve_mut(&mut self, b: Self) -> Self {
         panic!("qr_solve_mut method is not implemented for ndarray");
     }    
+
+    fn eye(size: usize) -> Self {
+        Array::eye(size)
+    }
 
     fn zeros(nrows: usize, ncols: usize) -> Self {
         Array::zeros((nrows, ncols))
@@ -58,7 +67,7 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
     }
 
     fn shape(&self) -> (usize, usize) {
-        (self.rows(), self.cols())
+        (self.nrows(), self.ncols())
     }    
 
     fn v_stack(&self, other: &Self) -> Self {
@@ -71,7 +80,7 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
 
     fn dot(&self, other: &Self) -> Self {
        self.dot(other)
-    }
+    }    
 
     fn vector_dot(&self, other: &Self) -> f64 {
         self.dot(&other.view().reversed_axes())[[0, 0]]
@@ -170,6 +179,26 @@ impl Matrix for ArrayBase<OwnedRepr<f64>, Ix2>
 
             norm.powf(1.0/p)
         }
+    }
+
+    fn column_mean(&self) -> Vec<f64> {
+        self.mean_axis(Axis(0)).unwrap().to_vec()
+    }
+
+    fn div_element_mut(&mut self, row: usize, col: usize, x: f64){
+        self[[row, col]] /= x;
+    }
+
+    fn mul_element_mut(&mut self, row: usize, col: usize, x: f64){
+        self[[row, col]] *= x;
+    }
+
+    fn add_element_mut(&mut self, row: usize, col: usize, x: f64){
+        self[[row, col]] += x;
+    }
+
+    fn sub_element_mut(&mut self, row: usize, col: usize, x: f64){
+        self[[row, col]] -= x;
     }
 
     fn negative_mut(&mut self){
@@ -324,6 +353,50 @@ mod tests {
     }
 
     #[test]
+    fn div_element_mut() { 
+
+        let mut a = arr2(&[[ 1.,  2.,  3.],
+                            [4., 5., 6.]]);
+        a.div_element_mut(1, 1, 5.);
+
+        assert_eq!(Matrix::get(&a, 1, 1), 1.);
+
+    }
+
+    #[test]
+    fn mul_element_mut() { 
+
+        let mut a = arr2(&[[ 1.,  2.,  3.],
+                            [4., 5., 6.]]);
+        a.mul_element_mut(1, 1, 5.);
+
+        assert_eq!(Matrix::get(&a, 1, 1), 25.);
+
+    }
+
+    #[test]
+    fn add_element_mut() { 
+
+        let mut a = arr2(&[[ 1.,  2.,  3.],
+                            [4., 5., 6.]]);
+        a.add_element_mut(1, 1, 5.);
+
+        assert_eq!(Matrix::get(&a, 1, 1), 10.);
+
+    }
+
+    #[test]
+    fn sub_element_mut() { 
+
+        let mut a = arr2(&[[ 1.,  2.,  3.],
+                            [4., 5., 6.]]);
+        a.sub_element_mut(1, 1, 5.);
+
+        assert_eq!(Matrix::get(&a, 1, 1), 0.);
+
+    }
+
+    #[test]
     fn vstack_hstack() { 
 
         let a1 = arr2(&[[1.,  2.,  3.],
@@ -376,7 +449,7 @@ mod tests {
                     [49., 64.]]);            
             let result = Matrix::dot(&a, &b);
             assert_eq!(result, expected);
-    }
+    }    
 
     #[test]
     fn vector_dot() { 
@@ -510,5 +583,23 @@ mod tests {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);  
         let res = a.get_col_as_vec(1);
         assert_eq!(res, vec![2., 5., 8.]);        
+    }
+
+    #[test]
+    fn col_mean(){
+        let a = arr2(&[[1., 2., 3.],
+                       [4., 5., 6.], 
+                       [7., 8., 9.]]);  
+        let res = a.column_mean();
+        assert_eq!(res, vec![4., 5., 6.]);        
+    }
+
+    #[test]
+    fn eye(){
+        let a = arr2(&[[1., 0., 0.],
+                       [0., 1., 0.], 
+                       [0., 0., 1.]]);  
+        let res: Array2<f64> = Matrix::eye(3);
+        assert_eq!(res, a);
     }
 }

@@ -1,10 +1,12 @@
 pub mod naive;
 pub mod svd;
+pub mod evd;
 pub mod ndarray_bindings;
 
 use std::ops::Range;
 use std::fmt::Debug;
 use svd::SVD;
+use evd::EVD;
 
 pub trait Matrix: Clone + Debug {  
 
@@ -37,6 +39,14 @@ pub trait Matrix: Clone + Debug {
 
     }
 
+    fn evd(&self, symmetric: bool) -> EVD<Self>{
+        self.clone().evd_mut(symmetric)
+    }
+
+    fn evd_mut(self, symmetric: bool) -> EVD<Self>;
+
+    fn eye(size: usize) -> Self;
+
     fn zeros(nrows: usize, ncols: usize) -> Self;
 
     fn ones(nrows: usize, ncols: usize) -> Self;
@@ -51,7 +61,7 @@ pub trait Matrix: Clone + Debug {
 
     fn h_stack(&self, other: &Self) -> Self;
 
-    fn dot(&self, other: &Self) -> Self;
+    fn dot(&self, other: &Self) -> Self;    
 
     fn vector_dot(&self, other: &Self) -> f64;     
 
@@ -66,6 +76,14 @@ pub trait Matrix: Clone + Debug {
     fn mul_mut(&mut self, other: &Self) -> &Self;
 
     fn div_mut(&mut self, other: &Self) -> &Self;
+
+    fn div_element_mut(&mut self, row: usize, col: usize, x: f64);
+
+    fn mul_element_mut(&mut self, row: usize, col: usize, x: f64);
+
+    fn add_element_mut(&mut self, row: usize, col: usize, x: f64);
+
+    fn sub_element_mut(&mut self, row: usize, col: usize, x: f64);
 
     fn add(&self, other: &Self) -> Self {
         let mut r = self.clone();
@@ -132,6 +150,8 @@ pub trait Matrix: Clone + Debug {
     fn norm2(&self) -> f64;
 
     fn norm(&self, p:f64) -> f64;
+
+    fn column_mean(&self) -> Vec<f64>;
 
     fn negative_mut(&mut self);
 
