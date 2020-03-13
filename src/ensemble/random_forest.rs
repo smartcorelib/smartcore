@@ -3,7 +3,7 @@ extern crate rand;
 use rand::Rng;
 use std::default::Default;
 use crate::linalg::Matrix;
-use crate::classification::decision_tree::{DecisionTree, DecisionTreeParameters, SplitCriterion, which_max};
+use crate::tree::decision_tree::{DecisionTree, DecisionTreeParameters, SplitCriterion, which_max};
 
 #[derive(Debug, Clone)]
 pub struct RandomForestParameters {  
