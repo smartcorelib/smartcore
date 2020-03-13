@@ -9,9 +9,7 @@ pub trait NumericExt {
 
 impl NumericExt for f64 {
 
-    fn ln_1pe(&self) -> f64{
-        let y = 0.;
-
+    fn ln_1pe(&self) -> f64{        
         if *self > 15. {
             return *self;
         } else {

@@ -5,6 +5,7 @@ use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use ndarray::{Array, ArrayBase, OwnedRepr, Ix2, Ix1, Axis, stack, s};
+use rand::prelude::*;
 
 impl BaseMatrix for ArrayBase<OwnedRepr<f64>, Ix2>
 {
@@ -81,7 +82,7 @@ impl BaseMatrix for ArrayBase<OwnedRepr<f64>, Ix2>
     }
 
     fn approximate_eq(&self, other: &Self, error: f64) -> bool {
-        false
+        (self - other).iter().all(|v| v.abs() <= error)
     }
 
     fn add_mut(&mut self, other: &Self) -> &Self {
@@ -128,12 +129,12 @@ impl BaseMatrix for ArrayBase<OwnedRepr<f64>, Ix2>
         self.clone().reversed_axes()
     }
 
-    fn generate_positive_definite(nrows: usize, ncols: usize) -> Self{
-        panic!("generate_positive_definite method is not implemented for ndarray");
-    }
-
     fn rand(nrows: usize, ncols: usize) -> Self{
-        panic!("rand method is not implemented for ndarray");
+        let mut rng = rand::thread_rng();
+        let values: Vec<f64> = (0..nrows*ncols).map(|_| {
+            rng.gen()
+        }).collect();
+        Array::from_shape_vec((nrows, ncols), values).unwrap()
     }
 
     fn norm2(&self) -> f64{
@@ -599,5 +600,27 @@ mod tests {
                        [0., 0., 1.]]);  
         let res: Array2<f64> = BaseMatrix::eye(3);
         assert_eq!(res, a);
+    }
+
+    #[test]
+    fn rand() {
+        let m: Array2<f64> = BaseMatrix::rand(3, 3);
+        for c in 0..3 {
+            for r in 0..3 {
+                assert!(m[[r, c]] != 0f64);
+            }
+        }
+    }
+
+    #[test]
+    fn approximate_eq() {
+        let a = arr2(&[[1., 2., 3.],
+            [4., 5., 6.], 
+            [7., 8., 9.]]);
+        let noise = arr2(&[[1e-5, 2e-5, 3e-5],
+            [4e-5, 5e-5, 6e-5], 
+            [7e-5, 8e-5, 9e-5]]);        
+        assert!(a.approximate_eq(&(&noise + &a), 1e-4));
+        assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
     }
 }

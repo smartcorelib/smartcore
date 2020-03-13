@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::linalg::BaseMatrix;
 
 #[derive(Debug, Clone)]
@@ -504,7 +506,7 @@ mod tests {
     #[test]
     fn solve() { 
 
-            let mut a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
+            let a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
             let b = DenseMatrix::from_array(&[&[0.5, 0.2],&[0.5, 0.8], &[0.5, 0.3]]);
             let expected_w = DenseMatrix::from_array(&[
                 &[-0.20, -1.28],

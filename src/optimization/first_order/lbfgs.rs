@@ -154,7 +154,7 @@ impl LBFGS {
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    fn update_hessian<'a, X: Matrix>(&self, df: &'a DF<X>, state: &mut LBFGSState<X>) {                      
+    fn update_hessian<'a, X: Matrix>(&self, _: &'a DF<X>, state: &mut LBFGSState<X>) {                      
         state.dg = state.x_df.sub(&state.x_df_prev);            
         let rho_iteration = 1. / state.dx.vector_dot(&state.dg);
         if !rho_iteration.is_infinite() {

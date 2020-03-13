@@ -122,9 +122,7 @@ pub trait BaseMatrix: Clone + Debug {
         r
     }
 
-    fn transpose(&self) -> Self;
-
-    fn generate_positive_definite(nrows: usize, ncols: usize) -> Self;
+    fn transpose(&self) -> Self;    
 
     fn rand(nrows: usize, ncols: usize) -> Self;
 

@@ -1,5 +1,4 @@
 use crate::linalg::Matrix;
-use crate::regression::Regression;
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -27,7 +26,7 @@ impl<M: Matrix> LinearRegression<M> {
             panic!("Number of rows of X doesn't match number of rows of Y");
         }
                 
-        let mut a = x.v_stack(&M::ones(x_nrows, 1));
+        let a = x.v_stack(&M::ones(x_nrows, 1));
 
         let w = match solver {
             LinearRegressionSolver::QR => a.qr_solve_mut(b),
@@ -43,16 +42,11 @@ impl<M: Matrix> LinearRegression<M> {
         }
     }
 
-}
-
-impl<M: Matrix> Regression<M> for LinearRegression<M> {
-
-
-    fn predict(&self, x: &M) -> M {
+    pub fn predict(&self, x: &M) -> M::RowVector {
         let (nrows, _) = x.shape();
         let mut y_hat = x.dot(&self.coefficients);
         y_hat.add_mut(&M::fill(nrows, 1, self.intercept));
-        y_hat.transpose()
+        y_hat.transpose().to_row_vector()
     }
 
 }
@@ -85,9 +79,9 @@ mod tests {
         
             let y = DenseMatrix::from_array(&[&[83.0,  88.5,  88.2,  89.5,  96.2,  98.1,  99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9]]);            
 
-            let y_hat_qr = LinearRegression::fit(&x, &y, LinearRegressionSolver::QR).predict(&x);                        
+            let y_hat_qr = DenseMatrix::from_row_vector(LinearRegression::fit(&x, &y, LinearRegressionSolver::QR).predict(&x));                        
 
-            let y_hat_svd = LinearRegression::fit(&x, &y, LinearRegressionSolver::SVD).predict(&x);
+            let y_hat_svd = DenseMatrix::from_row_vector(LinearRegression::fit(&x, &y, LinearRegressionSolver::SVD).predict(&x));
 
             assert!(y.approximate_eq(&y_hat_qr, 5.));
             assert!(y.approximate_eq(&y_hat_svd, 5.));

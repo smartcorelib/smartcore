@@ -4,7 +4,6 @@ pub mod cluster;
 pub mod decomposition;
 pub mod linalg;
 pub mod math;
-pub mod error;
 pub mod algorithm;
 pub mod common;
 pub mod optimization;

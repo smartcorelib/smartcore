@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::linalg::BaseMatrix;
 
 #[derive(Debug, Clone)]

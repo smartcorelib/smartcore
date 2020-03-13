@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use num::complex::Complex;
 use crate::linalg::BaseMatrix;
 

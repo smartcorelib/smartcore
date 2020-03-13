@@ -139,8 +139,7 @@ impl<M: Matrix> LogisticRegression<M> {
         let mut yi: Vec<usize> = vec![0; y_nrows];
 
         for i in 0..y_nrows {
-            let yc = y_m.get(0, i); 
-            let j = classes.iter().position(|c| yc == *c).unwrap();            
+            let yc = y_m.get(0, i);             
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
@@ -244,7 +243,7 @@ impl<M: Matrix> LogisticRegression<M> {
 mod tests {    
     use super::*; 
     use crate::linalg::naive::dense_matrix::*;       
-    use ndarray::{arr1, arr2, Array};
+    use ndarray::{arr1, arr2};
 
     #[test]
     fn multiclass_objective_f() { 

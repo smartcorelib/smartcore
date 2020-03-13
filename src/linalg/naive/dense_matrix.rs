@@ -366,12 +366,7 @@ impl BaseMatrix for DenseMatrix {
 
     fn sub_element_mut(&mut self, row: usize, col: usize, x: f64) {
         self.values[col*self.nrows + row] -= x;
-    }  
-
-    fn generate_positive_definite(nrows: usize, ncols: usize) -> Self {
-        let m = DenseMatrix::rand(nrows, ncols);
-        m.dot(&m.transpose())
-    }
+    }    
 
     fn transpose(&self) -> Self {
         let mut m = DenseMatrix {
@@ -721,11 +716,6 @@ mod tests {
                 assert!(m_transposed.get(r, c) == expected.get(r, c));
             }
         }
-    }
-
-    #[test]
-    fn generate_positive_definite() {
-        let m = DenseMatrix::generate_positive_definite(3, 3);        
     }
 
     #[test]
