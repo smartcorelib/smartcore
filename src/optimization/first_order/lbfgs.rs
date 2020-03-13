@@ -226,7 +226,7 @@ impl FirstOrderOptimizer for LBFGS {
 #[cfg(test)]
 mod tests {    
     use super::*; 
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::naive::dense_matrix::*;
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
     use crate::math::EPSILON;

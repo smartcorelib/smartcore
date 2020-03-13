@@ -243,7 +243,7 @@ impl<M: Matrix> LogisticRegression<M> {
 #[cfg(test)]
 mod tests {    
     use super::*; 
-    use crate::linalg::naive::dense_matrix::DenseMatrix;       
+    use crate::linalg::naive::dense_matrix::*;       
     use ndarray::{arr1, arr2, Array};
 
     #[test]

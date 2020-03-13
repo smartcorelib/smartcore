@@ -60,7 +60,7 @@ impl<M: Matrix> Regression<M> for LinearRegression<M> {
 #[cfg(test)]
 mod tests {    
     use super::*; 
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::naive::dense_matrix::*;
 
     #[test]
     fn ols_fit_predict() { 

@@ -1,7 +1,7 @@
-use crate::linalg::{Matrix};
+use crate::linalg::BaseMatrix;
 
 #[derive(Debug, Clone)]
-pub struct SVD<M: Matrix> {
+pub struct SVD<M: SVDDecomposableMatrix> {
     pub U: M,
     pub V: M,
     pub s: Vec<f64>,
@@ -11,7 +11,365 @@ pub struct SVD<M: Matrix> {
     tol: f64
 }
 
-impl<M: Matrix> SVD<M> {
+pub trait SVDDecomposableMatrix: BaseMatrix {
+
+    fn svd_solve_mut(self, b: Self) -> Self {
+        self.svd_mut().solve(b)
+    }
+
+    fn svd_solve(&self, b: Self) -> Self {
+        self.svd().solve(b)        
+    }
+
+    fn svd(&self) -> SVD<Self> {
+        self.clone().svd_mut()
+    }
+
+    fn svd_mut(self) -> SVD<Self> {
+
+        let mut U = self;        
+
+        let (m, n) = U.shape();        
+        
+        let (mut l, mut nm) = (0usize, 0usize);
+        let (mut anorm, mut g, mut scale) = (0f64, 0f64, 0f64);        
+        
+        let mut v = Self::zeros(n, n);
+        let mut w = vec![0f64; n];
+        let mut rv1 = vec![0f64; n];
+
+        for i in 0..n {
+            l = i + 2;
+            rv1[i] = scale * g;
+            g = 0f64;
+            let mut s = 0f64;
+            scale = 0f64;
+
+            if i < m {
+                for k in i..m {
+                    scale += U.get(k, i).abs();
+                }
+
+                if scale.abs() > std::f64::EPSILON {
+
+                    for k in i..m {
+                        U.div_element_mut(k, i, scale);
+                        s += U.get(k, i) * U.get(k, i);
+                    }
+
+                    let mut f = U.get(i, i);
+                    g = -s.sqrt().copysign(f);                    
+                    let h = f * g - s;
+                    U.set(i, i, f - g);
+                    for j in l - 1..n {
+                        s = 0f64;
+                        for k in i..m {
+                            s += U.get(k, i) * U.get(k, j);
+                        }
+                        f = s / h;
+                        for k in i..m {
+                            U.add_element_mut(k, j, f * U.get(k, i));
+                        }
+                    }
+                    for k in i..m {
+                        U.mul_element_mut(k, i, scale);
+                    }
+                }
+            }
+
+            w[i] = scale * g;
+            g = 0f64;
+            let mut s = 0f64;
+            scale = 0f64;
+
+            if i + 1 <= m && i + 1 != n {
+                for k in l - 1..n {
+                    scale += U.get(i, k).abs();
+                }
+
+                if scale.abs() > std::f64::EPSILON {
+                    for k in l - 1..n {
+                        U.div_element_mut(i, k, scale);
+                        s += U.get(i, k) * U.get(i, k);
+                    }
+
+                    let f = U.get(i, l - 1);
+                    g = -s.sqrt().copysign(f);                    
+                    let h = f * g - s;
+                    U.set(i, l - 1, f - g);
+
+                    for k in l - 1..n {
+                        rv1[k] = U.get(i, k) / h;
+                    }
+
+                    for j in l - 1..m {
+                        s = 0f64;
+                        for k in l - 1..n {
+                            s += U.get(j, k) * U.get(i, k);
+                        }
+
+                        for k in l - 1..n {
+                            U.add_element_mut(j, k, s * rv1[k]);
+                        }
+                    }
+
+                    for k in l - 1..n {
+                        U.mul_element_mut(i, k, scale);
+                    }
+                }
+            }
+
+            
+            anorm = f64::max(anorm, w[i].abs() + rv1[i].abs());
+        }
+
+        for i in (0..n).rev() {
+            if i < n - 1 {
+                if g != 0.0 {
+                    for j in l..n {
+                        v.set(j, i, (U.get(i, j) / U.get(i, l)) / g);
+                    }
+                    for j in l..n {
+                        let mut s = 0f64;
+                        for k in l..n {
+                            s += U.get(i, k) * v.get(k, j);
+                        }
+                        for k in l..n {
+                            v.add_element_mut(k, j, s * v.get(k, i));
+                        }
+                    }
+                }
+                for j in l..n {
+                    v.set(i, j, 0f64);
+                    v.set(j, i, 0f64);
+                }
+            }
+            v.set(i, i, 1.0);
+            g = rv1[i];
+            l = i;
+        }
+
+        for i in (0..usize::min(m, n)).rev() {
+            l = i + 1;
+            g = w[i];
+            for j in l..n {
+                U.set(i, j, 0f64);
+            }
+
+            if g.abs() > std::f64::EPSILON {
+                g = 1f64 / g;
+                for j in l..n {
+                    let mut s = 0f64;
+                    for k in l..m {
+                        s += U.get(k, i) * U.get(k, j);
+                    }
+                    let f = (s / U.get(i, i)) * g;
+                    for k in i..m {
+                        U.add_element_mut(k, j, f * U.get(k, i));
+                    }
+                }
+                for j in i..m {
+                    U.mul_element_mut(j, i, g);
+                }
+            } else {
+                for j in i..m {
+                    U.set(j, i, 0f64);
+                }
+            }
+
+            U.add_element_mut(i, i, 1f64);
+        }
+
+        for k in (0..n).rev() {
+            for iteration in 0..30 {
+                let mut flag = true;                
+                l = k;
+                while l != 0 {                               
+                    if l == 0 || rv1[l].abs() <= std::f64::EPSILON * anorm {
+                        flag = false;   
+                        break;
+                    }
+                    nm = l - 1;
+                    if w[nm].abs() <= std::f64::EPSILON * anorm {
+                        break;
+                    }
+                    l -= 1;
+                }
+
+                if flag {
+                    let mut c = 0.0;
+                    let mut s = 1.0;
+                    for i in l..k+1 {
+                        let f = s * rv1[i];
+                        rv1[i] = c * rv1[i];
+                        if f.abs() <= std::f64::EPSILON * anorm {
+                            break;
+                        }
+                        g = w[i];
+                        let mut h = f.hypot(g);
+                        w[i] = h;
+                        h = 1.0 / h;
+                        c = g * h;
+                        s = -f * h;
+                        for j in 0..m {
+                            let y = U.get(j, nm);
+                            let z = U.get(j, i);
+                            U.set(j, nm, y * c + z * s);
+                            U.set(j,  i, z * c - y * s);
+                        }
+                    }
+                }
+
+                let z = w[k];
+                if l == k {
+                    if z < 0f64 {
+                        w[k] = -z;
+                        for j in 0..n {
+                            v.set(j, k, -v.get(j, k));
+                        }
+                    }
+                    break;
+                }
+
+                if iteration == 29 {
+                    panic!("no convergence in 30 iterations");
+                }
+
+                let mut x = w[l];
+                nm = k - 1;
+                let mut y = w[nm];
+                g = rv1[nm];
+                let mut h = rv1[k];
+                let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (2.0 * h * y);
+                g = f.hypot(1.0);
+                f = ((x - z) * (x + z) + h * ((y / (f + g.copysign(f))) - h)) / x;
+                let mut c = 1f64;
+                let mut s = 1f64;
+
+                for j in l..=nm {
+                    let i = j + 1;
+                    g = rv1[i];
+                    y = w[i];
+                    h = s * g;
+                    g = c * g;
+                    let mut z = f.hypot(h);
+                    rv1[j] = z;
+                    c = f / z;
+                    s = h / z;
+                    f = x * c + g * s;
+                    g = g * c - x * s;
+                    h = y * s;
+                    y *= c;
+
+                    for jj in 0..n {
+                        x = v.get(jj, j);
+                        z = v.get(jj, i);
+                        v.set(jj, j, x * c + z * s);
+                        v.set(jj, i, z * c - x * s);
+                    }
+
+                    z = f.hypot(h);
+                    w[j] = z;
+                    if z.abs() > std::f64::EPSILON {
+                        z = 1.0 / z;
+                        c = f * z;
+                        s = h * z;
+                    }
+
+                    f = c * g + s * y;
+                    x = c * y - s * g;
+                    for jj in 0..m {
+                        y = U.get(jj, j);
+                        z = U.get(jj, i);
+                        U.set(jj, j, y * c + z * s);
+                        U.set(jj, i, z * c - y * s);
+                    }
+                }
+
+                rv1[l] = 0.0;
+                rv1[k] = f;
+                w[k] = x;
+            }
+        }
+        
+        let mut inc = 1usize;        
+        let mut su = vec![0f64; m];
+        let mut sv = vec![0f64; n];
+        
+        loop {
+            inc *= 3;
+            inc += 1;
+            if inc > n {
+                break;
+            }
+        }
+
+        loop {
+            inc /= 3;
+            for  i in inc..n {                
+                let sw = w[i];
+                for k in 0..m {
+                    su[k] = U.get(k, i);
+                }
+                for k in 0..n {
+                    sv[k] = v.get(k, i);
+                }
+                let mut j = i;
+                while w[j - inc] < sw {
+                    w[j] = w[j - inc];
+                    for k in 0..m {
+                        U.set(k, j, U.get(k, j - inc));
+                    }
+                    for k in 0..n {
+                        v.set(k, j, v.get(k, j - inc));
+                    }
+                    j -= inc;
+                    if j < inc {
+                        break;
+                    }
+                }
+                w[j] = sw;
+                for k in 0..m {
+                    U.set(k, j, su[k]);
+                }
+                for k in 0..n {
+                    v.set(k, j, sv[k]);
+                }
+
+            }
+            if inc <= 1 {
+                break;
+            }
+        }
+
+        for k in 0..n {
+            let mut s = 0.;
+            for i in 0..m {
+                if U.get(i, k) < 0. {
+                    s += 1.;
+                }
+            }
+            for j in 0..n {
+                if v.get(j, k) < 0. {
+                    s += 1.;
+                }
+            }
+            if s > (m + n) as f64 / 2. {
+                for i in 0..m {
+                    U.set(i, k, -U.get(i, k));
+                }
+                for j in 0..n {
+                    v.set(j, k, -v.get(j, k));
+                }
+            }
+        }        
+
+        SVD::new(U, v, w)
+
+    }
+}
+
+impl<M: SVDDecomposableMatrix> SVD<M> {
     pub fn new(U: M, V: M, s: Vec<f64>) -> SVD<M> {
         let m = U.shape().0;
         let n = V.shape().0;     

@@ -1,14 +1,16 @@
 pub mod naive;
+pub mod qr;
 pub mod svd;
 pub mod evd;
 pub mod ndarray_bindings;
 
 use std::ops::Range;
 use std::fmt::Debug;
-use svd::SVD;
-use evd::EVD;
+use svd::SVDDecomposableMatrix;
+use evd::EVDDecomposableMatrix;
+use qr::QRDecomposableMatrix;
 
-pub trait Matrix: Clone + Debug {  
+pub trait BaseMatrix: Clone + Debug {  
 
     type RowVector: Clone + Debug;    
 
@@ -22,28 +24,7 @@ pub trait Matrix: Clone + Debug {
 
     fn get_col_as_vec(&self, col: usize) -> Vec<f64>;    
 
-    fn set(&mut self, row: usize, col: usize, x: f64);
-
-    fn qr_solve_mut(&mut self, b: Self) -> Self;
-
-    fn svd(&self) -> SVD<Self>;
-
-    fn svd_solve_mut(&mut self, b: Self) -> Self {
-        self.svd_solve(b)
-    }
-
-    fn svd_solve(&self, b: Self) -> Self {
-
-        let svd = self.svd();
-        svd.solve(b)
-
-    }
-
-    fn evd(&self, symmetric: bool) -> EVD<Self>{
-        self.clone().evd_mut(symmetric)
-    }
-
-    fn evd_mut(self, symmetric: bool) -> EVD<Self>;
+    fn set(&mut self, row: usize, col: usize, x: f64);         
 
     fn eye(size: usize) -> Self;
 
@@ -192,6 +173,8 @@ pub trait Matrix: Clone + Debug {
     fn unique(&self) -> Vec<f64>;    
 
 }
+
+pub trait Matrix: BaseMatrix + SVDDecomposableMatrix + EVDDecomposableMatrix + QRDecomposableMatrix {}
 
 pub fn row_iter<M: Matrix>(m: &M) -> RowIter<M> {
     RowIter{

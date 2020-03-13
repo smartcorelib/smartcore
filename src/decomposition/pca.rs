@@ -147,7 +147,7 @@ impl<M: Matrix> PCA<M> {
 #[cfg(test)]
 mod tests {
     use super::*; 
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::naive::dense_matrix::*;
 
     fn us_arrests_data() -> DenseMatrix {
         DenseMatrix::from_array(&[

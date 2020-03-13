@@ -80,7 +80,7 @@ impl FirstOrderOptimizer for GradientDescent
 #[cfg(test)]
 mod tests {    
     use super::*; 
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::naive::dense_matrix::*;
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
