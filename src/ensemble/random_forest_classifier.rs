@@ -6,7 +6,7 @@ use crate::linalg::Matrix;
 use crate::tree::decision_tree_classifier::{DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion, which_max};
 
 #[derive(Debug, Clone)]
-pub struct RandomForestParameters {  
+pub struct RandomForestClassifierParameters {  
     pub criterion: SplitCriterion,   
     pub max_depth: Option<u16>,
     pub min_samples_leaf: u16,    
@@ -16,15 +16,15 @@ pub struct RandomForestParameters {
 }
 
 #[derive(Debug)]
-pub struct RandomForest {    
-    parameters: RandomForestParameters,
+pub struct RandomForestClassifier {    
+    parameters: RandomForestClassifierParameters,
     trees: Vec<DecisionTreeClassifier>,
     classes: Vec<f64>
 }
 
-impl Default for RandomForestParameters {
+impl Default for RandomForestClassifierParameters {
     fn default() -> Self { 
-        RandomForestParameters {
+        RandomForestClassifierParameters {
             criterion: SplitCriterion::Gini,
             max_depth: None,
             min_samples_leaf: 1,
@@ -35,9 +35,9 @@ impl Default for RandomForestParameters {
      }
 }
 
-impl RandomForest {
+impl RandomForestClassifier {
 
-    pub fn fit<M: Matrix>(x: &M, y: &M::RowVector, parameters: RandomForestParameters) -> RandomForest {        
+    pub fn fit<M: Matrix>(x: &M, y: &M::RowVector, parameters: RandomForestClassifierParameters) -> RandomForestClassifier {        
         let (_, num_attributes) = x.shape();
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
@@ -56,7 +56,7 @@ impl RandomForest {
         let mut trees: Vec<DecisionTreeClassifier> = Vec::new();
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForest::sample_with_replacement(&yi, k);
+            let samples = RandomForestClassifier::sample_with_replacement(&yi, k);
             let params = DecisionTreeClassifierParameters{
                 criterion: parameters.criterion.clone(),
                 max_depth: parameters.max_depth,
@@ -67,7 +67,7 @@ impl RandomForest {
             trees.push(tree);
         }
 
-        RandomForest {
+        RandomForestClassifier {
             parameters: parameters,
             trees: trees,
             classes
@@ -154,9 +154,9 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4]]);
         let y = vec![0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
 
-        RandomForest::fit(&x, &y, Default::default());
+        RandomForestClassifier::fit(&x, &y, Default::default());
 
-        assert_eq!(y, RandomForest::fit(&x, &y, Default::default()).predict(&x));                    
+        assert_eq!(y, RandomForestClassifier::fit(&x, &y, Default::default()).predict(&x));                    
             
     }
 
