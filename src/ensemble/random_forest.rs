@@ -9,7 +9,8 @@ use crate::tree::decision_tree_classifier::{DecisionTreeClassifier, DecisionTree
 pub struct RandomForestParameters {  
     pub criterion: SplitCriterion,   
     pub max_depth: Option<u16>,
-    pub min_samples_leaf: u16,      
+    pub min_samples_leaf: u16,    
+    pub min_samples_split: usize,          
     pub n_trees: u16,    
     pub mtry: Option<usize>
 }
@@ -27,6 +28,7 @@ impl Default for RandomForestParameters {
             criterion: SplitCriterion::Gini,
             max_depth: None,
             min_samples_leaf: 1,
+            min_samples_split: 2,
             n_trees: 100,
             mtry: Option::None
         }
@@ -58,7 +60,8 @@ impl RandomForest {
             let params = DecisionTreeClassifierParameters{
                 criterion: parameters.criterion.clone(),
                 max_depth: parameters.max_depth,
-                min_samples_leaf: parameters.min_samples_leaf                
+                min_samples_leaf: parameters.min_samples_leaf,   
+                min_samples_split: parameters.min_samples_split          
             };
             let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params);
             trees.push(tree);

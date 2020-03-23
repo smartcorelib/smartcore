@@ -7,7 +7,8 @@ use crate::algorithm::sort::quick_sort::QuickArgSort;
 pub struct DecisionTreeClassifierParameters {           
     pub criterion: SplitCriterion,
     pub max_depth: Option<u16>,
-    pub min_samples_leaf: u16    
+    pub min_samples_leaf: u16,
+    pub min_samples_split: usize
 }
 
 #[derive(Debug)]
@@ -43,7 +44,8 @@ impl Default for DecisionTreeClassifierParameters {
         DecisionTreeClassifierParameters {
             criterion: SplitCriterion::Gini,
             max_depth: None,
-            min_samples_leaf: 1
+            min_samples_leaf: 1,
+            min_samples_split: 2
         }
      }
 }
@@ -437,7 +439,7 @@ mod tests {
 
         assert_eq!(y, DecisionTreeClassifier::fit(&x, &y, Default::default()).predict(&x));
         
-        assert_eq!(3, DecisionTreeClassifier::fit(&x, &y, DecisionTreeClassifierParameters{criterion: SplitCriterion::Entropy, max_depth: Some(3), min_samples_leaf: 1}).depth);        
+        assert_eq!(3, DecisionTreeClassifier::fit(&x, &y, DecisionTreeClassifierParameters{criterion: SplitCriterion::Entropy, max_depth: Some(3), min_samples_leaf: 1, min_samples_split: 2}).depth);        
             
     }
 
