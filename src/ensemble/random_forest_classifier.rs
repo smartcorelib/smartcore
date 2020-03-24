@@ -9,7 +9,7 @@ use crate::tree::decision_tree_classifier::{DecisionTreeClassifier, DecisionTree
 pub struct RandomForestClassifierParameters {  
     pub criterion: SplitCriterion,   
     pub max_depth: Option<u16>,
-    pub min_samples_leaf: u16,    
+    pub min_samples_leaf: usize,    
     pub min_samples_split: usize,          
     pub n_trees: u16,    
     pub mtry: Option<usize>
@@ -97,7 +97,7 @@ impl RandomForestClassifier {
         
     }  
     
-    fn sample_with_replacement(y: &Vec<usize>, num_classes: usize) -> Vec<u32>{
+    fn sample_with_replacement(y: &Vec<usize>, num_classes: usize) -> Vec<usize>{
         let mut rng = rand::thread_rng();
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();
