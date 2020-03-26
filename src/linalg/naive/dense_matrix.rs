@@ -137,6 +137,9 @@ impl<T: FloatExt + Debug> BaseMatrix<T> for DenseMatrix<T> {
     }     
 
     fn get(&self, row: usize, col: usize) -> T {
+        if row >= self.nrows || col >= self.ncols {
+            panic!("Invalid index ({},{}) for {}x{} matrix", row, col, self.nrows, self.ncols);
+        }
         self.values[col*self.nrows + row]
     }
 
