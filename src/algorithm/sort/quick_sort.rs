@@ -1,8 +1,10 @@
+use num_traits::Float;
+
 pub trait QuickArgSort {
     fn quick_argsort(&mut self) -> Vec<usize>;
 }
 
-impl QuickArgSort for Vec<f64> {
+impl<T: Float> QuickArgSort for Vec<T> {
     
     fn quick_argsort(&mut self) -> Vec<usize> {
         let stack_size = 64;

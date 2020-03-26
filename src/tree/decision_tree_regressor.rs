@@ -1,5 +1,8 @@
 use std::default::Default;
+use std::fmt::Debug;
 use std::collections::LinkedList;
+
+use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
 use crate::algorithm::sort::quick_sort::QuickArgSort;
 
@@ -11,19 +14,19 @@ pub struct DecisionTreeRegressorParameters {
 }
 
 #[derive(Debug)]
-pub struct DecisionTreeRegressor {    
-    nodes: Vec<Node>,    
+pub struct DecisionTreeRegressor<T: FloatExt> {    
+    nodes: Vec<Node<T>>,    
     parameters: DecisionTreeRegressorParameters,        
     depth: u16
 }
 
 #[derive(Debug)]
-pub struct Node {
+pub struct Node<T: FloatExt> {
     index:  usize,
-    output: f64,    
+    output: T,    
     split_feature: usize,
-    split_value: f64,
-    split_score: f64,
+    split_value: T,
+    split_score: T,
     true_child: Option<usize>,
     false_child: Option<usize>,    
 }
@@ -39,32 +42,32 @@ impl Default for DecisionTreeRegressorParameters {
      }
 }
 
-impl Node {
-    fn new(index: usize, output: f64) -> Self { 
+impl<T: FloatExt> Node<T> {
+    fn new(index: usize, output: T) -> Self { 
         Node {
             index:  index,
             output: output,
             split_feature: 0,
-            split_value: std::f64::NAN,
-            split_score: std::f64::NAN,
+            split_value: T::nan(),
+            split_score: T::nan(),
             true_child: Option::None,
             false_child: Option::None            
         }
      }
 }
 
-struct NodeVisitor<'a, M: Matrix> {
+struct NodeVisitor<'a, T: FloatExt + Debug, M: Matrix<T>> {
     x: &'a M,
     y: &'a M,
     node: usize,
     samples: Vec<usize>,
     order: &'a Vec<Vec<usize>>, 
-    true_child_output: f64,
-    false_child_output: f64,
+    true_child_output: T,
+    false_child_output: T,
     level: u16
 }
 
-impl<'a, M: Matrix> NodeVisitor<'a, M> {    
+impl<'a, T: FloatExt + Debug, M: Matrix<T>> NodeVisitor<'a, T, M> {    
 
     fn new(node_id: usize, samples: Vec<usize>, order: &'a Vec<Vec<usize>>, x: &'a M, y: &'a M, level: u16) -> Self {
         NodeVisitor {
@@ -73,23 +76,23 @@ impl<'a, M: Matrix> NodeVisitor<'a, M> {
             node: node_id,
             samples: samples,
             order: order,
-            true_child_output: 0.,
-            false_child_output: 0.,
+            true_child_output: T::zero(),
+            false_child_output: T::zero(),
             level: level
         }
     }
 
 }
 
-impl DecisionTreeRegressor {
+impl<T: FloatExt + Debug> DecisionTreeRegressor<T> {
 
-    pub fn fit<M: Matrix>(x: &M, y: &M::RowVector, parameters: DecisionTreeRegressorParameters) -> DecisionTreeRegressor {
+    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: DecisionTreeRegressorParameters) -> DecisionTreeRegressor<T> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
         DecisionTreeRegressor::fit_weak_learner(x, y, samples, num_attributes, parameters)
     }
 
-    pub fn fit_weak_learner<M: Matrix>(x: &M, y: &M::RowVector, samples: Vec<usize>, mtry: usize, parameters: DecisionTreeRegressorParameters) -> DecisionTreeRegressor {
+    pub fn fit_weak_learner<M: Matrix<T>>(x: &M, y: &M::RowVector, samples: Vec<usize>, mtry: usize, parameters: DecisionTreeRegressorParameters) -> DecisionTreeRegressor<T> {
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
         let (_, num_attributes) = x.shape();
@@ -99,16 +102,16 @@ impl DecisionTreeRegressor {
             panic!("Incorrect number of classes: {}. Should be >= 2.", k);
         }        
 
-        let mut nodes: Vec<Node> = Vec::new();                    
+        let mut nodes: Vec<Node<T>> = Vec::new();                    
         
         let mut n = 0;
-        let mut sum = 0f64;
+        let mut sum = T::zero();
         for i in 0..y_ncols {
             n += samples[i];
-            sum += samples[i] as f64 * y_m.get(i, 0);
+            sum = sum + T::from(samples[i]).unwrap() * y_m.get(i, 0);
         }
 
-        let root = Node::new(0, sum / n as f64);        
+        let root = Node::new(0, sum / T::from(n).unwrap());        
         nodes.push(root);
         let mut order: Vec<Vec<usize>> = Vec::new();
 
@@ -122,9 +125,9 @@ impl DecisionTreeRegressor {
             depth: 0        
         };
 
-        let mut visitor = NodeVisitor::<M>::new(0, samples, &order, &x, &y_m, 1);
+        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &y_m, 1);
 
-        let mut visitor_queue: LinkedList<NodeVisitor<M>> = LinkedList::new();
+        let mut visitor_queue: LinkedList<NodeVisitor<T, M>> = LinkedList::new();
 
         if tree.find_best_cutoff(&mut visitor, mtry) {
             visitor_queue.push_back(visitor);
@@ -140,7 +143,7 @@ impl DecisionTreeRegressor {
         tree
     }
 
-    pub fn predict<M: Matrix>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
         let mut result = M::zeros(1, x.shape().0);
 
         let (n, _) = x.shape();
@@ -152,8 +155,8 @@ impl DecisionTreeRegressor {
         result.to_row_vector()
     }
 
-    pub(in crate) fn predict_for_row<M: Matrix>(&self, x: &M, row: usize) -> f64 {
-        let mut result = 0f64;
+    pub(in crate) fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> T {
+        let mut result = T::zero();
         let mut queue: LinkedList<usize> = LinkedList::new();
 
         queue.push_back(0);
@@ -180,7 +183,7 @@ impl DecisionTreeRegressor {
         
     }   
     
-    fn find_best_cutoff<M: Matrix>(&mut self, visitor: &mut NodeVisitor<M>, mtry: usize) -> bool {
+    fn find_best_cutoff<M: Matrix<T>>(&mut self, visitor: &mut NodeVisitor<T, M>, mtry: usize) -> bool {
 
         let (_, n_attr) = visitor.x.shape();        
 
@@ -190,14 +193,14 @@ impl DecisionTreeRegressor {
             return false;
         }
 
-        let sum = self.nodes[visitor.node].output * n as f64;                
+        let sum = self.nodes[visitor.node].output * T::from(n).unwrap();                
                 
         let mut variables = vec![0; n_attr];
         for i in 0..n_attr {
             variables[i] = i;
         }
 
-        let parent_gain = n as f64 * self.nodes[visitor.node].output * self.nodes[visitor.node].output;
+        let parent_gain = T::from(n).unwrap() * self.nodes[visitor.node].output * self.nodes[visitor.node].output;
 
         for j in 0..mtry {
             self.find_best_split(visitor, n, sum, parent_gain, variables[j]);
@@ -207,18 +210,18 @@ impl DecisionTreeRegressor {
 
     }    
 
-    fn find_best_split<M: Matrix>(&mut self, visitor: &mut NodeVisitor<M>, n: usize, sum: f64, parent_gain: f64, j: usize){
+    fn find_best_split<M: Matrix<T>>(&mut self, visitor: &mut NodeVisitor<T, M>, n: usize, sum: T, parent_gain: T, j: usize){
 
-        let mut true_sum = 0f64;
+        let mut true_sum = T::zero();
         let mut true_count = 0;
-        let mut prevx = std::f64::NAN;  
+        let mut prevx = T::nan();  
         
         for i in visitor.order[j].iter() {
             if visitor.samples[*i] > 0 {
                 if prevx.is_nan() || visitor.x.get(*i, j) == prevx {
                     prevx = visitor.x.get(*i, j);
                     true_count += visitor.samples[*i];
-                    true_sum += visitor.samples[*i] as f64 * visitor.y.get(*i, 0);
+                    true_sum = true_sum + T::from(visitor.samples[*i]).unwrap() * visitor.y.get(*i, 0);
                     continue;
                 }
 
@@ -227,32 +230,32 @@ impl DecisionTreeRegressor {
                 if true_count < self.parameters.min_samples_leaf || false_count < self.parameters.min_samples_leaf {
                     prevx = visitor.x.get(*i, j);
                     true_count += visitor.samples[*i];
-                    true_sum += visitor.samples[*i] as f64 * visitor.y.get(*i, 0);
+                    true_sum = true_sum + T::from(visitor.samples[*i]).unwrap() * visitor.y.get(*i, 0);
                     continue;
                 }
 
-                let true_mean = true_sum / true_count as f64;
-                let false_mean = (sum - true_sum) / false_count as f64;                
+                let true_mean = true_sum / T::from(true_count).unwrap();
+                let false_mean = (sum - true_sum) / T::from(false_count).unwrap();                
 
-                let gain = (true_count as f64 * true_mean * true_mean + false_count as f64 * false_mean * false_mean) - parent_gain;
+                let gain = (T::from(true_count).unwrap() * true_mean * true_mean + T::from(false_count).unwrap() * false_mean * false_mean) - parent_gain;
                 
                 if self.nodes[visitor.node].split_score.is_nan() || gain > self.nodes[visitor.node].split_score {                    
                     self.nodes[visitor.node].split_feature = j;
-                    self.nodes[visitor.node].split_value = (visitor.x.get(*i, j) + prevx) / 2.;
+                    self.nodes[visitor.node].split_value = (visitor.x.get(*i, j) + prevx) / T::two();
                     self.nodes[visitor.node].split_score = gain;
                     visitor.true_child_output = true_mean;
                     visitor.false_child_output = false_mean;
                 }
 
                 prevx = visitor.x.get(*i, j);
-                true_sum += visitor.samples[*i] as f64 * visitor.y.get(*i, 0);                
+                true_sum = true_sum + T::from(visitor.samples[*i]).unwrap() * visitor.y.get(*i, 0);                
                 true_count += visitor.samples[*i];
             }
         }
 
     }
 
-    fn split<'a, M: Matrix>(&mut self, mut visitor: NodeVisitor<'a, M>, mtry: usize, visitor_queue: &mut LinkedList<NodeVisitor<'a, M>>) -> bool {
+    fn split<'a, M: Matrix<T>>(&mut self, mut visitor: NodeVisitor<'a, T, M>, mtry: usize, visitor_queue: &mut LinkedList<NodeVisitor<'a, T, M>>) -> bool {
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
         let mut fc = 0;        
@@ -272,8 +275,8 @@ impl DecisionTreeRegressor {
 
         if tc < self.parameters.min_samples_leaf || fc < self.parameters.min_samples_leaf {
             self.nodes[visitor.node].split_feature = 0;
-            self.nodes[visitor.node].split_value = std::f64::NAN;
-            self.nodes[visitor.node].split_score = std::f64::NAN;
+            self.nodes[visitor.node].split_value = T::nan();
+            self.nodes[visitor.node].split_score = T::nan();
             return false;
         }        
 
@@ -287,13 +290,13 @@ impl DecisionTreeRegressor {
         
         self.depth = u16::max(self.depth, visitor.level + 1);
 
-        let mut true_visitor = NodeVisitor::<M>::new(true_child_idx, true_samples, visitor.order, visitor.x, visitor.y, visitor.level + 1);            
+        let mut true_visitor = NodeVisitor::<T, M>::new(true_child_idx, true_samples, visitor.order, visitor.x, visitor.y, visitor.level + 1);            
             
         if self.find_best_cutoff(&mut true_visitor, mtry) {
             visitor_queue.push_back(true_visitor);
         }
 
-        let mut false_visitor = NodeVisitor::<M>::new(false_child_idx, visitor.samples, visitor.order, visitor.x, visitor.y, visitor.level + 1);
+        let mut false_visitor = NodeVisitor::<T, M>::new(false_child_idx, visitor.samples, visitor.order, visitor.x, visitor.y, visitor.level + 1);
             
         if self.find_best_cutoff(&mut false_visitor, mtry) {
             visitor_queue.push_back(false_visitor);
@@ -329,7 +332,7 @@ mod tests {
             &[ 502.601,  393.1,  251.4,  125.368, 1960.,   69.564],
             &[ 518.173,  480.6,  257.2,  127.852, 1961.,   69.331],
             &[ 554.894,  400.7,  282.7,  130.081, 1962.,   70.551]]);
-        let y = vec![83.0,  88.5,  88.2,  89.5,  96.2,  98.1,  99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];        
+        let y: Vec<f64> = vec![83.0,  88.5,  88.2,  89.5,  96.2,  98.1,  99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];        
 
         let y_hat = DecisionTreeRegressor::fit(&x, &y, Default::default()).predict(&x);              
 

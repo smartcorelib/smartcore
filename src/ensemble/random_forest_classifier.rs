@@ -1,7 +1,11 @@
 extern crate rand;
 
-use rand::Rng;
 use std::default::Default;
+use std::fmt::Debug;
+
+use rand::Rng;
+
+use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
 use crate::tree::decision_tree_classifier::{DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion, which_max};
 
@@ -16,10 +20,10 @@ pub struct RandomForestClassifierParameters {
 }
 
 #[derive(Debug)]
-pub struct RandomForestClassifier {    
+pub struct RandomForestClassifier<T: FloatExt> {    
     parameters: RandomForestClassifierParameters,
-    trees: Vec<DecisionTreeClassifier>,
-    classes: Vec<f64>
+    trees: Vec<DecisionTreeClassifier<T>>,
+    classes: Vec<T>
 }
 
 impl Default for RandomForestClassifierParameters {
@@ -35,9 +39,9 @@ impl Default for RandomForestClassifierParameters {
      }
 }
 
-impl RandomForestClassifier {
+impl<T: FloatExt + Debug> RandomForestClassifier<T> {
 
-    pub fn fit<M: Matrix>(x: &M, y: &M::RowVector, parameters: RandomForestClassifierParameters) -> RandomForestClassifier {        
+    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: RandomForestClassifierParameters) -> RandomForestClassifier<T> {        
         let (_, num_attributes) = x.shape();
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
@@ -49,14 +53,14 @@ impl RandomForestClassifier {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();            
         }
               
-        let mtry = parameters.mtry.unwrap_or((num_attributes as f64).sqrt().floor() as usize);        
+        let mtry = parameters.mtry.unwrap_or((T::from(num_attributes).unwrap()).sqrt().floor().to_usize().unwrap());        
 
         let classes = y_m.unique();        
         let k = classes.len(); 
-        let mut trees: Vec<DecisionTreeClassifier> = Vec::new();
+        let mut trees: Vec<DecisionTreeClassifier<T>> = Vec::new();
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForestClassifier::sample_with_replacement(&yi, k);
+            let samples = RandomForestClassifier::<T>::sample_with_replacement(&yi, k);
             let params = DecisionTreeClassifierParameters{
                 criterion: parameters.criterion.clone(),
                 max_depth: parameters.max_depth,
@@ -74,7 +78,7 @@ impl RandomForestClassifier {
         }
     }
 
-    pub fn predict<M: Matrix>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
         let mut result = M::zeros(1, x.shape().0);   
         
         let (n, _) = x.shape();
@@ -86,7 +90,7 @@ impl RandomForestClassifier {
         result.to_row_vector()
     }  
 
-    fn predict_for_row<M: Matrix>(&self, x: &M, row: usize) -> usize {
+    fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> usize {
         let mut result = vec![0; self.classes.len()];
         
         for tree in self.trees.iter() {
@@ -154,9 +158,16 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4]]);
         let y = vec![0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
 
-        RandomForestClassifier::fit(&x, &y, Default::default());
+        let classifier = RandomForestClassifier::fit(&x, &y, RandomForestClassifierParameters{
+            criterion: SplitCriterion::Gini,
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 1000,
+            mtry: Option::None
+        });
 
-        assert_eq!(y, RandomForestClassifier::fit(&x, &y, Default::default()).predict(&x));                    
+        assert_eq!(y, classifier.predict(&x));                    
             
     }
 

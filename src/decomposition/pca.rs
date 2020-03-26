@@ -1,12 +1,14 @@
+use std::fmt::Debug;
+use crate::math::num::FloatExt;
 use crate::linalg::{Matrix};
 
 #[derive(Debug)]
-pub struct PCA<M: Matrix> {    
+pub struct PCA<T: FloatExt + Debug, M: Matrix<T>> {    
     eigenvectors: M,
-    eigenvalues: Vec<f64>,
+    eigenvalues: Vec<T>,
     projection: M,
-    mu: Vec<f64>,
-    pmu: Vec<f64>
+    mu: Vec<T>,
+    pmu: Vec<T>
 }
 
 #[derive(Debug, Clone)]
@@ -22,9 +24,9 @@ impl Default for PCAParameters {
      }
 }
 
-impl<M: Matrix> PCA<M> {
+impl<T: FloatExt + Debug, M: Matrix<T>> PCA<T, M> {
 
-    pub fn new(data: &M, n_components: usize, parameters: PCAParameters) -> PCA<M> {
+    pub fn new(data: &M, n_components: usize, parameters: PCAParameters) -> PCA<T, M> {
 
         let (m, n) = data.shape();
 
@@ -46,7 +48,7 @@ impl<M: Matrix> PCA<M> {
             let svd = x.svd();
             eigenvalues = svd.s;
             for i in 0..eigenvalues.len() {
-                eigenvalues[i] *= eigenvalues[i];
+                eigenvalues[i] = eigenvalues[i] * eigenvalues[i];
             }
 
             eigenvectors = svd.V;
@@ -63,13 +65,13 @@ impl<M: Matrix> PCA<M> {
 
             for i in 0..n {
                 for j in 0..=i {
-                    cov.div_element_mut(i, j, m as f64); 
+                    cov.div_element_mut(i, j, T::from(m).unwrap()); 
                     cov.set(j, i, cov.get(i, j));
                 }
             }            
             
             if parameters.use_correlation_matrix {
-                let mut sd = vec![0f64; n];
+                let mut sd = vec![T::zero(); n];
                 for i in 0..n {
                     sd[i] = cov.get(i, i).sqrt();
                 }
@@ -110,10 +112,10 @@ impl<M: Matrix> PCA<M> {
             }
         }
 
-        let mut pmu = vec![0f64; n_components];
+        let mut pmu = vec![T::zero(); n_components];
         for k in 0..n {
             for i in 0..n_components {
-                pmu[i] += projection.get(i, k) * mu[k];
+                pmu[i] = pmu[i] + projection.get(i, k) * mu[k];
             }
         }
 
@@ -149,7 +151,7 @@ mod tests {
     use super::*; 
     use crate::linalg::naive::dense_matrix::*;
 
-    fn us_arrests_data() -> DenseMatrix {
+    fn us_arrests_data() -> DenseMatrix<f64> {
         DenseMatrix::from_array(&[
             &[13.2, 236.0, 58.0, 21.2],
             &[10.0, 263.0, 48.0, 44.5],

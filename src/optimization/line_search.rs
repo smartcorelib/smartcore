@@ -1,41 +1,44 @@
-use crate::math::EPSILON;
+use num_traits::Float;
 use crate::optimization::FunctionOrder;
 
-pub trait LineSearchMethod {
-    fn search<'a>(&self, f: &(dyn Fn(f64) -> f64), df: &(dyn Fn(f64) -> f64), alpha: f64, f0: f64, df0: f64) -> LineSearchResult;
+pub trait LineSearchMethod<T: Float> {
+    fn search<'a>(&self, f: &(dyn Fn(T) -> T), df: &(dyn Fn(T) -> T), alpha: T, f0: T, df0: T) -> LineSearchResult<T>;
 }
 
 #[derive(Debug, Clone)]
-pub struct LineSearchResult {
-    pub alpha: f64,
-    pub f_x: f64
+pub struct LineSearchResult<T: Float> {
+    pub alpha: T,
+    pub f_x: T
 }
 
-pub struct Backtracking {
-    pub c1: f64,
+pub struct Backtracking<T: Float> {
+    pub c1: T,
     pub max_iterations: usize,
     pub max_infinity_iterations: usize,
-    pub phi: f64,
-    pub plo: f64,
+    pub phi: T,
+    pub plo: T,
     pub order: FunctionOrder
 }
 
-impl Default for Backtracking {
+impl<T: Float> Default for Backtracking<T> {
     fn default() -> Self { 
         Backtracking {
-            c1: 1e-4,
+            c1: T::from(1e-4).unwrap(),
             max_iterations: 1000,
-            max_infinity_iterations: -EPSILON.log2() as usize,
-            phi: 0.5,
-            plo: 0.1,
+            max_infinity_iterations: (-T::epsilon().log2()).to_usize().unwrap(),
+            phi: T::from(0.5).unwrap(),
+            plo: T::from(0.1).unwrap(),
             order: FunctionOrder::SECOND
         }
      }
 }
 
-impl LineSearchMethod for Backtracking {
+impl<T: Float> LineSearchMethod<T> for Backtracking<T> {
     
-    fn search<'a>(&self, f: &(dyn Fn(f64) -> f64), _: &(dyn Fn(f64) -> f64), alpha: f64, f0: f64, df0: f64) -> LineSearchResult {        
+    fn search<'a>(&self, f: &(dyn Fn(T) -> T), _: &(dyn Fn(T) -> T), alpha: T, f0: T, df0: T) -> LineSearchResult<T> {  
+        
+        let two = T::from(2.).unwrap();
+        let three = T::from(3.).unwrap();
 
         let (mut a1, mut a2) = (alpha, alpha);
         let (mut fx0, mut fx1) = (f0, f(a1));             
@@ -44,7 +47,7 @@ impl LineSearchMethod for Backtracking {
         while !fx1.is_finite() && iterfinite < self.max_infinity_iterations {
             iterfinite += 1;
             a1 = a2;
-            a2 = a1 / 2.;
+            a2 = a1 / two;
 
             fx1 = f(a2);
         }
@@ -60,24 +63,24 @@ impl LineSearchMethod for Backtracking {
 
             if self.order == FunctionOrder::SECOND || iteration == 0 {
 
-                a_tmp = - (df0 * a2.powf(2.)) / (2. * (fx1 - f0 - df0*a2))
+                a_tmp = - (df0 * a2.powf(two)) / (two * (fx1 - f0 - df0*a2))
                 
             } else {
 
-                let div = 1. / (a1.powf(2.) * a2.powf(2.) * (a2 - a1));
-                let a = (a1.powf(2.) * (fx1 - f0 - df0*a2) - a2.powf(2.)*(fx0 - f0 - df0*a1))*div;
-                let b = (-a1.powf(3.) * (fx1 - f0 - df0*a2) + a2.powf(3.)*(fx0 - f0 - df0*a1))*div;                
+                let div = T::one() / (a1.powf(two) * a2.powf(two) * (a2 - a1));
+                let a = (a1.powf(two) * (fx1 - f0 - df0*a2) - a2.powf(two)*(fx0 - f0 - df0*a1))*div;
+                let b = (-a1.powf(three) * (fx1 - f0 - df0*a2) + a2.powf(three)*(fx0 - f0 - df0*a1))*div;                
 
-                if (a - 0.).powf(2.).sqrt() <= EPSILON {
-                    a_tmp = df0 / (2. * b);
+                if (a - T::zero()).powf(two).sqrt() <= T::epsilon() {
+                    a_tmp = df0 / (two * b);
                 } else {
-                    let d = f64::max(b.powf(2.) - 3. * a * df0, 0.);
-                    a_tmp = (-b + d.sqrt()) / (3.*a); //root of quadratic equation
+                    let d = T::max(b.powf(two) - three * a * df0, T::zero());
+                    a_tmp = (-b + d.sqrt()) / (three*a); //root of quadratic equation
                 }
             }
 
             a1 = a2;            
-            a2 = f64::max(f64::min(a_tmp, a2*self.phi), a2*self.plo);
+            a2 = T::max(T::min(a_tmp, a2*self.phi), a2*self.plo);
 
             fx0 = fx1;
             fx1 = f(a2);                      
@@ -108,7 +111,7 @@ mod tests {
                 2. * x + 1.
             };
 
-            let ls: Backtracking = Default::default();     
+            let ls: Backtracking<f64> = Default::default();     
 
             let mut x = -3.;
             let mut alpha = 1.;

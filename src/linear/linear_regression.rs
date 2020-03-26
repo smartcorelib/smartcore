@@ -1,5 +1,7 @@
-use crate::linalg::Matrix;
 use std::fmt::Debug;
+
+use crate::math::num::FloatExt;
+use crate::linalg::Matrix;
 
 #[derive(Debug)]
 pub enum LinearRegressionSolver {
@@ -8,15 +10,15 @@ pub enum LinearRegressionSolver {
 }
 
 #[derive(Debug)]
-pub struct LinearRegression<M: Matrix> {    
+pub struct LinearRegression<T: FloatExt + Debug, M: Matrix<T>> {    
     coefficients: M,
-    intercept: f64,
+    intercept: T,
     solver: LinearRegressionSolver
 }
 
-impl<M: Matrix> LinearRegression<M> {
+impl<T: FloatExt + Debug, M: Matrix<T>> LinearRegression<T, M> {
 
-    pub fn fit(x: &M, y: &M, solver: LinearRegressionSolver) -> LinearRegression<M>{
+    pub fn fit(x: &M, y: &M, solver: LinearRegressionSolver) -> LinearRegression<T, M>{
 
         let b = y.transpose();
         let (x_nrows, num_attributes) = x.shape();

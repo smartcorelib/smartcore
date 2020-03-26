@@ -1,19 +1,21 @@
 #![allow(non_snake_case)]
 
 use crate::linalg::BaseMatrix;
+use crate::math::num::FloatExt;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub struct SVD<M: SVDDecomposableMatrix> {
+pub struct SVD<T: FloatExt + Debug, M: SVDDecomposableMatrix<T>> {
     pub U: M,
     pub V: M,
-    pub s: Vec<f64>,
+    pub s: Vec<T>,
     full: bool,
     m: usize,
     n: usize,
-    tol: f64
+    tol: T
 }
 
-pub trait SVDDecomposableMatrix: BaseMatrix {
+pub trait SVDDecomposableMatrix<T: FloatExt + Debug>: BaseMatrix<T> {
 
     fn svd_solve_mut(self, b: Self) -> Self {
         self.svd_mut().solve(b)
@@ -23,50 +25,50 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
         self.svd().solve(b)        
     }
 
-    fn svd(&self) -> SVD<Self> {
+    fn svd(&self) -> SVD<T, Self> {
         self.clone().svd_mut()
     }
 
-    fn svd_mut(self) -> SVD<Self> {
+    fn svd_mut(self) -> SVD<T, Self> {
 
         let mut U = self;        
 
         let (m, n) = U.shape();        
         
         let (mut l, mut nm) = (0usize, 0usize);
-        let (mut anorm, mut g, mut scale) = (0f64, 0f64, 0f64);        
+        let (mut anorm, mut g, mut scale) = (T::zero(), T::zero(), T::zero());        
         
         let mut v = Self::zeros(n, n);
-        let mut w = vec![0f64; n];
-        let mut rv1 = vec![0f64; n];
+        let mut w = vec![T::zero(); n];
+        let mut rv1 = vec![T::zero(); n];
 
         for i in 0..n {
             l = i + 2;
             rv1[i] = scale * g;
-            g = 0f64;
-            let mut s = 0f64;
-            scale = 0f64;
+            g = T::zero();
+            let mut s = T::zero();
+            scale = T::zero();
 
             if i < m {
                 for k in i..m {
-                    scale += U.get(k, i).abs();
+                    scale = scale + U.get(k, i).abs();
                 }
 
-                if scale.abs() > std::f64::EPSILON {
+                if scale.abs() > T::epsilon() {
 
                     for k in i..m {
                         U.div_element_mut(k, i, scale);
-                        s += U.get(k, i) * U.get(k, i);
+                        s = s + U.get(k, i) * U.get(k, i);
                     }
 
                     let mut f = U.get(i, i);
-                    g = -s.sqrt().copysign(f);                    
+                    g = -s.sqrt().copysign(f);
                     let h = f * g - s;
                     U.set(i, i, f - g);
                     for j in l - 1..n {
-                        s = 0f64;
+                        s = T::zero();
                         for k in i..m {
-                            s += U.get(k, i) * U.get(k, j);
+                            s = s + U.get(k, i) * U.get(k, j);
                         }
                         f = s / h;
                         for k in i..m {
@@ -80,19 +82,19 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
             }
 
             w[i] = scale * g;
-            g = 0f64;
-            let mut s = 0f64;
-            scale = 0f64;
+            g = T::zero();
+            let mut s = T::zero();
+            scale = T::zero();
 
             if i + 1 <= m && i + 1 != n {
                 for k in l - 1..n {
-                    scale += U.get(i, k).abs();
+                    scale = scale + U.get(i, k).abs();
                 }
 
-                if scale.abs() > std::f64::EPSILON {
+                if scale.abs() > T::epsilon() {
                     for k in l - 1..n {
                         U.div_element_mut(i, k, scale);
-                        s += U.get(i, k) * U.get(i, k);
+                        s = s + U.get(i, k) * U.get(i, k);
                     }
 
                     let f = U.get(i, l - 1);
@@ -105,9 +107,9 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                     }
 
                     for j in l - 1..m {
-                        s = 0f64;
+                        s = T::zero();
                         for k in l - 1..n {
-                            s += U.get(j, k) * U.get(i, k);
+                            s = s + U.get(j, k) * U.get(i, k);
                         }
 
                         for k in l - 1..n {
@@ -122,19 +124,19 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
             }
 
             
-            anorm = f64::max(anorm, w[i].abs() + rv1[i].abs());
+            anorm = T::max(anorm, w[i].abs() + rv1[i].abs());
         }
 
         for i in (0..n).rev() {
             if i < n - 1 {
-                if g != 0.0 {
+                if g != T::zero() {
                     for j in l..n {
                         v.set(j, i, (U.get(i, j) / U.get(i, l)) / g);
                     }
                     for j in l..n {
-                        let mut s = 0f64;
+                        let mut s = T::zero();
                         for k in l..n {
-                            s += U.get(i, k) * v.get(k, j);
+                            s = s + U.get(i, k) * v.get(k, j);
                         }
                         for k in l..n {
                             v.add_element_mut(k, j, s * v.get(k, i));
@@ -142,11 +144,11 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                     }
                 }
                 for j in l..n {
-                    v.set(i, j, 0f64);
-                    v.set(j, i, 0f64);
+                    v.set(i, j, T::zero());
+                    v.set(j, i, T::zero());
                 }
             }
-            v.set(i, i, 1.0);
+            v.set(i, i, T::one());
             g = rv1[i];
             l = i;
         }
@@ -155,15 +157,15 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
             l = i + 1;
             g = w[i];
             for j in l..n {
-                U.set(i, j, 0f64);
+                U.set(i, j, T::zero());
             }
 
-            if g.abs() > std::f64::EPSILON {
-                g = 1f64 / g;
+            if g.abs() > T::epsilon() {
+                g = T::one() / g;
                 for j in l..n {
-                    let mut s = 0f64;
+                    let mut s = T::zero();
                     for k in l..m {
-                        s += U.get(k, i) * U.get(k, j);
+                        s = s + U.get(k, i) * U.get(k, j);
                     }
                     let f = (s / U.get(i, i)) * g;
                     for k in i..m {
@@ -175,11 +177,11 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                 }
             } else {
                 for j in i..m {
-                    U.set(j, i, 0f64);
+                    U.set(j, i, T::zero());
                 }
             }
 
-            U.add_element_mut(i, i, 1f64);
+            U.add_element_mut(i, i, T::one());
         }
 
         for k in (0..n).rev() {
@@ -187,30 +189,30 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                 let mut flag = true;                
                 l = k;
                 while l != 0 {                               
-                    if l == 0 || rv1[l].abs() <= std::f64::EPSILON * anorm {
+                    if l == 0 || rv1[l].abs() <= T::epsilon() * anorm {
                         flag = false;   
                         break;
                     }
                     nm = l - 1;
-                    if w[nm].abs() <= std::f64::EPSILON * anorm {
+                    if w[nm].abs() <= T::epsilon() * anorm {
                         break;
                     }
                     l -= 1;
                 }
 
                 if flag {
-                    let mut c = 0.0;
-                    let mut s = 1.0;
+                    let mut c = T::zero();
+                    let mut s = T::one();
                     for i in l..k+1 {
                         let f = s * rv1[i];
                         rv1[i] = c * rv1[i];
-                        if f.abs() <= std::f64::EPSILON * anorm {
+                        if f.abs() <= T::epsilon() * anorm {
                             break;
                         }
                         g = w[i];
                         let mut h = f.hypot(g);
                         w[i] = h;
-                        h = 1.0 / h;
+                        h = T::one() / h;
                         c = g * h;
                         s = -f * h;
                         for j in 0..m {
@@ -224,7 +226,7 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
 
                 let z = w[k];
                 if l == k {
-                    if z < 0f64 {
+                    if z < T::zero() {
                         w[k] = -z;
                         for j in 0..n {
                             v.set(j, k, -v.get(j, k));
@@ -242,11 +244,11 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                 let mut y = w[nm];
                 g = rv1[nm];
                 let mut h = rv1[k];
-                let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (2.0 * h * y);
-                g = f.hypot(1.0);
+                let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (T::two() * h * y);
+                g = f.hypot(T::one());
                 f = ((x - z) * (x + z) + h * ((y / (f + g.copysign(f))) - h)) / x;
-                let mut c = 1f64;
-                let mut s = 1f64;
+                let mut c = T::one();
+                let mut s = T::one();
 
                 for j in l..=nm {
                     let i = j + 1;
@@ -261,7 +263,7 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                     f = x * c + g * s;
                     g = g * c - x * s;
                     h = y * s;
-                    y *= c;
+                    y = y * c;
 
                     for jj in 0..n {
                         x = v.get(jj, j);
@@ -272,8 +274,8 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
 
                     z = f.hypot(h);
                     w[j] = z;
-                    if z.abs() > std::f64::EPSILON {
-                        z = 1.0 / z;
+                    if z.abs() > T::epsilon() {
+                        z = T::one() / z;
                         c = f * z;
                         s = h * z;
                     }
@@ -288,15 +290,15 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
                     }
                 }
 
-                rv1[l] = 0.0;
+                rv1[l] = T::zero();
                 rv1[k] = f;
                 w[k] = x;
             }
         }
         
         let mut inc = 1usize;        
-        let mut su = vec![0f64; m];
-        let mut sv = vec![0f64; n];
+        let mut su = vec![T::zero(); m];
+        let mut sv = vec![T::zero(); n];
         
         loop {
             inc *= 3;
@@ -347,12 +349,12 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
         for k in 0..n {
             let mut s = 0.;
             for i in 0..m {
-                if U.get(i, k) < 0. {
+                if U.get(i, k) < T::zero() {
                     s += 1.;
                 }
             }
             for j in 0..n {
-                if v.get(j, k) < 0. {
+                if v.get(j, k) < T::zero() {
                     s += 1.;
                 }
             }
@@ -371,12 +373,12 @@ pub trait SVDDecomposableMatrix: BaseMatrix {
     }
 }
 
-impl<M: SVDDecomposableMatrix> SVD<M> {
-    pub fn new(U: M, V: M, s: Vec<f64>) -> SVD<M> {
+impl<T: FloatExt + Debug, M: SVDDecomposableMatrix<T>> SVD<T, M> {
+    pub fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;     
         let full = s.len() == m.min(n);   
-        let tol = 0.5 * ((m + n) as f64 + 1.).sqrt() * s[0] * std::f64::EPSILON;
+        let tol = T::half() * (T::from(m + n).unwrap() + T::one()).sqrt() * s[0] * T::epsilon();
         SVD {
             U: U,
             V: V,
@@ -396,22 +398,22 @@ impl<M: SVDDecomposableMatrix> SVD<M> {
         }
 
         for k in 0..p {
-            let mut tmp = vec![0f64; self.n];
+            let mut tmp = vec![T::zero(); self.n];
             for j in 0..self.n {
-                let mut r = 0f64;
+                let mut r = T::zero();
                 if self.s[j] > self.tol {
                     for i in 0..self.m {
-                        r += self.U.get(i, j) * b.get(i, k);
+                        r = r + self.U.get(i, j) * b.get(i, k);
                     }
-                    r /= self.s[j];
+                    r = r / self.s[j];
                 }
                 tmp[j] = r;
             }
 
             for j in 0..self.n {
-                let mut r = 0.0;
+                let mut r = T::zero();
                 for jj in 0..self.n {
-                    r += self.V.get(j, jj) * tmp[jj];
+                    r = r + self.V.get(j, jj) * tmp[jj];
                 }
                 b.set(j, k, r);
             }
@@ -434,7 +436,7 @@ mod tests {
             &[0.4000, 0.5000, 0.3000],
             &[0.7000, 0.3000, 0.8000]]);
 
-        let s = vec![1.7498382, 0.3165784, 0.1335834];
+        let s: Vec<f64> = vec![1.7498382, 0.3165784, 0.1335834];
 
         let U = DenseMatrix::from_array(&[
             &[0.6881997, -0.07121225, 0.7220180],
@@ -471,7 +473,7 @@ mod tests {
             &[0.12641406, -0.8710055, -0.2712301, 0.2296515, 1.1781535, -0.2158704, -0.27529472]
         ]);
 
-        let s = vec![3.8589375, 3.4396766, 2.6487176, 2.2317399, 1.5165054, 0.8109055, 0.2706515];
+        let s: Vec<f64> = vec![3.8589375, 3.4396766, 2.6487176, 2.2317399, 1.5165054, 0.8109055, 0.2706515];
 
         let U = DenseMatrix::from_array(&[
             &[-0.3082776, 0.77676231, 0.01330514, 0.23231424, -0.47682758, 0.13927109, 0.02640713],

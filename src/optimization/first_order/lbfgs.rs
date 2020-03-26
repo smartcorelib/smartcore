@@ -1,41 +1,43 @@
 use std::default::Default;
+use std::fmt::Debug;
+
+use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
 use crate::optimization::{F, DF};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
-use std::fmt::Debug;
 
-pub struct LBFGS {
+pub struct LBFGS<T: FloatExt> {
     pub max_iter: usize,
-    pub g_rtol: f64,
-    pub g_atol: f64,
-    pub x_atol: f64,  
-    pub x_rtol: f64,
-    pub f_abstol: f64,
-    pub f_reltol: f64,
+    pub g_rtol: T,
+    pub g_atol: T,
+    pub x_atol: T,  
+    pub x_rtol: T,
+    pub f_abstol: T,
+    pub f_reltol: T,
     pub successive_f_tol: usize,
     pub m: usize
 }
 
-impl Default for LBFGS {
+impl<T: FloatExt> Default for LBFGS<T> {
     fn default() -> Self { 
         LBFGS {
             max_iter: 1000,
-            g_rtol: 1e-8,
-            g_atol: 1e-8,
-            x_atol: 0.,
-            x_rtol: 0.,
-            f_abstol: 0.,
-            f_reltol: 0.,
+            g_rtol: T::from(1e-8).unwrap(),
+            g_atol: T::from(1e-8).unwrap(),
+            x_atol: T::zero(),
+            x_rtol: T::zero(),
+            f_abstol: T::zero(),
+            f_reltol: T::zero(),
             successive_f_tol: 1,
             m: 10
         }
      }
 }
 
-impl LBFGS {
+impl<T: FloatExt + Debug> LBFGS<T> {
 
-    fn two_loops<X: Matrix>(&self, state: &mut LBFGSState<X>) {        
+    fn two_loops<X: Matrix<T>>(&self, state: &mut LBFGSState<T, X>) {        
 
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;        
@@ -54,7 +56,7 @@ impl LBFGS {
             let i = (upper - 1).rem_euclid(self.m);              
             let dxi = &state.dx_history[i];
             let dgi = &state.dg_history[i];
-            let scaling = dxi.vector_dot(dgi) / dgi.abs().pow_mut(2.).sum();                                            
+            let scaling = dxi.vector_dot(dgi) / dgi.abs().pow_mut(T::two()).sum();                                            
             state.s.copy_from(&state.twoloop_q.mul_scalar(scaling));
         } else {
             state.s.copy_from(&state.twoloop_q);
@@ -68,34 +70,34 @@ impl LBFGS {
             state.s.add_mut(&dxi.mul_scalar(state.twoloop_alpha[i] - beta));                             
         }               
 
-        state.s.mul_scalar_mut(-1.);           
+        state.s.mul_scalar_mut(-T::one());           
          
     }
 
-    fn init_state<X: Matrix>(&self, x: &X) -> LBFGSState<X> {
+    fn init_state<X: Matrix<T>>(&self, x: &X) -> LBFGSState<T, X> {
         LBFGSState {
             x: x.clone(),
             x_prev: x.clone(),
-            x_f: std::f64::NAN,
-            x_f_prev: std::f64::NAN,
+            x_f: T::nan(),
+            x_f_prev: T::nan(),
             x_df: x.clone(),            
             x_df_prev: x.clone(),
-            rho: vec![0.; self.m],
+            rho: vec![T::zero(); self.m],
             dx_history: vec![x.clone(); self.m],
             dg_history: vec![x.clone(); self.m],
             dx: x.clone(),
             dg: x.clone(),            
             
             twoloop_q: x.clone(),
-            twoloop_alpha: vec![0.; self.m],
+            twoloop_alpha: vec![T::zero(); self.m],
             iteration: 0,
             counter_f_tol: 0,
             s: x.clone(),
-            alpha: 1.0
+            alpha: T::one()
         }
     }
 
-    fn update_state<'a, X: Matrix, LS: LineSearchMethod>(&self, f: &'a F<X>, df: &'a DF<X>, ls: &'a LS, state: &mut LBFGSState<X>) {        
+    fn update_state<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(&self, f: &'a F<T, X>, df: &'a DF<X>, ls: &'a LS, state: &mut LBFGSState<T, X>) {        
         self.two_loops(state);        
 
         df(&mut state.x_df_prev, &state.x);
@@ -104,13 +106,13 @@ impl LBFGS {
 
         let df0 = state.x_df.vector_dot(&state.s);        
 
-        let f_alpha = |alpha: f64| -> f64 {
+        let f_alpha = |alpha: T| -> T {
             let mut dx = state.s.clone();
             dx.mul_scalar_mut(alpha);
             f(&dx.add_mut(&state.x)) // f(x) = f(x .+ gvec .* alpha)
         };
 
-        let df_alpha = |alpha: f64| -> f64 {                
+        let df_alpha = |alpha: T| -> T {                
             let mut dx = state.s.clone();
             let mut dg = state.x_df.clone();
             dx.mul_scalar_mut(alpha);
@@ -118,7 +120,7 @@ impl LBFGS {
             state.x_df.vector_dot(&dg)
         };                    
 
-        let ls_r = ls.search(&f_alpha, &df_alpha, 1.0, state.x_f_prev, df0);
+        let ls_r = ls.search(&f_alpha, &df_alpha, T::one(), state.x_f_prev, df0);
         state.alpha = ls_r.alpha;         
 
         state.dx.copy_from(state.s.mul_scalar_mut(state.alpha));
@@ -128,14 +130,14 @@ impl LBFGS {
 
     }
 
-    fn assess_convergence<X: Matrix>(&self, state: &mut LBFGSState<X>) -> bool {
+    fn assess_convergence<X: Matrix<T>>(&self, state: &mut LBFGSState<T, X>) -> bool {
         let (mut x_converged, mut g_converged) = (false, false);
 
         if state.x.max_diff(&state.x_prev) <= self.x_atol {
             x_converged = true;
         }
 
-        if state.x.max_diff(&state.x_prev) <= self.x_rtol * state.x.norm(std::f64::INFINITY) {
+        if state.x.max_diff(&state.x_prev) <= self.x_rtol * state.x.norm(T::infinity()) {
             x_converged = true;
         }            
 
@@ -147,16 +149,16 @@ impl LBFGS {
             state.counter_f_tol += 1;
         }
 
-        if state.x_df.norm(std::f64::INFINITY) <= self.g_atol {
+        if state.x_df.norm(T::infinity()) <= self.g_atol {
             g_converged = true;
         }             
 
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    fn update_hessian<'a, X: Matrix>(&self, _: &'a DF<X>, state: &mut LBFGSState<X>) {                      
+    fn update_hessian<'a, X: Matrix<T>>(&self, _: &'a DF<X>, state: &mut LBFGSState<T, X>) {                      
         state.dg = state.x_df.sub(&state.x_df_prev);            
-        let rho_iteration = 1. / state.dx.vector_dot(&state.dg);
+        let rho_iteration = T::one() / state.dx.vector_dot(&state.dg);
         if !rho_iteration.is_infinite() {
             let idx = state.iteration.rem_euclid(self.m);                                      
             state.dx_history[idx].copy_from(&state.dx);
@@ -167,35 +169,35 @@ impl LBFGS {
 }
 
 #[derive(Debug)]
-struct LBFGSState<X: Matrix> {
+struct LBFGSState<T: FloatExt + Debug, X: Matrix<T>> {
     x: X,
     x_prev: X,
-    x_f: f64,
-    x_f_prev: f64,
+    x_f: T,
+    x_f_prev: T,
     x_df: X,    
     x_df_prev: X,
-    rho: Vec<f64>,
+    rho: Vec<T>,
     dx_history: Vec<X>,
     dg_history: Vec<X>,
     dx: X,
     dg: X,        
     twoloop_q: X,
-    twoloop_alpha: Vec<f64>,
+    twoloop_alpha: Vec<T>,
     iteration: usize,
     counter_f_tol: usize,
     s: X,
-    alpha: f64
+    alpha: T
 }
 
-impl FirstOrderOptimizer for LBFGS {
+impl<T: FloatExt + Debug> FirstOrderOptimizer<T> for LBFGS<T> {
 
-    fn optimize<'a, X: Matrix, LS: LineSearchMethod>(&self, f: &F<X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<X> {     
+    fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(&self, f: &F<T, X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<T, X> {     
         
         let mut state = self.init_state(x0);
 
         df(&mut state.x_df, &x0);                 
 
-        let g_converged = state.x_df.norm(std::f64::INFINITY) < self.g_atol;
+        let g_converged = state.x_df.norm(T::infinity()) < self.g_atol;
         let mut converged = g_converged;
         let stopped = false;        
 
@@ -228,27 +230,26 @@ mod tests {
     use super::*; 
     use crate::linalg::naive::dense_matrix::*;
     use crate::optimization::line_search::Backtracking;
-    use crate::optimization::FunctionOrder;
-    use crate::math::EPSILON;
+    use crate::optimization::FunctionOrder;    
 
     #[test]
     fn lbfgs() { 
         let x0 = DenseMatrix::vector_from_array(&[0., 0.]);
-        let f = |x: &DenseMatrix| {                
+        let f = |x: &DenseMatrix<f64>| {                
             (1.0 - x.get(0, 0)).powf(2.) + 100.0 * (x.get(0, 1) - x.get(0, 0).powf(2.)).powf(2.)
         };
 
-        let df = |g: &mut DenseMatrix, x: &DenseMatrix| {                                         
+        let df = |g: &mut DenseMatrix<f64>, x: &DenseMatrix<f64>| {                                         
             g.set(0, 0, -2. * (1. - x.get(0, 0)) - 400. * (x.get(0, 1) - x.get(0, 0).powf(2.)) * x.get(0, 0));
             g.set(0, 1, 200. * (x.get(0, 1) - x.get(0, 0).powf(2.)));                
         };
-        let mut ls: Backtracking = Default::default();
+        let mut ls: Backtracking<f64> = Default::default();
         ls.order = FunctionOrder::THIRD;
-        let optimizer: LBFGS = Default::default();
+        let optimizer: LBFGS<f64> = Default::default();
         
         let result = optimizer.optimize(&f, &df, &x0, &ls);          
         
-        assert!((result.f_x - 0.0).abs() < EPSILON);        
+        assert!((result.f_x - 0.0).abs() < std::f64::EPSILON);        
         assert!((result.x.get(0, 0) - 1.0).abs() < 1e-8);
         assert!((result.x.get(0, 1) - 1.0).abs() < 1e-8);
         assert!(result.iterations <= 24);

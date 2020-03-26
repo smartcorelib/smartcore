@@ -3,19 +3,19 @@ use crate::algorithm::sort::heap_select::HeapSelect;
 use std::cmp::{Ordering, PartialOrd};
 use num_traits::Float;
 
-pub struct LinearKNNSearch<'a, T> {
-    distance: Box<dyn Fn(&T, &T) -> f64 + 'a>,
+pub struct LinearKNNSearch<'a, T, F: Float> {
+    distance: Box<dyn Fn(&T, &T) -> F + 'a>,
     data: Vec<T>
 }
 
-impl<'a, T> KNNAlgorithm<T> for LinearKNNSearch<'a, T>
+impl<'a, T, F: Float> KNNAlgorithm<T> for LinearKNNSearch<'a, T, F>
 {
     fn find(&self, from: &T, k: usize) -> Vec<usize> {
         if k < 1 || k > self.data.len() {
             panic!("k should be >= 1 and <= length(data)");
         }        
         
-        let mut heap = HeapSelect::<KNNPoint>::with_capacity(k); 
+        let mut heap = HeapSelect::<KNNPoint<F>>::with_capacity(k); 
 
         for _ in 0..k {
             heap.add(KNNPoint{
@@ -41,8 +41,8 @@ impl<'a, T> KNNAlgorithm<T> for LinearKNNSearch<'a, T>
     }
 }
 
-impl<'a, T> LinearKNNSearch<'a, T> {
-    pub fn new(data: Vec<T>, distance: &'a dyn Fn(&T, &T) -> f64) -> LinearKNNSearch<T>{
+impl<'a, T, F: Float> LinearKNNSearch<'a, T, F> {
+    pub fn new(data: Vec<T>, distance: &'a dyn Fn(&T, &T) -> F) -> LinearKNNSearch<T, F>{
         LinearKNNSearch{
             data: data,
             distance: Box::new(distance)
@@ -51,24 +51,24 @@ impl<'a, T> LinearKNNSearch<'a, T> {
 }
 
 #[derive(Debug)]
-struct KNNPoint {
-    distance: f64,
+struct KNNPoint<F: Float> {
+    distance: F,
     index: Option<usize>
 }
 
-impl PartialOrd for KNNPoint {
+impl<F: Float> PartialOrd for KNNPoint<F> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.distance.partial_cmp(&other.distance)
     }
 }
 
-impl PartialEq for KNNPoint {
+impl<F: Float> PartialEq for KNNPoint<F> {
     fn eq(&self, other: &Self) -> bool {
         self.distance == other.distance
     }
 }
 
-impl Eq for KNNPoint {}
+impl<F: Float> Eq for KNNPoint<F> {}
 
 #[cfg(test)]
 mod tests {    

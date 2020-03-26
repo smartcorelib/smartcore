@@ -1,29 +1,29 @@
-use crate::math;
-use crate::algorithm::neighbour::KNNAlgorithm;
-use crate::algorithm::sort::heap_select::HeapSelect;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::fmt::Debug;
-use std::cmp::{PartialOrd};
 use core::hash::{Hash, Hasher};
 
-pub struct CoverTree<'a, T> 
+use crate::math::num::FloatExt;
+use crate::algorithm::neighbour::KNNAlgorithm;
+use crate::algorithm::sort::heap_select::HeapSelect;
+
+pub struct CoverTree<'a, T, F: FloatExt> 
 where T: Debug
 {
-    base: f64,
+    base: F,
     max_level: i8,
     min_level: i8,
-    distance: &'a dyn Fn(&T, &T) -> f64,
+    distance: &'a dyn Fn(&T, &T) -> F,
     nodes: Vec<Node<T>>
 }
 
-impl<'a, T> CoverTree<'a, T> 
+impl<'a, T, F: FloatExt> CoverTree<'a, T, F> 
 where T: Debug
 {
 
-    pub fn new(mut data: Vec<T>, distance: &'a dyn Fn(&T, &T) -> f64) -> CoverTree<T> {
+    pub fn new(mut data: Vec<T>, distance: &'a dyn Fn(&T, &T) -> F) -> CoverTree<T, F> {
         let mut tree = CoverTree {
-            base: 2f64,
+            base: F::two(),
             max_level: 100,
             min_level: 100,
             distance: distance,
@@ -46,15 +46,15 @@ where T: Debug
             let mut qi_p_ds = vec!((self.root(), (self.distance)(&p, &self.root().data)));
             let mut i = self.max_level;
             loop {                
-                let i_d = self.base.powf(i as f64);
+                let i_d = self.base.powf(F::from(i).unwrap());
                 let q_p_ds = self.get_children_dist(&p, &qi_p_ds, i);
                 let d_p_q = self.min_by_distance(&q_p_ds);                
-                if d_p_q < math::EPSILON {
+                if d_p_q < F::epsilon() {
                     return
                 } else if d_p_q > i_d {
                     break;
                 }                      
-                if self.min_by_distance(&qi_p_ds) <= self.base.powf(i as f64){
+                if self.min_by_distance(&qi_p_ds) <= self.base.powf(F::from(i).unwrap()){
                     parent = q_p_ds.iter().find(|(_, d)| d <= &i_d).map(|(n, _)| n.index);
                     p_i = i;
                 }
@@ -82,7 +82,7 @@ where T: Debug
         node_id
     }   
 
-    fn split(&self, p_id: NodeId, r: f64, s1: &mut Vec<T>, s2: Option<&mut Vec<T>>) -> (Vec<T>, Vec<T>){
+    fn split(&self, p_id: NodeId, r: F, s1: &mut Vec<T>, s2: Option<&mut Vec<T>>) -> (Vec<T>, Vec<T>){
         
         let mut my_near = (Vec::new(), Vec::new()); 
 
@@ -96,7 +96,7 @@ where T: Debug
 
     }
 
-    fn split_remove_s(&self, p_id: NodeId, r: f64, s: &mut Vec<T>, mut my_near: (Vec<T>, Vec<T>)) -> (Vec<T>, Vec<T>){
+    fn split_remove_s(&self, p_id: NodeId, r: F, s: &mut Vec<T>, mut my_near: (Vec<T>, Vec<T>)) -> (Vec<T>, Vec<T>){
 
         if s.len() > 0 {
             let p = &self.nodes.get(p_id.index).unwrap().data;
@@ -105,7 +105,7 @@ where T: Debug
                 let d = (self.distance)(p, &s[i]);
                 if d <= r {
                     my_near.0.push(s.remove(i));
-                } else if d > r && d <= 2f64 * r{
+                } else if d > r && d <= F::two() * r{
                     my_near.1.push(s.remove(i));                
                 } else {
                     i += 1;
@@ -122,15 +122,15 @@ where T: Debug
             self.min_level = std::cmp::min(self.min_level, i);            
             return (p, far); 
         } else {
-            let (my, n) = self.split(p, self.base.powf((i-1) as f64), &mut near, None);
+            let (my, n) = self.split(p, self.base.powf(F::from(i-1).unwrap()), &mut near, None);
             let (pi, mut near) = self.construct(p, my, n, i-1);
             while near.len() > 0 {
                 let q_data = near.remove(0);      
                 let nn = self.new_node(Some(p), q_data);                          
-                let (my, n) = self.split(nn, self.base.powf((i-1) as f64), &mut near, Some(&mut far));                
+                let (my, n) = self.split(nn, self.base.powf(F::from(i-1).unwrap()), &mut near, Some(&mut far));                
                 let (child, mut unused) = self.construct(nn, my, n, i-1);                
                 self.add_child(pi, child, i);
-                let new_near_far = self.split(p, self.base.powf(i as f64), &mut unused, None);
+                let new_near_far = self.split(p, self.base.powf(F::from(i).unwrap()), &mut unused, None);
                 near.extend(new_near_far.0);
                 far.extend(new_near_far.1);
             }
@@ -148,9 +148,9 @@ where T: Debug
         self.nodes.first().unwrap()
     }
 
-    fn get_children_dist<'b>(&'b self, p: &T, qi_p_ds: &Vec<(&'b Node<T>, f64)>, i: i8) -> Vec<(&'b Node<T>, f64)> {
+    fn get_children_dist<'b>(&'b self, p: &T, qi_p_ds: &Vec<(&'b Node<T>, F)>, i: i8) -> Vec<(&'b Node<T>, F)> {
 
-        let mut children = Vec::<(&'b Node<T>, f64)>::new();
+        let mut children = Vec::<(&'b Node<T>, F)>::new();
 
         children.extend(qi_p_ds.iter().cloned());
 
@@ -162,7 +162,7 @@ where T: Debug
         
     }
 
-    fn min_k_by_distance(&self, q_p_ds: &mut Vec<(&Node<T>, f64)>, k: usize) -> f64 {
+    fn min_k_by_distance(&self, q_p_ds: &mut Vec<(&Node<T>, F)>, k: usize) -> F {
         let mut heap = HeapSelect::with_capacity(k);
         for (_, d) in q_p_ds {
             heap.add(d);
@@ -171,7 +171,7 @@ where T: Debug
         *heap.get().pop().unwrap()
     }
 
-    fn min_by_distance(&self, q_p_ds: &Vec<(&Node<T>, f64)>) -> f64 {
+    fn min_by_distance(&self, q_p_ds: &Vec<(&Node<T>, F)>) -> F {
         q_p_ds.into_iter().min_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap()).unwrap().1        
     }
 
@@ -180,7 +180,7 @@ where T: Debug
     }    
 
     #[allow(dead_code)]
-    fn check_invariant(&self, invariant: fn(&CoverTree<T>, &Vec<&Node<T>>, &Vec<&Node<T>>, i8) -> ()) {
+    fn check_invariant(&self, invariant: fn(&CoverTree<T, F>, &Vec<&Node<T>>, &Vec<&Node<T>>, i8) -> ()) {
         let mut current_nodes: Vec<&Node<T>> = Vec::new();
         current_nodes.push(self.root());
         for i in (self.min_level..self.max_level+1).rev() {
@@ -193,7 +193,7 @@ where T: Debug
     }
 
     #[allow(dead_code)]
-    fn nesting_invariant(_: &CoverTree<T>, nodes: &Vec<&Node<T>>, next_nodes: &Vec<&Node<T>>, _: i8) {   
+    fn nesting_invariant(_: &CoverTree<T, F>, nodes: &Vec<&Node<T>>, next_nodes: &Vec<&Node<T>>, _: i8) {   
         let nodes_set: HashSet<&Node<T>> = HashSet::from_iter(nodes.into_iter().map(|n| *n));
         let next_nodes_set: HashSet<&Node<T>> = HashSet::from_iter(next_nodes.into_iter().map(|n| *n));        
         for n in nodes_set.iter() {
@@ -202,11 +202,11 @@ where T: Debug
     }
 
     #[allow(dead_code)]
-    fn covering_tree(tree: &CoverTree<T>, nodes: &Vec<&Node<T>>, next_nodes: &Vec<&Node<T>>, i: i8) {        
+    fn covering_tree(tree: &CoverTree<T, F>, nodes: &Vec<&Node<T>>, next_nodes: &Vec<&Node<T>>, i: i8) {        
         let mut p_selected: Vec<&Node<T>> = Vec::new();
         for p in next_nodes {
             for q in nodes {
-                if (tree.distance)(&p.data, &q.data) <= tree.base.powf(i as f64) {
+                if (tree.distance)(&p.data, &q.data) <= tree.base.powf(F::from(i).unwrap()) {
                     p_selected.push(*p);
                 }
             }                        
@@ -216,11 +216,11 @@ where T: Debug
     }
 
     #[allow(dead_code)]
-    fn separation(tree: &CoverTree<T>, nodes: &Vec<&Node<T>>, _: &Vec<&Node<T>>, i: i8) {   
+    fn separation(tree: &CoverTree<T, F>, nodes: &Vec<&Node<T>>, _: &Vec<&Node<T>>, i: i8) {   
         for p in nodes {
             for q in nodes {
                 if p != q {
-                    assert!((tree.distance)(&p.data, &q.data) > tree.base.powf(i as f64));
+                    assert!((tree.distance)(&p.data, &q.data) > tree.base.powf(F::from(i).unwrap()));
                 } 
             }                                    
         }        
@@ -228,13 +228,13 @@ where T: Debug
 
 }
 
-impl<'a, T> KNNAlgorithm<T> for CoverTree<'a, T>
+impl<'a, T, F: FloatExt> KNNAlgorithm<T> for CoverTree<'a, T, F>
 where T: Debug
 {
     fn find(&self, p: &T, k: usize) -> Vec<usize>{
         let mut qi_p_ds = vec!((self.root(), (self.distance)(&p, &self.root().data)));
         for i in (self.min_level..self.max_level+1).rev() {
-            let i_d = self.base.powf(i as f64);
+            let i_d = self.base.powf(F::from(i).unwrap());
             let mut q_p_ds = self.get_children_dist(&p, &qi_p_ds, i);
             let d_p_q = self.min_k_by_distance(&mut q_p_ds, k);            
             qi_p_ds = q_p_ds.into_iter().filter(|(_, d)| d <= &(d_p_q + i_d)).collect();
@@ -286,7 +286,7 @@ mod tests {
         let distance = |a: &i32, b: &i32| -> f64 {
             (a - b).abs() as f64
         };                   
-        let mut tree = CoverTree::<i32>::new(data, &distance);
+        let mut tree = CoverTree::<i32, f64>::new(data, &distance);
         for d in vec!(10, 11, 12, 13, 14, 15, 16, 17, 18, 19) {
             tree.insert(d);
         } 
@@ -309,7 +309,7 @@ mod tests {
         let distance = |a: &i32, b: &i32| -> f64 {
             (a - b).abs() as f64
         };            
-        let tree = CoverTree::<i32>::new(data, &distance);
+        let tree = CoverTree::<i32, f64>::new(data, &distance);
         tree.check_invariant(CoverTree::nesting_invariant);
         tree.check_invariant(CoverTree::covering_tree);
         tree.check_invariant(CoverTree::separation);

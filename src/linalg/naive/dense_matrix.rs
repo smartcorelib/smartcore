@@ -1,36 +1,37 @@
 extern crate num;
 use std::ops::Range;
 use std::fmt;
+use std::fmt::Debug;
+
 use crate::linalg::Matrix;
 pub use crate::linalg::BaseMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
-use crate::math;
-use rand::prelude::*;
+use crate::math::num::FloatExt;
 
 #[derive(Debug, Clone)]
-pub struct DenseMatrix {
+pub struct DenseMatrix<T: FloatExt + Debug> {
 
     ncols: usize,
     nrows: usize,
-    values: Vec<f64> 
+    values: Vec<T> 
 
 }
 
-impl fmt::Display for DenseMatrix {
+impl<T: FloatExt + Debug> fmt::Display for DenseMatrix<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
         for r in 0..self.nrows {
-            rows.push(self.get_row_as_vec(r).iter().map(|x| (x * 1e4).round() / 1e4 ).collect());
+            rows.push(self.get_row_as_vec(r).iter().map(|x| (x.to_f64().unwrap() * 1e4).round() / 1e4 ).collect());
         }        
         write!(f, "{:?}", rows)
     }
 }
 
-impl DenseMatrix {  
+impl<T: FloatExt + Debug> DenseMatrix<T> {  
     
-    fn new(nrows: usize, ncols: usize, values: Vec<f64>) -> DenseMatrix {
+    fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
         DenseMatrix {
             ncols: ncols,
             nrows: nrows,
@@ -38,17 +39,17 @@ impl DenseMatrix {
         }
     } 
 
-    pub fn from_array(values: &[&[f64]]) -> DenseMatrix {
+    pub fn from_array(values: &[&[T]]) -> Self {
         DenseMatrix::from_vec(&values.into_iter().map(|row| Vec::from(*row)).collect())
     }
 
-    pub fn from_vec(values: &Vec<Vec<f64>>) -> DenseMatrix {
+    pub fn from_vec(values: &Vec<Vec<T>>) -> DenseMatrix<T> {
         let nrows = values.len();
         let ncols = values.first().unwrap_or_else(|| panic!("Cannot create 2d matrix from an empty vector")).len();
         let mut m = DenseMatrix {
             ncols: ncols,
             nrows: nrows,
-            values: vec![0f64; ncols*nrows]
+            values: vec![T::zero(); ncols*nrows]
         };
         for row in 0..nrows {
             for col in 0..ncols {
@@ -58,11 +59,11 @@ impl DenseMatrix {
         m
     }      
 
-    pub fn vector_from_array(values: &[f64]) -> DenseMatrix {
+    pub fn vector_from_array(values: &[T]) -> Self {
         DenseMatrix::vector_from_vec(Vec::from(values)) 
      }
 
-    pub fn vector_from_vec(values: Vec<f64>) -> DenseMatrix {
+    pub fn vector_from_vec(values: Vec<T>) -> Self {
         DenseMatrix {
             ncols: values.len(),
             nrows: 1,
@@ -70,31 +71,31 @@ impl DenseMatrix {
         }
     }
 
-    pub fn div_mut(&mut self, b: DenseMatrix) -> () {
+    pub fn div_mut(&mut self, b: Self) -> () {
         if self.nrows != b.nrows || self.ncols != b.ncols {
             panic!("Can't divide matrices of different sizes.");
         }
 
         for i in 0..self.values.len() {
-            self.values[i] /= b.values[i];
+            self.values[i] = self.values[i] / b.values[i];
         }
     }    
 
-    pub fn get_raw_values(&self) -> &Vec<f64> {
+    pub fn get_raw_values(&self) -> &Vec<T> {
         &self.values
     }                  
     
 }
 
-impl SVDDecomposableMatrix for DenseMatrix {}
+impl<T: FloatExt + Debug> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl EVDDecomposableMatrix for DenseMatrix {}
+impl<T: FloatExt + Debug> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl QRDecomposableMatrix for DenseMatrix {}
+impl<T: FloatExt + Debug> QRDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl Matrix for DenseMatrix {}
+impl<T: FloatExt + Debug> Matrix<T> for DenseMatrix<T> {}
 
-impl PartialEq for DenseMatrix {
+impl<T: FloatExt + Debug> PartialEq for DenseMatrix<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             return false
@@ -108,7 +109,7 @@ impl PartialEq for DenseMatrix {
         }
 
         for i in 0..len {
-            if (self.values[i] - other.values[i]).abs() > math::EPSILON {
+            if (self.values[i] - other.values[i]).abs() > T::epsilon() {
                 return false;
             }
         }
@@ -117,15 +118,15 @@ impl PartialEq for DenseMatrix {
     }
 }
 
-impl Into<Vec<f64>> for DenseMatrix {
-    fn into(self) -> Vec<f64> {
+impl<T: FloatExt + Debug> Into<Vec<T>> for DenseMatrix<T> {
+    fn into(self) -> Vec<T> {
         self.values
     }
 }
 
-impl BaseMatrix for DenseMatrix {   
+impl<T: FloatExt + Debug> BaseMatrix<T> for DenseMatrix<T> {   
     
-    type RowVector = Vec<f64>;
+    type RowVector = Vec<T>;
 
     fn from_row_vector(vec: Self::RowVector) -> Self{
         DenseMatrix::new(1, vec.len(), vec)
@@ -135,50 +136,50 @@ impl BaseMatrix for DenseMatrix {
         self.to_raw_vector()
     }     
 
-    fn get(&self, row: usize, col: usize) -> f64 {
+    fn get(&self, row: usize, col: usize) -> T {
         self.values[col*self.nrows + row]
     }
 
-    fn get_row_as_vec(&self, row: usize) -> Vec<f64>{
-        let mut result = vec![0f64; self.ncols];
+    fn get_row_as_vec(&self, row: usize) -> Vec<T>{
+        let mut result = vec![T::zero(); self.ncols];
         for c in 0..self.ncols {
             result[c] = self.get(row, c);
         }
         result
     }
 
-    fn get_col_as_vec(&self, col: usize) -> Vec<f64>{
-        let mut result = vec![0f64; self.nrows];
+    fn get_col_as_vec(&self, col: usize) -> Vec<T>{
+        let mut result = vec![T::zero(); self.nrows];
         for r in 0..self.nrows {
             result[r] = self.get(r, col);
         }        
         result
     }
 
-    fn set(&mut self, row: usize, col: usize, x: f64) {
+    fn set(&mut self, row: usize, col: usize, x: T) {
         self.values[col*self.nrows + row] = x;        
     }
 
-    fn zeros(nrows: usize, ncols: usize) -> DenseMatrix {
-        DenseMatrix::fill(nrows, ncols, 0f64)
+    fn zeros(nrows: usize, ncols: usize) -> Self {
+        DenseMatrix::fill(nrows, ncols, T::zero())
     }
 
-    fn ones(nrows: usize, ncols: usize) -> DenseMatrix {
-        DenseMatrix::fill(nrows, ncols, 1f64)
+    fn ones(nrows: usize, ncols: usize) -> Self {
+        DenseMatrix::fill(nrows, ncols, T::one())
     }    
 
     fn eye(size: usize) -> Self {
         let mut matrix = Self::zeros(size, size);
 
         for i in 0..size {
-            matrix.set(i, i, 1.0);
+            matrix.set(i, i, T::one());
         }
 
         return matrix;
     }
 
-    fn to_raw_vector(&self) -> Vec<f64>{
-        let mut v = vec![0.; self.nrows * self.ncols];
+    fn to_raw_vector(&self) -> Vec<T>{
+        let mut v = vec![T::zero(); self.nrows * self.ncols];
 
         for r in 0..self.nrows{
             for c in 0..self.ncols {
@@ -197,7 +198,7 @@ impl BaseMatrix for DenseMatrix {
         if self.ncols != other.ncols {
             panic!("Number of columns in both matrices should be equal");
         }
-        let mut result = DenseMatrix::zeros(self.nrows + other.nrows, self.ncols);
+        let mut result = Self::zeros(self.nrows + other.nrows, self.ncols);
         for c in 0..self.ncols {
             for r in 0..self.nrows+other.nrows {                 
                 if r <  self.nrows {              
@@ -214,7 +215,7 @@ impl BaseMatrix for DenseMatrix {
         if self.nrows != other.nrows {
             panic!("Number of rows in both matrices should be equal");
         }
-        let mut result = DenseMatrix::zeros(self.nrows, self.ncols + other.ncols);
+        let mut result = Self::zeros(self.nrows, self.ncols + other.ncols);
         for r in 0..self.nrows {
             for c in 0..self.ncols+other.ncols {                             
                 if c <  self.ncols {              
@@ -233,13 +234,13 @@ impl BaseMatrix for DenseMatrix {
             panic!("Number of rows of A should equal number of columns of B");
         }
         let inner_d = self.ncols;
-        let mut result = DenseMatrix::zeros(self.nrows, other.ncols);
+        let mut result = Self::zeros(self.nrows, other.ncols);
 
         for r in 0..self.nrows {
             for c in 0..other.ncols {
-                let mut s = 0f64;
+                let mut s = T::zero();
                 for i in 0..inner_d {
-                    s += self.get(r, i) * other.get(i, c);
+                    s = s + self.get(r, i) * other.get(i, c);
                 }
                 result.set(r, c, s);
             }
@@ -248,7 +249,7 @@ impl BaseMatrix for DenseMatrix {
         result
     }    
 
-    fn vector_dot(&self, other: &Self) -> f64 {
+    fn vector_dot(&self, other: &Self) -> T {
         if (self.nrows != 1 || self.nrows != 1) && (other.nrows != 1 || other.ncols != 1) {
             panic!("A and B should both be 1-dimentional vectors.");
         }
@@ -256,20 +257,20 @@ impl BaseMatrix for DenseMatrix {
             panic!("A and B should have the same size");
         }        
 
-        let mut result = 0f64;
+        let mut result = T::zero();
         for i in 0..(self.nrows * self.ncols) {
-            result += self.values[i] * other.values[i];            
+            result = result + self.values[i] * other.values[i];            
         }
 
         result
     }  
 
-    fn slice(&self, rows: Range<usize>, cols: Range<usize>) -> DenseMatrix {
+    fn slice(&self, rows: Range<usize>, cols: Range<usize>) -> Self {
 
         let ncols = cols.len();
         let nrows = rows.len();
 
-        let mut m = DenseMatrix::new(nrows, ncols, vec![0f64; nrows * ncols]);
+        let mut m = DenseMatrix::new(nrows, ncols, vec![T::zero(); nrows * ncols]);
 
         for r in rows.start..rows.end {
             for c in cols.start..cols.end {
@@ -280,7 +281,7 @@ impl BaseMatrix for DenseMatrix {
         m
     }            
 
-    fn approximate_eq(&self, other: &Self, error: f64) -> bool {
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             return false
         }
@@ -296,7 +297,7 @@ impl BaseMatrix for DenseMatrix {
         true
     }
 
-    fn fill(nrows: usize, ncols: usize, value: f64) -> Self {
+    fn fill(nrows: usize, ncols: usize, value: T) -> Self {
         DenseMatrix::new(nrows, ncols, vec![value; ncols * nrows])
     }
 
@@ -352,27 +353,27 @@ impl BaseMatrix for DenseMatrix {
         self
     }
 
-    fn div_element_mut(&mut self, row: usize, col: usize, x: f64) {
-        self.values[col*self.nrows + row] /= x;
+    fn div_element_mut(&mut self, row: usize, col: usize, x: T) {
+        self.values[col*self.nrows + row] = self.values[col*self.nrows + row] / x;
     }
 
-    fn mul_element_mut(&mut self, row: usize, col: usize, x: f64) {
-        self.values[col*self.nrows + row] *= x;
+    fn mul_element_mut(&mut self, row: usize, col: usize, x: T) {
+        self.values[col*self.nrows + row] = self.values[col*self.nrows + row] * x;
     }
 
-    fn add_element_mut(&mut self, row: usize, col: usize, x: f64) {
-        self.values[col*self.nrows + row] += x
+    fn add_element_mut(&mut self, row: usize, col: usize, x: T) {
+        self.values[col*self.nrows + row] = self.values[col*self.nrows + row] + x
     }
 
-    fn sub_element_mut(&mut self, row: usize, col: usize, x: f64) {
-        self.values[col*self.nrows + row] -= x;
+    fn sub_element_mut(&mut self, row: usize, col: usize, x: T) {
+        self.values[col*self.nrows + row] = self.values[col*self.nrows + row] - x;
     }    
 
     fn transpose(&self) -> Self {
         let mut m = DenseMatrix {
             ncols: self.nrows,
             nrows: self.ncols,
-            values: vec![0f64; self.ncols * self.nrows]
+            values: vec![T::zero(); self.ncols * self.nrows]
         };
         for c in 0..self.ncols {
             for r in 0..self.nrows {
@@ -383,10 +384,9 @@ impl BaseMatrix for DenseMatrix {
 
     }
 
-    fn rand(nrows: usize, ncols: usize) -> Self {
-        let mut rng = rand::thread_rng();
-        let values: Vec<f64> = (0..nrows*ncols).map(|_| {
-            rng.gen()
+    fn rand(nrows: usize, ncols: usize) -> Self {        
+        let values: Vec<T> = (0..nrows*ncols).map(|_| {
+            T::rand()
         }).collect();
         DenseMatrix {
             ncols: ncols,
@@ -395,74 +395,74 @@ impl BaseMatrix for DenseMatrix {
         }
     }    
 
-    fn norm2(&self) -> f64 {
-        let mut norm = 0f64;
+    fn norm2(&self) -> T {
+        let mut norm = T::zero();
 
         for xi in self.values.iter() {
-            norm += xi * xi;
+            norm = norm + *xi * *xi;
         }
 
         norm.sqrt()
     }
 
-    fn norm(&self, p:f64) -> f64 {
+    fn norm(&self, p:T) -> T {
 
         if p.is_infinite() && p.is_sign_positive() {
-            self.values.iter().map(|x| x.abs()).fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+            self.values.iter().map(|x| x.abs()).fold(T::neg_infinity(), |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
-            self.values.iter().map(|x| x.abs()).fold(std::f64::INFINITY, |a, b| a.min(b))
+            self.values.iter().map(|x| x.abs()).fold(T::infinity(), |a, b| a.min(b))
         } else {
 
-            let mut norm = 0f64;
+            let mut norm = T::zero();
 
             for xi in self.values.iter() {
-                norm += xi.abs().powf(p);
+                norm = norm + xi.abs().powf(p);
             }
 
-            norm.powf(1.0/p)
+            norm.powf(T::one()/p)
         }
     }
 
-    fn column_mean(&self) -> Vec<f64> {
-        let mut mean = vec![0f64; self.ncols];
+    fn column_mean(&self) -> Vec<T> {
+        let mut mean = vec![T::zero(); self.ncols];
 
         for r in 0..self.nrows {
             for c in 0..self.ncols {
-                mean[c] += self.get(r, c);
+                mean[c] = mean[c] + self.get(r, c);
             }
         }
 
         for i in 0..mean.len() {
-            mean[i] /= self.nrows as f64;
+            mean[i] = mean[i] / T::from(self.nrows).unwrap();
         }
 
         mean
     }
 
-    fn add_scalar_mut(&mut self, scalar: f64) -> &Self {
+    fn add_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] += scalar;
+            self.values[i] = self.values[i] + scalar;
         }
         self
     }
 
-    fn sub_scalar_mut(&mut self, scalar: f64) -> &Self {
+    fn sub_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] -= scalar;
+            self.values[i] = self.values[i] - scalar;
         }
         self
     }
 
-    fn mul_scalar_mut(&mut self, scalar: f64) -> &Self {
+    fn mul_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] *= scalar;
+            self.values[i] = self.values[i] * scalar;
         }
         self
     }
 
-    fn div_scalar_mut(&mut self, scalar: f64) -> &Self {
+    fn div_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] /= scalar;
+            self.values[i] = self.values[i] / scalar;
         }
         self
     }
@@ -512,8 +512,8 @@ impl BaseMatrix for DenseMatrix {
         self
     }
 
-    fn max_diff(&self, other: &Self) -> f64{
-        let mut max_diff = 0f64;
+    fn max_diff(&self, other: &Self) -> T{
+        let mut max_diff = T::zero();
         for i in 0..self.values.len() {
             max_diff = max_diff.max((self.values[i] - other.values[i]).abs());
         }
@@ -521,22 +521,22 @@ impl BaseMatrix for DenseMatrix {
 
     }
 
-    fn sum(&self) -> f64 {
-        let mut sum = 0.;
+    fn sum(&self) -> T {
+        let mut sum = T::zero();
         for i in 0..self.values.len() {
-            sum += self.values[i];
+            sum = sum + self.values[i];
         }
         sum
     }
 
     fn softmax_mut(&mut self) {
-        let max = self.values.iter().map(|x| x.abs()).fold(std::f64::NEG_INFINITY, |a, b| a.max(b));
-        let mut z = 0.;
+        let max = self.values.iter().map(|x| x.abs()).fold(T::neg_infinity(), |a, b| a.max(b));
+        let mut z = T::zero();
         for r in 0..self.nrows {
             for c in 0..self.ncols {
                 let p = (self.get(r, c) - max).exp();
                 self.set(r, c, p);
-                z += p;
+                z = z + p;
             }
         }
         for r in 0..self.nrows {
@@ -546,7 +546,7 @@ impl BaseMatrix for DenseMatrix {
         }
     }
 
-    fn pow_mut(&mut self, p: f64) -> &Self {
+    fn pow_mut(&mut self, p: T) -> &Self {
         for i in 0..self.values.len() {
             self.values[i] = self.values[i].powf(p);
         }
@@ -558,7 +558,7 @@ impl BaseMatrix for DenseMatrix {
         let mut res = vec![0usize; self.nrows];
 
         for r in 0..self.nrows {
-            let mut max = std::f64::NEG_INFINITY;
+            let mut max = T::neg_infinity();
             let mut max_pos = 0usize;
             for c in 0..self.ncols {
                 let v = self.get(r, c);
@@ -574,7 +574,7 @@ impl BaseMatrix for DenseMatrix {
 
     }
 
-    fn unique(&self) -> Vec<f64> {
+    fn unique(&self) -> Vec<T> {
         let mut result = self.values.clone();
         result.sort_by(|a, b| a.partial_cmp(b).unwrap());
         result.dedup();
@@ -698,7 +698,7 @@ mod tests {
 
     #[test]
     fn rand() {
-        let m = DenseMatrix::rand(3, 3);
+        let m: DenseMatrix<f64> = DenseMatrix::rand(3, 3);
         for c in 0..3 {
             for r in 0..3 {
                 assert!(m.get(r, c) != 0f64);
@@ -742,7 +742,7 @@ mod tests {
     #[test]
     fn softmax_mut() { 
 
-            let mut prob = DenseMatrix::vector_from_array(&[1., 2., 3.]);  
+            let mut prob: DenseMatrix<f64> = DenseMatrix::vector_from_array(&[1., 2., 3.]);  
             prob.softmax_mut();            
             assert!((prob.get(0, 0) - 0.09).abs() < 0.01);     
             assert!((prob.get(0, 1) - 0.24).abs() < 0.01);     

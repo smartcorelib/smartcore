@@ -1,7 +1,11 @@
 extern crate rand;
 
-use rand::Rng;
 use std::default::Default;
+use std::fmt::Debug;
+
+use rand::Rng;
+
+use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
 use crate::tree::decision_tree_regressor::{DecisionTreeRegressor, DecisionTreeRegressorParameters};
 
@@ -15,9 +19,9 @@ pub struct RandomForestRegressorParameters {
 }
 
 #[derive(Debug)]
-pub struct RandomForestRegressor {    
+pub struct RandomForestRegressor<T: FloatExt> {    
     parameters: RandomForestRegressorParameters,
-    trees: Vec<DecisionTreeRegressor>    
+    trees: Vec<DecisionTreeRegressor<T>>    
 }
 
 impl Default for RandomForestRegressorParameters {
@@ -32,17 +36,17 @@ impl Default for RandomForestRegressorParameters {
      }
 }
 
-impl RandomForestRegressor {
+impl<T: FloatExt + Debug> RandomForestRegressor<T> {
 
-    pub fn fit<M: Matrix>(x: &M, y: &M::RowVector, parameters: RandomForestRegressorParameters) -> RandomForestRegressor {        
+    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: RandomForestRegressorParameters) -> RandomForestRegressor<T> {        
         let (n_rows, num_attributes) = x.shape();                
         
         let mtry = parameters.mtry.unwrap_or((num_attributes as f64).sqrt().floor() as usize);        
 
-        let mut trees: Vec<DecisionTreeRegressor> = Vec::new();
+        let mut trees: Vec<DecisionTreeRegressor<T>> = Vec::new();
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForestRegressor::sample_with_replacement(n_rows);
+            let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows);
             let params = DecisionTreeRegressorParameters{                
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,   
@@ -58,7 +62,7 @@ impl RandomForestRegressor {
         }
     }
 
-    pub fn predict<M: Matrix>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
         let mut result = M::zeros(1, x.shape().0);   
         
         let (n, _) = x.shape();
@@ -70,17 +74,17 @@ impl RandomForestRegressor {
         result.to_row_vector()
     }  
 
-    fn predict_for_row<M: Matrix>(&self, x: &M, row: usize) -> f64 {      
+    fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> T {      
         
         let n_trees = self.trees.len();
         
-        let mut result = 0f64;
+        let mut result = T::zero();
         
         for tree in self.trees.iter() {
-            result += tree.predict_for_row(x, row);
+            result = result + tree.predict_for_row(x, row);
         }        
 
-        result / n_trees as f64
+        result / T::from(n_trees).unwrap()
         
     }  
     
@@ -123,7 +127,7 @@ mod tests {
             &[ 554.894,  400.7,  282.7,  130.081, 1962.,   70.551]]);
         let y = vec![83.0,  88.5,  88.2,  89.5,  96.2,  98.1,  99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];        
 
-        let expected_y = vec![85., 88., 88., 89., 97., 98., 99., 99., 102., 104., 109., 110., 113., 114., 115., 116.];
+        let expected_y: Vec<f64> = vec![85., 88., 88., 89., 97., 98., 99., 99., 102., 104., 109., 110., 113., 114., 115., 116.];
 
         let y_hat = RandomForestRegressor::fit(&x, &y, 
             RandomForestRegressorParameters{max_depth: None,
