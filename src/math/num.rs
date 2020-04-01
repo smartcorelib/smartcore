@@ -1,7 +1,8 @@
+use std::fmt::{Debug, Display};
 use num_traits::{Float, FromPrimitive};
 use rand::prelude::*;
 
-pub trait FloatExt: Float + FromPrimitive {
+pub trait FloatExt: Float + FromPrimitive + Debug + Display {
 
     fn copysign(self, sign: Self) -> Self;
 

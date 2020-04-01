@@ -5,7 +5,7 @@ pub mod evd;
 pub mod ndarray_bindings;
 
 use std::ops::Range;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 
 use crate::math::num::FloatExt;
@@ -13,7 +13,7 @@ use svd::SVDDecomposableMatrix;
 use evd::EVDDecomposableMatrix;
 use qr::QRDecomposableMatrix;
 
-pub trait BaseMatrix<T: FloatExt + Debug>: Clone + Debug {  
+pub trait BaseMatrix<T: FloatExt>: Clone + Debug {  
 
     type RowVector: Clone + Debug;    
 
@@ -175,9 +175,9 @@ pub trait BaseMatrix<T: FloatExt + Debug>: Clone + Debug {
 
 }
 
-pub trait Matrix<T: FloatExt + Debug>: BaseMatrix<T> + SVDDecomposableMatrix<T> + EVDDecomposableMatrix<T> + QRDecomposableMatrix<T> {}
+pub trait Matrix<T: FloatExt>: BaseMatrix<T> + SVDDecomposableMatrix<T> + EVDDecomposableMatrix<T> + QRDecomposableMatrix<T> + PartialEq + Display {}
 
-pub fn row_iter<F: FloatExt + Debug, M: Matrix<F>>(m: &M) -> RowIter<F, M> {
+pub fn row_iter<F: FloatExt, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
     RowIter{
         m: m,
         pos: 0,
@@ -186,14 +186,14 @@ pub fn row_iter<F: FloatExt + Debug, M: Matrix<F>>(m: &M) -> RowIter<F, M> {
     }
 }
 
-pub struct RowIter<'a, T: FloatExt + Debug, M: Matrix<T>> {
+pub struct RowIter<'a, T: FloatExt, M: BaseMatrix<T>> {
     m: &'a M,
     pos: usize,
     max_pos: usize,
     phantom: PhantomData<&'a T>
 }
 
-impl<'a, T: FloatExt + Debug, M: Matrix<T>> Iterator for RowIter<'a, T, M> {
+impl<'a, T: FloatExt, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
 
     type Item = Vec<T>;
 
