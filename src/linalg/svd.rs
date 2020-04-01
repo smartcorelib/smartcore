@@ -5,7 +5,7 @@ use crate::math::num::FloatExt;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub struct SVD<T: FloatExt + Debug, M: SVDDecomposableMatrix<T>> {
+pub struct SVD<T: FloatExt, M: SVDDecomposableMatrix<T>> {
     pub U: M,
     pub V: M,
     pub s: Vec<T>,
@@ -15,7 +15,7 @@ pub struct SVD<T: FloatExt + Debug, M: SVDDecomposableMatrix<T>> {
     tol: T
 }
 
-pub trait SVDDecomposableMatrix<T: FloatExt + Debug>: BaseMatrix<T> {
+pub trait SVDDecomposableMatrix<T: FloatExt>: BaseMatrix<T> {
 
     fn svd_solve_mut(self, b: Self) -> Self {
         self.svd_mut().solve(b)
@@ -373,7 +373,7 @@ pub trait SVDDecomposableMatrix<T: FloatExt + Debug>: BaseMatrix<T> {
     }
 }
 
-impl<T: FloatExt + Debug, M: SVDDecomposableMatrix<T>> SVD<T, M> {
+impl<T: FloatExt, M: SVDDecomposableMatrix<T>> SVD<T, M> {
     pub fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;     

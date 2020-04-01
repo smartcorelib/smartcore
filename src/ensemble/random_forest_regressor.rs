@@ -36,7 +36,7 @@ impl Default for RandomForestRegressorParameters {
      }
 }
 
-impl<T: FloatExt + Debug> RandomForestRegressor<T> {
+impl<T: FloatExt> RandomForestRegressor<T> {
 
     pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: RandomForestRegressorParameters) -> RandomForestRegressor<T> {        
         let (n_rows, num_attributes) = x.shape();                

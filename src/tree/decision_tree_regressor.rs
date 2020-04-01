@@ -56,7 +56,7 @@ impl<T: FloatExt> Node<T> {
      }
 }
 
-struct NodeVisitor<'a, T: FloatExt + Debug, M: Matrix<T>> {
+struct NodeVisitor<'a, T: FloatExt, M: Matrix<T>> {
     x: &'a M,
     y: &'a M,
     node: usize,
@@ -67,7 +67,7 @@ struct NodeVisitor<'a, T: FloatExt + Debug, M: Matrix<T>> {
     level: u16
 }
 
-impl<'a, T: FloatExt + Debug, M: Matrix<T>> NodeVisitor<'a, T, M> {    
+impl<'a, T: FloatExt, M: Matrix<T>> NodeVisitor<'a, T, M> {    
 
     fn new(node_id: usize, samples: Vec<usize>, order: &'a Vec<Vec<usize>>, x: &'a M, y: &'a M, level: u16) -> Self {
         NodeVisitor {
@@ -84,7 +84,7 @@ impl<'a, T: FloatExt + Debug, M: Matrix<T>> NodeVisitor<'a, T, M> {
 
 }
 
-impl<T: FloatExt + Debug> DecisionTreeRegressor<T> {
+impl<T: FloatExt> DecisionTreeRegressor<T> {
 
     pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: DecisionTreeRegressorParameters) -> DecisionTreeRegressor<T> {
         let (x_nrows, num_attributes) = x.shape();

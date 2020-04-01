@@ -16,7 +16,7 @@ use crate::linalg::qr::QRDecomposableMatrix;
 use crate::math::num::FloatExt;
 
 #[derive(Debug, Clone)]
-pub struct DenseMatrix<T: FloatExt + Debug> {
+pub struct DenseMatrix<T: FloatExt> {
 
     ncols: usize,
     nrows: usize,
@@ -24,7 +24,7 @@ pub struct DenseMatrix<T: FloatExt + Debug> {
 
 }
 
-impl<T: FloatExt + Debug> fmt::Display for DenseMatrix<T> {
+impl<T: FloatExt> fmt::Display for DenseMatrix<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
         for r in 0..self.nrows {
@@ -34,7 +34,7 @@ impl<T: FloatExt + Debug> fmt::Display for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatExt + Debug> DenseMatrix<T> {  
+impl<T: FloatExt> DenseMatrix<T> {  
     
     fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
         DenseMatrix {
@@ -182,15 +182,15 @@ impl<T: FloatExt + fmt::Debug + Serialize> Serialize for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatExt + Debug> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: FloatExt> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt + Debug> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: FloatExt> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt + Debug> QRDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: FloatExt> QRDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt + Debug> Matrix<T> for DenseMatrix<T> {}
+impl<T: FloatExt> Matrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt + Debug> PartialEq for DenseMatrix<T> {
+impl<T: FloatExt> PartialEq for DenseMatrix<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             return false
@@ -213,13 +213,13 @@ impl<T: FloatExt + Debug> PartialEq for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatExt + Debug> Into<Vec<T>> for DenseMatrix<T> {
+impl<T: FloatExt> Into<Vec<T>> for DenseMatrix<T> {
     fn into(self) -> Vec<T> {
         self.values
     }
 }
 
-impl<T: FloatExt + Debug> BaseMatrix<T> for DenseMatrix<T> {   
+impl<T: FloatExt> BaseMatrix<T> for DenseMatrix<T> {   
     
     type RowVector = Vec<T>;
 

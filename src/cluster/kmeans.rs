@@ -56,7 +56,7 @@ impl Default for KMeansParameters {
      }
 }
 
-impl<T: FloatExt + Debug + Sum> KMeans<T>{
+impl<T: FloatExt + Sum> KMeans<T>{
     pub fn new<M: Matrix<T>>(data: &M, k: usize, parameters: KMeansParameters) -> KMeans<T> {
 
         let bbd = BBDTree::new(data);

@@ -3,7 +3,7 @@ use crate::math::num::FloatExt;
 use crate::linalg::{Matrix};
 
 #[derive(Debug)]
-pub struct PCA<T: FloatExt + Debug, M: Matrix<T>> {    
+pub struct PCA<T: FloatExt, M: Matrix<T>> {    
     eigenvectors: M,
     eigenvalues: Vec<T>,
     projection: M,
@@ -24,7 +24,7 @@ impl Default for PCAParameters {
      }
 }
 
-impl<T: FloatExt + Debug, M: Matrix<T>> PCA<T, M> {
+impl<T: FloatExt, M: Matrix<T>> PCA<T, M> {
 
     pub fn new(data: &M, n_components: usize, parameters: PCAParameters) -> PCA<T, M> {
 

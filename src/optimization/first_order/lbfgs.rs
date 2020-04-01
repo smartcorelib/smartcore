@@ -35,7 +35,7 @@ impl<T: FloatExt> Default for LBFGS<T> {
      }
 }
 
-impl<T: FloatExt + Debug> LBFGS<T> {
+impl<T: FloatExt> LBFGS<T> {
 
     fn two_loops<X: Matrix<T>>(&self, state: &mut LBFGSState<T, X>) {        
 
@@ -169,7 +169,7 @@ impl<T: FloatExt + Debug> LBFGS<T> {
 }
 
 #[derive(Debug)]
-struct LBFGSState<T: FloatExt + Debug, X: Matrix<T>> {
+struct LBFGSState<T: FloatExt, X: Matrix<T>> {
     x: X,
     x_prev: X,
     x_f: T,
@@ -189,7 +189,7 @@ struct LBFGSState<T: FloatExt + Debug, X: Matrix<T>> {
     alpha: T
 }
 
-impl<T: FloatExt + Debug> FirstOrderOptimizer<T> for LBFGS<T> {
+impl<T: FloatExt> FirstOrderOptimizer<T> for LBFGS<T> {
 
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(&self, f: &F<T, X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<T, X> {     
         

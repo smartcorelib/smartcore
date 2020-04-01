@@ -39,7 +39,7 @@ impl Default for RandomForestClassifierParameters {
      }
 }
 
-impl<T: FloatExt + Debug> RandomForestClassifier<T> {
+impl<T: FloatExt> RandomForestClassifier<T> {
 
     pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: RandomForestClassifierParameters) -> RandomForestClassifier<T> {        
         let (_, num_attributes) = x.shape();

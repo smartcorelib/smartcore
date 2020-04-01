@@ -6,13 +6,13 @@ use crate::math::num::FloatExt;
 use crate::linalg::BaseMatrix;
 
 #[derive(Debug, Clone)]
-pub struct QR<T: FloatExt + Debug, M: BaseMatrix<T>> {            
+pub struct QR<T: FloatExt, M: BaseMatrix<T>> {            
     QR: M,
     tau: Vec<T>,
     singular: bool
 }
 
-impl<T: FloatExt + Debug, M: BaseMatrix<T>> QR<T, M> {
+impl<T: FloatExt, M: BaseMatrix<T>> QR<T, M> {
     pub fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
 
         let mut singular = false;
@@ -112,7 +112,7 @@ impl<T: FloatExt + Debug, M: BaseMatrix<T>> QR<T, M> {
     }
 }
 
-pub trait QRDecomposableMatrix<T: FloatExt + Debug>: BaseMatrix<T> { 
+pub trait QRDecomposableMatrix<T: FloatExt>: BaseMatrix<T> { 
 
     fn qr(&self) -> QR<T, Self> {
         self.clone().qr_mut()

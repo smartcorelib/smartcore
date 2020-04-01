@@ -5,14 +5,14 @@ use crate::linalg::Matrix;
 use crate::math::distance::euclidian;
 
 #[derive(Debug)]
-pub struct BBDTree<T: FloatExt + Debug> {    
+pub struct BBDTree<T: FloatExt> {    
     nodes: Vec<BBDTreeNode<T>>,
     index: Vec<usize>,
     root: usize
 }
 
 #[derive(Debug)]
-struct BBDTreeNode<T: FloatExt + Debug> {    
+struct BBDTreeNode<T: FloatExt> {    
     count: usize,
     index: usize,
     center: Vec<T>,
@@ -23,7 +23,7 @@ struct BBDTreeNode<T: FloatExt + Debug> {
     upper: Option<usize>
 }
 
-impl<T: FloatExt + Debug> BBDTreeNode<T> {
+impl<T: FloatExt> BBDTreeNode<T> {
     fn new(d: usize) -> BBDTreeNode<T> {
         BBDTreeNode {
             count: 0,
@@ -38,7 +38,7 @@ impl<T: FloatExt + Debug> BBDTreeNode<T> {
     }
 }
 
-impl<T: FloatExt + Debug> BBDTree<T> {
+impl<T: FloatExt> BBDTree<T> {
     pub fn new<M: Matrix<T>>(data: &M) -> BBDTree<T> {
         let nodes = Vec::new();
 

@@ -68,7 +68,7 @@ impl<T: FloatExt> Node<T> {
      }
 }
 
-struct NodeVisitor<'a, T: FloatExt + Debug, M: Matrix<T>> {
+struct NodeVisitor<'a, T: FloatExt, M: Matrix<T>> {
     x: &'a M,
     y: &'a Vec<usize>,
     node: usize,
@@ -115,7 +115,7 @@ fn impurity<T: FloatExt>(criterion: &SplitCriterion, count: &Vec<usize>, n: usiz
     return impurity;
 }
 
-impl<'a, T: FloatExt + Debug, M: Matrix<T>> NodeVisitor<'a, T, M> {    
+impl<'a, T: FloatExt, M: Matrix<T>> NodeVisitor<'a, T, M> {    
 
     fn new(node_id: usize, samples: Vec<usize>, order: &'a Vec<Vec<usize>>, x: &'a M, y: &'a Vec<usize>, level: u16) -> Self {
         NodeVisitor {
@@ -147,7 +147,7 @@ pub(in crate) fn which_max(x: &Vec<usize>) -> usize {
     return which;
 }
 
-impl<T: FloatExt + Debug> DecisionTreeClassifier<T> {
+impl<T: FloatExt> DecisionTreeClassifier<T> {
 
     pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, parameters: DecisionTreeClassifierParameters) -> DecisionTreeClassifier<T> {
         let (x_nrows, num_attributes) = x.shape();

@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use crate::math::num::FloatExt;
 use crate::linalg::{Matrix, row_iter};
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
@@ -13,7 +11,7 @@ pub struct KNNClassifier<'a, T: FloatExt> {
     k: usize,        
 }
 
-impl<'a, T: FloatExt + Debug> KNNClassifier<'a, T> {
+impl<'a, T: FloatExt> KNNClassifier<'a, T> {
 
     pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, k: usize, distance: &'a dyn Fn(&Vec<T>, &Vec<T>) -> T, algorithm: KNNAlgorithmName) -> KNNClassifier<'a, T> {
 

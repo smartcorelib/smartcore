@@ -1,5 +1,4 @@
 use std::default::Default;
-use std::fmt::Debug;
 
 use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
@@ -23,7 +22,7 @@ impl<T: FloatExt> Default for GradientDescent<T> {
      }
 }
 
-impl<T: FloatExt + Debug> FirstOrderOptimizer<T> for GradientDescent<T>
+impl<T: FloatExt> FirstOrderOptimizer<T> for GradientDescent<T>
 {
 
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(&self, f: &'a F<T, X>, df: &'a DF<X>, x0: &X, ls: &'a LS) -> OptimizerResult<T, X> {        
