@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
-use crate::math::distance::euclidian;
+use crate::math::distance::euclidian::*;
 
 #[derive(Debug)]
 pub struct BBDTree<T: FloatExt> {    
@@ -79,10 +79,10 @@ impl<T: FloatExt> BBDTree<T> {
         let d = centroids[0].len();
 
         // Determine which mean the node mean is closest to
-        let mut min_dist = euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
+        let mut min_dist = Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
         let mut closest = candidates[0];
         for i in 1..k {
-            let dist = euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[i]]);
+            let dist = Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[i]]);
             if dist < min_dist {
                 min_dist = dist;
                 closest = candidates[i];

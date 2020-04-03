@@ -42,10 +42,19 @@ struct BinaryObjectiveFunction<'a, T: FloatExt, M: Matrix<T>> {
 impl<T: FloatExt, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
 
-        self.num_classes == other.num_classes &&
-        self.classes == other.classes &&
-        self.num_attributes == other.num_attributes &&
-        self.weights == other.weights
+        if self.num_classes != other.num_classes ||
+            self.num_attributes != other.num_attributes ||
+            self.classes.len() != other.classes.len() {
+            return false
+        } else {
+            for i in 0..self.classes.len() {
+                if (self.classes[i] - other.classes[i]).abs() > T::epsilon(){
+                    return false
+                }
+            }
+
+            return self.weights == other.weights
+        }
         
     }
 }

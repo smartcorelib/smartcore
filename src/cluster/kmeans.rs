@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
-use crate::math::distance::euclidian;
+use crate::math::distance::euclidian::*;
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -130,7 +130,7 @@ impl<T: FloatExt + Sum> KMeans<T>{
             let mut best_cluster = 0;
 
             for j in 0..self.k {
-                let dist = euclidian::squared_distance(&x.get_row_as_vec(i), &self.centroids[j]);                
+                let dist = Euclidian::squared_distance(&x.get_row_as_vec(i), &self.centroids[j]);                
                 if dist < min_dist {
                     min_dist = dist;
                     best_cluster = j;
@@ -156,7 +156,7 @@ impl<T: FloatExt + Sum> KMeans<T>{
             // the distance from each sample to its closest center in scores.
             for i in 0..n {
                 // compute the distance between this sample and the current center
-                let dist = euclidian::squared_distance(&data.get_row_as_vec(i), &centroid);
+                let dist = Euclidian::squared_distance(&data.get_row_as_vec(i), &centroid);
                 
                 if dist < d[i] {
                     d[i] = dist;
@@ -183,7 +183,7 @@ impl<T: FloatExt + Sum> KMeans<T>{
 
         for i in 0..n {
             // compute the distance between this sample and the current center
-            let dist = euclidian::squared_distance(&data.get_row_as_vec(i), &centroid);            
+            let dist = Euclidian::squared_distance(&data.get_row_as_vec(i), &centroid);            
             
             if dist < d[i] {
                 d[i] = dist;

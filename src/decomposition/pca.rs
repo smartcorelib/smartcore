@@ -1,14 +1,33 @@
 use std::fmt::Debug;
+
+use serde::{Serialize, Deserialize};
+
 use crate::math::num::FloatExt;
 use crate::linalg::{Matrix};
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PCA<T: FloatExt, M: Matrix<T>> {    
     eigenvectors: M,
     eigenvalues: Vec<T>,
     projection: M,
     mu: Vec<T>,
     pmu: Vec<T>
+}
+
+impl<T: FloatExt, M: Matrix<T>> PartialEq for PCA<T, M> {    
+    fn eq(&self, other: &Self) -> bool {
+        if self.eigenvectors != other.eigenvectors ||
+        self.eigenvalues.len() != other.eigenvalues.len() {
+            return false
+        } else {
+            for i in 0..self.eigenvalues.len() {
+                if (self.eigenvalues[i] - other.eigenvalues[i]).abs() > T::epsilon() {
+                    return false
+                }
+            }
+            return true
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -364,6 +383,38 @@ mod tests {
             let us_arrests_t = pca.transform(&us_arrests);
 
             assert!(us_arrests_t.abs().approximate_eq(&expected_projection.abs(), 1e-4));
+        
+    }
+
+    #[test]
+    fn serde() {  
+        let iris = DenseMatrix::from_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4]]);                
+
+        let pca = PCA::new(&iris, 4, Default::default());
+
+        let deserialized_pca: PCA<f64, DenseMatrix<f64>> = serde_json::from_str(&serde_json::to_string(&pca).unwrap()).unwrap();
+
+        assert_eq!(pca, deserialized_pca);       
         
     }
     

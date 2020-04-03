@@ -21,7 +21,7 @@ pub struct LinearRegression<T: FloatExt, M: Matrix<T>> {
 impl<T: FloatExt, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients &&
-        self.intercept == other.intercept        
+        (self.intercept - other.intercept).abs() <= T::epsilon()
     }
 }
 
