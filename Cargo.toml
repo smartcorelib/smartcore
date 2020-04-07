@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 ndarray = "0.13"
+nalgebra = "0.20.0"
 num-traits = "0.2.11"
 num = "0.2.1"
 rand = "0.7.3"

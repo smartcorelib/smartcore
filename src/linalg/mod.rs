@@ -3,6 +3,7 @@ pub mod qr;
 pub mod svd;
 pub mod evd;
 pub mod ndarray_bindings;
+pub mod nalgebra_bindings;
 
 use std::ops::Range;
 use std::fmt::{Debug, Display};

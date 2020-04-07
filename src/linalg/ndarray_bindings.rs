@@ -213,6 +213,9 @@ impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign
     }
 
     fn abs_mut(&mut self) -> &Self{
+        for v in self.iter_mut(){
+            *v = v.abs()
+        }        
         self
     }
 
@@ -630,5 +633,13 @@ mod tests {
             [7e-5, 8e-5, 9e-5]]);        
         assert!(a.approximate_eq(&(&noise + &a), 1e-4));
         assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
+    }
+
+    #[test]
+    fn abs_mut() {
+        let mut a = arr2(&[[1., -2.], [3., -4.]]);
+        let expected = arr2(&[[1., 2.], [3., 4.]]);
+        a.abs_mut();
+        assert_eq!(a, expected);
     }
 }
