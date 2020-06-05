@@ -102,9 +102,7 @@ mod tests {
         ls.order = FunctionOrder::THIRD;
         let optimizer: GradientDescent<f64> = Default::default();
         
-        let result = optimizer.optimize(&f, &df, &x0, &ls);
-
-        println!("{:?}", result);
+        let result = optimizer.optimize(&f, &df, &x0, &ls);        
         
         assert!((result.f_x - 0.0).abs() < 1e-5);
         assert!((result.x.get(0, 0) - 1.0).abs() < 1e-2);

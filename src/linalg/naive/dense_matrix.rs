@@ -13,6 +13,7 @@ pub use crate::linalg::BaseMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
+use crate::linalg::lu::LUDecomposableMatrix;
 use crate::math::num::FloatExt;
 
 #[derive(Debug, Clone)]
@@ -187,6 +188,8 @@ impl<T: FloatExt> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
 impl<T: FloatExt> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: FloatExt> QRDecomposableMatrix<T> for DenseMatrix<T> {}
+
+impl<T: FloatExt> LUDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: FloatExt> Matrix<T> for DenseMatrix<T> {}
 
@@ -679,6 +682,34 @@ impl<T: FloatExt> BaseMatrix<T> for DenseMatrix<T> {
         result
     }
 
+    fn cov(&self) -> Self {
+
+        let (m, n) = self.shape();
+
+        let mu = self.column_mean();        
+
+        let mut cov = Self::zeros(n, n);
+
+        for k in 0..m {
+            for i in 0..n {
+                for j in 0..=i {
+                    cov.add_element_mut(i, j, (self.get(k, i) -  mu[i]) * (self.get(k, j) - mu[j]));
+                }
+            }
+        }
+
+        let m_t = T::from(m - 1).unwrap();
+
+        for i in 0..n {
+            for j in 0..=i {
+                cov.div_element_mut(i, j, m_t); 
+                cov.set(j, i, cov.get(i, j));
+            }
+        }
+
+        cov
+    }
+
 }
 
 #[cfg(test)]
@@ -885,6 +916,13 @@ mod tests {
     fn to_string() { 
             let a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
             assert_eq!(format!("{}", a), "[[0.9, 0.4, 0.7], [0.4, 0.5, 0.3], [0.7, 0.3, 0.8]]");            
+    }
+
+    #[test]
+    fn cov() { 
+            let a = DenseMatrix::from_array(&[&[64.0, 580.0, 29.0], &[66.0, 570.0, 33.0], &[68.0, 590.0, 37.0], &[69.0, 660.0, 46.0], &[73.0, 600.0, 55.0]]);
+            let expected = DenseMatrix::from_array(&[&[11.5, 50.0, 34.75], &[50.0, 1250.0, 205.0], &[34.75, 205.0, 110.0]]);            
+            assert_eq!(a.cov(), expected);
     }
 
 }

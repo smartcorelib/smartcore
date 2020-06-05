@@ -829,9 +829,7 @@ mod tests {
             &[0.6952105,  0.43984484, -0.7036135]
         ]);
 
-        let evd = A.evd(false);   
-
-        println!("{}", &evd.V.abs());
+        let evd = A.evd(false);        
         
         assert!(eigen_vectors.abs().approximate_eq(&evd.V.abs(), 1e-4));        
         for i in 0..eigen_values.len() {

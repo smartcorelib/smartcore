@@ -21,17 +21,13 @@ impl Euclidian {
     
         sum
     }
-
-    pub fn distance<T: FloatExt>(x: &Vec<T>, y: &Vec<T>) -> T {    
-        Euclidian::squared_distance(x, y).sqrt()
-    }
     
 }
 
 impl<T: FloatExt> Distance<Vec<T>, T> for Euclidian {
 
-    fn distance(x: &Vec<T>, y: &Vec<T>) -> T {    
-        Self::distance(x, y)
+    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {    
+        Euclidian::squared_distance(x, y).sqrt()
     } 
 
 }
@@ -46,9 +42,9 @@ mod tests {
         let a = vec![1., 2., 3.];
         let b = vec![4., 5., 6.];             
         
-        let d_arr: f64 = Euclidian::distance(&a, &b);        
+        let l2: f64 = Euclidian{}.distance(&a, &b);        
 
-        assert!((d_arr - 5.19615242).abs() < 1e-8);        
+        assert!((l2 - 5.19615242).abs() < 1e-8);        
     }    
 
 }

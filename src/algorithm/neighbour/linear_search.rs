@@ -38,7 +38,7 @@ impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
 
         for i in 0..self.data.len() {
 
-            let d = D::distance(&from, &self.data[i]);
+            let d = self.distance.distance(&from, &self.data[i]);
             let datum = heap.peek_mut();            
             if d < datum.distance {
                 datum.distance = d;
@@ -81,7 +81,7 @@ mod tests {
     struct SimpleDistance{}
 
     impl Distance<i32, f64> for SimpleDistance {
-        fn distance(a: &i32, b: &i32) -> f64 {
+        fn distance(&self, a: &i32, b: &i32) -> f64 {
             (a - b).abs() as f64
         }
     }    

@@ -2,6 +2,7 @@ pub mod naive;
 pub mod qr;
 pub mod svd;
 pub mod evd;
+pub mod lu;
 pub mod ndarray_bindings;
 pub mod nalgebra_bindings;
 
@@ -13,6 +14,7 @@ use crate::math::num::FloatExt;
 use svd::SVDDecomposableMatrix;
 use evd::EVDDecomposableMatrix;
 use qr::QRDecomposableMatrix;
+use lu::LUDecomposableMatrix;
 
 pub trait BaseMatrix<T: FloatExt>: Clone + Debug {  
 
@@ -172,11 +174,13 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
 
     fn argmax(&self) -> Vec<usize>; 
     
-    fn unique(&self) -> Vec<T>;    
+    fn unique(&self) -> Vec<T>;   
+    
+    fn cov(&self) -> Self;
 
 }
 
-pub trait Matrix<T: FloatExt>: BaseMatrix<T> + SVDDecomposableMatrix<T> + EVDDecomposableMatrix<T> + QRDecomposableMatrix<T> + PartialEq + Display {}
+pub trait Matrix<T: FloatExt>: BaseMatrix<T> + SVDDecomposableMatrix<T> + EVDDecomposableMatrix<T> + QRDecomposableMatrix<T> + LUDecomposableMatrix<T> + PartialEq + Display {}
 
 pub fn row_iter<F: FloatExt, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
     RowIter{

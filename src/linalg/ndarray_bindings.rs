@@ -14,6 +14,7 @@ use crate::linalg::Matrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
+use crate::linalg::lu::LUDecomposableMatrix;
 
 
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> BaseMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
@@ -286,6 +287,10 @@ impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign
         result
     }
 
+    fn cov(&self) -> Self {
+        panic!("Not implemented");
+    }
+
 }
 
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> SVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
@@ -293,6 +298,8 @@ impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> EVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> QRDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+
+impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> LUDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> Matrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 

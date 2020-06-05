@@ -44,7 +44,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D>
         } else {            
             let mut parent: Option<NodeId> = Option::None;
             let mut p_i = 0;
-            let mut qi_p_ds = vec!((self.root(), D::distance(&p, &self.root().data)));
+            let mut qi_p_ds = vec!((self.root(), self.distance.distance(&p, &self.root().data)));
             let mut i = self.max_level;
             loop {                
                 let i_d = self.base.powf(F::from(i).unwrap());
@@ -84,7 +84,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D>
     }   
 
     pub fn find(&self, p: &T, k: usize) -> Vec<usize>{
-        let mut qi_p_ds = vec!((self.root(), D::distance(&p, &self.root().data)));
+        let mut qi_p_ds = vec!((self.root(), self.distance.distance(&p, &self.root().data)));
         for i in (self.min_level..self.max_level+1).rev() {
             let i_d = self.base.powf(F::from(i).unwrap());
             let mut q_p_ds = self.get_children_dist(&p, &qi_p_ds, i);
@@ -115,7 +115,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D>
             let p = &self.nodes.get(p_id.index).unwrap().data;
             let mut i = 0;
             while i != s.len() {
-                let d = D::distance(p, &s[i]);
+                let d = self.distance.distance(p, &s[i]);
                 if d <= r {
                     my_near.0.push(s.remove(i));
                 } else if d > r && d <= F::two() * r{
@@ -169,7 +169,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D>
 
         let q: Vec<&Node<T>> = qi_p_ds.iter().flat_map(|(n, _)| self.get_child(n, i)).collect();        
 
-        children.extend(q.into_iter().map(|n| (n, D::distance(&n.data, &p))));
+        children.extend(q.into_iter().map(|n| (n, self.distance.distance(&n.data, &p))));
 
         children
         
@@ -219,7 +219,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D>
         let mut p_selected: Vec<&Node<T>> = Vec::new();
         for p in next_nodes {
             for q in nodes {
-                if D::distance(&p.data, &q.data) <= tree.base.powf(F::from(i).unwrap()) {
+                if tree.distance.distance(&p.data, &q.data) <= tree.base.powf(F::from(i).unwrap()) {
                     p_selected.push(*p);
                 }
             }                        
@@ -233,7 +233,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D>
         for p in nodes {
             for q in nodes {
                 if p != q {
-                    assert!(D::distance(&p.data, &q.data) > tree.base.powf(F::from(i).unwrap()));
+                    assert!(tree.distance.distance(&p.data, &q.data) > tree.base.powf(F::from(i).unwrap()));
                 } 
             }                                    
         }        
@@ -280,7 +280,7 @@ mod tests {
     struct SimpleDistance{}
 
     impl Distance<i32, f64> for SimpleDistance {
-        fn distance(a: &i32, b: &i32) -> f64 {
+        fn distance(&self, a: &i32, b: &i32) -> f64 {
             (a - b).abs() as f64
         }
     }  
