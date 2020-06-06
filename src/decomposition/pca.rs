@@ -323,7 +323,7 @@ mod tests {
             .approximate_eq(&expected_eigenvectors.abs(), 1e-4));
 
         for i in 0..pca.eigenvalues.len() {
-            assert_eq!(pca.eigenvalues[i].abs(), expected_eigenvalues[i].abs());
+            assert!((pca.eigenvalues[i].abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
         let us_arrests_t = pca.transform(&us_arrests);
@@ -438,7 +438,7 @@ mod tests {
             .approximate_eq(&expected_eigenvectors.abs(), 1e-4));
 
         for i in 0..pca.eigenvalues.len() {
-            assert_eq!(pca.eigenvalues[i].abs(), expected_eigenvalues[i].abs());
+            assert!((pca.eigenvalues[i].abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
         let us_arrests_t = pca.transform(&us_arrests);
