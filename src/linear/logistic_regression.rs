@@ -264,7 +264,7 @@ impl<T: FloatExt, M: Matrix<T>> LogisticRegression<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;    
+    use crate::linalg::naive::dense_matrix::*;
     use ndarray::{arr1, arr2, Array1};
 
     #[test]
