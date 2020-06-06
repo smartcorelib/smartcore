@@ -1,9 +1,9 @@
-version: 2
+version: 2.1
 
 jobs:
   build:
     docker:
-      - image: rust:latest
+      - image: circleci/rust:latest
     environment:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
