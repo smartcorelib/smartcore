@@ -1,2 +1,2 @@
-pub mod sort;
 pub mod neighbour;
+pub mod sort;

@@ -1,18 +1,18 @@
 use std::fmt::Debug;
 
-use crate::math::num::FloatExt;
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::*;
+use crate::math::num::FloatExt;
 
 #[derive(Debug)]
-pub struct BBDTree<T: FloatExt> {    
+pub struct BBDTree<T: FloatExt> {
     nodes: Vec<BBDTreeNode<T>>,
     index: Vec<usize>,
-    root: usize
+    root: usize,
 }
 
 #[derive(Debug)]
-struct BBDTreeNode<T: FloatExt> {    
+struct BBDTreeNode<T: FloatExt> {
     count: usize,
     index: usize,
     center: Vec<T>,
@@ -20,7 +20,7 @@ struct BBDTreeNode<T: FloatExt> {
     sum: Vec<T>,
     cost: T,
     lower: Option<usize>,
-    upper: Option<usize>
+    upper: Option<usize>,
 }
 
 impl<T: FloatExt> BBDTreeNode<T> {
@@ -33,7 +33,7 @@ impl<T: FloatExt> BBDTreeNode<T> {
             sum: vec![T::zero(); d],
             cost: T::zero(),
             lower: Option::None,
-            upper: Option::None
+            upper: Option::None,
         }
     }
 }
@@ -49,10 +49,10 @@ impl<T: FloatExt> BBDTree<T> {
             index[i] = i;
         }
 
-        let mut tree = BBDTree{
+        let mut tree = BBDTree {
             nodes: nodes,
             index: index,
-            root: 0
+            root: 0,
         };
 
         let root = tree.build_node(data, 0, n);
@@ -60,29 +60,54 @@ impl<T: FloatExt> BBDTree<T> {
         tree.root = root;
 
         tree
-    }    
+    }
 
-    pub(in crate) fn clustering(&self, centroids: &Vec<Vec<T>>, sums: &mut Vec<Vec<T>>, counts: &mut Vec<usize>, membership: &mut Vec<usize>) -> T {
+    pub(in crate) fn clustering(
+        &self,
+        centroids: &Vec<Vec<T>>,
+        sums: &mut Vec<Vec<T>>,
+        counts: &mut Vec<usize>,
+        membership: &mut Vec<usize>,
+    ) -> T {
         let k = centroids.len();
 
         counts.iter_mut().for_each(|x| *x = 0);
         let mut candidates = vec![0; k];
         for i in 0..k {
             candidates[i] = i;
-            sums[i].iter_mut().for_each(|x| *x = T::zero());            
+            sums[i].iter_mut().for_each(|x| *x = T::zero());
         }
-                
-        self.filter(self.root, centroids, &candidates, k, sums, counts, membership)
+
+        self.filter(
+            self.root,
+            centroids,
+            &candidates,
+            k,
+            sums,
+            counts,
+            membership,
+        )
     }
 
-    fn filter(&self, node: usize, centroids: &Vec<Vec<T>>, candidates: &Vec<usize>, k: usize, sums: &mut Vec<Vec<T>>, counts: &mut Vec<usize>, membership: &mut Vec<usize>) -> T{
+    fn filter(
+        &self,
+        node: usize,
+        centroids: &Vec<Vec<T>>,
+        candidates: &Vec<usize>,
+        k: usize,
+        sums: &mut Vec<Vec<T>>,
+        counts: &mut Vec<usize>,
+        membership: &mut Vec<usize>,
+    ) -> T {
         let d = centroids[0].len();
 
         // Determine which mean the node mean is closest to
-        let mut min_dist = Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
+        let mut min_dist =
+            Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
         let mut closest = candidates[0];
         for i in 1..k {
-            let dist = Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[i]]);
+            let dist =
+                Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[i]]);
             if dist < min_dist {
                 min_dist = dist;
                 closest = candidates[i];
@@ -92,11 +117,17 @@ impl<T: FloatExt> BBDTree<T> {
         // If this is a non-leaf node, recurse if necessary
         if !self.nodes[node].lower.is_none() {
             // Build the new list of candidates
-            let mut new_candidates = vec![0;k];
+            let mut new_candidates = vec![0; k];
             let mut newk = 0;
 
             for i in 0..k {
-                if !BBDTree::prune(&self.nodes[node].center, &self.nodes[node].radius, &centroids, closest, candidates[i]) {
+                if !BBDTree::prune(
+                    &self.nodes[node].center,
+                    &self.nodes[node].radius,
+                    &centroids,
+                    closest,
+                    candidates[i],
+                ) {
                     new_candidates[newk] = candidates[i];
                     newk += 1;
                 }
@@ -104,8 +135,23 @@ impl<T: FloatExt> BBDTree<T> {
 
             // Recurse if there's at least two
             if newk > 1 {
-                let result = self.filter(self.nodes[node].lower.unwrap(), centroids, &mut new_candidates, newk, sums, counts, membership) + 
-                            self.filter(self.nodes[node].upper.unwrap(), centroids, &mut new_candidates, newk, sums, counts, membership);
+                let result = self.filter(
+                    self.nodes[node].lower.unwrap(),
+                    centroids,
+                    &mut new_candidates,
+                    newk,
+                    sums,
+                    counts,
+                    membership,
+                ) + self.filter(
+                    self.nodes[node].upper.unwrap(),
+                    centroids,
+                    &mut new_candidates,
+                    newk,
+                    sums,
+                    counts,
+                    membership,
+                );
                 return result;
             }
         }
@@ -116,17 +162,22 @@ impl<T: FloatExt> BBDTree<T> {
         }
 
         counts[closest] += self.nodes[node].count;
-        
+
         let last = self.nodes[node].index + self.nodes[node].count;
         for i in self.nodes[node].index..last {
             membership[self.index[i]] = closest;
-        }        
+        }
 
         BBDTree::node_cost(&self.nodes[node], &centroids[closest])
-        
     }
 
-    fn prune(center: &Vec<T>, radius: &Vec<T>, centroids: &Vec<Vec<T>>, best_index: usize, test_index: usize) -> bool {
+    fn prune(
+        center: &Vec<T>,
+        radius: &Vec<T>,
+        centroids: &Vec<Vec<T>>,
+        best_index: usize,
+        test_index: usize,
+    ) -> bool {
         if best_index == test_index {
             return false;
         }
@@ -148,7 +199,7 @@ impl<T: FloatExt> BBDTree<T> {
         }
 
         return lhs >= T::two() * rhs;
-    }    
+    }
 
     fn build_node<M: Matrix<T>>(&mut self, data: &M, begin: usize, end: usize) -> usize {
         let (_, d) = data.shape();
@@ -165,8 +216,8 @@ impl<T: FloatExt> BBDTree<T> {
         let mut upper_bound = vec![T::zero(); d];
 
         for i in 0..d {
-            lower_bound[i] = data.get(self.index[begin],i);
-            upper_bound[i] = data.get(self.index[begin],i);
+            lower_bound[i] = data.get(self.index[begin], i);
+            upper_bound[i] = data.get(self.index[begin], i);
         }
 
         for i in begin..end {
@@ -200,7 +251,7 @@ impl<T: FloatExt> BBDTree<T> {
             for i in 0..d {
                 node.sum[i] = data.get(self.index[begin], i);
             }
-            
+
             if end > begin + 1 {
                 let len = end - begin;
                 for i in 0..d {
@@ -247,7 +298,8 @@ impl<T: FloatExt> BBDTree<T> {
 
         // Calculate the new sum and opt cost
         for i in 0..d {
-            node.sum[i] = self.nodes[node.lower.unwrap()].sum[i] + self.nodes[node.upper.unwrap()].sum[i];
+            node.sum[i] =
+                self.nodes[node.lower.unwrap()].sum[i] + self.nodes[node.upper.unwrap()].sum[i];
         }
 
         let mut mean = vec![T::zero(); d];
@@ -255,7 +307,8 @@ impl<T: FloatExt> BBDTree<T> {
             mean[i] = node.sum[i] / T::from(node.count).unwrap();
         }
 
-        node.cost = BBDTree::node_cost(&self.nodes[node.lower.unwrap()], &mean) + BBDTree::node_cost(&self.nodes[node.upper.unwrap()], &mean);
+        node.cost = BBDTree::node_cost(&self.nodes[node.lower.unwrap()], &mean)
+            + BBDTree::node_cost(&self.nodes[node.upper.unwrap()], &mean);
 
         self.add_node(node)
     }
@@ -270,7 +323,7 @@ impl<T: FloatExt> BBDTree<T> {
         node.cost + T::from(node.count).unwrap() * scatter
     }
 
-    fn add_node(&mut self, new_node: BBDTreeNode<T>) -> usize{
+    fn add_node(&mut self, new_node: BBDTreeNode<T>) -> usize {
         let idx = self.nodes.len();
         self.nodes.push(new_node);
         idx
@@ -279,12 +332,11 @@ impl<T: FloatExt> BBDTree<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*; 
-    use crate::linalg::naive::dense_matrix::DenseMatrix;    
+    use super::*;
+    use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
-    fn fit_predict_iris() {             
-
+    fn fit_predict_iris() {
         let data = DenseMatrix::from_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
@@ -305,30 +357,23 @@ mod tests {
             &[6.3, 3.3, 4.7, 1.6],
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
-            &[5.2, 2.7, 3.9, 1.4]]);        
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
 
-        let tree = BBDTree::new(&data);        
+        let tree = BBDTree::new(&data);
 
-        let centroids = vec![
-            vec![4.86, 3.22, 1.61, 0.29],
-            vec![6.23, 2.92, 4.48, 1.42]
-        ];
+        let centroids = vec![vec![4.86, 3.22, 1.61, 0.29], vec![6.23, 2.92, 4.48, 1.42]];
 
-        let mut sums = vec![
-            vec![0f64; 4],
-            vec![0f64; 4]
-        ];
+        let mut sums = vec![vec![0f64; 4], vec![0f64; 4]];
 
         let mut counts = vec![11, 9];
 
         let mut membership = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1];
 
-        let dist = tree.clustering(&centroids, &mut sums, &mut counts, &mut membership);        
+        let dist = tree.clustering(&centroids, &mut sums, &mut counts, &mut membership);
         assert!((dist - 10.68).abs() < 1e-2);
         assert!((sums[0][0] - 48.6).abs() < 1e-2);
         assert!((sums[1][3] - 13.8).abs() < 1e-2);
-        assert_eq!(membership[17], 1);        
-            
+        assert_eq!(membership[17], 1);
     }
-
 }

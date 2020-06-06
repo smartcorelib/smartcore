@@ -1,45 +1,43 @@
-pub mod naive;
-pub mod qr;
-pub mod svd;
 pub mod evd;
 pub mod lu;
-pub mod ndarray_bindings;
+pub mod naive;
 pub mod nalgebra_bindings;
+pub mod ndarray_bindings;
+pub mod qr;
+pub mod svd;
 
-use std::ops::Range;
 use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use crate::math::num::FloatExt;
-use svd::SVDDecomposableMatrix;
 use evd::EVDDecomposableMatrix;
-use qr::QRDecomposableMatrix;
 use lu::LUDecomposableMatrix;
+use qr::QRDecomposableMatrix;
+use svd::SVDDecomposableMatrix;
 
-pub trait BaseVector<T: FloatExt>: Clone + Debug { 
-
-    fn get(&self, i: usize) -> T; 
+pub trait BaseVector<T: FloatExt>: Clone + Debug {
+    fn get(&self, i: usize) -> T;
 
     fn set(&mut self, i: usize, x: T);
 
     fn len(&self) -> usize;
 }
 
-pub trait BaseMatrix<T: FloatExt>: Clone + Debug {  
-
-    type RowVector: BaseVector<T> + Clone + Debug;    
+pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
+    type RowVector: BaseVector<T> + Clone + Debug;
 
     fn from_row_vector(vec: Self::RowVector) -> Self;
 
     fn to_row_vector(self) -> Self::RowVector;
 
-    fn get(&self, row: usize, col: usize) -> T; 
+    fn get(&self, row: usize, col: usize) -> T;
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T>;
 
-    fn get_col_as_vec(&self, col: usize) -> Vec<T>;    
+    fn get_col_as_vec(&self, col: usize) -> Vec<T>;
 
-    fn set(&mut self, row: usize, col: usize, x: T);         
+    fn set(&mut self, row: usize, col: usize, x: T);
 
     fn eye(size: usize) -> Self;
 
@@ -51,17 +49,17 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
 
     fn fill(nrows: usize, ncols: usize, value: T) -> Self;
 
-    fn shape(&self) -> (usize, usize);    
+    fn shape(&self) -> (usize, usize);
 
     fn v_stack(&self, other: &Self) -> Self;
 
     fn h_stack(&self, other: &Self) -> Self;
 
-    fn dot(&self, other: &Self) -> Self;    
+    fn dot(&self, other: &Self) -> Self;
 
-    fn vector_dot(&self, other: &Self) -> T;     
+    fn vector_dot(&self, other: &Self) -> T;
 
-    fn slice(&self, rows: Range<usize>, cols: Range<usize>) -> Self;    
+    fn slice(&self, rows: Range<usize>, cols: Range<usize>) -> Self;
 
     fn approximate_eq(&self, other: &Self, error: T) -> bool;
 
@@ -113,37 +111,37 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
 
     fn div_scalar_mut(&mut self, scalar: T) -> &Self;
 
-    fn add_scalar(&self, scalar: T) -> Self{
+    fn add_scalar(&self, scalar: T) -> Self {
         let mut r = self.clone();
         r.add_scalar_mut(scalar);
         r
     }
 
-    fn sub_scalar(&self, scalar: T) -> Self{
+    fn sub_scalar(&self, scalar: T) -> Self {
         let mut r = self.clone();
         r.sub_scalar_mut(scalar);
         r
     }
 
-    fn mul_scalar(&self, scalar: T) -> Self{
+    fn mul_scalar(&self, scalar: T) -> Self {
         let mut r = self.clone();
         r.mul_scalar_mut(scalar);
         r
     }
 
-    fn div_scalar(&self, scalar: T) -> Self{
+    fn div_scalar(&self, scalar: T) -> Self {
         let mut r = self.clone();
         r.div_scalar_mut(scalar);
         r
     }
 
-    fn transpose(&self) -> Self;    
+    fn transpose(&self) -> Self;
 
     fn rand(nrows: usize, ncols: usize) -> Self;
 
     fn norm2(&self) -> T;
 
-    fn norm(&self, p:T) -> T;
+    fn norm(&self, p: T) -> T;
 
     fn column_mean(&self) -> Vec<T>;
 
@@ -153,7 +151,7 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
         let mut result = self.clone();
         result.negative_mut();
         result
-    }    
+    }
 
     fn reshape(&self, nrows: usize, ncols: usize) -> Self;
 
@@ -169,9 +167,9 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
 
     fn sum(&self) -> T;
 
-    fn max_diff(&self, other: &Self) -> T;   
-    
-    fn softmax_mut(&mut self); 
+    fn max_diff(&self, other: &Self) -> T;
+
+    fn softmax_mut(&mut self);
 
     fn pow_mut(&mut self, p: T) -> &Self;
 
@@ -181,22 +179,30 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
         result
     }
 
-    fn argmax(&self) -> Vec<usize>; 
-    
-    fn unique(&self) -> Vec<T>;   
-    
-    fn cov(&self) -> Self;
+    fn argmax(&self) -> Vec<usize>;
 
+    fn unique(&self) -> Vec<T>;
+
+    fn cov(&self) -> Self;
 }
 
-pub trait Matrix<T: FloatExt>: BaseMatrix<T> + SVDDecomposableMatrix<T> + EVDDecomposableMatrix<T> + QRDecomposableMatrix<T> + LUDecomposableMatrix<T> + PartialEq + Display {}
+pub trait Matrix<T: FloatExt>:
+    BaseMatrix<T>
+    + SVDDecomposableMatrix<T>
+    + EVDDecomposableMatrix<T>
+    + QRDecomposableMatrix<T>
+    + LUDecomposableMatrix<T>
+    + PartialEq
+    + Display
+{
+}
 
 pub fn row_iter<F: FloatExt, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
-    RowIter{
+    RowIter {
         m: m,
         pos: 0,
         max_pos: m.shape().0,
-        phantom: PhantomData
+        phantom: PhantomData,
     }
 }
 
@@ -204,11 +210,10 @@ pub struct RowIter<'a, T: FloatExt, M: BaseMatrix<T>> {
     m: &'a M,
     pos: usize,
     max_pos: usize,
-    phantom: PhantomData<&'a T>
+    phantom: PhantomData<&'a T>,
 }
 
 impl<'a, T: FloatExt, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
-
     type Item = Vec<T>;
 
     fn next(&mut self) -> Option<Vec<T>> {
@@ -221,5 +226,4 @@ impl<'a, T: FloatExt, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
         self.pos += 1;
         res
     }
-
 }

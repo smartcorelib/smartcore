@@ -8,5 +8,5 @@ pub type DF<'a, X> = dyn for<'b> Fn(&'b mut X, &'b X) + 'a;
 pub enum FunctionOrder {
     FIRST,
     SECOND,
-    THIRD
+    THIRD,
 }

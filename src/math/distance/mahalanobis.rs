@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::math::num::FloatExt;
 
@@ -13,7 +13,7 @@ use crate::linalg::Matrix;
 pub struct Mahalanobis<T: FloatExt, M: Matrix<T>> {
     pub sigma: M,
     pub sigmaInv: M,
-    t: PhantomData<T>
+    t: PhantomData<T>,
 }
 
 impl<T: FloatExt, M: Matrix<T>> Mahalanobis<T, M> {
@@ -23,7 +23,7 @@ impl<T: FloatExt, M: Matrix<T>> Mahalanobis<T, M> {
         Mahalanobis {
             sigma: sigma,
             sigmaInv: sigmaInv,
-            t: PhantomData
+            t: PhantomData,
         }
     }
 
@@ -33,21 +33,30 @@ impl<T: FloatExt, M: Matrix<T>> Mahalanobis<T, M> {
         Mahalanobis {
             sigma: sigma,
             sigmaInv: sigmaInv,
-            t: PhantomData
+            t: PhantomData,
         }
     }
 }
 
 impl<T: FloatExt, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
-    
     fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
         let (nrows, ncols) = self.sigma.shape();
         if x.len() != nrows {
-            panic!("Array x[{}] has different dimension with Sigma[{}][{}].", x.len(), nrows, ncols);
+            panic!(
+                "Array x[{}] has different dimension with Sigma[{}][{}].",
+                x.len(),
+                nrows,
+                ncols
+            );
         }
 
         if y.len() != nrows {
-            panic!("Array y[{}] has different dimension with Sigma[{}][{}].", y.len(), nrows, ncols);
+            panic!(
+                "Array y[{}] has different dimension with Sigma[{}][{}].",
+                y.len(),
+                nrows,
+                ncols
+            );
         }
 
         println!("{}", self.sigmaInv);
@@ -56,7 +65,7 @@ impl<T: FloatExt, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
         let mut z = vec![T::zero(); n];
         for i in 0..n {
             z[i] = x[i] - y[i];
-        }        
+        }
 
         // np.dot(np.dot((a-b),VI),(a-b).T)
         let mut s = T::zero();
@@ -67,31 +76,29 @@ impl<T: FloatExt, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
         }
 
         s.sqrt()
-    } 
-
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
-    use super::*; 
+    use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
     #[test]
     fn mahalanobis_distance() {
         let data = DenseMatrix::from_array(&[
-            &[ 64., 580.,  29.],
-            &[ 66., 570.,  33.],
-            &[ 68., 590.,  37.],
-            &[ 69., 660.,  46.],
-            &[ 73., 600.,  55.]]); 
-            
+            &[64., 580., 29.],
+            &[66., 570., 33.],
+            &[68., 590., 37.],
+            &[69., 660., 46.],
+            &[73., 600., 55.],
+        ]);
+
         let a = data.column_mean();
         let b = vec![66., 640., 44.];
-        
-        let mahalanobis = Mahalanobis::new(&data);        
+
+        let mahalanobis = Mahalanobis::new(&data);
 
         println!("{}", mahalanobis.distance(&a, &b));
     }
-
 }
