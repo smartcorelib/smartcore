@@ -9,3 +9,4 @@ pub mod math;
 pub mod algorithm;
 pub mod common;
 pub mod optimization;
+pub mod metrics;

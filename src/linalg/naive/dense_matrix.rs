@@ -9,12 +9,25 @@ use serde::ser::{Serializer, SerializeStruct};
 use serde::de::{Deserializer, Visitor, SeqAccess, MapAccess};
 
 use crate::linalg::Matrix;
-pub use crate::linalg::BaseMatrix;
+pub use crate::linalg::{BaseMatrix, BaseVector};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::math::num::FloatExt;
+
+impl<T: FloatExt> BaseVector<T> for Vec<T> {
+    fn get(&self, i: usize) -> T {
+        self[i]
+    }
+    fn set(&mut self, i: usize, x: T){
+        self[i] = x
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct DenseMatrix<T: FloatExt> {

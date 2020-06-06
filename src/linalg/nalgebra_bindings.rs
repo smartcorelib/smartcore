@@ -4,12 +4,25 @@ use std::iter::Sum;
 use nalgebra::{MatrixMN, DMatrix, Matrix, Scalar, Dynamic, U1, VecStorage};
 
 use crate::math::num::FloatExt;
-use crate::linalg::BaseMatrix;
+use crate::linalg::{BaseMatrix, BaseVector};
 use crate::linalg::Matrix as SmartCoreMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
+
+impl<T: FloatExt + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
+    fn get(&self, i: usize) -> T {
+        *self.get((0, i)).unwrap()
+    }
+    fn set(&mut self, i: usize, x: T){
+        *self.get_mut((0, i)).unwrap() = x;
+    }
+
+    fn len(&self) -> usize{
+        self.len()
+    }
+}
 
 impl<T: FloatExt + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static> BaseMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
@@ -341,6 +354,24 @@ mod tests {
     use nalgebra::{Matrix2x3, DMatrix, RowDVector};
 
     #[test]
+    fn vec_len() {
+        let v = RowDVector::from_vec(vec!(1.,  2.,  3.));
+        assert_eq!(3, v.len());        
+    }
+
+    #[test]
+    fn get_set_vector() {
+        let mut v = RowDVector::from_vec(vec!(1., 2., 3., 4.));
+
+        let expected = RowDVector::from_vec(vec!(1., 5., 3., 4.));
+
+        v.set(1, 5.);
+
+        assert_eq!(v, expected);
+        assert_eq!(5., BaseVector::get(&v, 1));     
+    }
+
+    #[test]
     fn get_set_dynamic() {
         let mut m = DMatrix::from_row_slice(
             2,
@@ -355,7 +386,7 @@ mod tests {
 
         assert_eq!(m, expected);
         assert_eq!(10., BaseMatrix::get(&m, 1, 1));     
-    }
+    }    
 
     #[test]
     fn zeros() {

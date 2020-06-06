@@ -9,13 +9,25 @@ use ndarray::{Array, ArrayBase, OwnedRepr, Ix2, Ix1, Axis, stack, s};
 use ndarray::ScalarOperand;
 
 use crate::math::num::FloatExt;
-use crate::linalg::BaseMatrix;
+use crate::linalg::{BaseMatrix, BaseVector};
 use crate::linalg::Matrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 
+impl<T: FloatExt> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
+    fn get(&self, i: usize) -> T {
+        self[i]
+    }
+    fn set(&mut self, i: usize, x: T){
+        self[i] = x;
+    }
+
+    fn len(&self) -> usize{
+        self.len()
+    }
+}
 
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> BaseMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
@@ -309,6 +321,23 @@ mod tests {
     use ndarray::{arr1, arr2, Array2};
 
     #[test]
+    fn vec_get_set() {
+        let mut result = arr1(&[1.,  2.,  3.]);
+        let expected = arr1(&[1.,  5.,  3.]);
+
+        result.set(1, 5.);
+
+        assert_eq!(result, expected);
+        assert_eq!(5., BaseVector::get(&result, 1));     
+    }
+
+    #[test]
+    fn vec_len() {
+        let v = arr1(&[1.,  2.,  3.]);
+        assert_eq!(3, v.len());        
+    }
+
+    #[test]
     fn from_to_row_vec() { 
 
         let vec = arr1(&[ 1.,  2.,  3.]);
@@ -449,7 +478,7 @@ mod tests {
 
         assert_eq!(result, expected);
         assert_eq!(10., BaseMatrix::get(&result, 1, 1));     
-    }
+    }    
 
     #[test]
     fn dot() { 

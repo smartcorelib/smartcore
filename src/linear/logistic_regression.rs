@@ -273,6 +273,7 @@ mod tests {
     use super::*; 
     use crate::linalg::naive::dense_matrix::*;       
     use ndarray::{arr1, arr2, Array1};
+    use crate::metrics::*;
 
     #[test]
     fn multiclass_objective_f() { 
@@ -447,7 +448,7 @@ mod tests {
 
         let lr = LogisticRegression::fit(&x, &y);
 
-        let y_hat = lr.predict(&x);           
+        let y_hat = lr.predict(&x);            
         
         let error: f64 = y.into_iter().zip(y_hat.into_iter()).map(|(&a, &b)| (a - b).abs()).sum();
 

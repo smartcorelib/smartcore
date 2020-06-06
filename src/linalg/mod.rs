@@ -16,9 +16,18 @@ use evd::EVDDecomposableMatrix;
 use qr::QRDecomposableMatrix;
 use lu::LUDecomposableMatrix;
 
+pub trait BaseVector<T: FloatExt>: Clone + Debug { 
+
+    fn get(&self, i: usize) -> T; 
+
+    fn set(&mut self, i: usize, x: T);
+
+    fn len(&self) -> usize;
+}
+
 pub trait BaseMatrix<T: FloatExt>: Clone + Debug {  
 
-    type RowVector: Clone + Debug;    
+    type RowVector: BaseVector<T> + Clone + Debug;    
 
     fn from_row_vector(vec: Self::RowVector) -> Self;
 
