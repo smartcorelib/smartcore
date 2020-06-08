@@ -22,6 +22,8 @@ pub trait BaseVector<T: FloatExt>: Clone + Debug {
     fn set(&mut self, i: usize, x: T);
 
     fn len(&self) -> usize;
+
+    fn to_vec(&self) -> Vec<T>;
 }
 
 pub trait BaseMatrix<T: FloatExt>: Clone + Debug {

@@ -1,4 +1,6 @@
 pub mod accuracy;
+pub mod auc;
+pub mod f1;
 pub mod precision;
 pub mod recall;
 

@@ -27,6 +27,11 @@ impl<T: FloatExt> BaseVector<T> for Vec<T> {
     fn len(&self) -> usize {
         self.len()
     }
+
+    fn to_vec(&self) -> Vec<T> {
+        let v = self.clone();
+        v
+    }
 }
 
 #[derive(Debug, Clone)]

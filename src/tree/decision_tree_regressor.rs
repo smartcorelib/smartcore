@@ -164,7 +164,7 @@ impl<T: FloatExt> DecisionTreeRegressor<T> {
         let mut order: Vec<Vec<usize>> = Vec::new();
 
         for i in 0..num_attributes {
-            order.push(x.get_col_as_vec(i).quick_argsort());
+            order.push(x.get_col_as_vec(i).quick_argsort_mut());
         }
 
         let mut tree = DecisionTreeRegressor {

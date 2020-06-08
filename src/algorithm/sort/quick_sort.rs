@@ -1,11 +1,18 @@
 use num_traits::Float;
 
 pub trait QuickArgSort {
-    fn quick_argsort(&mut self) -> Vec<usize>;
+    fn quick_argsort_mut(&mut self) -> Vec<usize>;
+
+    fn quick_argsort(&self) -> Vec<usize>;
 }
 
 impl<T: Float> QuickArgSort for Vec<T> {
-    fn quick_argsort(&mut self) -> Vec<usize> {
+    fn quick_argsort(&self) -> Vec<usize> {
+        let mut v = self.clone();
+        v.quick_argsort_mut()
+    }
+
+    fn quick_argsort_mut(&mut self) -> Vec<usize> {
         let stack_size = 64;
         let mut jstack = -1;
         let mut l = 0;
@@ -108,10 +115,10 @@ mod tests {
 
     #[test]
     fn with_capacity() {
-        let mut arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];
+        let arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];
         assert_eq!(vec![1, 2, 0, 3, 5, 7, 6, 8, 4], arr1.quick_argsort());
 
-        let mut arr2 = vec![
+        let arr2 = vec![
             0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 1.4, 1.5, 1.5, 1.3, 1.5, 1.3, 1.6,
             1.0, 1.3, 1.4,
         ];

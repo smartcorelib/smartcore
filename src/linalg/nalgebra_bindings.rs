@@ -22,6 +22,10 @@ impl<T: FloatExt + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
     fn len(&self) -> usize {
         self.len()
     }
+
+    fn to_vec(&self) -> Vec<T> {
+        self.row(0).iter().map(|v| *v).collect()
+    }
 }
 
 impl<T: FloatExt + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
@@ -382,6 +386,12 @@ mod tests {
 
         assert_eq!(v, expected);
         assert_eq!(5., BaseVector::get(&v, 1));
+    }
+
+    #[test]
+    fn vec_to_vec() {
+        let v = RowDVector::from_vec(vec![1., 2., 3.]);
+        assert_eq!(vec![1., 2., 3.], v.to_vec());
     }
 
     #[test]

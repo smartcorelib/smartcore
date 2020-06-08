@@ -27,6 +27,10 @@ impl<T: FloatExt> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn len(&self) -> usize {
         self.len()
     }
+
+    fn to_vec(&self) -> Vec<T> {
+        self.to_owned().to_vec()
+    }
 }
 
 impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
@@ -349,6 +353,12 @@ mod tests {
     fn vec_len() {
         let v = arr1(&[1., 2., 3.]);
         assert_eq!(3, v.len());
+    }
+
+    #[test]
+    fn vec_to_vec() {
+        let v = arr1(&[1., 2., 3.]);
+        assert_eq!(vec![1., 2., 3.], v.to_vec());
     }
 
     #[test]
