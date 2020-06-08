@@ -7,12 +7,12 @@ use crate::math::num::FloatExt;
 pub struct Precision {}
 
 impl Precision {
-    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_prod: &V) -> T {
-        if y_true.len() != y_prod.len() {
+    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
+        if y_true.len() != y_pred.len() {
             panic!(
                 "The vector sizes don't match: {} != {}",
                 y_true.len(),
-                y_prod.len()
+                y_pred.len()
             );
         }
 
@@ -27,14 +27,14 @@ impl Precision {
                 );
             }
 
-            if y_prod.get(i) != T::zero() && y_prod.get(i) != T::one() {
+            if y_pred.get(i) != T::zero() && y_pred.get(i) != T::one() {
                 panic!(
                     "Precision can only be applied to binary classification: {}",
-                    y_prod.get(i)
+                    y_pred.get(i)
                 );
             }
 
-            if y_prod.get(i) == T::one() {
+            if y_pred.get(i) == T::one() {
                 p += 1;
 
                 if y_true.get(i) == T::one() {

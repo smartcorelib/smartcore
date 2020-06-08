@@ -9,18 +9,18 @@ use crate::metrics::recall::Recall;
 pub struct F1 {}
 
 impl F1 {
-    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_prod: &V) -> T {
-        if y_true.len() != y_prod.len() {
+    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
+        if y_true.len() != y_pred.len() {
             panic!(
                 "The vector sizes don't match: {} != {}",
                 y_true.len(),
-                y_prod.len()
+                y_pred.len()
             );
         }
         let beta2 = T::one();
 
-        let p = Precision {}.get_score(y_true, y_prod);
-        let r = Recall {}.get_score(y_true, y_prod);
+        let p = Precision {}.get_score(y_true, y_pred);
+        let r = Recall {}.get_score(y_true, y_pred);
 
         (T::one() + beta2) * (p * r) / (beta2 * p + r)
     }

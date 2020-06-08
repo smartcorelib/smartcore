@@ -7,12 +7,12 @@ use crate::math::num::FloatExt;
 pub struct Accuracy {}
 
 impl Accuracy {
-    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_prod: &V) -> T {
-        if y_true.len() != y_prod.len() {
+    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
+        if y_true.len() != y_pred.len() {
             panic!(
                 "The vector sizes don't match: {} != {}",
                 y_true.len(),
-                y_prod.len()
+                y_pred.len()
             );
         }
 
@@ -20,7 +20,7 @@ impl Accuracy {
 
         let mut positive = 0;
         for i in 0..n {
-            if y_true.get(i) == y_prod.get(i) {
+            if y_true.get(i) == y_pred.get(i) {
                 positive += 1;
             }
         }
