@@ -14,6 +14,10 @@ pub trait FloatExt: Float + FromPrimitive + Debug + Display + Copy {
     fn two() -> Self;
 
     fn half() -> Self;
+
+    fn square(self) -> Self {
+        self * self
+    }
 }
 
 impl FloatExt for f64 {
