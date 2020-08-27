@@ -13,6 +13,7 @@ Cargo.lock
 .idea
 .project
 .vscode
+smartcore.code-workspace
 
 # OS
 .DS_Store

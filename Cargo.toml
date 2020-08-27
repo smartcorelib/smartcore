@@ -1,12 +1,12 @@
 [package]
 name = "smartcore"
 version = "0.1.0"
-authors = ["Vlad Orlov"]
+authors = ["SmartCore Developers"]
 edition = "2018"
 
 [dependencies]
 ndarray = "0.13"
-nalgebra = "0.21.1"
+nalgebra = "0.22.0"
 num-traits = "0.2.12"
 num = "0.3.0"
 rand = "0.7.3"

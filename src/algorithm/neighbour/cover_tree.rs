@@ -66,7 +66,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D> {
         }
     }
 
-    pub fn new_node(&mut self, parent: Option<NodeId>, data: T) -> NodeId {
+    fn new_node(&mut self, parent: Option<NodeId>, data: T) -> NodeId {
         let next_index = self.nodes.len();
         let node_id = NodeId { index: next_index };
         self.nodes.push(Node {
@@ -300,7 +300,7 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct NodeId {
+struct NodeId {
     index: usize,
 }
 

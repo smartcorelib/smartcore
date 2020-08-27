@@ -1,2 +1,2 @@
 pub mod distance;
-pub mod num;
+pub(crate) mod num;
