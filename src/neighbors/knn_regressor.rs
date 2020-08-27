@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::neighbors::{KNNAlgorithmName, KNNAlgorithm};
 use crate::linalg::{row_iter, BaseVector, Matrix};
 use crate::math::distance::Distance;
 use crate::math::num::FloatExt;
-
+use crate::neighbors::{KNNAlgorithm, KNNAlgorithmName};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct KNNRegressorParameters {
@@ -13,7 +12,7 @@ pub struct KNNRegressorParameters {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct KNNRegressor<T: FloatExt, D: Distance<Vec<T>, T>> {    
+pub struct KNNRegressor<T: FloatExt, D: Distance<Vec<T>, T>> {
     y: Vec<T>,
     knn_algorithm: KNNAlgorithm<T, D>,
     k: usize,
@@ -30,7 +29,7 @@ impl Default for KNNRegressorParameters {
 
 impl<T: FloatExt, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
     fn eq(&self, other: &Self) -> bool {
-        if self.k != other.k || self.y.len() != other.y.len(){
+        if self.k != other.k || self.y.len() != other.y.len() {
             return false;
         } else {
             for i in 0..self.y.len() {
@@ -56,7 +55,7 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
         let (x_n, _) = x.shape();
 
         let data = row_iter(x).collect();
-        
+
         assert!(
             x_n == y_n,
             format!(
@@ -68,9 +67,9 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
         assert!(
             parameters.k > 1,
             format!("k should be > 1, k=[{}]", parameters.k)
-        );        
+        );
 
-        KNNRegressor {            
+        KNNRegressor {
             y: y.to_vec(),
             k: parameters.k,
             knn_algorithm: parameters.algorithm.fit(data, distance),
@@ -88,10 +87,10 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
     }
 
     fn predict_for_row(&self, x: Vec<T>) -> T {
-        let idxs = self.knn_algorithm.find(&x, self.k);        
+        let idxs = self.knn_algorithm.find(&x, self.k);
         let mut result = T::zero();
         for i in idxs {
-            result = result + self.y[i];            
+            result = result + self.y[i];
         }
 
         result / T::from_usize(self.k).unwrap()

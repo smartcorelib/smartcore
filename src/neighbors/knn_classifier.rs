@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::neighbors::{KNNAlgorithmName, KNNAlgorithm};
 use crate::linalg::{row_iter, Matrix};
 use crate::math::distance::Distance;
 use crate::math::num::FloatExt;
+use crate::neighbors::{KNNAlgorithm, KNNAlgorithmName};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct KNNClassifierParameters {

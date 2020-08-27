@@ -1,12 +1,12 @@
 //! # Nearest Neighbors
 
-use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::math::distance::Distance;
 use crate::math::num::FloatExt;
+use serde::{Deserialize, Serialize};
 
-/// 
+///
 pub mod knn_classifier;
 pub mod knn_regressor;
 
