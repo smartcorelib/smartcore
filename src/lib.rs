@@ -36,14 +36,14 @@
 //!
 //! Each category is assigned to a separate module.
 //!
-//! For example, KNN classifier is defined in [smartcore::neighbors::knn](neighbors/knn/index.html). To train and run it using standard Rust vectors you will
+//! For example, KNN classifier is defined in [smartcore::neighbors::knn_classifier](neighbors/knn_classifier/index.html). To train and run it using standard Rust vectors you will
 //! run this code:
 //!
 //! ```
 //! // DenseMatrix defenition
 //! use smartcore::linalg::naive::dense_matrix::*;
 //! // KNNClassifier
-//! use smartcore::neighbors::knn::*;
+//! use smartcore::neighbors::knn_classifier::*;
 //! // Various distance metrics
 //! use smartcore::math::distance::*;
 //!
