@@ -12,7 +12,7 @@ pub enum LinearRegressionSolverName {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct LinearRegressionParameters {    
+pub struct LinearRegressionParameters {
     solver: LinearRegressionSolverName,
 }
 
@@ -25,8 +25,8 @@ pub struct LinearRegression<T: FloatExt, M: Matrix<T>> {
 
 impl Default for LinearRegressionParameters {
     fn default() -> Self {
-        LinearRegressionParameters {            
-            solver: LinearRegressionSolverName::SVD
+        LinearRegressionParameters {
+            solver: LinearRegressionSolverName::SVD,
         }
     }
 }
@@ -39,7 +39,11 @@ impl<T: FloatExt, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
 }
 
 impl<T: FloatExt, M: Matrix<T>> LinearRegression<T, M> {
-    pub fn fit(x: &M, y: &M::RowVector, parameters: LinearRegressionParameters) -> LinearRegression<T, M> {
+    pub fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: LinearRegressionParameters,
+    ) -> LinearRegression<T, M> {
         let y_m = M::from_row_vector(y.clone());
         let b = y_m.transpose();
         let (x_nrows, num_attributes) = x.shape();
@@ -103,7 +107,14 @@ mod tests {
             114.2, 115.7, 116.9,
         ]);
 
-        let y_hat_qr = LinearRegression::fit(&x, &y, LinearRegressionParameters{solver: LinearRegressionSolverName::QR}).predict(&x);
+        let y_hat_qr = LinearRegression::fit(
+            &x,
+            &y,
+            LinearRegressionParameters {
+                solver: LinearRegressionSolverName::QR,
+            },
+        )
+        .predict(&x);
 
         let y_hat_svd = LinearRegression::fit(&x, &y, Default::default()).predict(&x);
 
@@ -143,7 +154,14 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let y_hat_qr = LinearRegression::fit(&x, &y, LinearRegressionParameters{solver: LinearRegressionSolverName::QR}).predict(&x);
+        let y_hat_qr = LinearRegression::fit(
+            &x,
+            &y,
+            LinearRegressionParameters {
+                solver: LinearRegressionSolverName::QR,
+            },
+        )
+        .predict(&x);
 
         let y_hat_svd = LinearRegression::fit(&x, &y, Default::default()).predict(&x);
 

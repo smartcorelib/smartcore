@@ -13,9 +13,9 @@ pub enum KNNAlgorithmName {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct KNNClassifierParameters {    
+pub struct KNNClassifierParameters {
     pub algorithm: KNNAlgorithmName,
-    pub k: usize
+    pub k: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -34,9 +34,9 @@ enum KNNAlgorithm<T: FloatExt, D: Distance<Vec<T>, T>> {
 
 impl Default for KNNClassifierParameters {
     fn default() -> Self {
-        KNNClassifierParameters {            
+        KNNClassifierParameters {
             algorithm: KNNAlgorithmName::CoverTree,
-            k: 3
+            k: 3,
         }
     }
 }
@@ -93,7 +93,7 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
         x: &M,
         y: &M::RowVector,
         distance: D,
-        parameters: KNNClassifierParameters
+        parameters: KNNClassifierParameters,
     ) -> KNNClassifier<T, D> {
         let y_m = M::from_row_vector(y.clone());
 
@@ -118,7 +118,10 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
             )
         );
 
-        assert!(parameters.k > 1, format!("k should be > 1, k=[{}]", parameters.k));
+        assert!(
+            parameters.k > 1,
+            format!("k should be > 1, k=[{}]", parameters.k)
+        );
 
         KNNClassifier {
             classes: classes,
@@ -169,7 +172,10 @@ mod tests {
             &x,
             &y,
             Distances::euclidian(),
-            KNNClassifierParameters{k: 3, algorithm: KNNAlgorithmName::LinearSearch}            
+            KNNClassifierParameters {
+                k: 3,
+                algorithm: KNNAlgorithmName::LinearSearch,
+            },
         );
         let r = knn.predict(&x);
         assert_eq!(5, Vec::len(&r));
@@ -181,12 +187,7 @@ mod tests {
         let x = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y = vec![2., 2., 2., 3., 3.];
 
-        let knn = KNNClassifier::fit(
-            &x,
-            &y,            
-            Distances::euclidian(),
-            Default::default()
-        );
+        let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default());
 
         let deserialized_knn = bincode::deserialize(&bincode::serialize(&knn).unwrap()).unwrap();
 
