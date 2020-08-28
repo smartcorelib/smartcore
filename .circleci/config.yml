@@ -15,10 +15,10 @@ jobs:
           command: cargo fmt -- --check
       - run:
           name: Stable Build
-          command: cargo build
+          command: cargo build --features "nalgebra-bindings ndarray-bindings"
       - run:
           name: Test
-          command: cargo test
+          command: cargo test --features "nalgebra-bindings ndarray-bindings"
       - save_cache:
           key: project-cache
           paths:

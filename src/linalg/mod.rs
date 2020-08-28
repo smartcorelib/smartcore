@@ -1,7 +1,9 @@
 pub mod evd;
 pub mod lu;
 pub mod naive;
+#[cfg(feature = "nalgebra-bindings")]
 pub mod nalgebra_bindings;
+#[cfg(feature = "ndarray-bindings")]
 pub mod ndarray_bindings;
 pub mod qr;
 pub mod svd;
