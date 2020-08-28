@@ -6,12 +6,12 @@
 //! Welcome to SmartCore library, the most complete machine learning library for Rust!
 //!
 //! In SmartCore you will find implementation of these ML algorithms:
-//! * Regression: Linear Regression (OLS), Decision Tree Regressor, Random Forest Regressor
-//! * Classification: Logistic Regressor, Decision Tree Classifier, Random Forest Classifier, Unsupervised Nearest Neighbors (KNN)
-//! * Clustering: K-Means
-//! * Matrix decomposition: PCA, LU, QR, SVD, EVD
-//! * Distance Metrics: Euclidian, Minkowski, Manhattan, Hamming, Mahalanobis
-//! * Evaluation Metrics: Accuracy, AUC, Recall, Precision, F1, Mean Absolute Error, Mean Squared Error, R2
+//! * __Regression__: Linear Regression (OLS), Decision Tree Regressor, Random Forest Regressor, K Nearest Neighbors
+//! * __Classification__: Logistic Regressor, Decision Tree Classifier, Random Forest Classifier, Supervised Nearest Neighbors (KNN)
+//! * __Clustering__: K-Means
+//! * __Matrix Decomposition__: PCA, LU, QR, SVD, EVD
+//! * __Distance Metrics__: Euclidian, Minkowski, Manhattan, Hamming, Mahalanobis
+//! * __Evaluation Metrics__: Accuracy, AUC, Recall, Precision, F1, Mean Absolute Error, Mean Squared Error, R2
 //!
 //! Most of algorithms implemented in SmartCore operate on n-dimentional arrays. While you can use Rust vectors with all functions defined in this library
 //! we do recommend to go with one of the popular linear algebra libraries available in Rust. At this moment we support these packages:
