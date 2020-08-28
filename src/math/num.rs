@@ -1,8 +1,9 @@
 use num_traits::{Float, FromPrimitive};
 use rand::prelude::*;
 use std::fmt::{Debug, Display};
+use std::iter::{Product, Sum};
 
-pub trait FloatExt: Float + FromPrimitive + Debug + Display + Copy {
+pub trait FloatExt: Float + FromPrimitive + Debug + Display + Copy + Sum + Product {
     fn copysign(self, sign: Self) -> Self;
 
     fn ln_1pe(self) -> Self;

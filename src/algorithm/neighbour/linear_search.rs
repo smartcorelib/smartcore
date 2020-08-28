@@ -22,7 +22,7 @@ impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
         }
     }
 
-    pub fn find(&self, from: &T, k: usize) -> Vec<usize> {
+    pub fn find(&self, from: &T, k: usize) -> Vec<(usize, F)> {
         if k < 1 || k > self.data.len() {
             panic!("k should be >= 1 and <= length(data)");
         }
@@ -48,7 +48,10 @@ impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
 
         heap.sort();
 
-        heap.get().into_iter().flat_map(|x| x.index).collect()
+        heap.get()
+            .into_iter()
+            .flat_map(|x| x.index.map(|i| (i, x.distance)))
+            .collect()
     }
 }
 
@@ -91,7 +94,9 @@ mod tests {
 
         let algorithm1 = LinearKNNSearch::new(data1, SimpleDistance {});
 
-        assert_eq!(vec!(1, 2, 0), algorithm1.find(&2, 3));
+        let found_idxs1: Vec<usize> = algorithm1.find(&2, 3).iter().map(|v| v.0).collect();
+
+        assert_eq!(vec!(1, 2, 0), found_idxs1);
 
         let data2 = vec![
             vec![1., 1.],
@@ -103,7 +108,13 @@ mod tests {
 
         let algorithm2 = LinearKNNSearch::new(data2, Distances::euclidian());
 
-        assert_eq!(vec!(2, 3, 1), algorithm2.find(&vec![3., 3.], 3));
+        let found_idxs2: Vec<usize> = algorithm2
+            .find(&vec![3., 3.], 3)
+            .iter()
+            .map(|v| v.0)
+            .collect();
+
+        assert_eq!(vec!(2, 3, 1), found_idxs2);
     }
 
     #[test]
