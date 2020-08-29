@@ -41,6 +41,7 @@ impl<'a, T: PartialOrd> HeapSelect<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn peek(&self) -> &T {
         return &self.heap[0];
     }
