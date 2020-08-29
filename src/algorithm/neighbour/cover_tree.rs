@@ -1,3 +1,26 @@
+//! # Cover Tree
+//!
+//! The Cover Tree data structure is specifically designed to facilitate the speed-up of a nearest neighbor search, see [KNN algorithms](../index.html).
+//!
+//! ```
+//! use smartcore::algorithm::neighbour::cover_tree::*;
+//! use smartcore::math::distance::Distance;
+//!
+//! struct SimpleDistance {} // Our distance function
+//!
+//! impl Distance<i32, f64> for SimpleDistance {
+//!   fn distance(&self, a: &i32, b: &i32) -> f64 { // simple simmetrical scalar distance
+//!     (a - b).abs() as f64
+//!   }
+//! }
+//!
+//! let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9]; // data points
+//!
+//! let mut tree = CoverTree::new(data, SimpleDistance {});
+//!
+//! tree.find(&5, 3); // find 3 knn points from 5
+//!
+//! ```
 use core::hash::{Hash, Hasher};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -9,6 +32,7 @@ use crate::algorithm::sort::heap_select::HeapSelect;
 use crate::math::distance::Distance;
 use crate::math::num::FloatExt;
 
+/// Implements Cover Tree algorithm
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CoverTree<T, F: FloatExt, D: Distance<T, F>> {
     base: F,
@@ -19,6 +43,9 @@ pub struct CoverTree<T, F: FloatExt, D: Distance<T, F>> {
 }
 
 impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D> {
+    /// Construct a cover tree.
+    /// * `data` - vector of data points to search for.
+    /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../algorithm/neighbour/index.html) interface.
     pub fn new(mut data: Vec<T>, distance: D) -> CoverTree<T, F, D> {
         let mut tree = CoverTree {
             base: F::two(),
@@ -34,6 +61,8 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D> {
         tree
     }
 
+    /// Insert new data point into the cover tree.
+    /// * `p` - new data points.    
     pub fn insert(&mut self, p: T) {
         if self.nodes.is_empty() {
             self.new_node(None, p);
@@ -78,6 +107,9 @@ impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D> {
         node_id
     }
 
+    /// Find k nearest neighbors of `p`
+    /// * `p` - look for k nearest points to `p`
+    /// * `k` - the number of nearest neighbors to return
     pub fn find(&self, p: &T, k: usize) -> Vec<(usize, F)> {
         let mut qi_p_ds = vec![(self.root(), self.distance.distance(&p, &self.root().data))];
         for i in (self.min_level..self.max_level + 1).rev() {

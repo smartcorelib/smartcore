@@ -1,3 +1,26 @@
+//! # Brute Force Linear Search
+//!
+//! see [KNN algorithms](../index.html)
+//! ```
+//! use smartcore::algorithm::neighbour::linear_search::*;
+//! use smartcore::math::distance::Distance;
+//!
+//! struct SimpleDistance {} // Our distance function
+//!
+//! impl Distance<i32, f64> for SimpleDistance {
+//!   fn distance(&self, a: &i32, b: &i32) -> f64 { // simple simmetrical scalar distance
+//!     (a - b).abs() as f64
+//!   }
+//! }
+//!
+//! let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9]; // data points
+//!
+//! let knn = LinearKNNSearch::new(data, SimpleDistance {});
+//!
+//! knn.find(&5, 3); // find 3 knn points from 5
+//!
+//! ```
+
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
 use std::marker::PhantomData;
@@ -6,6 +29,7 @@ use crate::algorithm::sort::heap_select::HeapSelect;
 use crate::math::distance::Distance;
 use crate::math::num::FloatExt;
 
+/// Implements Linear Search algorithm, see [KNN algorithms](../index.html)
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LinearKNNSearch<T, F: FloatExt, D: Distance<T, F>> {
     distance: D,
@@ -14,6 +38,9 @@ pub struct LinearKNNSearch<T, F: FloatExt, D: Distance<T, F>> {
 }
 
 impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
+    /// Initializes algorithm.
+    /// * `data` - vector of data points to search for.
+    /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../algorithm/neighbour/index.html) interface.
     pub fn new(data: Vec<T>, distance: D) -> LinearKNNSearch<T, F, D> {
         LinearKNNSearch {
             data: data,
@@ -22,6 +49,9 @@ impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
         }
     }
 
+    /// Find k nearest neighbors
+    /// * `from` - look for k nearest points to `from`
+    /// * `k` - the number of nearest neighbors to return
     pub fn find(&self, from: &T, k: usize) -> Vec<(usize, F)> {
         if k < 1 || k > self.data.len() {
             panic!("k should be >= 1 and <= length(data)");

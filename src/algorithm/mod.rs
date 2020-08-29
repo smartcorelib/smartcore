@@ -1,2 +1,2 @@
 pub mod neighbour;
-pub mod sort;
+pub(crate) mod sort;

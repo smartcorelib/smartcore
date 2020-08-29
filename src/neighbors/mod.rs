@@ -1,7 +1,5 @@
 //! # Nearest Neighbors
 //!
-//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
-//!
 //! The k-nearest neighbors (KNN) algorithm is a simple supervised machine learning algorithm that can be used to solve both classification and regression problems.
 //! KNN is a non-parametric method that assumes that similar things exist in close proximity.
 //!
@@ -30,6 +28,8 @@
 //! ## References:
 //! * ["Nearest Neighbor Pattern Classification" Cover, T.M., IEEE Transactions on Information Theory (1967)](http://ssg.mit.edu/cal/abs/2000_spring/np_dens/classification/cover67.pdf)
 //! * ["The Elements of Statistical Learning: Data Mining, Inference, and Prediction" Trevor et al., 2nd edition, chapter 13](https://web.stanford.edu/~hastie/ElemStatLearn/)
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 
 use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
@@ -43,7 +43,7 @@ pub mod knn_classifier;
 pub mod knn_regressor;
 
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
-/// `KNNAlgorithmName` maintains a list of supported search algorithms
+/// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KNNAlgorithmName {
     /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
