@@ -45,7 +45,7 @@ pub struct CoverTree<T, F: RealNumber, D: Distance<T, F>> {
 impl<T: Debug, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> {
     /// Construct a cover tree.
     /// * `data` - vector of data points to search for.
-    /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../algorithm/neighbour/index.html) interface.
+    /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../../../math/distance/index.html) interface.
     pub fn new(mut data: Vec<T>, distance: D) -> CoverTree<T, F, D> {
         let mut tree = CoverTree {
             base: F::two(),
