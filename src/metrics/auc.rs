@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
 use crate::linalg::BaseVector;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AUC {}
 
 impl AUC {
-    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_pred_prob: &V) -> T {
+    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred_prob: &V) -> T {
         let mut pos = T::zero();
         let mut neg = T::zero();
 

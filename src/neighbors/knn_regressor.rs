@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::linalg::{row_iter, BaseVector, Matrix};
 use crate::math::distance::Distance;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::neighbors::{KNNAlgorithm, KNNAlgorithmName, KNNWeightFunction};
 
 /// `KNNRegressor` parameters. Use `Default::default()` for default values.
@@ -54,7 +54,7 @@ pub struct KNNRegressorParameters {
 
 /// K Nearest Neighbors Regressor
 #[derive(Serialize, Deserialize, Debug)]
-pub struct KNNRegressor<T: FloatExt, D: Distance<Vec<T>, T>> {
+pub struct KNNRegressor<T: RealNumber, D: Distance<Vec<T>, T>> {
     y: Vec<T>,
     knn_algorithm: KNNAlgorithm<T, D>,
     weight: KNNWeightFunction,
@@ -71,7 +71,7 @@ impl Default for KNNRegressorParameters {
     }
 }
 
-impl<T: FloatExt, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
+impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
     fn eq(&self, other: &Self) -> bool {
         if self.k != other.k || self.y.len() != other.y.len() {
             return false;
@@ -86,7 +86,7 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
     }
 }
 
-impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
+impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
     /// Fits KNN regressor to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
     /// * `y` - vector with real values

@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::{
     which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,
 };
@@ -23,13 +23,13 @@ pub struct RandomForestClassifierParameters {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RandomForestClassifier<T: FloatExt> {
+pub struct RandomForestClassifier<T: RealNumber> {
     parameters: RandomForestClassifierParameters,
     trees: Vec<DecisionTreeClassifier<T>>,
     classes: Vec<T>,
 }
 
-impl<T: FloatExt> PartialEq for RandomForestClassifier<T> {
+impl<T: RealNumber> PartialEq for RandomForestClassifier<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.classes.len() != other.classes.len() || self.trees.len() != other.trees.len() {
             return false;
@@ -62,7 +62,7 @@ impl Default for RandomForestClassifierParameters {
     }
 }
 
-impl<T: FloatExt> RandomForestClassifier<T> {
+impl<T: RealNumber> RandomForestClassifier<T> {
     pub fn fit<M: Matrix<T>>(
         x: &M,
         y: &M::RowVector,

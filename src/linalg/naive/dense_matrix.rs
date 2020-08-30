@@ -14,9 +14,9 @@ use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 pub use crate::linalg::{BaseMatrix, BaseVector};
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
-impl<T: FloatExt> BaseVector<T> for Vec<T> {
+impl<T: RealNumber> BaseVector<T> for Vec<T> {
     fn get(&self, i: usize) -> T {
         self[i]
     }
@@ -35,13 +35,13 @@ impl<T: FloatExt> BaseVector<T> for Vec<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct DenseMatrix<T: FloatExt> {
+pub struct DenseMatrix<T: RealNumber> {
     ncols: usize,
     nrows: usize,
     values: Vec<T>,
 }
 
-impl<T: FloatExt> fmt::Display for DenseMatrix<T> {
+impl<T: RealNumber> fmt::Display for DenseMatrix<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
         for r in 0..self.nrows {
@@ -56,7 +56,7 @@ impl<T: FloatExt> fmt::Display for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatExt> DenseMatrix<T> {
+impl<T: RealNumber> DenseMatrix<T> {
     fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
         DenseMatrix {
             ncols: ncols,
@@ -115,7 +115,7 @@ impl<T: FloatExt> DenseMatrix<T> {
     }
 }
 
-impl<'de, T: FloatExt + fmt::Debug + Deserialize<'de>> Deserialize<'de> for DenseMatrix<T> {
+impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for DenseMatrix<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -128,11 +128,11 @@ impl<'de, T: FloatExt + fmt::Debug + Deserialize<'de>> Deserialize<'de> for Dens
             Values,
         }
 
-        struct DenseMatrixVisitor<T: FloatExt + fmt::Debug> {
+        struct DenseMatrixVisitor<T: RealNumber + fmt::Debug> {
             t: PhantomData<T>,
         }
 
-        impl<'a, T: FloatExt + fmt::Debug + Deserialize<'a>> Visitor<'a> for DenseMatrixVisitor<T> {
+        impl<'a, T: RealNumber + fmt::Debug + Deserialize<'a>> Visitor<'a> for DenseMatrixVisitor<T> {
             type Value = DenseMatrix<T>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -200,7 +200,7 @@ impl<'de, T: FloatExt + fmt::Debug + Deserialize<'de>> Deserialize<'de> for Dens
     }
 }
 
-impl<T: FloatExt + fmt::Debug + Serialize> Serialize for DenseMatrix<T> {
+impl<T: RealNumber + fmt::Debug + Serialize> Serialize for DenseMatrix<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -214,17 +214,17 @@ impl<T: FloatExt + fmt::Debug + Serialize> Serialize for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatExt> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: RealNumber> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: RealNumber> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt> QRDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: RealNumber> QRDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt> LUDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: RealNumber> LUDecomposableMatrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt> Matrix<T> for DenseMatrix<T> {}
+impl<T: RealNumber> Matrix<T> for DenseMatrix<T> {}
 
-impl<T: FloatExt> PartialEq for DenseMatrix<T> {
+impl<T: RealNumber> PartialEq for DenseMatrix<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             return false;
@@ -247,13 +247,13 @@ impl<T: FloatExt> PartialEq for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatExt> Into<Vec<T>> for DenseMatrix<T> {
+impl<T: RealNumber> Into<Vec<T>> for DenseMatrix<T> {
     fn into(self) -> Vec<T> {
         self.values
     }
 }
 
-impl<T: FloatExt> BaseMatrix<T> for DenseMatrix<T> {
+impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     type RowVector = Vec<T>;
 
     fn from_row_vector(vec: Self::RowVector) -> Self {

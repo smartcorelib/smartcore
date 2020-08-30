@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 use super::Distance;
 
@@ -8,7 +8,7 @@ use super::Distance;
 pub struct Euclidian {}
 
 impl Euclidian {
-    pub fn squared_distance<T: FloatExt>(x: &Vec<T>, y: &Vec<T>) -> T {
+    pub fn squared_distance<T: RealNumber>(x: &Vec<T>, y: &Vec<T>) -> T {
         if x.len() != y.len() {
             panic!("Input vector sizes are different.");
         }
@@ -22,7 +22,7 @@ impl Euclidian {
     }
 }
 
-impl<T: FloatExt> Distance<Vec<T>, T> for Euclidian {
+impl<T: RealNumber> Distance<Vec<T>, T> for Euclidian {
     fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
         Euclidian::squared_distance(x, y).sqrt()
     }

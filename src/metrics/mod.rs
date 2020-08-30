@@ -8,7 +8,7 @@ pub mod r2;
 pub mod recall;
 
 use crate::linalg::BaseVector;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 pub struct ClassificationMetrics {}
 
@@ -50,34 +50,34 @@ impl RegressionMetrics {
     }
 }
 
-pub fn accuracy<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn accuracy<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::accuracy().get_score(y_true, y_pred)
 }
 
-pub fn recall<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn recall<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::recall().get_score(y_true, y_pred)
 }
 
-pub fn precision<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn precision<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::precision().get_score(y_true, y_pred)
 }
 
-pub fn f1<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn f1<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::f1().get_score(y_true, y_pred)
 }
 
-pub fn roc_auc_score<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred_probabilities: &V) -> T {
+pub fn roc_auc_score<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred_probabilities: &V) -> T {
     ClassificationMetrics::roc_auc_score().get_score(y_true, y_pred_probabilities)
 }
 
-pub fn mean_squared_error<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn mean_squared_error<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::mean_squared_error().get_score(y_true, y_pred)
 }
 
-pub fn mean_absolute_error<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn mean_absolute_error<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::mean_absolute_error().get_score(y_true, y_pred)
 }
 
-pub fn r2<T: FloatExt, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn r2<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::r2().get_score(y_true, y_pred)
 }

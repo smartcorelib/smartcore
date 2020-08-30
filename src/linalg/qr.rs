@@ -3,16 +3,16 @@
 use std::fmt::Debug;
 
 use crate::linalg::BaseMatrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Debug, Clone)]
-pub struct QR<T: FloatExt, M: BaseMatrix<T>> {
+pub struct QR<T: RealNumber, M: BaseMatrix<T>> {
     QR: M,
     tau: Vec<T>,
     singular: bool,
 }
 
-impl<T: FloatExt, M: BaseMatrix<T>> QR<T, M> {
+impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
     pub fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
         let mut singular = false;
         for j in 0..tau.len() {
@@ -112,7 +112,7 @@ impl<T: FloatExt, M: BaseMatrix<T>> QR<T, M> {
     }
 }
 
-pub trait QRDecomposableMatrix<T: FloatExt>: BaseMatrix<T> {
+pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     fn qr(&self) -> QR<T, Self> {
         self.clone().qr_mut()
     }

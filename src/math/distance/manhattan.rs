@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 use super::Distance;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Manhattan {}
 
-impl<T: FloatExt> Distance<Vec<T>, T> for Manhattan {
+impl<T: RealNumber> Distance<Vec<T>, T> for Manhattan {
     fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
         if x.len() != y.len() {
             panic!("Input vector sizes are different");

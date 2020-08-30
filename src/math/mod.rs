@@ -1,2 +1,3 @@
+/// Multitude of distance metrics are defined here
 pub mod distance;
-pub(crate) mod num;
+pub mod num;

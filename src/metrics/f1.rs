@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
 
@@ -9,7 +9,7 @@ use crate::metrics::recall::Recall;
 pub struct F1 {}
 
 impl F1 {
-    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.len() != y_pred.len() {
             panic!(
                 "The vector sizes don't match: {} != {}",

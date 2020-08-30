@@ -1,24 +1,24 @@
 #![allow(non_snake_case)]
 
 use crate::linalg::BaseMatrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use num::complex::Complex;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub struct EVD<T: FloatExt, M: BaseMatrix<T>> {
+pub struct EVD<T: RealNumber, M: BaseMatrix<T>> {
     pub d: Vec<T>,
     pub e: Vec<T>,
     pub V: M,
 }
 
-impl<T: FloatExt, M: BaseMatrix<T>> EVD<T, M> {
+impl<T: RealNumber, M: BaseMatrix<T>> EVD<T, M> {
     pub fn new(V: M, d: Vec<T>, e: Vec<T>) -> EVD<T, M> {
         EVD { d: d, e: e, V: V }
     }
 }
 
-pub trait EVDDecomposableMatrix<T: FloatExt>: BaseMatrix<T> {
+pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     fn evd(&self, symmetric: bool) -> EVD<T, Self> {
         self.clone().evd_mut(symmetric)
     }
@@ -58,7 +58,7 @@ pub trait EVDDecomposableMatrix<T: FloatExt>: BaseMatrix<T> {
     }
 }
 
-fn tred2<T: FloatExt, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = V.shape();
     for i in 0..n {
         d[i] = V.get(n - 1, i);
@@ -161,7 +161,7 @@ fn tred2<T: FloatExt, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T
     e[0] = T::zero();
 }
 
-fn tql2<T: FloatExt, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = V.shape();
     for i in 1..n {
         e[i - 1] = e[i];
@@ -277,7 +277,7 @@ fn tql2<T: FloatExt, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>
     }
 }
 
-fn balance<T: FloatExt, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
+fn balance<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
     let radix = T::two();
     let sqrdx = radix * radix;
 
@@ -330,7 +330,7 @@ fn balance<T: FloatExt, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
     return scale;
 }
 
-fn elmhes<T: FloatExt, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
+fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
     let (n, _) = A.shape();
     let mut perm = vec![0; n];
 
@@ -376,7 +376,7 @@ fn elmhes<T: FloatExt, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
     return perm;
 }
 
-fn eltran<T: FloatExt, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &Vec<usize>) {
+fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &Vec<usize>) {
     let (n, _) = A.shape();
     for mp in (1..n - 1).rev() {
         for k in mp + 1..n {
@@ -393,7 +393,7 @@ fn eltran<T: FloatExt, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &Vec<usize>) {
     }
 }
 
-fn hqr2<T: FloatExt, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = A.shape();
     let mut z = T::zero();
     let mut s = T::zero();
@@ -748,7 +748,7 @@ fn hqr2<T: FloatExt, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: 
     }
 }
 
-fn balbak<T: FloatExt, M: BaseMatrix<T>>(V: &mut M, scale: &Vec<T>) {
+fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &Vec<T>) {
     let (n, _) = V.shape();
     for i in 0..n {
         for j in 0..n {
@@ -757,7 +757,7 @@ fn balbak<T: FloatExt, M: BaseMatrix<T>>(V: &mut M, scale: &Vec<T>) {
     }
 }
 
-fn sort<T: FloatExt, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut M) {
+fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut M) {
     let n = d.len();
     let mut temp = vec![T::zero(); n];
     for j in 1..n {

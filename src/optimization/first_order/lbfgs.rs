@@ -2,12 +2,12 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
-pub struct LBFGS<T: FloatExt> {
+pub struct LBFGS<T: RealNumber> {
     pub max_iter: usize,
     pub g_rtol: T,
     pub g_atol: T,
@@ -19,7 +19,7 @@ pub struct LBFGS<T: FloatExt> {
     pub m: usize,
 }
 
-impl<T: FloatExt> Default for LBFGS<T> {
+impl<T: RealNumber> Default for LBFGS<T> {
     fn default() -> Self {
         LBFGS {
             max_iter: 1000,
@@ -35,7 +35,7 @@ impl<T: FloatExt> Default for LBFGS<T> {
     }
 }
 
-impl<T: FloatExt> LBFGS<T> {
+impl<T: RealNumber> LBFGS<T> {
     fn two_loops<X: Matrix<T>>(&self, state: &mut LBFGSState<T, X>) {
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;
@@ -175,7 +175,7 @@ impl<T: FloatExt> LBFGS<T> {
 }
 
 #[derive(Debug)]
-struct LBFGSState<T: FloatExt, X: Matrix<T>> {
+struct LBFGSState<T: RealNumber, X: Matrix<T>> {
     x: X,
     x_prev: X,
     x_f: T,
@@ -195,7 +195,7 @@ struct LBFGSState<T: FloatExt, X: Matrix<T>> {
     alpha: T,
 }
 
-impl<T: FloatExt> FirstOrderOptimizer<T> for LBFGS<T> {
+impl<T: RealNumber> FirstOrderOptimizer<T> for LBFGS<T> {
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &F<T, X>,

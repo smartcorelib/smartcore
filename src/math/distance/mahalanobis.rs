@@ -4,19 +4,19 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 use super::Distance;
 use crate::linalg::Matrix;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Mahalanobis<T: FloatExt, M: Matrix<T>> {
+pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
     pub sigma: M,
     pub sigmaInv: M,
     t: PhantomData<T>,
 }
 
-impl<T: FloatExt, M: Matrix<T>> Mahalanobis<T, M> {
+impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
     pub fn new(data: &M) -> Mahalanobis<T, M> {
         let sigma = data.cov();
         let sigmaInv = sigma.lu().inverse();
@@ -38,7 +38,7 @@ impl<T: FloatExt, M: Matrix<T>> Mahalanobis<T, M> {
     }
 }
 
-impl<T: FloatExt, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
+impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
     fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
         let (nrows, ncols) = self.sigma.shape();
         if x.len() != nrows {

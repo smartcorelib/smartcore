@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::*;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct KMeans<T: FloatExt> {
+pub struct KMeans<T: RealNumber> {
     k: usize,
     y: Vec<usize>,
     size: Vec<usize>,
@@ -20,7 +20,7 @@ pub struct KMeans<T: FloatExt> {
     centroids: Vec<Vec<T>>,
 }
 
-impl<T: FloatExt> PartialEq for KMeans<T> {
+impl<T: RealNumber> PartialEq for KMeans<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.k != other.k
             || self.size != other.size
@@ -55,7 +55,7 @@ impl Default for KMeansParameters {
     }
 }
 
-impl<T: FloatExt + Sum> KMeans<T> {
+impl<T: RealNumber + Sum> KMeans<T> {
     pub fn new<M: Matrix<T>>(data: &M, k: usize, parameters: KMeansParameters) -> KMeans<T> {
         let bbd = BBDTree::new(data);
 

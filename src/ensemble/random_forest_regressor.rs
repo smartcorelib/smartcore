@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
 };
@@ -22,7 +22,7 @@ pub struct RandomForestRegressorParameters {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RandomForestRegressor<T: FloatExt> {
+pub struct RandomForestRegressor<T: RealNumber> {
     parameters: RandomForestRegressorParameters,
     trees: Vec<DecisionTreeRegressor<T>>,
 }
@@ -39,7 +39,7 @@ impl Default for RandomForestRegressorParameters {
     }
 }
 
-impl<T: FloatExt> PartialEq for RandomForestRegressor<T> {
+impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.trees.len() != other.trees.len() {
             return false;
@@ -54,7 +54,7 @@ impl<T: FloatExt> PartialEq for RandomForestRegressor<T> {
     }
 }
 
-impl<T: FloatExt> RandomForestRegressor<T> {
+impl<T: RealNumber> RandomForestRegressor<T> {
     pub fn fit<M: Matrix<T>>(
         x: &M,
         y: &M::RowVector,

@@ -27,17 +27,17 @@ use std::marker::PhantomData;
 
 use crate::algorithm::sort::heap_select::HeapSelect;
 use crate::math::distance::Distance;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 /// Implements Linear Search algorithm, see [KNN algorithms](../index.html)
 #[derive(Serialize, Deserialize, Debug)]
-pub struct LinearKNNSearch<T, F: FloatExt, D: Distance<T, F>> {
+pub struct LinearKNNSearch<T, F: RealNumber, D: Distance<T, F>> {
     distance: D,
     data: Vec<T>,
     f: PhantomData<F>,
 }
 
-impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
+impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
     /// Initializes algorithm.
     /// * `data` - vector of data points to search for.
     /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../algorithm/neighbour/index.html) interface.
@@ -86,24 +86,24 @@ impl<T, F: FloatExt, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
 }
 
 #[derive(Debug)]
-struct KNNPoint<F: FloatExt> {
+struct KNNPoint<F: RealNumber> {
     distance: F,
     index: Option<usize>,
 }
 
-impl<F: FloatExt> PartialOrd for KNNPoint<F> {
+impl<F: RealNumber> PartialOrd for KNNPoint<F> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.distance.partial_cmp(&other.distance)
     }
 }
 
-impl<F: FloatExt> PartialEq for KNNPoint<F> {
+impl<F: RealNumber> PartialEq for KNNPoint<F> {
     fn eq(&self, other: &Self) -> bool {
         self.distance == other.distance
     }
 }
 
-impl<F: FloatExt> Eq for KNNPoint<F> {}
+impl<F: RealNumber> Eq for KNNPoint<F> {}
 
 #[cfg(test)]
 mod tests {

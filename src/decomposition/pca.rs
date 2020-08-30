@@ -3,10 +3,10 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PCA<T: FloatExt, M: Matrix<T>> {
+pub struct PCA<T: RealNumber, M: Matrix<T>> {
     eigenvectors: M,
     eigenvalues: Vec<T>,
     projection: M,
@@ -14,7 +14,7 @@ pub struct PCA<T: FloatExt, M: Matrix<T>> {
     pmu: Vec<T>,
 }
 
-impl<T: FloatExt, M: Matrix<T>> PartialEq for PCA<T, M> {
+impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
     fn eq(&self, other: &Self) -> bool {
         if self.eigenvectors != other.eigenvectors
             || self.eigenvalues.len() != other.eigenvalues.len()
@@ -44,7 +44,7 @@ impl Default for PCAParameters {
     }
 }
 
-impl<T: FloatExt, M: Matrix<T>> PCA<T, M> {
+impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
     pub fn new(data: &M, n_components: usize, parameters: PCAParameters) -> PCA<T, M> {
         let (m, n) = data.shape();
 

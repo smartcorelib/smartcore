@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 use super::Distance;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hamming {}
 
-impl<T: PartialEq, F: FloatExt> Distance<Vec<T>, F> for Hamming {
+impl<T: PartialEq, F: RealNumber> Distance<Vec<T>, F> for Hamming {
     fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> F {
         if x.len() != y.len() {
             panic!("Input vector sizes are different");

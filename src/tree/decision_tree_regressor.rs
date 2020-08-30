@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DecisionTreeRegressorParameters {
@@ -16,14 +16,14 @@ pub struct DecisionTreeRegressorParameters {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DecisionTreeRegressor<T: FloatExt> {
+pub struct DecisionTreeRegressor<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeRegressorParameters,
     depth: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Node<T: FloatExt> {
+pub struct Node<T: RealNumber> {
     index: usize,
     output: T,
     split_feature: usize,
@@ -43,7 +43,7 @@ impl Default for DecisionTreeRegressorParameters {
     }
 }
 
-impl<T: FloatExt> Node<T> {
+impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: T) -> Self {
         Node {
             index: index,
@@ -57,7 +57,7 @@ impl<T: FloatExt> Node<T> {
     }
 }
 
-impl<T: FloatExt> PartialEq for Node<T> {
+impl<T: RealNumber> PartialEq for Node<T> {
     fn eq(&self, other: &Self) -> bool {
         (self.output - other.output).abs() < T::epsilon()
             && self.split_feature == other.split_feature
@@ -74,7 +74,7 @@ impl<T: FloatExt> PartialEq for Node<T> {
     }
 }
 
-impl<T: FloatExt> PartialEq for DecisionTreeRegressor<T> {
+impl<T: RealNumber> PartialEq for DecisionTreeRegressor<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
             return false;
@@ -89,7 +89,7 @@ impl<T: FloatExt> PartialEq for DecisionTreeRegressor<T> {
     }
 }
 
-struct NodeVisitor<'a, T: FloatExt, M: Matrix<T>> {
+struct NodeVisitor<'a, T: RealNumber, M: Matrix<T>> {
     x: &'a M,
     y: &'a M,
     node: usize,
@@ -100,7 +100,7 @@ struct NodeVisitor<'a, T: FloatExt, M: Matrix<T>> {
     level: u16,
 }
 
-impl<'a, T: FloatExt, M: Matrix<T>> NodeVisitor<'a, T, M> {
+impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
     fn new(
         node_id: usize,
         samples: Vec<usize>,
@@ -122,7 +122,7 @@ impl<'a, T: FloatExt, M: Matrix<T>> NodeVisitor<'a, T, M> {
     }
 }
 
-impl<T: FloatExt> DecisionTreeRegressor<T> {
+impl<T: RealNumber> DecisionTreeRegressor<T> {
     pub fn fit<M: Matrix<T>>(
         x: &M,
         y: &M::RowVector,

@@ -1,18 +1,18 @@
 use std::default::Default;
 
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
-pub struct GradientDescent<T: FloatExt> {
+pub struct GradientDescent<T: RealNumber> {
     pub max_iter: usize,
     pub g_rtol: T,
     pub g_atol: T,
 }
 
-impl<T: FloatExt> Default for GradientDescent<T> {
+impl<T: RealNumber> Default for GradientDescent<T> {
     fn default() -> Self {
         GradientDescent {
             max_iter: 10000,
@@ -22,7 +22,7 @@ impl<T: FloatExt> Default for GradientDescent<T> {
     }
 }
 
-impl<T: FloatExt> FirstOrderOptimizer<T> for GradientDescent<T> {
+impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<T, X>,

@@ -30,11 +30,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::heap_select::HeapSelect;
 use crate::math::distance::Distance;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 /// Implements Cover Tree algorithm
 #[derive(Serialize, Deserialize, Debug)]
-pub struct CoverTree<T, F: FloatExt, D: Distance<T, F>> {
+pub struct CoverTree<T, F: RealNumber, D: Distance<T, F>> {
     base: F,
     max_level: i8,
     min_level: i8,
@@ -42,7 +42,7 @@ pub struct CoverTree<T, F: FloatExt, D: Distance<T, F>> {
     nodes: Vec<Node<T>>,
 }
 
-impl<T: Debug, F: FloatExt, D: Distance<T, F>> CoverTree<T, F, D> {
+impl<T: Debug, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> {
     /// Construct a cover tree.
     /// * `data` - vector of data points to search for.
     /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../algorithm/neighbour/index.html) interface.

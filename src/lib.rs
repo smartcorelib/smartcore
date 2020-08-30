@@ -76,7 +76,7 @@ pub mod ensemble;
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.
 pub mod linear;
-/// Multitude of helper methods and classes, including definitions of distance metrics
+/// Helper methods and classes, including definitions of distance metrics
 pub mod math;
 /// Functions for assessing prediction error.
 pub mod metrics;

@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::linalg::{row_iter, Matrix};
 use crate::math::distance::Distance;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use crate::neighbors::{KNNAlgorithm, KNNAlgorithmName, KNNWeightFunction};
 
 /// `KNNClassifier` parameters. Use `Default::default()` for default values.
@@ -52,7 +52,7 @@ pub struct KNNClassifierParameters {
 
 /// K Nearest Neighbors Classifier
 #[derive(Serialize, Deserialize, Debug)]
-pub struct KNNClassifier<T: FloatExt, D: Distance<Vec<T>, T>> {
+pub struct KNNClassifier<T: RealNumber, D: Distance<Vec<T>, T>> {
     classes: Vec<T>,
     y: Vec<usize>,
     knn_algorithm: KNNAlgorithm<T, D>,
@@ -70,7 +70,7 @@ impl Default for KNNClassifierParameters {
     }
 }
 
-impl<T: FloatExt, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
+impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
     fn eq(&self, other: &Self) -> bool {
         if self.classes.len() != other.classes.len()
             || self.k != other.k
@@ -93,7 +93,7 @@ impl<T: FloatExt, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
     }
 }
 
-impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
+impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
     /// Fits KNN classifier to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
     /// * `y` - vector with target values (classes) of length N

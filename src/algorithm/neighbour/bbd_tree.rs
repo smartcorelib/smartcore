@@ -2,17 +2,17 @@ use std::fmt::Debug;
 
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::*;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Debug)]
-pub struct BBDTree<T: FloatExt> {
+pub struct BBDTree<T: RealNumber> {
     nodes: Vec<BBDTreeNode<T>>,
     index: Vec<usize>,
     root: usize,
 }
 
 #[derive(Debug)]
-struct BBDTreeNode<T: FloatExt> {
+struct BBDTreeNode<T: RealNumber> {
     count: usize,
     index: usize,
     center: Vec<T>,
@@ -23,7 +23,7 @@ struct BBDTreeNode<T: FloatExt> {
     upper: Option<usize>,
 }
 
-impl<T: FloatExt> BBDTreeNode<T> {
+impl<T: RealNumber> BBDTreeNode<T> {
     fn new(d: usize) -> BBDTreeNode<T> {
         BBDTreeNode {
             count: 0,
@@ -38,7 +38,7 @@ impl<T: FloatExt> BBDTreeNode<T> {
     }
 }
 
-impl<T: FloatExt> BBDTree<T> {
+impl<T: RealNumber> BBDTree<T> {
     pub fn new<M: Matrix<T>>(data: &M) -> BBDTree<T> {
         let nodes = Vec::new();
 

@@ -14,9 +14,9 @@ use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
-impl<T: FloatExt> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
+impl<T: RealNumber> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn get(&self, i: usize) -> T {
         self[i]
     }
@@ -33,7 +33,7 @@ impl<T: FloatExt> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     }
 }
 
-impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     BaseMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
     type RowVector = ArrayBase<OwnedRepr<T>, Ix1>;
@@ -308,27 +308,27 @@ impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign
     }
 }
 
-impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     SVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 
-impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     EVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 
-impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     QRDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 
-impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     LUDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 
-impl<T: FloatExt + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> Matrix<T>
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> Matrix<T>
     for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }

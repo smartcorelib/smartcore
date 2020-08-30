@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Accuracy {}
 
 impl Accuracy {
-    pub fn get_score<T: FloatExt, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.len() != y_pred.len() {
             panic!(
                 "The vector sizes don't match: {} != {}",

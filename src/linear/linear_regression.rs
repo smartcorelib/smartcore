@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::Matrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum LinearRegressionSolverName {
@@ -17,7 +17,7 @@ pub struct LinearRegressionParameters {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct LinearRegression<T: FloatExt, M: Matrix<T>> {
+pub struct LinearRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
     solver: LinearRegressionSolverName,
@@ -31,14 +31,14 @@ impl Default for LinearRegressionParameters {
     }
 }
 
-impl<T: FloatExt, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
+impl<T: RealNumber, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
     }
 }
 
-impl<T: FloatExt, M: Matrix<T>> LinearRegression<T, M> {
+impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
     pub fn fit(
         x: &M,
         y: &M::RowVector,

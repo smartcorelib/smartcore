@@ -4,10 +4,10 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::linalg::BaseMatrix;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 
 #[derive(Debug, Clone)]
-pub struct LU<T: FloatExt, M: BaseMatrix<T>> {
+pub struct LU<T: RealNumber, M: BaseMatrix<T>> {
     LU: M,
     pivot: Vec<usize>,
     pivot_sign: i8,
@@ -15,7 +15,7 @@ pub struct LU<T: FloatExt, M: BaseMatrix<T>> {
     phantom: PhantomData<T>,
 }
 
-impl<T: FloatExt, M: BaseMatrix<T>> LU<T, M> {
+impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
     pub fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
         let (_, n) = LU.shape();
 
@@ -153,7 +153,7 @@ impl<T: FloatExt, M: BaseMatrix<T>> LU<T, M> {
     }
 }
 
-pub trait LUDecomposableMatrix<T: FloatExt>: BaseMatrix<T> {
+pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     fn lu(&self) -> LU<T, Self> {
         self.clone().lu_mut()
     }

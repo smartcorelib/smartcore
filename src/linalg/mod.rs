@@ -12,13 +12,13 @@ use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use evd::EVDDecomposableMatrix;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
 use svd::SVDDecomposableMatrix;
 
-pub trait BaseVector<T: FloatExt>: Clone + Debug {
+pub trait BaseVector<T: RealNumber>: Clone + Debug {
     fn get(&self, i: usize) -> T;
 
     fn set(&mut self, i: usize, x: T);
@@ -28,7 +28,7 @@ pub trait BaseVector<T: FloatExt>: Clone + Debug {
     fn to_vec(&self) -> Vec<T>;
 }
 
-pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
+pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     type RowVector: BaseVector<T> + Clone + Debug;
 
     fn from_row_vector(vec: Self::RowVector) -> Self;
@@ -190,7 +190,7 @@ pub trait BaseMatrix<T: FloatExt>: Clone + Debug {
     fn cov(&self) -> Self;
 }
 
-pub trait Matrix<T: FloatExt>:
+pub trait Matrix<T: RealNumber>:
     BaseMatrix<T>
     + SVDDecomposableMatrix<T>
     + EVDDecomposableMatrix<T>
@@ -201,7 +201,7 @@ pub trait Matrix<T: FloatExt>:
 {
 }
 
-pub fn row_iter<F: FloatExt, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
+pub fn row_iter<F: RealNumber, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
     RowIter {
         m: m,
         pos: 0,
@@ -210,14 +210,14 @@ pub fn row_iter<F: FloatExt, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
     }
 }
 
-pub struct RowIter<'a, T: FloatExt, M: BaseMatrix<T>> {
+pub struct RowIter<'a, T: RealNumber, M: BaseMatrix<T>> {
     m: &'a M,
     pos: usize,
     max_pos: usize,
     phantom: PhantomData<&'a T>,
 }
 
-impl<'a, T: FloatExt, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
+impl<'a, T: RealNumber, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
     type Item = Vec<T>;
 
     fn next(&mut self) -> Option<Vec<T>> {

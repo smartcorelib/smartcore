@@ -3,7 +3,7 @@ use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
 
-pub trait FloatExt: Float + FromPrimitive + Debug + Display + Copy + Sum + Product {
+pub trait RealNumber: Float + FromPrimitive + Debug + Display + Copy + Sum + Product {
     fn copysign(self, sign: Self) -> Self;
 
     fn ln_1pe(self) -> Self;
@@ -21,7 +21,7 @@ pub trait FloatExt: Float + FromPrimitive + Debug + Display + Copy + Sum + Produ
     }
 }
 
-impl FloatExt for f64 {
+impl RealNumber for f64 {
     fn copysign(self, sign: Self) -> Self {
         self.copysign(sign)
     }
@@ -58,7 +58,7 @@ impl FloatExt for f64 {
     }
 }
 
-impl FloatExt for f32 {
+impl RealNumber for f32 {
     fn copysign(self, sign: Self) -> Self {
         self.copysign(sign)
     }

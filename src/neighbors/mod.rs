@@ -34,7 +34,7 @@
 use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::math::distance::Distance;
-use crate::math::num::FloatExt;
+use crate::math::num::RealNumber;
 use serde::{Deserialize, Serialize};
 
 /// K Nearest Neighbors Classifier
@@ -62,13 +62,13 @@ pub enum KNNWeightFunction {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-enum KNNAlgorithm<T: FloatExt, D: Distance<Vec<T>, T>> {
+enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
     LinearSearch(LinearKNNSearch<Vec<T>, T, D>),
     CoverTree(CoverTree<Vec<T>, T, D>),
 }
 
 impl KNNWeightFunction {
-    fn calc_weights<T: FloatExt>(&self, distances: Vec<T>) -> std::vec::Vec<T> {
+    fn calc_weights<T: RealNumber>(&self, distances: Vec<T>) -> std::vec::Vec<T> {
         match *self {
             KNNWeightFunction::Distance => {
                 // if there are any points that has zero distance from one or more training points,
@@ -88,7 +88,7 @@ impl KNNWeightFunction {
 }
 
 impl KNNAlgorithmName {
-    fn fit<T: FloatExt, D: Distance<Vec<T>, T>>(
+    fn fit<T: RealNumber, D: Distance<Vec<T>, T>>(
         &self,
         data: Vec<Vec<T>>,
         distance: D,
@@ -102,7 +102,7 @@ impl KNNAlgorithmName {
     }
 }
 
-impl<T: FloatExt, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
+impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
     fn find(&self, from: &Vec<T>, k: usize) -> Vec<(usize, T)> {
         match *self {
             KNNAlgorithm::LinearSearch(ref linear) => linear.find(from, k),
