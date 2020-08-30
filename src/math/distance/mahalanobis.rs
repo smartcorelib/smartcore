@@ -1,7 +1,7 @@
 //! # Mahalanobis Distance
 //!
 //! The Mahalanobis distance (MD) is the distance between two points in multivariate space.
-//! In a regular Euclidean space the distance between any two points can be measured with [Euclidean distance](euclidian/index.html).
+//! In a regular Euclidean space the distance between any two points can be measured with [Euclidean distance](../euclidian/index.html).
 //! For uncorrelated variables, the Euclidean distance equals the MD. However, if two or more variables are correlated the measurements become impossible
 //! with Euclidean distance because the axes are no longer at right angles to each other. MD on the other hand, is scale-invariant,
 //! it takes into account the covariance matrix of the dataset when calculating distance between 2 points that belong to the same space as the dataset.
