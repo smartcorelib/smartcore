@@ -1,5 +1,5 @@
-//! # Collection of Distance Functions 
-//! 
+//! # Collection of Distance Functions
+//!
 //! Many algorithms in machine learning require a measure of distance between data points. Distance metric (or metric) is a function that defines a distance between a pair of point elements of a set.
 //! Formally, the distance can be any metric measure that is defined as \\( d(x, y) \geq 0\\) and follows three conditions:
 //! 1. \\( d(x, y) = 0 \\) if and only \\( x = y \\), positive definiteness
@@ -7,9 +7,9 @@
 //! 1. \\( d(x, y) \leq d(x, z) + d(z, y) \\), 	subadditivity or triangle inequality
 //!
 //! for all \\(x, y, z \in Z \\)
-//! 
+//!
 //! A good distance metric helps to improve the performance of classification, clustering and information retrieval algorithms significantly.
-//! 
+//!
 //! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 
 /// Euclidean Distance is the straight-line distance between two points in Euclidean spacere that presents the shortest distance between these points.

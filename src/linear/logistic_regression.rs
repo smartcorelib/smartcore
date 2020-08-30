@@ -58,7 +58,9 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
     }
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M> for BinaryObjectiveFunction<'a, T, M> {
+impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
+    for BinaryObjectiveFunction<'a, T, M>
+{
     fn f(&self, w_bias: &M) -> T {
         let mut f = T::zero();
         let (n, _) = self.x.shape();
