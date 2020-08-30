@@ -1,9 +1,30 @@
+//! # Hamming Distance
+//!
+//! Hamming Distance measures the similarity between two integer-valued vectors of the same length.
+//! Given two vectors \\( x \in ℝ^n \\), \\( y \in ℝ^n \\) the hamming distance between \\( x \\) and \\( y \\), \\( d(x, y) \\), is the number of places where \\( x \\) and \\( y \\) differ.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::math::distance::Distance;
+//! use smartcore::math::distance::hamming::Hamming;
+//!
+//! let a = vec![1, 0, 0, 1, 0, 0, 1];
+//! let b = vec![1, 1, 0, 0, 1, 0, 1];
+//!
+//! let h: f64 = Hamming {}.distance(&a, &b);
+//!
+//! ```
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
+
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
 
 use super::Distance;
 
+/// While comparing two integer-valued vectors of equal length, Hamming distance is the number of bit positions in which the two bits are different
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Hamming {}
 
@@ -29,7 +50,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn minkowski_distance() {
+    fn hamming_distance() {
         let a = vec![1, 0, 0, 1, 0, 0, 1];
         let b = vec![1, 1, 0, 0, 1, 0, 1];
 

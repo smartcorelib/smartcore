@@ -1,11 +1,35 @@
+//! # Minkowski Distance
+//!
+//! The Minkowski distance  of order _p_ (where _p_ is an integer) is a metric in a normed vector space which can be considered as a generalization of both the Euclidean distance and the Manhattan distance.
+//! The Manhattan distance between two points \\(x \in ℝ^n \\) and \\( y \in ℝ^n \\) in n-dimensional space is defined as:
+//!
+//! \\[ d(x, y) = \left(\sum_{i=0}^n \lvert x_i - y_i \rvert^p\right)^{1/p} \\]
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::math::distance::Distance;
+//! use smartcore::math::distance::minkowski::Minkowski;
+//!
+//! let x = vec![1., 1.];
+//! let y = vec![2., 2.];
+//!
+//! let l1: f64 = Minkowski { p: 1 }.distance(&x, &y);
+//! let l2: f64 = Minkowski { p: 2 }.distance(&x, &y);
+//!
+//! ```
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
+
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
 
 use super::Distance;
 
+/// Defines the Minkowski distance of order `p`
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Minkowski {
+    /// order, integer
     pub p: u16,
 }
 

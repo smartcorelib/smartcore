@@ -1,3 +1,44 @@
+//! # Mahalanobis Distance
+//!
+//! The Mahalanobis distance (MD) is the distance between two points in multivariate space.
+//! In a regular Euclidean space the distance between any two points can be measured with [Euclidean distance](euclidian/index.html).
+//! For uncorrelated variables, the Euclidean distance equals the MD. However, if two or more variables are correlated the measurements become impossible
+//! with Euclidean distance because the axes are no longer at right angles to each other. MD on the other hand, is scale-invariant,
+//! it takes into account the covariance matrix of the dataset when calculating distance between 2 points that belong to the same space as the dataset.
+//!
+//! MD between two vectors \\( x \in ℝ^n \\) and \\( y \in ℝ^n \\) is defined as
+//! \\[ d(x, y) = \sqrt{(x - y)^TS^{-1}(x - y)}\\]
+//!
+//! where \\( S \\) is the covariance matrix of the dataset.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::math::distance::Distance;
+//! use smartcore::math::distance::mahalanobis::Mahalanobis;
+//!
+//! let data = DenseMatrix::from_array(&[
+//!                   &[64., 580., 29.],
+//!                   &[66., 570., 33.],
+//!                   &[68., 590., 37.],
+//!                   &[69., 660., 46.],
+//!                   &[73., 600., 55.],
+//! ]);
+//!
+//! let a = data.column_mean();
+//! let b = vec![66., 640., 44.];
+//!
+//! let mahalanobis = Mahalanobis::new(&data);
+//!
+//! mahalanobis.distance(&a, &b);
+//! ```
+//!
+//! ## References
+//! * ["Introduction to Multivariate Statistical Analysis in Chemometrics", Varmuza, K., Filzmoser, P., 2016, p.46](https://www.taylorfrancis.com/books/9780429145049)
+//! * ["Example of Calculating the Mahalanobis Distance", McCaffrey, J.D.](https://jamesmccaffrey.wordpress.com/2017/11/09/example-of-calculating-the-mahalanobis-distance/)
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 #![allow(non_snake_case)]
 
 use std::marker::PhantomData;
@@ -9,14 +50,19 @@ use crate::math::num::RealNumber;
 use super::Distance;
 use crate::linalg::Matrix;
 
+/// Mahalanobis distance.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
+    /// covariance matrix of the dataset
     pub sigma: M,
+    /// inverse of the covariance matrix
     pub sigmaInv: M,
     t: PhantomData<T>,
 }
 
 impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
+    /// Constructs new instance of `Mahalanobis` from given dataset
+    /// * `data` - a matrix of _NxM_ where _N_ is number of observations and _M_ is number of attributes
     pub fn new(data: &M) -> Mahalanobis<T, M> {
         let sigma = data.cov();
         let sigmaInv = sigma.lu().inverse();
@@ -27,6 +73,8 @@ impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
         }
     }
 
+    /// Constructs new instance of `Mahalanobis` from given covariance matrix
+    /// * `cov` - a covariance matrix
     pub fn new_from_covariance(cov: &M) -> Mahalanobis<T, M> {
         let sigma = cov.clone();
         let sigmaInv = sigma.lu().inverse();
@@ -99,6 +147,8 @@ mod tests {
 
         let mahalanobis = Mahalanobis::new(&data);
 
-        println!("{}", mahalanobis.distance(&a, &b));
+        let md: f64 = mahalanobis.distance(&a, &b);
+
+        assert!((md - 5.33).abs() < 1e-2);
     }
 }

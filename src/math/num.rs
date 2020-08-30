@@ -1,21 +1,34 @@
+//! # Real Number
+//! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
+//! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
+
 use num_traits::{Float, FromPrimitive};
 use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
 
+/// Defines real number
+/// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 pub trait RealNumber: Float + FromPrimitive + Debug + Display + Copy + Sum + Product {
+    /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
 
+    /// Calculates natural \\( \ln(1+e^x) \\) without overflow.
     fn ln_1pe(self) -> Self;
 
+    /// Efficient implementation of Sigmoid function, \\( S(x) = \frac{1}{1 + e^{-x}} \\), see [Sigmoid function](https://en.wikipedia.org/wiki/Sigmoid_function)
     fn sigmoid(self) -> Self;
 
+    /// Returns pseudorandom number between 0 and 1
     fn rand() -> Self;
 
+    /// Returns 2
     fn two() -> Self;
 
+    /// Returns .5
     fn half() -> Self;
 
+    /// Returns \\( x^2 \\)
     fn square(self) -> Self {
         self * self
     }

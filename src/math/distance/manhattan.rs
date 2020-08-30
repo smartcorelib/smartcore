@@ -1,9 +1,28 @@
+//! # Manhattan Distance
+//!
+//! The Manhattan distance between two points \\(x \in ℝ^n \\) and \\( y \in ℝ^n \\) in n-dimensional space is the sum of the distances in each dimension.
+//!
+//! \\[ d(x, y) = \sum_{i=0}^n \lvert x_i - y_i \rvert \\]
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::math::distance::Distance;
+//! use smartcore::math::distance::manhattan::Manhattan;
+//!
+//! let x = vec![1., 1.];
+//! let y = vec![2., 2.];
+//!
+//! let l1: f64 = Manhattan {}.distance(&x, &y);
+//! ```
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
 
 use super::Distance;
 
+/// Manhattan distance
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Manhattan {}
 

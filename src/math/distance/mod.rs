@@ -23,6 +23,7 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
+use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// Distance metric, a function that calculates distance between two points
@@ -35,24 +36,29 @@ pub trait Distance<T, F: RealNumber> {
 pub struct Distances {}
 
 impl Distances {
-    /// Euclidian distance
+    /// Euclidian distance, see [`Euclidian`](euclidian/index.html)
     pub fn euclidian() -> euclidian::Euclidian {
         euclidian::Euclidian {}
     }
 
-    /// Minkowski distance
+    /// Minkowski distance, see [`Minkowski`](minkowski/index.html)
     /// * `p` - function order. Should be >= 1
     pub fn minkowski(p: u16) -> minkowski::Minkowski {
         minkowski::Minkowski { p: p }
     }
 
-    /// Manhattan distance
+    /// Manhattan distance, see [`Manhattan`](manhattan/index.html)
     pub fn manhattan() -> manhattan::Manhattan {
         manhattan::Manhattan {}
     }
 
-    /// Hamming distance
+    /// Hamming distance, see [`Hamming`](hamming/index.html)
     pub fn hamming() -> hamming::Hamming {
         hamming::Hamming {}
+    }
+
+    /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)
+    pub fn mahalanobis<T: RealNumber, M: Matrix<T>>(data: &M) -> mahalanobis::Mahalanobis<T, M> {
+        mahalanobis::Mahalanobis::new(data)
     }
 }
