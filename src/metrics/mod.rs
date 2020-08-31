@@ -1,5 +1,5 @@
 //! # Metric functions
-//! 
+//!
 //! One way to build machine learning models is to use a constructive feedback loop through model evaluation.
 //! In a feedback loop you build your model first, then you get feedback from metrics, improve it and repeat until your model achieve desirable performance.
 //! Evaluation metrics helps to explain the performance of a model and compare models based on an objective criterion.
