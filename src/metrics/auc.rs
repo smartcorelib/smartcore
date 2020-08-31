@@ -26,10 +26,14 @@ use crate::algorithm::sort::quick_sort::QuickArgSort;
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
+/// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AUC {}
 
 impl AUC {
+    /// AUC score.
+    /// * `y_true` - cround truth (correct) labels.
+    /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
     pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred_prob: &V) -> T {
         let mut pos = T::zero();
         let mut neg = T::zero();
