@@ -1,12 +1,35 @@
+//! # Mean Absolute Error
+//!
+//! MAE measures the average magnitude of the errors in a set of predictions, without considering their direction.
+//!
+//! \\[mse(y, \hat{y}) = \frac{1}{n_{samples}} \sum_{i=1}^{n_{samples}} \lvert y_i - \hat{y_i} \rvert \\]
+//!
+//! where \\(\hat{y}\\) are predictions and \\(y\\) are true target values.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::metrics::mean_absolute_error::MeanAbsoluteError;
+//! let y_pred: Vec<f64> = vec![3., -0.5, 2., 7.];
+//! let y_true: Vec<f64> = vec![2.5, 0.0, 2., 8.];
+//!
+//! let mse: f64 = MeanAbsoluteError {}.get_score(&y_pred, &y_true);
+//! ```
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
+/// Mean Absolute Error
 pub struct MeanAbsoluteError {}
 
 impl MeanAbsoluteError {
+    /// Computes mean absolute error
+    /// * `y_true` - Ground truth (correct) target values.
+    /// * `y_pred` - Estimated target values.
     pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.len() != y_pred.len() {
             panic!(

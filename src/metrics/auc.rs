@@ -1,3 +1,23 @@
+//! # Area Under the Receiver Operating Characteristic Curve (ROC AUC)
+//! Computes the area under the receiver operating characteristic (ROC) curve that is equal to the probability that a classifier will rank a
+//! randomly chosen positive instance higher than a randomly chosen negative one.
+//!
+//! SmartCore calculates ROC AUC from Wilcoxon or Mann-Whitney U test.
+//!
+//! Example:
+//! ```
+//! use smartcore::metrics::auc::AUC;
+//!
+//! let y_true: Vec<f64> = vec![0., 0., 1., 1.];
+//! let y_pred: Vec<f64> = vec![0.1, 0.4, 0.35, 0.8];
+//!
+//! let score1: f64 = AUC {}.get_score(&y_true, &y_pred);
+//! ```
+//!
+//! ## References:
+//! * ["Areas beneath the relative operating characteristics (ROC) and relative operating levels (ROL) curves: Statistical significance and interpretation", Mason S. J., Graham N. E.](http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.458.8392)
+//! * [Wikipedia article on ROC AUC](https://en.wikipedia.org/wiki/Receiver_operating_characteristic#Area_under_the_curve)
+//! * ["The ROC-AUC and the Mann-Whitney U-test", Haupt, J.](https://johaupt.github.io/roc-auc/model%20evaluation/Area_under_ROC_curve.html)
 #![allow(non_snake_case)]
 
 use serde::{Deserialize, Serialize};

@@ -1,12 +1,35 @@
+//! # Precision score
+//!
+//! How many predicted items are relevant?
+//!
+//! \\[precision = \frac{tp}{tp + fp}\\]
+//!
+//! where tp (true positive) - correct result, fp (false positive) - unexpected result
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::metrics::precision::Precision;
+//! let y_pred: Vec<f64> = vec![0., 1., 1., 0.];
+//! let y_true: Vec<f64> = vec![0., 0., 1., 1.];
+//!
+//! let score: f64 = Precision {}.get_score(&y_pred, &y_true);
+//! ```
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
+/// Precision metric.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Precision {}
 
 impl Precision {
+    /// Calculated precision score
+    /// * `y_true` - cround truth (correct) labels.
+    /// * `y_pred` - predicted labels, as returned by a classifier.
     pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.len() != y_pred.len() {
             panic!(

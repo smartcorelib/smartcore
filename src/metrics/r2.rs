@@ -1,12 +1,35 @@
+//! Coefficient of Determination (R2)
+//!
+//! Coefficient of determination, denoted R2 is the proportion of the variance in the dependent variable that can be explained be explanatory (independent) variable(s).
+//!
+//! \\[R^2(y, \hat{y}) = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y_i})^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2} \\]
+//!
+//! where \\(\hat{y}\\) are predictions, \\(y\\) are true target values, \\(\bar{y}\\) is the mean of the observed data
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::metrics::mean_absolute_error::MeanAbsoluteError;
+//! let y_pred: Vec<f64> = vec![3., -0.5, 2., 7.];
+//! let y_true: Vec<f64> = vec![2.5, 0.0, 2., 8.];
+//!
+//! let mse: f64 = MeanAbsoluteError {}.get_score(&y_pred, &y_true);
+//! ```
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
+/// Coefficient of Determination (R2)
 #[derive(Serialize, Deserialize, Debug)]
 pub struct R2 {}
 
 impl R2 {
+    /// Computes R2 score
+    /// * `y_true` - Ground truth (correct) target values.
+    /// * `y_pred` - Estimated target values.
     pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.len() != y_pred.len() {
             panic!(

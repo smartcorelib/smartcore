@@ -1,12 +1,33 @@
+//! # Accuracy score
+//!
+//! Calculates accuracy of predictions \\(\hat{y}\\) when compared to true labels \\(y\\)
+//!
+//! \\[ accuracy(y, \hat{y}) = \frac{1}{n_{samples}} \sum_{i=1}^{n_{samples}} 1(y_i = \hat{y_i}) \\]
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::metrics::accuracy::Accuracy;
+//! let y_pred: Vec<f64> = vec![0., 2., 1., 3.];
+//! let y_true: Vec<f64> = vec![0., 1., 2., 3.];
+//!
+//! let score: f64 = Accuracy {}.get_score(&y_pred, &y_true);
+//! ```
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
+/// Accuracy metric.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Accuracy {}
 
 impl Accuracy {
+    /// Function that calculated accuracy score.
+    /// * `y_true` - cround truth (correct) labels
+    /// * `y_pred` - predicted labels, as returned by a classifier.
     pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.len() != y_pred.len() {
             panic!(
