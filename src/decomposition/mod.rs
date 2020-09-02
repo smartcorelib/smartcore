@@ -9,7 +9,7 @@
 //! Dimension reduction is also used for the purposes of data visualization.
 //!
 //! ## References
-//! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 10.3.1 K-Means Clustering, 6.3 Dimension Reduction Methods](http://faculty.marshall.usc.edu/gareth-james/ISL/)
+//! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 6.3 Dimension Reduction Methods](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 
 /// PCA is a popular approach for deriving a low-dimensional set of features from a large set of variables.
 pub mod pca;

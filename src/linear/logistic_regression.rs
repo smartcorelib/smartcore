@@ -1,3 +1,54 @@
+//! # Logistic Regression
+//!
+//! As [Linear Regression](../linear_regression/index.html), logistic regression explains your outcome as a linear combination of predictor variables \\(X\\) but rather than modeling this response directly,
+//! logistic regression models the probability that \\(y\\) belongs to a particular category, \\(Pr(y = 1|X) \\), as:
+//!
+//! \\[ Pr(y=1) \approx \frac{e^{\beta_0 + \sum_{i=1}^n \beta_iX_i}}{1 + e^{\beta_0 + \sum_{i=1}^n \beta_iX_i}} \\]
+//!
+//! SmartCore uses [limited memory BFGS](https://en.wikipedia.org/wiki/Limited-memory_BFGS) method to find estimates of regression coefficients, \\(\beta\\)
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linear::logistic_regression::*;
+//!
+//! //Iris data
+//! let x = DenseMatrix::from_array(&[
+//!           &[5.1, 3.5, 1.4, 0.2],
+//!           &[4.9, 3.0, 1.4, 0.2],
+//!           &[4.7, 3.2, 1.3, 0.2],
+//!           &[4.6, 3.1, 1.5, 0.2],
+//!           &[5.0, 3.6, 1.4, 0.2],
+//!           &[5.4, 3.9, 1.7, 0.4],
+//!           &[4.6, 3.4, 1.4, 0.3],
+//!           &[5.0, 3.4, 1.5, 0.2],
+//!           &[4.4, 2.9, 1.4, 0.2],
+//!           &[4.9, 3.1, 1.5, 0.1],
+//!           &[7.0, 3.2, 4.7, 1.4],
+//!           &[6.4, 3.2, 4.5, 1.5],
+//!           &[6.9, 3.1, 4.9, 1.5],
+//!           &[5.5, 2.3, 4.0, 1.3],
+//!           &[6.5, 2.8, 4.6, 1.5],
+//!           &[5.7, 2.8, 4.5, 1.3],
+//!           &[6.3, 3.3, 4.7, 1.6],
+//!           &[4.9, 2.4, 3.3, 1.0],
+//!           &[6.6, 2.9, 4.6, 1.3],
+//!           &[5.2, 2.7, 3.9, 1.4],
+//!           ]);
+//! let y: Vec<f64> = vec![
+//!           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+//! ];
+//!
+//! let lr = LogisticRegression::fit(&x, &y);
+//!
+//! let y_hat = lr.predict(&x);
+//! ```
+//!
+//! ## References:
+//! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 4.3 Logistic Regression](http://faculty.marshall.usc.edu/gareth-james/ISL/)
+//! * ["On the Limited Memory Method for Large Scale Optimization", Nocedal et al., Mathematical Programming, 1989](http://users.iems.northwestern.edu/~nocedal/PDFfiles/limited.pdf)
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -10,6 +61,7 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::Backtracking;
 use crate::optimization::FunctionOrder;
 
+/// Logistic Regression
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LogisticRegression<T: RealNumber, M: Matrix<T>> {
     weights: M,
@@ -150,6 +202,9 @@ impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
 }
 
 impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
+    /// Fits Logistic Regression to your data.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - target class values
     pub fn fit(x: &M, y: &M::RowVector) -> LogisticRegression<T, M> {
         let y_m = M::from_row_vector(y.clone());
         let (x_nrows, num_attributes) = x.shape();
@@ -212,6 +267,8 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         }
     }
 
+    /// Predict class labels for samples in `x`.
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &M) -> M::RowVector {
         let n = x.shape().0;
         let mut result = M::zeros(1, n);
@@ -238,11 +295,13 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         result.to_row_vector()
     }
 
+    /// Get estimates regression coefficients
     pub fn coefficients(&self) -> M {
         self.weights
             .slice(0..self.num_classes, 0..self.num_attributes)
     }
 
+    /// Get estimate of intercept
     pub fn intercept(&self) -> M {
         self.weights.slice(
             0..self.num_classes,
