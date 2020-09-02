@@ -1,3 +1,57 @@
+//! # K-Means Clustering
+//!
+//! K-means clustering partitions data into k clusters in a way that data points in the same cluster are similar and data points in the different clusters are farther apart.
+//! Similarity of two points is determined by the [Euclidian Distance](../../math/distance/euclidian/index.html) between them.
+//!
+//! K-means algorithm is not capable of determining the number of clusters. You need to choose this number yourself.
+//! One way to choose optimal number of clusters is to use [Elbow Method](https://en.wikipedia.org/wiki/Elbow_method_(clustering)).
+//!
+//! At the high level K-Means algorithm works as follows. K data points are randomly chosen from a given dataset as cluster centers (centroids) and
+//! all training instances are added to the closest cluster. After that the centroids, representing the mean of the instances of each cluster are re-calculated and
+//! these re-calculated centroids becoming the new centers of their respective clusters. Next all instances of the training set are re-assigned to their closest cluster again.
+//! This iterative process continues until convergence is achieved and the clusters are considered settled.
+//!
+//! Initial choice of K data points is very important and has big effect on performance of the algorithm. SmartCore uses k-means++ algorithm to initialize cluster centers.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::cluster::kmeans::*;
+//!
+//! // Iris data
+//! let x = DenseMatrix::from_array(&[
+//!            &[5.1, 3.5, 1.4, 0.2],
+//!            &[4.9, 3.0, 1.4, 0.2],
+//!            &[4.7, 3.2, 1.3, 0.2],
+//!            &[4.6, 3.1, 1.5, 0.2],
+//!            &[5.0, 3.6, 1.4, 0.2],
+//!            &[5.4, 3.9, 1.7, 0.4],
+//!            &[4.6, 3.4, 1.4, 0.3],
+//!            &[5.0, 3.4, 1.5, 0.2],
+//!            &[4.4, 2.9, 1.4, 0.2],
+//!            &[4.9, 3.1, 1.5, 0.1],
+//!            &[7.0, 3.2, 4.7, 1.4],
+//!            &[6.4, 3.2, 4.5, 1.5],
+//!            &[6.9, 3.1, 4.9, 1.5],
+//!            &[5.5, 2.3, 4.0, 1.3],
+//!            &[6.5, 2.8, 4.6, 1.5],
+//!            &[5.7, 2.8, 4.5, 1.3],
+//!            &[6.3, 3.3, 4.7, 1.6],
+//!            &[4.9, 2.4, 3.3, 1.0],
+//!            &[6.6, 2.9, 4.6, 1.3],
+//!            &[5.2, 2.7, 3.9, 1.4],
+//!            ]);
+//!
+//! let kmeans = KMeans::new(&x, 2, Default::default()); // Fit to data, 2 clusters
+//! let y_hat = kmeans.predict(&x); // use the same points for prediction
+//! ```
+//!
+//! ## References:
+//!
+//! * ["An Introduction to Statistical Learning", James et al., 10.3.1 K-Means Clustering](http://faculty.marshall.usc.edu/gareth-james/ISL/)
+//! * ["k-means++: The Advantages of Careful Seeding", Arthur D., Vassilvitskii S.](http://ilpubs.stanford.edu:8090/778/1/2006-13.pdf)
+
 extern crate rand;
 
 use rand::Rng;
@@ -12,6 +66,7 @@ use crate::math::distance::euclidian::*;
 use crate::math::num::RealNumber;
 
 #[derive(Serialize, Deserialize, Debug)]
+/// K-Means clustering algorithm
 pub struct KMeans<T: RealNumber> {
     k: usize,
     y: Vec<usize>,
@@ -45,7 +100,9 @@ impl<T: RealNumber> PartialEq for KMeans<T> {
 }
 
 #[derive(Debug, Clone)]
+/// K-Means clustering algorithm parameters
 pub struct KMeansParameters {
+    /// Maximum number of iterations of the k-means algorithm for a single run.
     pub max_iter: usize,
 }
 
@@ -56,6 +113,10 @@ impl Default for KMeansParameters {
 }
 
 impl<T: RealNumber + Sum> KMeans<T> {
+    /// Fit algorithm to _NxM_ matrix where _N_ is number of samples and _M_ is number of features.
+    /// * `data` - training instances to cluster
+    /// * `k` - number of clusters
+    /// * `parameters` - cluster parameters
     pub fn new<M: Matrix<T>>(data: &M, k: usize, parameters: KMeansParameters) -> KMeans<T> {
         let bbd = BBDTree::new(data);
 
@@ -120,6 +181,8 @@ impl<T: RealNumber + Sum> KMeans<T> {
         }
     }
 
+    /// Predict clusters for `x`
+    /// * `x` - matrix with new data to transform of size _KxM_ , where _K_ is number of new samples and _M_ is number of features.
     pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
         let (n, _) = x.shape();
         let mut result = M::zeros(1, n);
