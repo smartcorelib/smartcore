@@ -1,3 +1,49 @@
+//! # PCA
+//!
+//! Principal components analysis (PCA) is a method that is used to select several linear combinations that capture most of the variation in your data.
+//! PCA is an unsupervised approach, since it involves only a set of features \\(X1, X2, . . . , Xn\\), and no associated response \\(Y\\).
+//! Apart from producing derived variables for use in supervised learning problems, PCA also serves as a tool for data visualization.
+//!
+//! PCA is scale sensitive. Before PCA is performed, the variables should be centered to have mean zero.
+//! Furthermore, the results obtained also depend on whether the variables have been individually scaled.
+//! Use `use_correlation_matrix` parameter to standardize your variables (to mean 0 and standard deviation 1).
+//!
+//! Example:
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::decomposition::pca::*;
+//!
+//! // Iris data
+//! let iris = DenseMatrix::from_array(&[
+//!                     &[5.1, 3.5, 1.4, 0.2],
+//!                     &[4.9, 3.0, 1.4, 0.2],
+//!                     &[4.7, 3.2, 1.3, 0.2],
+//!                     &[4.6, 3.1, 1.5, 0.2],
+//!                     &[5.0, 3.6, 1.4, 0.2],
+//!                     &[5.4, 3.9, 1.7, 0.4],
+//!                     &[4.6, 3.4, 1.4, 0.3],
+//!                     &[5.0, 3.4, 1.5, 0.2],
+//!                     &[4.4, 2.9, 1.4, 0.2],
+//!                     &[4.9, 3.1, 1.5, 0.1],
+//!                     &[7.0, 3.2, 4.7, 1.4],
+//!                     &[6.4, 3.2, 4.5, 1.5],
+//!                     &[6.9, 3.1, 4.9, 1.5],
+//!                     &[5.5, 2.3, 4.0, 1.3],
+//!                     &[6.5, 2.8, 4.6, 1.5],
+//!                     &[5.7, 2.8, 4.5, 1.3],
+//!                     &[6.3, 3.3, 4.7, 1.6],
+//!                     &[4.9, 2.4, 3.3, 1.0],
+//!                     &[6.6, 2.9, 4.6, 1.3],
+//!                     &[5.2, 2.7, 3.9, 1.4],
+//!                     ]);
+//!
+//! let pca = PCA::new(&iris, 2, Default::default()); // Reduce number of features to 2
+//!
+//! let iris_reduced = pca.transform(&iris);
+//!
+//! ```
+//!
+//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
@@ -5,6 +51,7 @@ use serde::{Deserialize, Serialize};
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
+/// Principal components analysis algorithm
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PCA<T: RealNumber, M: Matrix<T>> {
     eigenvectors: M,
@@ -32,8 +79,11 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
 }
 
 #[derive(Debug, Clone)]
+/// PCA parameters
 pub struct PCAParameters {
-    use_correlation_matrix: bool,
+    /// By default, covariance matrix is used to compute principal components.
+    /// Enable this flag if you want to use correlation matrix instead.
+    pub use_correlation_matrix: bool,
 }
 
 impl Default for PCAParameters {
@@ -45,6 +95,10 @@ impl Default for PCAParameters {
 }
 
 impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
+    /// Fits PCA to your data.
+    /// * `data` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `n_components` - number of components to keep.
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn new(data: &M, n_components: usize, parameters: PCAParameters) -> PCA<T, M> {
         let (m, n) = data.shape();
 
@@ -143,6 +197,8 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
         }
     }
 
+    /// Run dimensionality reduction for `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn transform(&self, x: &M) -> M {
         let (nrows, ncols) = x.shape();
         let (_, n_components) = self.projection.shape();
