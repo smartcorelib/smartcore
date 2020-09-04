@@ -1,3 +1,50 @@
+//! # Random Forest Classifier
+//! A random forest is an ensemble estimator that fits multiple [decision trees](../../tree/index.html) to random subsets of the dataset and averages predictions
+//! to improve the predictive accuracy and control over-fitting. See [ensemble models](../index.html) for more details.
+//!
+//! Bigger number of estimators in general improves performance of the algorithm with an increased cost of training time.
+//! The random sample of _m_ predictors is typically set to be \\(\sqrt{p}\\) from the full set of _p_ predictors.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::ensemble::random_forest_classifier::*;
+//!
+//! // Iris dataset
+//! let x = DenseMatrix::from_array(&[
+//!              &[5.1, 3.5, 1.4, 0.2],
+//!              &[4.9, 3.0, 1.4, 0.2],
+//!              &[4.7, 3.2, 1.3, 0.2],
+//!              &[4.6, 3.1, 1.5, 0.2],
+//!              &[5.0, 3.6, 1.4, 0.2],
+//!              &[5.4, 3.9, 1.7, 0.4],
+//!              &[4.6, 3.4, 1.4, 0.3],
+//!              &[5.0, 3.4, 1.5, 0.2],
+//!              &[4.4, 2.9, 1.4, 0.2],
+//!              &[4.9, 3.1, 1.5, 0.1],
+//!              &[7.0, 3.2, 4.7, 1.4],
+//!              &[6.4, 3.2, 4.5, 1.5],
+//!              &[6.9, 3.1, 4.9, 1.5],
+//!              &[5.5, 2.3, 4.0, 1.3],
+//!              &[6.5, 2.8, 4.6, 1.5],
+//!              &[5.7, 2.8, 4.5, 1.3],
+//!              &[6.3, 3.3, 4.7, 1.6],
+//!              &[4.9, 2.4, 3.3, 1.0],
+//!              &[6.6, 2.9, 4.6, 1.3],
+//!              &[5.2, 2.7, 3.9, 1.4],
+//!         ]);
+//! let y = vec![
+//!              0., 0., 0., 0., 0., 0., 0., 0.,
+//!              1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+//!         ];
+//!
+//! let classifier = RandomForestClassifier::fit(&x, &y, Default::default());
+//! let y_hat = classifier.predict(&x); // use the same data for prediction
+//! ```
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 extern crate rand;
 
 use std::default::Default;
@@ -12,16 +59,25 @@ use crate::tree::decision_tree_classifier::{
     which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,
 };
 
+/// Parameters of the Random Forest algorithm.
+/// Some parameters here are passed directly into base estimator.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RandomForestClassifierParameters {
+    /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub criterion: SplitCriterion,
+    /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub max_depth: Option<u16>,
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub min_samples_leaf: usize,
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub min_samples_split: usize,
+    /// The number of trees in the forest.
     pub n_trees: u16,
-    pub mtry: Option<usize>,
+    /// Number of random sample of predictors to use as split candidates.
+    pub m: Option<usize>,
 }
 
+/// Random Forest Classifier
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RandomForestClassifier<T: RealNumber> {
     parameters: RandomForestClassifierParameters,
@@ -57,12 +113,15 @@ impl Default for RandomForestClassifierParameters {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 100,
-            mtry: Option::None,
+            m: Option::None,
         }
     }
 }
 
 impl<T: RealNumber> RandomForestClassifier<T> {
+    /// Build a forest of trees from the training set.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target class values
     pub fn fit<M: Matrix<T>>(
         x: &M,
         y: &M::RowVector,
@@ -79,7 +138,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
-        let mtry = parameters.mtry.unwrap_or(
+        let mtry = parameters.m.unwrap_or(
             (T::from(num_attributes).unwrap())
                 .sqrt()
                 .floor()
@@ -110,6 +169,8 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         }
     }
 
+    /// Predict class for `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
         let mut result = M::zeros(1, x.shape().0);
 
@@ -199,7 +260,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 1000,
-                mtry: Option::None,
+                m: Option::None,
             },
         );
 

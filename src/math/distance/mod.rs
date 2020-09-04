@@ -10,7 +10,8 @@
 //!
 //! A good distance metric helps to improve the performance of classification, clustering and information retrieval algorithms significantly.
 //!
-//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 /// Euclidean Distance is the straight-line distance between two points in Euclidean spacere that presents the shortest distance between these points.
 pub mod euclidian;

@@ -17,7 +17,8 @@
 //! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 3. Linear Regression](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 //! * ["The Statistical Sleuth, A Course in Methods of Data Analysis", Ramsey F.L., Schafer D.W., Ch 7, 8, 3rd edition, 2013](http://www.statisticalsleuth.com/)
 //!
-//! <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 pub mod linear_regression;
 pub mod logistic_regression;
