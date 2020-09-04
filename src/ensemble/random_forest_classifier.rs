@@ -266,7 +266,6 @@ mod tests {
         );
 
         assert!(accuracy(&y, &classifier.predict(&x)) > 0.9);
-        
     }
 
     #[test]
