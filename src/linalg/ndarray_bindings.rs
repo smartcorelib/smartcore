@@ -735,7 +735,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 1000,
-                mtry: Option::None,
+                m: Option::None,
             },
         )
         .predict(&x);
