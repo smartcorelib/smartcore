@@ -19,7 +19,7 @@
 //! use smartcore::math::distance::*;
 //!
 //! //your explanatory variables. Each row is a training sample with 2 numerical features
-//! let x = DenseMatrix::from_array(&[
+//! let x = DenseMatrix::from_2d_array(&[
 //!     &[1., 1.],
 //!     &[2., 2.],
 //!     &[3., 3.],
@@ -166,7 +166,8 @@ mod tests {
 
     #[test]
     fn knn_fit_predict_weighted() {
-        let x = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+        let x =
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y: Vec<f64> = vec![1., 2., 3., 4., 5.];
         let y_exp = vec![1., 2., 3., 4., 5.];
         let knn = KNNRegressor::fit(
@@ -188,7 +189,8 @@ mod tests {
 
     #[test]
     fn knn_fit_predict_uniform() {
-        let x = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+        let x =
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y: Vec<f64> = vec![1., 2., 3., 4., 5.];
         let y_exp = vec![2., 2., 3., 4., 4.];
         let knn = KNNRegressor::fit(&x, &y, Distances::euclidian(), Default::default());
@@ -201,7 +203,8 @@ mod tests {
 
     #[test]
     fn serde() {
-        let x = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+        let x =
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y = vec![1., 2., 3., 4., 5.];
 
         let knn = KNNRegressor::fit(&x, &y, Distances::euclidian(), Default::default());

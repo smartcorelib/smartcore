@@ -17,7 +17,7 @@
 //! use smartcore::math::distance::*;
 //!
 //! //your explanatory variables. Each row is a training sample with 2 numerical features
-//! let x = DenseMatrix::from_array(&[
+//! let x = DenseMatrix::from_2d_array(&[
 //!     &[1., 2.],
 //!     &[3., 4.],
 //!     &[5., 6.],
@@ -188,7 +188,8 @@ mod tests {
 
     #[test]
     fn knn_fit_predict() {
-        let x = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+        let x =
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y = vec![2., 2., 2., 3., 3.];
         let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default());
         let y_hat = knn.predict(&x);
@@ -198,7 +199,7 @@ mod tests {
 
     #[test]
     fn knn_fit_predict_weighted() {
-        let x = DenseMatrix::from_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]);
+        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]);
         let y = vec![2., 2., 2., 3., 3.];
         let knn = KNNClassifier::fit(
             &x,
@@ -210,13 +211,14 @@ mod tests {
                 weight: KNNWeightFunction::Distance,
             },
         );
-        let y_hat = knn.predict(&DenseMatrix::from_array(&[&[4.1]]));
+        let y_hat = knn.predict(&DenseMatrix::from_2d_array(&[&[4.1]]));
         assert_eq!(vec![3.0], y_hat);
     }
 
     #[test]
     fn serde() {
-        let x = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+        let x =
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y = vec![2., 2., 2., 3., 3.];
 
         let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default());

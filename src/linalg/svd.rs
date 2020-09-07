@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn decompose_symmetric() {
-        let A = DenseMatrix::from_array(&[
+        let A = DenseMatrix::from_2d_array(&[
             &[0.9000, 0.4000, 0.7000],
             &[0.4000, 0.5000, 0.3000],
             &[0.7000, 0.3000, 0.8000],
@@ -436,13 +436,13 @@ mod tests {
 
         let s: Vec<f64> = vec![1.7498382, 0.3165784, 0.1335834];
 
-        let U = DenseMatrix::from_array(&[
+        let U = DenseMatrix::from_2d_array(&[
             &[0.6881997, -0.07121225, 0.7220180],
             &[0.3700456, 0.89044952, -0.2648886],
             &[0.6240573, -0.44947578, -0.639158],
         ]);
 
-        let V = DenseMatrix::from_array(&[
+        let V = DenseMatrix::from_2d_array(&[
             &[0.6881997, -0.07121225, 0.7220180],
             &[0.3700456, 0.89044952, -0.2648886],
             &[0.6240573, -0.44947578, -0.6391588],
@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     fn decompose_asymmetric() {
-        let A = DenseMatrix::from_array(&[
+        let A = DenseMatrix::from_2d_array(&[
             &[
                 1.19720880,
                 -1.8391378,
@@ -523,7 +523,7 @@ mod tests {
             3.8589375, 3.4396766, 2.6487176, 2.2317399, 1.5165054, 0.8109055, 0.2706515,
         ];
 
-        let U = DenseMatrix::from_array(&[
+        let U = DenseMatrix::from_2d_array(&[
             &[
                 -0.3082776,
                 0.77676231,
@@ -589,7 +589,7 @@ mod tests {
             ],
         ]);
 
-        let V = DenseMatrix::from_array(&[
+        let V = DenseMatrix::from_2d_array(&[
             &[
                 -0.2122609,
                 -0.54650056,
@@ -660,9 +660,10 @@ mod tests {
 
     #[test]
     fn solve() {
-        let a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
-        let b = DenseMatrix::from_array(&[&[0.5, 0.2], &[0.5, 0.8], &[0.5, 0.3]]);
-        let expected_w = DenseMatrix::from_array(&[&[-0.20, -1.28], &[0.87, 2.22], &[0.47, 0.66]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
+        let b = DenseMatrix::from_2d_array(&[&[0.5, 0.2], &[0.5, 0.8], &[0.5, 0.3]]);
+        let expected_w =
+            DenseMatrix::from_2d_array(&[&[-0.20, -1.28], &[0.87, 2.22], &[0.47, 0.66]]);
         let w = a.svd_solve_mut(b);
         assert!(w.approximate_eq(&expected_w, 1e-2));
     }

@@ -18,7 +18,7 @@
 //! use smartcore::math::distance::Distance;
 //! use smartcore::math::distance::mahalanobis::Mahalanobis;
 //!
-//! let data = DenseMatrix::from_array(&[
+//! let data = DenseMatrix::from_2d_array(&[
 //!                   &[64., 580., 29.],
 //!                   &[66., 570., 33.],
 //!                   &[68., 590., 37.],
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn mahalanobis_distance() {
-        let data = DenseMatrix::from_array(&[
+        let data = DenseMatrix::from_2d_array(&[
             &[64., 580., 29.],
             &[66., 570., 33.],
             &[68., 590., 37.],

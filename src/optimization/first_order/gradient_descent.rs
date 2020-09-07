@@ -58,10 +58,10 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
                 let mut dg = gvec.clone();
                 dx.mul_scalar_mut(alpha);
                 df(&mut dg, &dx.add_mut(&x)); //df(x) = df(x .+ gvec .* alpha)
-                gvec.vector_dot(&dg)
+                gvec.dot(&dg)
             };
 
-            let df0 = step.vector_dot(&gvec);
+            let df0 = step.dot(&gvec);
 
             let ls_r = ls.search(&f_alpha, &df_alpha, alpha, fx, df0);
             alpha = ls_r.alpha;
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn gradient_descent() {
-        let x0 = DenseMatrix::vector_from_array(&[-1., 1.]);
+        let x0 = DenseMatrix::row_vector_from_array(&[-1., 1.]);
         let f = |x: &DenseMatrix<f64>| {
             (1.0 - x.get(0, 0)).powf(2.) + 100.0 * (x.get(0, 1) - x.get(0, 0).powf(2.)).powf(2.)
         };

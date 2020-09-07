@@ -46,7 +46,7 @@ impl<T: RealNumber> LBFGS<T> {
             let i = index.rem_euclid(self.m);
             let dgi = &state.dg_history[i];
             let dxi = &state.dx_history[i];
-            state.twoloop_alpha[i] = state.rho[i] * dxi.vector_dot(&state.twoloop_q);
+            state.twoloop_alpha[i] = state.rho[i] * dxi.dot(&state.twoloop_q);
             state
                 .twoloop_q
                 .sub_mut(&dgi.mul_scalar(state.twoloop_alpha[i]));
@@ -56,7 +56,7 @@ impl<T: RealNumber> LBFGS<T> {
             let i = (upper - 1).rem_euclid(self.m);
             let dxi = &state.dx_history[i];
             let dgi = &state.dg_history[i];
-            let scaling = dxi.vector_dot(dgi) / dgi.abs().pow_mut(T::two()).sum();
+            let scaling = dxi.dot(dgi) / dgi.abs().pow_mut(T::two()).sum();
             state.s.copy_from(&state.twoloop_q.mul_scalar(scaling));
         } else {
             state.s.copy_from(&state.twoloop_q);
@@ -66,7 +66,7 @@ impl<T: RealNumber> LBFGS<T> {
             let i = index.rem_euclid(self.m);
             let dgi = &state.dg_history[i];
             let dxi = &state.dx_history[i];
-            let beta = state.rho[i] * dgi.vector_dot(&state.s);
+            let beta = state.rho[i] * dgi.dot(&state.s);
             state
                 .s
                 .add_mut(&dxi.mul_scalar(state.twoloop_alpha[i] - beta));
@@ -111,7 +111,7 @@ impl<T: RealNumber> LBFGS<T> {
         state.x_f_prev = f(&state.x);
         state.x_prev.copy_from(&state.x);
 
-        let df0 = state.x_df.vector_dot(&state.s);
+        let df0 = state.x_df.dot(&state.s);
 
         let f_alpha = |alpha: T| -> T {
             let mut dx = state.s.clone();
@@ -124,7 +124,7 @@ impl<T: RealNumber> LBFGS<T> {
             let mut dg = state.x_df.clone();
             dx.mul_scalar_mut(alpha);
             df(&mut dg, &dx.add_mut(&state.x)); //df(x) = df(x .+ gvec .* alpha)
-            state.x_df.vector_dot(&dg)
+            state.x_df.dot(&dg)
         };
 
         let ls_r = ls.search(&f_alpha, &df_alpha, T::one(), state.x_f_prev, df0);
@@ -164,7 +164,7 @@ impl<T: RealNumber> LBFGS<T> {
 
     fn update_hessian<'a, X: Matrix<T>>(&self, _: &'a DF<X>, state: &mut LBFGSState<T, X>) {
         state.dg = state.x_df.sub(&state.x_df_prev);
-        let rho_iteration = T::one() / state.dx.vector_dot(&state.dg);
+        let rho_iteration = T::one() / state.dx.dot(&state.dg);
         if !rho_iteration.is_infinite() {
             let idx = state.iteration.rem_euclid(self.m);
             state.dx_history[idx].copy_from(&state.dx);
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn lbfgs() {
-        let x0 = DenseMatrix::vector_from_array(&[0., 0.]);
+        let x0 = DenseMatrix::row_vector_from_array(&[0., 0.]);
         let f = |x: &DenseMatrix<f64>| {
             (1.0 - x.get(0, 0)).powf(2.) + 100.0 * (x.get(0, 1) - x.get(0, 0).powf(2.)).powf(2.)
         };

@@ -793,7 +793,7 @@ mod tests {
 
     #[test]
     fn decompose_symmetric() {
-        let A = DenseMatrix::from_array(&[
+        let A = DenseMatrix::from_2d_array(&[
             &[0.9000, 0.4000, 0.7000],
             &[0.4000, 0.5000, 0.3000],
             &[0.7000, 0.3000, 0.8000],
@@ -801,7 +801,7 @@ mod tests {
 
         let eigen_values: Vec<f64> = vec![1.7498382, 0.3165784, 0.1335834];
 
-        let eigen_vectors = DenseMatrix::from_array(&[
+        let eigen_vectors = DenseMatrix::from_2d_array(&[
             &[0.6881997, -0.07121225, 0.7220180],
             &[0.3700456, 0.89044952, -0.2648886],
             &[0.6240573, -0.44947578, -0.6391588],
@@ -820,7 +820,7 @@ mod tests {
 
     #[test]
     fn decompose_asymmetric() {
-        let A = DenseMatrix::from_array(&[
+        let A = DenseMatrix::from_2d_array(&[
             &[0.9000, 0.4000, 0.7000],
             &[0.4000, 0.5000, 0.3000],
             &[0.8000, 0.3000, 0.8000],
@@ -828,7 +828,7 @@ mod tests {
 
         let eigen_values: Vec<f64> = vec![1.79171122, 0.31908143, 0.08920735];
 
-        let eigen_vectors = DenseMatrix::from_array(&[
+        let eigen_vectors = DenseMatrix::from_2d_array(&[
             &[0.7178958, 0.05322098, 0.6812010],
             &[0.3837711, -0.84702111, -0.1494582],
             &[0.6952105, 0.43984484, -0.7036135],
@@ -847,7 +847,7 @@ mod tests {
 
     #[test]
     fn decompose_complex() {
-        let A = DenseMatrix::from_array(&[
+        let A = DenseMatrix::from_2d_array(&[
             &[3.0, -2.0, 1.0, 1.0],
             &[4.0, -1.0, 1.0, 1.0],
             &[1.0, 1.0, 3.0, -2.0],
@@ -857,7 +857,7 @@ mod tests {
         let eigen_values_d: Vec<f64> = vec![0.0, 2.0, 2.0, 0.0];
         let eigen_values_e: Vec<f64> = vec![2.2361, 0.9999, -0.9999, -2.2361];
 
-        let eigen_vectors = DenseMatrix::from_array(&[
+        let eigen_vectors = DenseMatrix::from_2d_array(&[
             &[-0.9159, -0.1378, 0.3816, -0.0806],
             &[-0.6707, 0.1059, 0.901, 0.6289],
             &[0.9159, -0.1378, 0.3816, 0.0806],

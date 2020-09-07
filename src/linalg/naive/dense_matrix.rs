@@ -34,6 +34,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
     }
 }
 
+/// Column-major, dense matrix. See [Simple Dense Matrix](../index.html).
 #[derive(Debug, Clone)]
 pub struct DenseMatrix<T: RealNumber> {
     ncols: usize,
@@ -57,7 +58,9 @@ impl<T: RealNumber> fmt::Display for DenseMatrix<T> {
 }
 
 impl<T: RealNumber> DenseMatrix<T> {
-    fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
+    /// Create new instance of `DenseMatrix` without copying data.
+    /// `values` should be in column-major order.
+    pub fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
         DenseMatrix {
             ncols: ncols,
             nrows: nrows,
@@ -65,11 +68,13 @@ impl<T: RealNumber> DenseMatrix<T> {
         }
     }
 
-    pub fn from_array(values: &[&[T]]) -> Self {
-        DenseMatrix::from_vec(&values.into_iter().map(|row| Vec::from(*row)).collect())
+    /// New instance of `DenseMatrix` from 2d array.
+    pub fn from_2d_array(values: &[&[T]]) -> Self {
+        DenseMatrix::from_2d_vec(&values.into_iter().map(|row| Vec::from(*row)).collect())
     }
 
-    pub fn from_vec(values: &Vec<Vec<T>>) -> DenseMatrix<T> {
+    /// New instance of `DenseMatrix` from 2d vector.
+    pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Self {
         let nrows = values.len();
         let ncols = values
             .first()
@@ -88,11 +93,41 @@ impl<T: RealNumber> DenseMatrix<T> {
         m
     }
 
-    pub fn vector_from_array(values: &[T]) -> Self {
-        DenseMatrix::vector_from_vec(Vec::from(values))
+    /// Creates new matrix from an array.
+    /// * `nrows` - number of rows in new matrix.
+    /// * `ncols` - number of columns in new matrix.
+    /// * `values` - values to initialize the matrix.
+    pub fn from_array(nrows: usize, ncols: usize, values: &[T]) -> Self {
+        DenseMatrix::from_vec(nrows, ncols, &Vec::from(values))
     }
 
-    pub fn vector_from_vec(values: Vec<T>) -> Self {
+    /// Creates new matrix from a vector.
+    /// * `nrows` - number of rows in new matrix.
+    /// * `ncols` - number of columns in new matrix.
+    /// * `values` - values to initialize the matrix.
+    pub fn from_vec(nrows: usize, ncols: usize, values: &Vec<T>) -> DenseMatrix<T> {
+        let mut m = DenseMatrix {
+            ncols: ncols,
+            nrows: nrows,
+            values: vec![T::zero(); ncols * nrows],
+        };
+        for row in 0..nrows {
+            for col in 0..ncols {
+                m.set(row, col, values[col + row * ncols]);
+            }
+        }
+        m
+    }
+
+    /// Creates new row vector (_1xN_ matrix) from an array.     
+    /// * `values` - values to initialize the matrix.
+    pub fn row_vector_from_array(values: &[T]) -> Self {
+        DenseMatrix::row_vector_from_vec(Vec::from(values))
+    }
+
+    /// Creates new row vector (_1xN_ matrix) from a vector.
+    /// * `values` - values to initialize the matrix.
+    pub fn row_vector_from_vec(values: Vec<T>) -> Self {
         DenseMatrix {
             ncols: values.len(),
             nrows: 1,
@@ -100,18 +135,20 @@ impl<T: RealNumber> DenseMatrix<T> {
         }
     }
 
-    pub fn div_mut(&mut self, b: Self) -> () {
-        if self.nrows != b.nrows || self.ncols != b.ncols {
-            panic!("Can't divide matrices of different sizes.");
-        }
-
-        for i in 0..self.values.len() {
-            self.values[i] = self.values[i] / b.values[i];
-        }
+    /// Creates new column vector (_1xN_ matrix) from an array.     
+    /// * `values` - values to initialize the matrix.
+    pub fn column_vector_from_array(values: &[T]) -> Self {
+        DenseMatrix::column_vector_from_vec(Vec::from(values))
     }
 
-    pub fn get_raw_values(&self) -> &Vec<T> {
-        &self.values
+    /// Creates new column vector (_1xN_ matrix) from a vector.     
+    /// * `values` - values to initialize the matrix.
+    pub fn column_vector_from_vec(values: Vec<T>) -> Self {
+        DenseMatrix {
+            ncols: 1,
+            nrows: values.len(),
+            values: values,
+        }
     }
 }
 
@@ -261,7 +298,15 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     }
 
     fn to_row_vector(self) -> Self::RowVector {
-        self.to_raw_vector()
+        let mut v = vec![T::zero(); self.nrows * self.ncols];
+
+        for r in 0..self.nrows {
+            for c in 0..self.ncols {
+                v[r * self.ncols + c] = self.get(r, c);
+            }
+        }
+
+        v
     }
 
     fn get(&self, row: usize, col: usize) -> T {
@@ -312,23 +357,11 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         return matrix;
     }
 
-    fn to_raw_vector(&self) -> Vec<T> {
-        let mut v = vec![T::zero(); self.nrows * self.ncols];
-
-        for r in 0..self.nrows {
-            for c in 0..self.ncols {
-                v[r * self.ncols + c] = self.get(r, c);
-            }
-        }
-
-        v
-    }
-
     fn shape(&self) -> (usize, usize) {
         (self.nrows, self.ncols)
     }
 
-    fn h_stack(&self, other: &Self) -> Self {
+    fn v_stack(&self, other: &Self) -> Self {
         if self.ncols != other.ncols {
             panic!("Number of columns in both matrices should be equal");
         }
@@ -345,7 +378,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         result
     }
 
-    fn v_stack(&self, other: &Self) -> Self {
+    fn h_stack(&self, other: &Self) -> Self {
         if self.nrows != other.nrows {
             panic!("Number of rows in both matrices should be equal");
         }
@@ -362,7 +395,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         result
     }
 
-    fn dot(&self, other: &Self) -> Self {
+    fn matmul(&self, other: &Self) -> Self {
         if self.ncols != other.nrows {
             panic!("Number of rows of A should equal number of columns of B");
         }
@@ -382,8 +415,8 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         result
     }
 
-    fn vector_dot(&self, other: &Self) -> T {
-        if (self.nrows != 1 || self.nrows != 1) && (other.nrows != 1 || other.ncols != 1) {
+    fn dot(&self, other: &Self) -> T {
+        if self.nrows != 1 && other.nrows != 1 {
             panic!("A and B should both be 1-dimentional vectors.");
         }
         if self.nrows * self.ncols != other.nrows * other.ncols {
@@ -666,6 +699,22 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         sum
     }
 
+    fn max(&self) -> T {
+        let mut max = T::neg_infinity();
+        for i in 0..self.values.len() {
+            max = T::max(max, self.values[i]);
+        }
+        max
+    }
+
+    fn min(&self) -> T {
+        let mut min = T::infinity();
+        for i in 0..self.values.len() {
+            min = T::min(min, self.values[i]);
+        }
+        min
+    }
+
     fn softmax_mut(&mut self) {
         let max = self
             .values
@@ -753,6 +802,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn from_array() {
+        let vec = [1., 2., 3., 4., 5., 6.];
+        assert_eq!(
+            DenseMatrix::from_array(3, 2, &vec),
+            DenseMatrix::new(3, 2, vec![1., 3., 5., 2., 4., 6.])
+        );
+        assert_eq!(
+            DenseMatrix::from_array(2, 3, &vec),
+            DenseMatrix::new(2, 3, vec![1., 4., 2., 5., 3., 6.])
+        );
+    }
+
+    #[test]
+    fn row_column_vec_from_array() {
+        let vec = vec![1., 2., 3., 4., 5., 6.];
+        assert_eq!(
+            DenseMatrix::row_vector_from_array(&vec),
+            DenseMatrix::new(1, 6, vec![1., 2., 3., 4., 5., 6.])
+        );
+        assert_eq!(
+            DenseMatrix::column_vector_from_array(&vec),
+            DenseMatrix::new(6, 1, vec![1., 2., 3., 4., 5., 6.])
+        );
+    }
+
+    #[test]
     fn from_to_row_vec() {
         let vec = vec![1., 2., 3.];
         assert_eq!(
@@ -766,59 +841,66 @@ mod tests {
     }
 
     #[test]
-    fn h_stack() {
-        let a = DenseMatrix::from_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
-        let b = DenseMatrix::from_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
-        let expected = DenseMatrix::from_array(&[
+    fn v_stack() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        let b = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        let expected = DenseMatrix::from_2d_array(&[
             &[1., 2., 3.],
             &[4., 5., 6.],
             &[7., 8., 9.],
             &[1., 2., 3.],
             &[4., 5., 6.],
         ]);
-        let result = a.h_stack(&b);
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn v_stack() {
-        let a = DenseMatrix::from_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
-        let b = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
-        let expected = DenseMatrix::from_array(&[
-            &[1., 2., 3., 1., 2.],
-            &[4., 5., 6., 3., 4.],
-            &[7., 8., 9., 5., 6.],
-        ]);
         let result = a.v_stack(&b);
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn dot() {
-        let a = DenseMatrix::from_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
-        let b = DenseMatrix::from_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
-        let expected = DenseMatrix::from_array(&[&[22., 28.], &[49., 64.]]);
-        let result = a.dot(&b);
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn slice() {
-        let m = DenseMatrix::from_array(&[
+    fn h_stack() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        let b = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
+        let expected = DenseMatrix::from_2d_array(&[
             &[1., 2., 3., 1., 2.],
             &[4., 5., 6., 3., 4.],
             &[7., 8., 9., 5., 6.],
         ]);
-        let expected = DenseMatrix::from_array(&[&[2., 3.], &[5., 6.]]);
+        let result = a.h_stack(&b);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn matmul() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        let b = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
+        let expected = DenseMatrix::from_2d_array(&[&[22., 28.], &[49., 64.]]);
+        let result = a.matmul(&b);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn dot() {
+        let a = DenseMatrix::from_array(1, 3, &[1., 2., 3.]);
+        let b = DenseMatrix::from_array(1, 3, &[4., 5., 6.]);
+        assert_eq!(a.dot(&b), 32.);
+    }
+
+    #[test]
+    fn slice() {
+        let m = DenseMatrix::from_2d_array(&[
+            &[1., 2., 3., 1., 2.],
+            &[4., 5., 6., 3., 4.],
+            &[7., 8., 9., 5., 6.],
+        ]);
+        let expected = DenseMatrix::from_2d_array(&[&[2., 3.], &[5., 6.]]);
         let result = m.slice(0..2, 1..3);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn approximate_eq() {
-        let m = DenseMatrix::from_array(&[&[2., 3.], &[5., 6.]]);
-        let m_eq = DenseMatrix::from_array(&[&[2.5, 3.0], &[5., 5.5]]);
-        let m_neq = DenseMatrix::from_array(&[&[3.0, 3.0], &[5., 6.5]]);
+        let m = DenseMatrix::from_2d_array(&[&[2., 3.], &[5., 6.]]);
+        let m_eq = DenseMatrix::from_2d_array(&[&[2.5, 3.0], &[5., 5.5]]);
+        let m_neq = DenseMatrix::from_2d_array(&[&[3.0, 3.0], &[5., 6.5]]);
         assert!(m.approximate_eq(&m_eq, 0.5));
         assert!(!m.approximate_eq(&m_neq, 0.5));
     }
@@ -835,8 +917,8 @@ mod tests {
 
     #[test]
     fn transpose() {
-        let m = DenseMatrix::from_array(&[&[1.0, 3.0], &[2.0, 4.0]]);
-        let expected = DenseMatrix::from_array(&[&[1.0, 2.0], &[3.0, 4.0]]);
+        let m = DenseMatrix::from_2d_array(&[&[1.0, 3.0], &[2.0, 4.0]]);
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]);
         let m_transposed = m.transpose();
         for c in 0..2 {
             for r in 0..2 {
@@ -847,7 +929,7 @@ mod tests {
 
     #[test]
     fn reshape() {
-        let m_orig = DenseMatrix::vector_from_array(&[1., 2., 3., 4., 5., 6.]);
+        let m_orig = DenseMatrix::row_vector_from_array(&[1., 2., 3., 4., 5., 6.]);
         let m_2_by_3 = m_orig.reshape(2, 3);
         let m_result = m_2_by_3.reshape(1, 6);
         assert_eq!(m_2_by_3.shape(), (2, 3));
@@ -858,7 +940,7 @@ mod tests {
 
     #[test]
     fn norm() {
-        let v = DenseMatrix::vector_from_array(&[3., -2., 6.]);
+        let v = DenseMatrix::row_vector_from_array(&[3., -2., 6.]);
         assert_eq!(v.norm(1.), 11.);
         assert_eq!(v.norm(2.), 7.);
         assert_eq!(v.norm(std::f64::INFINITY), 6.);
@@ -867,7 +949,7 @@ mod tests {
 
     #[test]
     fn softmax_mut() {
-        let mut prob: DenseMatrix<f64> = DenseMatrix::vector_from_array(&[1., 2., 3.]);
+        let mut prob: DenseMatrix<f64> = DenseMatrix::row_vector_from_array(&[1., 2., 3.]);
         prob.softmax_mut();
         assert!((prob.get(0, 0) - 0.09).abs() < 0.01);
         assert!((prob.get(0, 1) - 0.24).abs() < 0.01);
@@ -876,21 +958,29 @@ mod tests {
 
     #[test]
     fn col_mean() {
-        let a = DenseMatrix::from_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
         let res = a.column_mean();
         assert_eq!(res, vec![4., 5., 6.]);
     }
 
     #[test]
+    fn min_max_sum() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        assert_eq!(21., a.sum());
+        assert_eq!(1., a.min());
+        assert_eq!(6., a.max());
+    }
+
+    #[test]
     fn eye() {
-        let a = DenseMatrix::from_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0., 0., 1.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0., 0., 1.]]);
         let res = DenseMatrix::eye(3);
         assert_eq!(res, a);
     }
 
     #[test]
     fn to_from_json() {
-        let a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         let deserialized_a: DenseMatrix<f64> =
             serde_json::from_str(&serde_json::to_string(&a).unwrap()).unwrap();
         assert_eq!(a, deserialized_a);
@@ -898,7 +988,7 @@ mod tests {
 
     #[test]
     fn to_from_bincode() {
-        let a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         let deserialized_a: DenseMatrix<f64> =
             bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
         assert_eq!(a, deserialized_a);
@@ -906,7 +996,7 @@ mod tests {
 
     #[test]
     fn to_string() {
-        let a = DenseMatrix::from_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         assert_eq!(
             format!("{}", a),
             "[[0.9, 0.4, 0.7], [0.4, 0.5, 0.3], [0.7, 0.3, 0.8]]"
@@ -915,14 +1005,14 @@ mod tests {
 
     #[test]
     fn cov() {
-        let a = DenseMatrix::from_array(&[
+        let a = DenseMatrix::from_2d_array(&[
             &[64.0, 580.0, 29.0],
             &[66.0, 570.0, 33.0],
             &[68.0, 590.0, 37.0],
             &[69.0, 660.0, 46.0],
             &[73.0, 600.0, 55.0],
         ]);
-        let expected = DenseMatrix::from_array(&[
+        let expected = DenseMatrix::from_2d_array(&[
             &[11.5, 50.0, 34.75],
             &[50.0, 1250.0, 205.0],
             &[34.75, 205.0, 110.0],

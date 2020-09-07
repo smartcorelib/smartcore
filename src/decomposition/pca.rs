@@ -14,7 +14,7 @@
 //! use smartcore::decomposition::pca::*;
 //!
 //! // Iris data
-//! let iris = DenseMatrix::from_array(&[
+//! let iris = DenseMatrix::from_2d_array(&[
 //!                     &[5.1, 3.5, 1.4, 0.2],
 //!                     &[4.9, 3.0, 1.4, 0.2],
 //!                     &[4.7, 3.2, 1.3, 0.2],
@@ -211,7 +211,7 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
             );
         }
 
-        let mut x_transformed = x.dot(&self.projection);
+        let mut x_transformed = x.matmul(&self.projection);
         for r in 0..nrows {
             for c in 0..n_components {
                 x_transformed.sub_element_mut(r, c, self.pmu[c]);
@@ -227,7 +227,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
 
     fn us_arrests_data() -> DenseMatrix<f64> {
-        DenseMatrix::from_array(&[
+        DenseMatrix::from_2d_array(&[
             &[13.2, 236.0, 58.0, 21.2],
             &[10.0, 263.0, 48.0, 44.5],
             &[8.1, 294.0, 80.0, 31.0],
@@ -285,7 +285,7 @@ mod tests {
     fn decompose_covariance() {
         let us_arrests = us_arrests_data();
 
-        let expected_eigenvectors = DenseMatrix::from_array(&[
+        let expected_eigenvectors = DenseMatrix::from_2d_array(&[
             &[
                 -0.0417043206282872,
                 -0.0448216562696701,
@@ -312,7 +312,7 @@ mod tests {
             ],
         ]);
 
-        let expected_projection = DenseMatrix::from_array(&[
+        let expected_projection = DenseMatrix::from_2d_array(&[
             &[-64.8022, -11.448, 2.4949, -2.4079],
             &[-92.8275, -17.9829, -20.1266, 4.094],
             &[-124.0682, 8.8304, 1.6874, 4.3537],
@@ -394,7 +394,7 @@ mod tests {
     fn decompose_correlation() {
         let us_arrests = us_arrests_data();
 
-        let expected_eigenvectors = DenseMatrix::from_array(&[
+        let expected_eigenvectors = DenseMatrix::from_2d_array(&[
             &[
                 0.124288601688222,
                 -0.0969866877028367,
@@ -421,7 +421,7 @@ mod tests {
             ],
         ]);
 
-        let expected_projection = DenseMatrix::from_array(&[
+        let expected_projection = DenseMatrix::from_2d_array(&[
             &[0.9856, -1.1334, 0.4443, -0.1563],
             &[1.9501, -1.0732, -2.04, 0.4386],
             &[1.7632, 0.746, -0.0548, 0.8347],
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn serde() {
-        let iris = DenseMatrix::from_array(&[
+        let iris = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],

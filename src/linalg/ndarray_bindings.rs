@@ -76,10 +76,6 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
         Array::ones((nrows, ncols))
     }
 
-    fn to_raw_vector(&self) -> Vec<T> {
-        self.to_owned().iter().map(|v| *v).collect()
-    }
-
     fn fill(nrows: usize, ncols: usize, value: T) -> Self {
         Array::from_elem((nrows, ncols), value)
     }
@@ -88,19 +84,19 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
         (self.nrows(), self.ncols())
     }
 
-    fn v_stack(&self, other: &Self) -> Self {
+    fn h_stack(&self, other: &Self) -> Self {
         stack(Axis(1), &[self.view(), other.view()]).unwrap()
     }
 
-    fn h_stack(&self, other: &Self) -> Self {
+    fn v_stack(&self, other: &Self) -> Self {
         stack(Axis(0), &[self.view(), other.view()]).unwrap()
     }
 
-    fn dot(&self, other: &Self) -> Self {
+    fn matmul(&self, other: &Self) -> Self {
         self.dot(other)
     }
 
-    fn vector_dot(&self, other: &Self) -> T {
+    fn dot(&self, other: &Self) -> T {
         self.dot(&other.view().reversed_axes())[[0, 0]]
     }
 
@@ -236,6 +232,14 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 
     fn sum(&self) -> T {
         self.sum()
+    }
+
+    fn max(&self) -> T {
+        self.iter().fold(T::neg_infinity(), |a, b| a.max(*b))
+    }
+
+    fn min(&self) -> T {
+        self.iter().fold(T::infinity(), |a, b| a.min(*b))
     }
 
     fn max_diff(&self, other: &Self) -> T {
@@ -454,15 +458,7 @@ mod tests {
 
         let expected = arr2(&[[1., 2., 3., 7.], [4., 5., 6., 8.], [9., 10., 11., 12.]]);
 
-        let result = a1.v_stack(&a2).h_stack(&a3);
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn to_raw_vector() {
-        let result = arr2(&[[1., 2., 3.], [4., 5., 6.]]).to_raw_vector();
-        let expected = vec![1., 2., 3., 4., 5., 6.];
+        let result = a1.h_stack(&a2).v_stack(&a3);
 
         assert_eq!(result, expected);
     }
@@ -479,19 +475,19 @@ mod tests {
     }
 
     #[test]
-    fn dot() {
+    fn matmul() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
         let b = arr2(&[[1., 2.], [3., 4.], [5., 6.]]);
         let expected = arr2(&[[22., 28.], [49., 64.]]);
-        let result = BaseMatrix::dot(&a, &b);
+        let result = BaseMatrix::matmul(&a, &b);
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn vector_dot() {
+    fn dot() {
         let a = arr2(&[[1., 2., 3.]]);
         let b = arr2(&[[1., 2., 3.]]);
-        assert_eq!(14., a.vector_dot(&b));
+        assert_eq!(14., BaseMatrix::dot(&a, &b));
     }
 
     #[test]
@@ -559,9 +555,11 @@ mod tests {
     }
 
     #[test]
-    fn sum() {
-        let src = arr2(&[[1., 2., 3.]]);
-        assert_eq!(src.sum(), 6.);
+    fn min_max_sum() {
+        let a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
+        assert_eq!(21., a.sum());
+        assert_eq!(1., a.min());
+        assert_eq!(6., a.max());
     }
 
     #[test]

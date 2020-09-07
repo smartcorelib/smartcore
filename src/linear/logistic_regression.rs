@@ -14,7 +14,7 @@
 //! use smartcore::linear::logistic_regression::*;
 //!
 //! //Iris data
-//! let x = DenseMatrix::from_array(&[
+//! let x = DenseMatrix::from_2d_array(&[
 //!           &[5.1, 3.5, 1.4, 0.2],
 //!           &[4.9, 3.0, 1.4, 0.2],
 //!           &[4.7, 3.2, 1.3, 0.2],
@@ -277,8 +277,10 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         let mut result = M::zeros(1, n);
         if self.num_classes == 2 {
             let (nrows, _) = x.shape();
-            let x_and_bias = x.v_stack(&M::ones(nrows, 1));
-            let y_hat: Vec<T> = x_and_bias.dot(&self.weights.transpose()).to_raw_vector();
+            let x_and_bias = x.h_stack(&M::ones(nrows, 1));
+            let y_hat: Vec<T> = x_and_bias
+                .matmul(&self.weights.transpose())
+                .get_col_as_vec(0);
             for i in 0..n {
                 result.set(
                     0,
@@ -288,8 +290,8 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
             }
         } else {
             let (nrows, _) = x.shape();
-            let x_and_bias = x.v_stack(&M::ones(nrows, 1));
-            let y_hat = x_and_bias.dot(&self.weights.transpose());
+            let x_and_bias = x.h_stack(&M::ones(nrows, 1));
+            let y_hat = x_and_bias.matmul(&self.weights.transpose());
             let class_idxs = y_hat.argmax();
             for i in 0..n {
                 result.set(0, i, self.classes[class_idxs[i]]);
@@ -332,7 +334,7 @@ mod tests {
 
     #[test]
     fn multiclass_objective_f() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[1., -5.],
             &[2., 5.],
             &[3., -2.],
@@ -363,16 +365,16 @@ mod tests {
 
         objective.df(
             &mut g,
-            &DenseMatrix::vector_from_array(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]),
+            &DenseMatrix::row_vector_from_array(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]),
         );
         objective.df(
             &mut g,
-            &DenseMatrix::vector_from_array(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]),
+            &DenseMatrix::row_vector_from_array(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]),
         );
 
         assert!((g.get(0, 0) + 33.000068218163484).abs() < std::f64::EPSILON);
 
-        let f = objective.f(&DenseMatrix::vector_from_array(&[
+        let f = objective.f(&DenseMatrix::row_vector_from_array(&[
             1., 2., 3., 4., 5., 6., 7., 8., 9.,
         ]));
 
@@ -381,7 +383,7 @@ mod tests {
 
     #[test]
     fn binary_objective_f() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[1., -5.],
             &[2., 5.],
             &[3., -2.],
@@ -409,21 +411,21 @@ mod tests {
 
         let mut g: DenseMatrix<f64> = DenseMatrix::zeros(1, 3);
 
-        objective.df(&mut g, &DenseMatrix::vector_from_array(&[1., 2., 3.]));
-        objective.df(&mut g, &DenseMatrix::vector_from_array(&[1., 2., 3.]));
+        objective.df(&mut g, &DenseMatrix::row_vector_from_array(&[1., 2., 3.]));
+        objective.df(&mut g, &DenseMatrix::row_vector_from_array(&[1., 2., 3.]));
 
         assert!((g.get(0, 0) - 26.051064349381285).abs() < std::f64::EPSILON);
         assert!((g.get(0, 1) - 10.239000702928523).abs() < std::f64::EPSILON);
         assert!((g.get(0, 2) - 3.869294270156324).abs() < std::f64::EPSILON);
 
-        let f = objective.f(&DenseMatrix::vector_from_array(&[1., 2., 3.]));
+        let f = objective.f(&DenseMatrix::row_vector_from_array(&[1., 2., 3.]));
 
         assert!((f - 59.76994756647412).abs() < std::f64::EPSILON);
     }
 
     #[test]
     fn lr_fit_predict() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[1., -5.],
             &[2., 5.],
             &[3., -2.],
@@ -460,7 +462,7 @@ mod tests {
 
     #[test]
     fn serde() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[1., -5.],
             &[2., 5.],
             &[3., -2.],
@@ -489,7 +491,7 @@ mod tests {
 
     #[test]
     fn lr_fit_predict_iris() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],

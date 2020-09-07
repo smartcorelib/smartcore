@@ -337,7 +337,7 @@ mod tests {
 
     #[test]
     fn fit_predict_iris() {
-        let data = DenseMatrix::from_array(&[
+        let data = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],

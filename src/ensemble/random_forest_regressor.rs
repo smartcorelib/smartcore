@@ -12,7 +12,7 @@
 //! use smartcore::ensemble::random_forest_regressor::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
-//! let x = DenseMatrix::from_array(&[
+//! let x = DenseMatrix::from_2d_array(&[
 //!             &[234.289, 235.6, 159., 107.608, 1947., 60.323],
 //!             &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
 //!             &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn fit_longley() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],
             &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
             &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn serde() {
-        let x = DenseMatrix::from_array(&[
+        let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],
             &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
             &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],

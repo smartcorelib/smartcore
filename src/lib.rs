@@ -48,7 +48,7 @@
 //! use smartcore::math::distance::*;
 //!
 //! // Turn Rust vectors with samples into a matrix
-//! let x = DenseMatrix::from_array(&[
+//! let x = DenseMatrix::from_2d_array(&[
 //!    &[1., 2.],
 //!    &[3., 4.],
 //!    &[5., 6.],

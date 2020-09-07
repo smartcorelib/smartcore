@@ -225,11 +225,13 @@ mod tests {
 
     #[test]
     fn decompose() {
-        let a = DenseMatrix::from_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
-        let expected_L = DenseMatrix::from_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0.2, 0.8, 1.]]);
-        let expected_U = DenseMatrix::from_array(&[&[5., 6., 0.], &[0., 1., 5.], &[0., 0., -1.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
+        let expected_L =
+            DenseMatrix::from_2d_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0.2, 0.8, 1.]]);
+        let expected_U =
+            DenseMatrix::from_2d_array(&[&[5., 6., 0.], &[0., 1., 5.], &[0., 0., -1.]]);
         let expected_pivot =
-            DenseMatrix::from_array(&[&[0., 0., 1.], &[0., 1., 0.], &[1., 0., 0.]]);
+            DenseMatrix::from_2d_array(&[&[0., 0., 1.], &[0., 1., 0.], &[1., 0., 0.]]);
         let lu = a.lu();
         assert!(lu.L().approximate_eq(&expected_L, 1e-4));
         assert!(lu.U().approximate_eq(&expected_U, 1e-4));
@@ -238,9 +240,9 @@ mod tests {
 
     #[test]
     fn inverse() {
-        let a = DenseMatrix::from_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
         let expected =
-            DenseMatrix::from_array(&[&[-6.0, 3.6, 1.4], &[5.0, -3.0, -1.0], &[-1.0, 0.8, 0.2]]);
+            DenseMatrix::from_2d_array(&[&[-6.0, 3.6, 1.4], &[5.0, -3.0, -1.0], &[-1.0, 0.8, 0.2]]);
         let a_inv = a.lu().inverse();
         println!("{}", a_inv);
         assert!(a_inv.approximate_eq(&expected, 1e-4));
