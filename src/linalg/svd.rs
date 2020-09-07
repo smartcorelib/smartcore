@@ -1,13 +1,50 @@
+//! # SVD Decomposition
+//!
+//! Any _m_ by _n_ matrix \\(A\\) can be factored into:
+//!
+//! \\[A = U \Sigma V^T\\]
+//!
+//! Where columns of \\(U\\) are eigenvectors of \\(AA^T\\) (left-singular vectors of _A_),
+//! \\(V\\) are eigenvectors of \\(A^TA\\) (right-singular vectors of _A_),
+//! and the diagonal values in the \\(\Sigma\\) matrix are known as the singular values of the original matrix.
+//!
+//! Example:
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::svd::*;
+//!
+//! let A = DenseMatrix::from_2d_array(&[
+//!                 &[0.9, 0.4, 0.7],
+//!                 &[0.4, 0.5, 0.3],
+//!                 &[0.7, 0.3, 0.8]
+//!         ]);
+//!
+//! let svd = A.svd();
+//! let u: DenseMatrix<f64> = svd.U;
+//! let v: DenseMatrix<f64> = svd.V;
+//! let s: Vec<f64> = svd.s;
+//! ```
+//!
+//! ## References:
+//! * ["Linear Algebra and Its Applications", Gilbert Strang, 5th ed., 6.3 Singular Value Decomposition](https://www.academia.edu/32459792/_Strang_G_Linear_algebra_and_its_applications_4_5881001_PDF)
+//! * ["Numerical Recipes: The Art of Scientific Computing",  Press W.H., Teukolsky S.A., Vetterling W.T, Flannery B.P, 3rd ed., 2.6 Singular Value Decomposition](http://numerical.recipes/)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
 use crate::linalg::BaseMatrix;
 use crate::math::num::RealNumber;
 use std::fmt::Debug;
 
+/// Results of SVD decomposition
 #[derive(Debug, Clone)]
 pub struct SVD<T: RealNumber, M: SVDDecomposableMatrix<T>> {
+    /// Left-singular vectors of _A_
     pub U: M,
+    /// Right-singular vectors of _A_
     pub V: M,
+    /// Singular values of the original matrix
     pub s: Vec<T>,
     full: bool,
     m: usize,
@@ -15,19 +52,25 @@ pub struct SVD<T: RealNumber, M: SVDDecomposableMatrix<T>> {
     tol: T,
 }
 
+/// Trait that implements SVD decomposition routine for any matrix.
 pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+    /// Solves Ax = b. Overrides original matrix in the process.
     fn svd_solve_mut(self, b: Self) -> Self {
         self.svd_mut().solve(b)
     }
 
+    /// Solves Ax = b
     fn svd_solve(&self, b: Self) -> Self {
         self.svd().solve(b)
     }
 
+    /// Compute the SVD decomposition of a matrix.
     fn svd(&self) -> SVD<T, Self> {
         self.clone().svd_mut()
     }
 
+    /// Compute the SVD decomposition of a matrix. The input matrix
+    /// will be used for factorization.
     fn svd_mut(self) -> SVD<T, Self> {
         let mut U = self;
 
@@ -368,7 +411,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 }
 
 impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
-    pub fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
+    pub(crate) fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;
         let full = s.len() == m.min(n);
@@ -384,7 +427,7 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
         }
     }
 
-    pub fn solve(&self, mut b: M) -> M {
+    pub(crate) fn solve(&self, mut b: M) -> M {
         let p = b.shape().1;
 
         if self.U.shape().0 != b.shape().0 {

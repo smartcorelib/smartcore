@@ -1,3 +1,37 @@
+//! # Eigen Decomposition
+//!
+//! Eigendecomposition is one of the most useful matrix factorization methods in machine learning that decomposes a matrix into eigenvectors and eigenvalues.
+//! This decomposition plays an important role in the the [Principal Component Analysis (PCA)](../../decomposition/pca/index.html).
+//!
+//! Eigendecomposition decomposes a square matrix into a set of eigenvectors and eigenvalues.
+//!
+//! \\[A = Q \Lambda Q^{-1}\\]
+//!
+//! where \\(Q\\) is a matrix comprised of the eigenvectors, \\(\Lambda\\) is a diagonal matrix comprised of the eigenvalues along the diagonal,
+//! and \\(Q{-1}\\) is the inverse of the matrix comprised of the eigenvectors.
+//!
+//! Example:
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::evd::*;
+//!
+//! let A = DenseMatrix::from_2d_array(&[
+//!                  &[0.9000, 0.4000, 0.7000],
+//!                  &[0.4000, 0.5000, 0.3000],
+//!                  &[0.7000, 0.3000, 0.8000],
+//!         ]);
+//!
+//! let evd = A.evd(true);
+//! let eigenvectors: DenseMatrix<f64> = evd.V;
+//! let eigenvalues: Vec<f64> = evd.d;
+//! ```
+//!
+//! ## References:
+//! * ["Numerical Recipes: The Art of Scientific Computing",  Press W.H., Teukolsky S.A., Vetterling W.T, Flannery B.P, 3rd ed., Section 11 Eigensystems](http://numerical.recipes/)
+//! * ["Introduction to Linear Algebra", Gilbert Strang, 5rd ed., ch. 6 Eigenvalues and Eigenvectors](https://math.mit.edu/~gs/linearalgebra/)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
 use crate::linalg::BaseMatrix;
@@ -6,23 +40,27 @@ use num::complex::Complex;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
+/// Results of eigen decomposition
 pub struct EVD<T: RealNumber, M: BaseMatrix<T>> {
+    /// Real part of eigenvalues.
     pub d: Vec<T>,
+    /// Imaginary part of eigenvalues.
     pub e: Vec<T>,
+    /// Eigenvectors
     pub V: M,
 }
 
-impl<T: RealNumber, M: BaseMatrix<T>> EVD<T, M> {
-    pub fn new(V: M, d: Vec<T>, e: Vec<T>) -> EVD<T, M> {
-        EVD { d: d, e: e, V: V }
-    }
-}
-
+/// Trait that implements EVD decomposition routine for any matrix.
 pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+    /// Compute the eigen decomposition of a square matrix.
+    /// * `symmetric` - whether the matrix is symmetric
     fn evd(&self, symmetric: bool) -> EVD<T, Self> {
         self.clone().evd_mut(symmetric)
     }
 
+    /// Compute the eigen decomposition of a square matrix. The input matrix
+    /// will be used for factorization.
+    /// * `symmetric` - whether the matrix is symmetric
     fn evd_mut(mut self, symmetric: bool) -> EVD<T, Self> {
         let (nrows, ncols) = self.shape();
         if ncols != nrows {

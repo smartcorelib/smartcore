@@ -1,3 +1,36 @@
+//! # LU Decomposition
+//!
+//! Decomposes a square matrix into a product of two triangular matrices:
+//!
+//! \\[A = LU\\]
+//!
+//! where \\(U\\) is an upper triangular matrix and \\(L\\) is a lower triangular matrix.
+//! and \\(Q{-1}\\) is the inverse of the matrix comprised of the eigenvectors. The LU decomposition is used to obtain more efficient solutions to equations of the form
+//!
+//! \\[Ax = b\\]
+//!
+//! Example:
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::lu::*;
+//!
+//! let A = DenseMatrix::from_2d_array(&[
+//!                  &[1., 2., 3.],
+//!                  &[0., 1., 5.],
+//!                  &[5., 6., 0.]
+//!         ]);
+//!
+//! let lu = A.lu();
+//! let lower: DenseMatrix<f64> = lu.L();
+//! let upper: DenseMatrix<f64> = lu.U();
+//! ```
+//!
+//! ## References:
+//! * ["No bullshit guide to linear algebra", Ivan Savov, 2016, 7.6 Matrix decompositions](https://minireference.com/)
+//! * ["Numerical Recipes: The Art of Scientific Computing",  Press W.H., Teukolsky S.A., Vetterling W.T, Flannery B.P, 3rd ed., 2.3.1 Performing the LU Decomposition](http://numerical.recipes/)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
 use std::fmt::Debug;
@@ -7,6 +40,7 @@ use crate::linalg::BaseMatrix;
 use crate::math::num::RealNumber;
 
 #[derive(Debug, Clone)]
+/// Result of LU decomposition.
 pub struct LU<T: RealNumber, M: BaseMatrix<T>> {
     LU: M,
     pivot: Vec<usize>,
@@ -16,7 +50,7 @@ pub struct LU<T: RealNumber, M: BaseMatrix<T>> {
 }
 
 impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
-    pub fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
+    pub(crate) fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
         let (_, n) = LU.shape();
 
         let mut singular = false;
@@ -36,6 +70,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         }
     }
 
+    /// Get lower triangular matrix
     pub fn L(&self) -> M {
         let (n_rows, n_cols) = self.LU.shape();
         let mut L = M::zeros(n_rows, n_cols);
@@ -55,6 +90,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         L
     }
 
+    /// Get upper triangular matrix
     pub fn U(&self) -> M {
         let (n_rows, n_cols) = self.LU.shape();
         let mut U = M::zeros(n_rows, n_cols);
@@ -72,6 +108,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         U
     }
 
+    /// Pivot vector
     pub fn pivot(&self) -> M {
         let (_, n) = self.LU.shape();
         let mut piv = M::zeros(n, n);
@@ -83,6 +120,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         piv
     }
 
+    /// Returns matrix inverse
     pub fn inverse(&self) -> M {
         let (m, n) = self.LU.shape();
 
@@ -153,11 +191,15 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
     }
 }
 
+/// Trait that implements LU decomposition routine for any matrix.
 pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+    /// Compute the LU decomposition of a square matrix.
     fn lu(&self) -> LU<T, Self> {
         self.clone().lu_mut()
     }
 
+    /// Compute the LU decomposition of a square matrix. The input matrix
+    /// will be used for factorization.
     fn lu_mut(mut self) -> LU<T, Self> {
         let (m, n) = self.shape();
 
@@ -213,6 +255,7 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         LU::new(self, piv, pivsign)
     }
 
+    /// Solves Ax = b
     fn lu_solve_mut(self, b: Self) -> Self {
         self.lu_mut().solve(b)
     }

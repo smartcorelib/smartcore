@@ -1,3 +1,31 @@
+//! # QR Decomposition
+//!
+//! Any real square matrix \\(A \in R^{n \times n}\\) can be decomposed as a product of an orthogonal matrix \\(Q\\) and an upper triangular matrix \\(R\\):
+//!
+//! \\[A = QR\\]
+//!
+//! Example:
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::qr::*;
+//!
+//! let A = DenseMatrix::from_2d_array(&[
+//!                 &[0.9, 0.4, 0.7],
+//!                 &[0.4, 0.5, 0.3],
+//!                 &[0.7, 0.3, 0.8]
+//!         ]);
+//!
+//! let lu = A.qr();
+//! let orthogonal: DenseMatrix<f64> = lu.Q();
+//! let triangular: DenseMatrix<f64> = lu.R();
+//! ```
+//!
+//! ## References:
+//! * ["No bullshit guide to linear algebra", Ivan Savov, 2016, 7.6 Matrix decompositions](https://minireference.com/)
+//! * ["Numerical Recipes: The Art of Scientific Computing",  Press W.H., Teukolsky S.A., Vetterling W.T, Flannery B.P, 3rd ed., 2.10 QR Decomposition](http://numerical.recipes/)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
 use std::fmt::Debug;
@@ -6,6 +34,7 @@ use crate::linalg::BaseMatrix;
 use crate::math::num::RealNumber;
 
 #[derive(Debug, Clone)]
+/// Results of QR decomposition.
 pub struct QR<T: RealNumber, M: BaseMatrix<T>> {
     QR: M,
     tau: Vec<T>,
@@ -13,7 +42,7 @@ pub struct QR<T: RealNumber, M: BaseMatrix<T>> {
 }
 
 impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
-    pub fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
+    pub(crate) fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
         let mut singular = false;
         for j in 0..tau.len() {
             if tau[j] == T::zero() {
@@ -29,6 +58,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
         }
     }
 
+    /// Get upper triangular matrix.
     pub fn R(&self) -> M {
         let (_, n) = self.QR.shape();
         let mut R = M::zeros(n, n);
@@ -41,6 +71,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
         return R;
     }
 
+    /// Get an orthogonal matrix.
     pub fn Q(&self) -> M {
         let (m, n) = self.QR.shape();
         let mut Q = M::zeros(m, n);
@@ -112,11 +143,15 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
     }
 }
 
+/// Trait that implements QR decomposition routine for any matrix.
 pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+    /// Compute the QR decomposition of a matrix.
     fn qr(&self) -> QR<T, Self> {
         self.clone().qr_mut()
     }
 
+    /// Compute the QR decomposition of a matrix. The input matrix
+    /// will be used for factorization.
     fn qr_mut(mut self) -> QR<T, Self> {
         let (m, n) = self.shape();
 
@@ -154,6 +189,7 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         QR::new(self, r_diagonal)
     }
 
+    /// Solves Ax = b
     fn qr_solve_mut(self, b: Self) -> Self {
         self.qr_mut().solve(b)
     }
