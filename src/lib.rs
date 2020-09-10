@@ -68,6 +68,9 @@
 pub mod algorithm;
 /// Algorithms for clustering of unlabeled data
 pub mod cluster;
+/// Various datasets
+#[cfg(feature = "datasets")]
+pub mod dataset;
 /// Matrix decomposition algorithms
 pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor

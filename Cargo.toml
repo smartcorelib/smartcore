@@ -5,9 +5,10 @@ authors = ["SmartCore Developers"]
 edition = "2018"
 
 [features]
-default = []
+default = ["datasets"]
 ndarray-bindings = ["ndarray"]
 nalgebra-bindings = ["nalgebra"]
+datasets = []
 
 [dependencies]
 ndarray = { version = "0.13", optional = true }

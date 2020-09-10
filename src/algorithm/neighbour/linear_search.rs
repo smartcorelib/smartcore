@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
 use std::marker::PhantomData;
 
-use crate::algorithm::sort::heap_select::HeapSelect;
+use crate::algorithm::sort::heap_select::HeapSelection;
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 
@@ -57,7 +57,7 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
             panic!("k should be >= 1 and <= length(data)");
         }
 
-        let mut heap = HeapSelect::<KNNPoint<F>>::with_capacity(k);
+        let mut heap = HeapSelection::<KNNPoint<F>>::with_capacity(k);
 
         for _ in 0..k {
             heap.add(KNNPoint {
@@ -75,8 +75,6 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
                 heap.heapify();
             }
         }
-
-        heap.sort();
 
         heap.get()
             .into_iter()
@@ -124,9 +122,10 @@ mod tests {
 
         let algorithm1 = LinearKNNSearch::new(data1, SimpleDistance {});
 
-        let found_idxs1: Vec<usize> = algorithm1.find(&2, 3).iter().map(|v| v.0).collect();
+        let mut found_idxs1: Vec<usize> = algorithm1.find(&2, 3).iter().map(|v| v.0).collect();
+        found_idxs1.sort();
 
-        assert_eq!(vec!(1, 2, 0), found_idxs1);
+        assert_eq!(vec!(0, 1, 2), found_idxs1);
 
         let data2 = vec![
             vec![1., 1.],
@@ -138,13 +137,14 @@ mod tests {
 
         let algorithm2 = LinearKNNSearch::new(data2, Distances::euclidian());
 
-        let found_idxs2: Vec<usize> = algorithm2
+        let mut found_idxs2: Vec<usize> = algorithm2
             .find(&vec![3., 3.], 3)
             .iter()
             .map(|v| v.0)
             .collect();
+        found_idxs2.sort();
 
-        assert_eq!(vec!(2, 3, 1), found_idxs2);
+        assert_eq!(vec!(1, 2, 3), found_idxs2);
     }
 
     #[test]
