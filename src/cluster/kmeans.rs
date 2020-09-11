@@ -65,8 +65,8 @@ use crate::linalg::Matrix;
 use crate::math::distance::euclidian::*;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
 /// K-Means clustering algorithm
+#[derive(Serialize, Deserialize, Debug)]
 pub struct KMeans<T: RealNumber> {
     k: usize,
     y: Vec<usize>,

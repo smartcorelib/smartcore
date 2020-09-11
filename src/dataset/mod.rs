@@ -2,12 +2,10 @@
 //!
 //! In this module you will find small datasets that are used in SmartCore for demonstration purpose mostly.
 
-/// The Boston Housing Dataset
 pub mod boston;
-/// Iris flower data set
-pub mod iris;
-
+pub mod breast_cancer;
 pub mod diabetes;
+pub mod iris;
 
 /// Dataset
 pub struct Dataset<X, Y> {
