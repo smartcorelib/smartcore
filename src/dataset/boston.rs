@@ -586,7 +586,7 @@ mod tests {
 
     #[test]
     fn boston_dataset() {
-        let dataset = load_dataset();        
+        let dataset = load_dataset();
         assert_eq!(
             dataset.data.len(),
             dataset.num_features * dataset.num_samples
