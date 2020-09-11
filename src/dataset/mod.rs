@@ -7,6 +7,8 @@ pub mod boston;
 /// Iris flower data set
 pub mod iris;
 
+pub mod diabetes;
+
 /// Dataset
 pub struct Dataset<X, Y> {
     /// data in one-dimensional array.
