@@ -2,6 +2,8 @@
 //!
 //! In this module you will find small datasets that are used in SmartCore for demonstration purpose mostly.
 
+/// The Boston Housing Dataset
+pub mod boston;
 /// Iris flower data set
 pub mod iris;
 
@@ -25,7 +27,7 @@ pub struct Dataset<X, Y> {
 
 impl<X, Y> Dataset<X, Y> {
     /// Reshape data into a two-dimensional matrix
-    pub fn as_2d_vector(&self) -> Vec<Vec<&X>> {
+    pub fn as_matrix(&self) -> Vec<Vec<&X>> {
         let mut result: Vec<Vec<&X>> = Vec::with_capacity(self.num_samples);
 
         for r in 0..self.num_samples {
@@ -45,7 +47,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn as_2d_vector() {
+    fn as_matrix() {
         let dataset = Dataset {
             data: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             target: vec![1, 2, 3],
@@ -56,7 +58,7 @@ mod tests {
             description: "".to_string(),
         };
 
-        let m = dataset.as_2d_vector();
+        let m = dataset.as_matrix();
 
         assert_eq!(m.len(), 2);
         assert_eq!(m[0].len(), 5);

@@ -1,7 +1,20 @@
 //! # The Iris Dataset flower
 //!
+//! | Number of Instances | Number of Attributes | Missing Values? | Associated Tasks: |
+//! |-|-|-|-|
+//! | 150 | 4 | No | Classification |
+//!
 //! [Fisher's Iris dataset](https://archive.ics.uci.edu/ml/datasets/iris) is a multivariate dataset that was published in 1936 by Ronald Fisher.
-//! This multivariate dataset is frequently used to demonstrate various machine learning algorithms.
+//! This multivariate dataset is frequently used to demonstrate various machine learning algorithms. The dataset has following attributes:
+//!
+//! | Predictor | Data Type | Target? |
+//! |-|-|-|
+//! | Sepal length | Numerical | No |
+//! | Sepal width | Numerical | No |
+//! | Petal length | Numerical | No |
+//! | Petal width | Numerical | No |
+//! | Class | Nominal | Yes |
+//!
 use crate::dataset::Dataset;
 
 /// Get dataset
