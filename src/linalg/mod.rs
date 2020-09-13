@@ -76,6 +76,15 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
 
     /// Return a vector with the elements of the one-dimensional array.
     fn to_vec(&self) -> Vec<T>;
+
+    /// Create new vector with zeros of size `len`.
+    fn zeros(len: usize) -> Self;
+
+    /// Create new vector with ones of size `len`.
+    fn ones(len: usize) -> Self;
+
+    /// Create new vector of size `len` where each element is set to `value`.
+    fn fill(len: usize, value: T) -> Self;
 }
 
 /// Generic matrix type.

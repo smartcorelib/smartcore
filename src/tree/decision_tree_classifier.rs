@@ -67,6 +67,7 @@ use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
@@ -429,6 +430,10 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         let mut variables = vec![0; n_attr];
         for i in 0..n_attr {
             variables[i] = i;
+        }
+
+        if mtry < n_attr {
+            variables.shuffle(&mut rand::thread_rng());
         }
 
         for j in 0..mtry {

@@ -72,6 +72,18 @@ impl<T: RealNumber> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn to_vec(&self) -> Vec<T> {
         self.to_owned().to_vec()
     }
+
+    fn zeros(len: usize) -> Self {
+        Array::zeros(len)
+    }
+
+    fn ones(len: usize) -> Self {
+        Array::ones(len)
+    }
+
+    fn fill(len: usize, value: T) -> Self {
+        Array::from_elem(len, value)
+    }
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>

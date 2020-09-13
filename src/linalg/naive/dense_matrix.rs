@@ -32,6 +32,18 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
         let v = self.clone();
         v
     }
+
+    fn zeros(len: usize) -> Self {
+        vec![T::zero(); len]
+    }
+
+    fn ones(len: usize) -> Self {
+        vec![T::one(); len]
+    }
+
+    fn fill(len: usize, value: T) -> Self {
+        vec![value; len]
+    }
 }
 
 /// Column-major, dense matrix. See [Simple Dense Matrix](../index.html).

@@ -199,19 +199,19 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         let nrows = y.len();
         let mut samples = vec![0; nrows];
         for l in 0..num_classes {
-            let mut nj = 0;
-            let mut cj: Vec<usize> = Vec::new();
+            let mut n_samples = 0;
+            let mut index: Vec<usize> = Vec::new();
             for i in 0..nrows {
                 if y[i] == l {
-                    cj.push(i);
-                    nj += 1;
+                    index.push(i);
+                    n_samples += 1;
                 }
             }
 
-            let size = ((nj as f64) / class_weight[l]) as usize;
+            let size = ((n_samples as f64) / class_weight[l]) as usize;
             for _ in 0..size {
-                let xi: usize = rng.gen_range(0, nj);
-                samples[cj[xi]] += 1;
+                let xi: usize = rng.gen_range(0, n_samples);
+                samples[index[xi]] += 1;
             }
         }
         samples
@@ -260,12 +260,12 @@ mod tests {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
-                n_trees: 1000,
+                n_trees: 100,
                 m: Option::None,
             },
         );
 
-        assert!(accuracy(&y, &classifier.predict(&x)) > 0.9);
+        assert!(accuracy(&y, &classifier.predict(&x)) >= 0.95);
     }
 
     #[test]

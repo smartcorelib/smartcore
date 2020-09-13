@@ -62,6 +62,7 @@ use std::collections::LinkedList;
 use std::default::Default;
 use std::fmt::Debug;
 
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
@@ -318,6 +319,10 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         let mut variables = vec![0; n_attr];
         for i in 0..n_attr {
             variables[i] = i;
+        }
+
+        if mtry < n_attr {
+            variables.shuffle(&mut rand::thread_rng());
         }
 
         let parent_gain =

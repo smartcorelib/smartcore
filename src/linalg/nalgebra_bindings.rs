@@ -40,7 +40,7 @@
 use std::iter::Sum;
 use std::ops::{AddAssign, DivAssign, MulAssign, Range, SubAssign};
 
-use nalgebra::{DMatrix, Dynamic, Matrix, MatrixMN, Scalar, VecStorage, U1};
+use nalgebra::{DMatrix, Dynamic, Matrix, MatrixMN, RowDVector, Scalar, VecStorage, U1};
 
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
@@ -64,6 +64,20 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
 
     fn to_vec(&self) -> Vec<T> {
         self.row(0).iter().map(|v| *v).collect()
+    }
+
+    fn zeros(len: usize) -> Self {
+        RowDVector::zeros(len)
+    }
+
+    fn ones(len: usize) -> Self {
+        BaseVector::fill(len, T::one())
+    }
+
+    fn fill(len: usize, value: T) -> Self {
+        let mut m = RowDVector::zeros(len);
+        m.fill(value);
+        m
     }
 }
 
@@ -444,6 +458,16 @@ mod tests {
     fn vec_to_vec() {
         let v = RowDVector::from_vec(vec![1., 2., 3.]);
         assert_eq!(vec![1., 2., 3.], v.to_vec());
+    }
+
+    #[test]
+    fn vec_init() {
+        let zeros: RowDVector<f32> = BaseVector::zeros(3);
+        let ones: RowDVector<f32> = BaseVector::ones(3);
+        let twos: RowDVector<f32> = BaseVector::fill(3, 2.);
+        assert_eq!(zeros, RowDVector::from_vec(vec![0., 0., 0.]));
+        assert_eq!(ones, RowDVector::from_vec(vec![1., 1., 1.]));
+        assert_eq!(twos, RowDVector::from_vec(vec![2., 2., 2.]));
     }
 
     #[test]

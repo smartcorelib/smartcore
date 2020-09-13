@@ -83,6 +83,7 @@ pub mod linear;
 pub mod math;
 /// Functions for assessing prediction error.
 pub mod metrics;
+pub mod model_selection;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
 pub(crate) mod optimization;
