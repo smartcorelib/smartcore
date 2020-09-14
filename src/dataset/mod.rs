@@ -12,6 +12,7 @@ use std::io;
 use std::io::prelude::*;
 
 /// Dataset
+#[derive(Debug)]
 pub struct Dataset<X, Y> {
     /// data in one-dimensional array.
     pub data: Vec<X>,
@@ -102,6 +103,7 @@ pub(crate) fn deserialize_data(
     for _ in 0..(num_samples) {
         buffer.copy_from_slice(&bytes[c..(c + 4)]);
         y.push(f32::from_bits(u32::from_le_bytes(buffer)));
+        c += 4;
     }
 
     Ok((x, y, num_samples, num_features))
