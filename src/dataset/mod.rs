@@ -1,11 +1,15 @@
 //! Datasets
 //!
 //! In this module you will find small datasets that are used in SmartCore for demonstration purpose mostly.
-
 pub mod boston;
 pub mod breast_cancer;
 pub mod diabetes;
 pub mod iris;
+
+use crate::math::num::RealNumber;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
 
 /// Dataset
 pub struct Dataset<X, Y> {
@@ -40,6 +44,67 @@ impl<X, Y> Dataset<X, Y> {
 
         result
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
+    dataset: &Dataset<X, Y>,
+    filename: &str,
+) -> Result<(), io::Error> {
+    match File::create(filename) {
+        Ok(mut file) => {
+            file.write(&dataset.num_features.to_le_bytes())?;
+            file.write(&dataset.num_samples.to_le_bytes())?;
+            let x: Vec<u8> = dataset
+                .data
+                .iter()
+                .map(|v| *v)
+                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
+                .collect();
+            file.write_all(&x)?;
+            let y: Vec<u8> = dataset
+                .target
+                .iter()
+                .map(|v| *v)
+                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
+                .collect();
+            file.write_all(&y)?;
+        }
+        Err(why) => panic!("couldn't create {}: {}", filename, why),
+    }
+    Ok(())
+}
+
+pub(crate) fn deserialize_data(
+    bytes: &[u8],
+) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {
+    // read the same file back into a Vec of bytes
+    let (num_samples, num_features) = {
+        let mut buffer = [0u8; 8];
+        buffer.copy_from_slice(&bytes[0..8]);
+        let num_features = usize::from_le_bytes(buffer);
+        buffer.copy_from_slice(&bytes[8..16]);
+        let num_samples = usize::from_le_bytes(buffer);
+        (num_samples, num_features)
+    };
+
+    let mut x = Vec::with_capacity(num_samples * num_features);
+    let mut y = Vec::with_capacity(num_samples);
+
+    let mut buffer = [0u8; 4];
+    let mut c = 16;
+    for _ in 0..(num_samples * num_features) {
+        buffer.copy_from_slice(&bytes[c..(c + 4)]);
+        x.push(f32::from_bits(u32::from_le_bytes(buffer)));
+        c += 4;
+    }
+
+    for _ in 0..(num_samples) {
+        buffer.copy_from_slice(&bytes[c..(c + 4)]);
+        y.push(f32::from_bits(u32::from_le_bytes(buffer)));
+    }
+
+    Ok((x, y, num_samples, num_features))
 }
 
 #[cfg(test)]

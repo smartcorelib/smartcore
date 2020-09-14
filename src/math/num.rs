@@ -32,6 +32,9 @@ pub trait RealNumber: Float + FromPrimitive + Debug + Display + Copy + Sum + Pro
     fn square(self) -> Self {
         self * self
     }
+
+    /// Raw transmutation to u64
+    fn to_f32_bits(self) -> u32;
 }
 
 impl RealNumber for f64 {
@@ -69,6 +72,10 @@ impl RealNumber for f64 {
     fn half() -> Self {
         0.5f64
     }
+
+    fn to_f32_bits(self) -> u32 {
+        self.to_bits() as u32
+    }
 }
 
 impl RealNumber for f32 {
@@ -105,6 +112,10 @@ impl RealNumber for f32 {
 
     fn half() -> Self {
         0.5f32
+    }
+
+    fn to_f32_bits(self) -> u32 {
+        self.to_bits()
     }
 }
 
