@@ -31,7 +31,7 @@ use crate::dataset::Dataset;
 pub fn load_dataset() -> Dataset<f32, f32> {
     let (x, y, num_samples, num_features) = match deserialize_data(std::include_bytes!("boston.xy"))
     {
-        Err(why) => panic!("Can't deserialize iris.xy. {}", why),
+        Err(why) => panic!("Can't deserialize boston.xy. {}", why),
         Ok((x, y, num_samples, num_features)) => (x, y, num_samples, num_features),
     };
 
