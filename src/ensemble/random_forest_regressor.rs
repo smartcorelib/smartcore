@@ -208,10 +208,6 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let expected_y: Vec<f64> = vec![
-            85., 88., 88., 89., 97., 98., 99., 99., 102., 104., 109., 110., 113., 114., 115., 116.,
-        ];
-
         let y_hat = RandomForestRegressor::fit(
             &x,
             &y,

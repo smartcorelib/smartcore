@@ -143,7 +143,6 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
 
     fn predict_for_row(&self, x: Vec<T>) -> T {
         let search_result = self.knn_algorithm.find(&x, self.k);
-        println!("{:?}", search_result);
         let mut result = T::zero();
 
         let weights = self
@@ -196,7 +195,6 @@ mod tests {
         let y_exp = vec![2., 2., 3., 4., 4.];
         let knn = KNNRegressor::fit(&x, &y, Distances::euclidian(), Default::default());
         let y_hat = knn.predict(&x);
-        println!("{:?}", y_hat);
         assert_eq!(5, Vec::len(&y_hat));
         for i in 0..y_hat.len() {
             assert!((y_hat[i] - y_exp[i]).abs() < 1e-7);
