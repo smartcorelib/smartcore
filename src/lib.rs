@@ -75,6 +75,7 @@ pub mod dataset;
 pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor
 pub mod ensemble;
+pub mod error;
 /// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.
@@ -89,4 +90,3 @@ pub mod neighbors;
 pub(crate) mod optimization;
 /// Supervised tree-based learning methods
 pub mod tree;
-pub mod error;
