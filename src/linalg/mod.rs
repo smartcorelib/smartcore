@@ -26,7 +26,7 @@
 //!            &[0.7000, 0.3000, 0.8000],
 //!         ]);
 //!
-//! let svd = A.svd();
+//! let svd = A.svd().unwrap();
 //!
 //! let s: Vec<f64> = svd.s;
 //! let v: DenseMatrix<f64> = svd.V;

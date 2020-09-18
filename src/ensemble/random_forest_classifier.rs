@@ -39,8 +39,8 @@
 //!              1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
 //!         ];
 //!
-//! let classifier = RandomForestClassifier::fit(&x, &y, Default::default());
-//! let y_hat = classifier.predict(&x); // use the same data for prediction
+//! let classifier = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
+//! let y_hat = classifier.predict(&x).unwrap(); // use the same data for prediction
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -53,6 +53,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::{
@@ -126,7 +127,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         x: &M,
         y: &M::RowVector,
         parameters: RandomForestClassifierParameters,
-    ) -> RandomForestClassifier<T> {
+    ) -> Result<RandomForestClassifier<T>, Failed> {
         let (_, num_attributes) = x.shape();
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
@@ -158,20 +159,20 @@ impl<T: RealNumber> RandomForestClassifier<T> {
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params);
+            let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
         }
 
-        RandomForestClassifier {
+        Ok(RandomForestClassifier {
             parameters: parameters,
             trees: trees,
             classes,
-        }
+        })
     }
 
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
         let mut result = M::zeros(1, x.shape().0);
 
         let (n, _) = x.shape();
@@ -180,7 +181,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             result.set(0, i, self.classes[self.predict_for_row(x, i)]);
         }
 
-        result.to_row_vector()
+        Ok(result.to_row_vector())
     }
 
     fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> usize {
@@ -263,9 +264,10 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
             },
-        );
+        )
+        .unwrap();
 
-        assert!(accuracy(&y, &classifier.predict(&x)) >= 0.95);
+        assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
     }
 
     #[test]
@@ -296,7 +298,7 @@ mod tests {
             0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
         ];
 
-        let forest = RandomForestClassifier::fit(&x, &y, Default::default());
+        let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_forest: RandomForestClassifier<f64> =
             bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();

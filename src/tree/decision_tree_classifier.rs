@@ -50,9 +50,9 @@
 //! let y = vec![ 0., 0., 0., 0., 0., 0., 0., 0.,
 //!            1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
 //!
-//! let tree = DecisionTreeClassifier::fit(&x, &y, Default::default());
+//! let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
 //!
-//! let y_hat = tree.predict(&x); // use the same data for prediction
+//! let y_hat = tree.predict(&x).unwrap(); // use the same data for prediction
 //! ```
 //!
 //!
@@ -71,6 +71,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
+use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
@@ -276,7 +277,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         x: &M,
         y: &M::RowVector,
         parameters: DecisionTreeClassifierParameters,
-    ) -> DecisionTreeClassifier<T> {
+    ) -> Result<DecisionTreeClassifier<T>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
         DecisionTreeClassifier::fit_weak_learner(x, y, samples, num_attributes, parameters)
@@ -288,14 +289,17 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         samples: Vec<usize>,
         mtry: usize,
         parameters: DecisionTreeClassifierParameters,
-    ) -> DecisionTreeClassifier<T> {
+    ) -> Result<DecisionTreeClassifier<T>, Failed> {
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
         let (_, num_attributes) = x.shape();
         let classes = y_m.unique();
         let k = classes.len();
         if k < 2 {
-            panic!("Incorrect number of classes: {}. Should be >= 2.", k);
+            return Err(Failed::fit(&format!(
+                "Incorrect number of classes: {}. Should be >= 2.",
+                k
+            )));
         }
 
         let mut yi: Vec<usize> = vec![0; y_ncols];
@@ -343,12 +347,12 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
             };
         }
 
-        tree
+        Ok(tree)
     }
 
     /// Predict class value for `x`.
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
         let mut result = M::zeros(1, x.shape().0);
 
         let (n, _) = x.shape();
@@ -357,7 +361,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
             result.set(0, i, self.classes[self.predict_for_row(x, i)]);
         }
 
-        result.to_row_vector()
+        Ok(result.to_row_vector())
     }
 
     pub(in crate) fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> usize {
@@ -637,7 +641,9 @@ mod tests {
 
         assert_eq!(
             y,
-            DecisionTreeClassifier::fit(&x, &y, Default::default()).predict(&x)
+            DecisionTreeClassifier::fit(&x, &y, Default::default())
+                .and_then(|t| t.predict(&x))
+                .unwrap()
         );
 
         assert_eq!(
@@ -652,6 +658,7 @@ mod tests {
                     min_samples_split: 2
                 }
             )
+            .unwrap()
             .depth
         );
     }
@@ -686,7 +693,9 @@ mod tests {
 
         assert_eq!(
             y,
-            DecisionTreeClassifier::fit(&x, &y, Default::default()).predict(&x)
+            DecisionTreeClassifier::fit(&x, &y, Default::default())
+                .and_then(|t| t.predict(&x))
+                .unwrap()
         );
     }
 
@@ -718,7 +727,7 @@ mod tests {
             1., 1., 0., 0., 0., 1., 1., 0., 0., 0., 1., 1., 0., 0., 0., 1., 1., 0., 0., 0.,
         ];
 
-        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default());
+        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_tree: DecisionTreeClassifier<f64> =
             bincode::deserialize(&bincode::serialize(&tree).unwrap()).unwrap();

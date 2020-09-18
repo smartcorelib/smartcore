@@ -34,6 +34,7 @@
 
 use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
+use crate::error::Failed;
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 use serde::{Deserialize, Serialize};
@@ -93,18 +94,20 @@ impl KNNAlgorithmName {
         &self,
         data: Vec<Vec<T>>,
         distance: D,
-    ) -> KNNAlgorithm<T, D> {
+    ) -> Result<KNNAlgorithm<T, D>, Failed> {
         match *self {
             KNNAlgorithmName::LinearSearch => {
-                KNNAlgorithm::LinearSearch(LinearKNNSearch::new(data, distance))
+                LinearKNNSearch::new(data, distance).map(|a| KNNAlgorithm::LinearSearch(a))
             }
-            KNNAlgorithmName::CoverTree => KNNAlgorithm::CoverTree(CoverTree::new(data, distance)),
+            KNNAlgorithmName::CoverTree => {
+                CoverTree::new(data, distance).map(|a| KNNAlgorithm::CoverTree(a))
+            }
         }
     }
 }
 
 impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
-    fn find(&self, from: &Vec<T>, k: usize) -> Vec<(usize, T)> {
+    fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, T)>, Failed> {
         match *self {
             KNNAlgorithm::LinearSearch(ref linear) => linear.find(from, k),
             KNNAlgorithm::CoverTree(ref cover) => cover.find(from, k),

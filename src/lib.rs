@@ -58,10 +58,10 @@
 //! let y = vec![2., 2., 2., 3., 3.];
 //!
 //! // Train classifier
-//! let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default());
+//! let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default()).unwrap();
 //!
 //! // Predict classes
-//! let y_hat = knn.predict(&x);
+//! let y_hat = knn.predict(&x).unwrap();
 //! ```
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore

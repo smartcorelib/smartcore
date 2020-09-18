@@ -35,9 +35,9 @@
 //!             104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9
 //!         ];
 //!
-//! let regressor = RandomForestRegressor::fit(&x, &y, Default::default());
+//! let regressor = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
 //!
-//! let y_hat = regressor.predict(&x); // use the same data for prediction
+//! let y_hat = regressor.predict(&x).unwrap(); // use the same data for prediction
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -50,6 +50,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::tree::decision_tree_regressor::{
@@ -114,7 +115,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         x: &M,
         y: &M::RowVector,
         parameters: RandomForestRegressorParameters,
-    ) -> RandomForestRegressor<T> {
+    ) -> Result<RandomForestRegressor<T>, Failed> {
         let (n_rows, num_attributes) = x.shape();
 
         let mtry = parameters
@@ -130,19 +131,19 @@ impl<T: RealNumber> RandomForestRegressor<T> {
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree = DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params);
+            let tree = DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
         }
 
-        RandomForestRegressor {
+        Ok(RandomForestRegressor {
             parameters: parameters,
             trees: trees,
-        }
+        })
     }
 
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
         let mut result = M::zeros(1, x.shape().0);
 
         let (n, _) = x.shape();
@@ -151,7 +152,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             result.set(0, i, self.predict_for_row(x, i));
         }
 
-        result.to_row_vector()
+        Ok(result.to_row_vector())
     }
 
     fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> T {
@@ -219,7 +220,8 @@ mod tests {
                 m: Option::None,
             },
         )
-        .predict(&x);
+        .and_then(|rf| rf.predict(&x))
+        .unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 1.0);
     }
@@ -249,7 +251,7 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let forest = RandomForestRegressor::fit(&x, &y, Default::default());
+        let forest = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_forest: RandomForestRegressor<f64> =
             bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();

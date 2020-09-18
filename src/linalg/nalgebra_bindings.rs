@@ -34,8 +34,8 @@
 //!            116.9,
 //!         ]);
 //!
-//! let lr = LinearRegression::fit(&x, &y, Default::default());
-//! let y_hat = lr.predict(&x);
+//! let lr = LinearRegression::fit(&x, &y, Default::default()).unwrap();
+//! let y_hat = lr.predict(&x).unwrap();
 //! ```
 use std::iter::Sum;
 use std::ops::{AddAssign, DivAssign, MulAssign, Range, SubAssign};
@@ -777,9 +777,12 @@ mod tests {
                 solver: LinearRegressionSolverName::QR,
             },
         )
-        .predict(&x);
+        .and_then(|lr| lr.predict(&x))
+        .unwrap();
 
-        let y_hat_svd = LinearRegression::fit(&x, &y, Default::default()).predict(&x);
+        let y_hat_svd = LinearRegression::fit(&x, &y, Default::default())
+            .and_then(|lr| lr.predict(&x))
+            .unwrap();
 
         assert!(y
             .iter()

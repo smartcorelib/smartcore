@@ -21,7 +21,7 @@
 //!                  &[0.7000, 0.3000, 0.8000],
 //!         ]);
 //!
-//! let evd = A.evd(true);
+//! let evd = A.evd(true).unwrap();
 //! let eigenvectors: DenseMatrix<f64> = evd.V;
 //! let eigenvalues: Vec<f64> = evd.d;
 //! ```
@@ -34,6 +34,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
+use crate::error::Failed;
 use crate::linalg::BaseMatrix;
 use crate::math::num::RealNumber;
 use num::complex::Complex;
@@ -54,14 +55,14 @@ pub struct EVD<T: RealNumber, M: BaseMatrix<T>> {
 pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     /// Compute the eigen decomposition of a square matrix.
     /// * `symmetric` - whether the matrix is symmetric
-    fn evd(&self, symmetric: bool) -> EVD<T, Self> {
+    fn evd(&self, symmetric: bool) -> Result<EVD<T, Self>, Failed> {
         self.clone().evd_mut(symmetric)
     }
 
     /// Compute the eigen decomposition of a square matrix. The input matrix
     /// will be used for factorization.
     /// * `symmetric` - whether the matrix is symmetric
-    fn evd_mut(mut self, symmetric: bool) -> EVD<T, Self> {
+    fn evd_mut(mut self, symmetric: bool) -> Result<EVD<T, Self>, Failed> {
         let (nrows, ncols) = self.shape();
         if ncols != nrows {
             panic!("Matrix is not square: {} x {}", nrows, ncols);
@@ -92,7 +93,7 @@ pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             sort(&mut d, &mut e, &mut V);
         }
 
-        EVD { V: V, d: d, e: e }
+        Ok(EVD { V: V, d: d, e: e })
     }
 }
 
@@ -845,7 +846,7 @@ mod tests {
             &[0.6240573, -0.44947578, -0.6391588],
         ]);
 
-        let evd = A.evd(true);
+        let evd = A.evd(true).unwrap();
 
         assert!(eigen_vectors.abs().approximate_eq(&evd.V.abs(), 1e-4));
         for i in 0..eigen_values.len() {
@@ -872,7 +873,7 @@ mod tests {
             &[0.6952105, 0.43984484, -0.7036135],
         ]);
 
-        let evd = A.evd(false);
+        let evd = A.evd(false).unwrap();
 
         assert!(eigen_vectors.abs().approximate_eq(&evd.V.abs(), 1e-4));
         for i in 0..eigen_values.len() {
@@ -902,7 +903,7 @@ mod tests {
             &[0.6707, 0.1059, 0.901, -0.6289],
         ]);
 
-        let evd = A.evd(false);
+        let evd = A.evd(false).unwrap();
 
         assert!(eigen_vectors.abs().approximate_eq(&evd.V.abs(), 1e-4));
         for i in 0..eigen_values_d.len() {

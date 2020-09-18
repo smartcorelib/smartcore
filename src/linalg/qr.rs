@@ -15,9 +15,9 @@
 //!                 &[0.7, 0.3, 0.8]
 //!         ]);
 //!
-//! let lu = A.qr();
-//! let orthogonal: DenseMatrix<f64> = lu.Q();
-//! let triangular: DenseMatrix<f64> = lu.R();
+//! let qr = A.qr().unwrap();
+//! let orthogonal: DenseMatrix<f64> = qr.Q();
+//! let triangular: DenseMatrix<f64> = qr.R();
 //! ```
 //!
 //! ## References:
@@ -28,10 +28,10 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
-use std::fmt::Debug;
-
+use crate::error::Failed;
 use crate::linalg::BaseMatrix;
 use crate::math::num::RealNumber;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 /// Results of QR decomposition.
@@ -99,7 +99,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
         return Q;
     }
 
-    fn solve(&self, mut b: M) -> M {
+    fn solve(&self, mut b: M) -> Result<M, Failed> {
         let (m, n) = self.QR.shape();
         let (b_nrows, b_ncols) = b.shape();
 
@@ -139,20 +139,20 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
             }
         }
 
-        b
+        Ok(b)
     }
 }
 
 /// Trait that implements QR decomposition routine for any matrix.
 pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     /// Compute the QR decomposition of a matrix.
-    fn qr(&self) -> QR<T, Self> {
+    fn qr(&self) -> Result<QR<T, Self>, Failed> {
         self.clone().qr_mut()
     }
 
     /// Compute the QR decomposition of a matrix. The input matrix
     /// will be used for factorization.
-    fn qr_mut(mut self) -> QR<T, Self> {
+    fn qr_mut(mut self) -> Result<QR<T, Self>, Failed> {
         let (m, n) = self.shape();
 
         let mut r_diagonal: Vec<T> = vec![T::zero(); n];
@@ -186,12 +186,12 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             r_diagonal[k] = -nrm;
         }
 
-        QR::new(self, r_diagonal)
+        Ok(QR::new(self, r_diagonal))
     }
 
     /// Solves Ax = b
-    fn qr_solve_mut(self, b: Self) -> Self {
-        self.qr_mut().solve(b)
+    fn qr_solve_mut(self, b: Self) -> Result<Self, Failed> {
+        self.qr_mut().and_then(|qr| qr.solve(b))
     }
 }
 
@@ -213,7 +213,7 @@ mod tests {
             &[0.0, -0.3064, 0.0682],
             &[0.0, 0.0, -0.1999],
         ]);
-        let qr = a.qr();
+        let qr = a.qr().unwrap();
         assert!(qr.Q().abs().approximate_eq(&q.abs(), 1e-4));
         assert!(qr.R().abs().approximate_eq(&r.abs(), 1e-4));
     }
@@ -227,7 +227,7 @@ mod tests {
             &[0.8783784, 2.2297297],
             &[0.4729730, 0.6621622],
         ]);
-        let w = a.qr_solve_mut(b);
+        let w = a.qr_solve_mut(b).unwrap();
         assert!(w.approximate_eq(&expected_w, 1e-2));
     }
 }

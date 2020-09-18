@@ -66,7 +66,7 @@ impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
     /// * `data` - a matrix of _NxM_ where _N_ is number of observations and _M_ is number of attributes
     pub fn new(data: &M) -> Mahalanobis<T, M> {
         let sigma = data.cov();
-        let sigmaInv = sigma.lu().inverse();
+        let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
             sigma: sigma,
             sigmaInv: sigmaInv,
@@ -78,7 +78,7 @@ impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
     /// * `cov` - a covariance matrix
     pub fn new_from_covariance(cov: &M) -> Mahalanobis<T, M> {
         let sigma = cov.clone();
-        let sigmaInv = sigma.lu().inverse();
+        let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
             sigma: sigma,
             sigmaInv: sigmaInv,

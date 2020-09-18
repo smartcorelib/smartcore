@@ -41,9 +41,9 @@
 //!             0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
 //!   ];
 //!
-//! let lr = LogisticRegression::fit(&x, &y);
+//! let lr = LogisticRegression::fit(&x, &y).unwrap();
 //!
-//! let y_hat = lr.predict(&x);
+//! let y_hat = lr.predict(&x).unwrap();
 //!
 //! let acc = ClassificationMetrics::accuracy().get_score(&y, &y_hat);
 //! // or

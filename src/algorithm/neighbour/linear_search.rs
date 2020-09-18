@@ -15,7 +15,7 @@
 //!
 //! let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9]; // data points
 //!
-//! let knn = LinearKNNSearch::new(data, SimpleDistance {});
+//! let knn = LinearKNNSearch::new(data, SimpleDistance {}).unwrap();
 //!
 //! knn.find(&5, 3); // find 3 knn points from 5
 //!
@@ -26,6 +26,7 @@ use std::cmp::{Ordering, PartialOrd};
 use std::marker::PhantomData;
 
 use crate::algorithm::sort::heap_select::HeapSelection;
+use crate::error::Failed;
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 
@@ -41,18 +42,18 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
     /// Initializes algorithm.
     /// * `data` - vector of data points to search for.
     /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../../../math/distance/index.html) interface.
-    pub fn new(data: Vec<T>, distance: D) -> LinearKNNSearch<T, F, D> {
-        LinearKNNSearch {
+    pub fn new(data: Vec<T>, distance: D) -> Result<LinearKNNSearch<T, F, D>, Failed> {
+        Ok(LinearKNNSearch {
             data: data,
             distance: distance,
             f: PhantomData,
-        }
+        })
     }
 
     /// Find k nearest neighbors
     /// * `from` - look for k nearest points to `from`
     /// * `k` - the number of nearest neighbors to return
-    pub fn find(&self, from: &T, k: usize) -> Vec<(usize, F)> {
+    pub fn find(&self, from: &T, k: usize) -> Result<Vec<(usize, F)>, Failed> {
         if k < 1 || k > self.data.len() {
             panic!("k should be >= 1 and <= length(data)");
         }
@@ -76,10 +77,11 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
             }
         }
 
-        heap.get()
+        Ok(heap
+            .get()
             .into_iter()
             .flat_map(|x| x.index.map(|i| (i, x.distance)))
-            .collect()
+            .collect())
     }
 }
 
@@ -120,9 +122,14 @@ mod tests {
     fn knn_find() {
         let data1 = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-        let algorithm1 = LinearKNNSearch::new(data1, SimpleDistance {});
+        let algorithm1 = LinearKNNSearch::new(data1, SimpleDistance {}).unwrap();
 
-        let mut found_idxs1: Vec<usize> = algorithm1.find(&2, 3).iter().map(|v| v.0).collect();
+        let mut found_idxs1: Vec<usize> = algorithm1
+            .find(&2, 3)
+            .unwrap()
+            .iter()
+            .map(|v| v.0)
+            .collect();
         found_idxs1.sort();
 
         assert_eq!(vec!(0, 1, 2), found_idxs1);
@@ -135,10 +142,11 @@ mod tests {
             vec![5., 5.],
         ];
 
-        let algorithm2 = LinearKNNSearch::new(data2, Distances::euclidian());
+        let algorithm2 = LinearKNNSearch::new(data2, Distances::euclidian()).unwrap();
 
         let mut found_idxs2: Vec<usize> = algorithm2
             .find(&vec![3., 3.], 3)
+            .unwrap()
             .iter()
             .map(|v| v.0)
             .collect();

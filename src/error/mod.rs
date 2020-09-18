@@ -2,58 +2,100 @@
 use std::error::Error;
 use std::fmt;
 
-/// Error to be raised when model does not fits data.
-#[derive(Debug)]
-pub struct FitFailedError {
-    details: String,
+use serde::{Deserialize, Serialize};
+
+/// Generic error to be raised when something goes wrong.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Failed {
+    err: FailedError,
+    msg: String,
 }
 
-/// Error to be raised when model prediction cannot be calculated.
-#[derive(Debug)]
-pub struct PredictFailedError {
-    details: String,
+/// Type of error
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum FailedError {
+    /// Can't fit algorithm to data
+    FitFailed = 1,
+    /// Can't predict new values
+    PredictFailed,
+    /// Can't transform data
+    TransformFailed,
+    /// Can't find an item
+    FindFailed,
+    /// Can't decompose a matrix
+    DecompositionFailed,
 }
 
-impl FitFailedError {
-    /// Creates new instance of `FitFailedError`
-    /// * `msg` - description of the error
-    pub fn new(msg: &str) -> FitFailedError {
-        FitFailedError {
-            details: msg.to_string(),
+impl Failed {
+    ///get type of error
+    #[inline]
+    pub fn error(&self) -> FailedError {
+        self.err
+    }
+
+    /// new instance of `FailedError::FitError`
+    pub fn fit(msg: &str) -> Self {
+        Failed {
+            err: FailedError::FitFailed,
+            msg: msg.to_string(),
+        }
+    }
+    /// new instance of `FailedError::PredictFailed`
+    pub fn predict(msg: &str) -> Self {
+        Failed {
+            err: FailedError::PredictFailed,
+            msg: msg.to_string(),
+        }
+    }
+
+    /// new instance of `FailedError::TransformFailed`
+    pub fn transform(msg: &str) -> Self {
+        Failed {
+            err: FailedError::TransformFailed,
+            msg: msg.to_string(),
+        }
+    }
+
+    /// new instance of `err`
+    pub fn because(err: FailedError, msg: &str) -> Self {
+        Failed {
+            err: err,
+            msg: msg.to_string(),
         }
     }
 }
 
-impl fmt::Display for FitFailedError {
+impl PartialEq for FailedError {
+    #[inline(always)]
+    fn eq(&self, rhs: &Self) -> bool {
+        *self as u8 == *rhs as u8
+    }
+}
+
+impl PartialEq for Failed {
+    #[inline(always)]
+    fn eq(&self, rhs: &Self) -> bool {
+        self.err == rhs.err && self.msg == rhs.msg
+    }
+}
+
+impl fmt::Display for FailedError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.details)
+        let failed_err_str = match self {
+            FailedError::FitFailed => "Fit failed",
+            FailedError::PredictFailed => "Predict failed",
+            FailedError::TransformFailed => "Transform failed",
+            FailedError::FindFailed => "Find failed",
+            FailedError::DecompositionFailed => "Decomposition failed",
+        };
+        write!(f, "{}", failed_err_str)
     }
 }
 
-impl Error for FitFailedError {
-    fn description(&self) -> &str {
-        &self.details
-    }
-}
-
-impl PredictFailedError {
-    /// Creates new instance of `PredictFailedError`
-    /// * `msg` - description of the error
-    pub fn new(msg: &str) -> PredictFailedError {
-        PredictFailedError {
-            details: msg.to_string(),
-        }
-    }
-}
-
-impl fmt::Display for PredictFailedError {
+impl fmt::Display for Failed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.details)
+        write!(f, "{}: {}", self.err, self.msg)
     }
 }
 
-impl Error for PredictFailedError {
-    fn description(&self) -> &str {
-        &self.details
-    }
-}
+impl Error for Failed {}
