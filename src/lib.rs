@@ -89,3 +89,4 @@ pub mod neighbors;
 pub(crate) mod optimization;
 /// Supervised tree-based learning methods
 pub mod tree;
+pub mod error;

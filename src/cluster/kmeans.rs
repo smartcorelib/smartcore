@@ -43,8 +43,8 @@
 //!            &[5.2, 2.7, 3.9, 1.4],
 //!            ]);
 //!
-//! let kmeans = KMeans::new(&x, 2, Default::default()); // Fit to data, 2 clusters
-//! let y_hat = kmeans.predict(&x); // use the same points for prediction
+//! let kmeans = KMeans::fit(&x, 2, Default::default()).unwrap(); // Fit to data, 2 clusters
+//! let y_hat = kmeans.predict(&x).unwrap(); // use the same points for prediction
 //! ```
 //!
 //! ## References:
@@ -60,6 +60,7 @@ use std::iter::Sum;
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::{FitFailedError, PredictFailedError};
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::*;
@@ -117,18 +118,17 @@ impl<T: RealNumber + Sum> KMeans<T> {
     /// * `data` - training instances to cluster
     /// * `k` - number of clusters
     /// * `parameters` - cluster parameters
-    pub fn new<M: Matrix<T>>(data: &M, k: usize, parameters: KMeansParameters) -> KMeans<T> {
+    pub fn fit<M: Matrix<T>>(data: &M, k: usize, parameters: KMeansParameters) -> Result<KMeans<T>, FitFailedError> {
         let bbd = BBDTree::new(data);
 
         if k < 2 {
-            panic!("Invalid number of clusters: {}", k);
+            return Err(FitFailedError::new(&format!("Invalid number of clusters: {}", k)));
         }
 
         if parameters.max_iter <= 0 {
-            panic!(
-                "Invalid maximum number of iterations: {}",
+            return Err(FitFailedError::new(&format!("Invalid maximum number of iterations: {}",
                 parameters.max_iter
-            );
+            )));
         }
 
         let (n, d) = data.shape();
@@ -172,18 +172,18 @@ impl<T: RealNumber + Sum> KMeans<T> {
             }
         }
 
-        KMeans {
+        Ok(KMeans {
             k: k,
             y: y,
             size: size,
             distortion: distortion,
             centroids: centroids,
-        }
+        })
     }
 
     /// Predict clusters for `x`
     /// * `x` - matrix with new data to transform of size _KxM_ , where _K_ is number of new samples and _M_ is number of features.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> M::RowVector {
+    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, PredictFailedError> {
         let (n, _) = x.shape();
         let mut result = M::zeros(1, n);
 
@@ -201,7 +201,7 @@ impl<T: RealNumber + Sum> KMeans<T> {
             result.set(0, i, T::from(best_cluster).unwrap());
         }
 
-        result.to_row_vector()
+        Ok(result.to_row_vector())
     }
 
     fn kmeans_plus_plus<M: Matrix<T>>(data: &M, k: usize) -> Vec<usize> {
@@ -263,6 +263,20 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
+    fn invalid_k() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[1., 2., 3.],
+            &[4., 5., 6.],           
+        ]);
+
+        println!("{:?}", KMeans::fit(&x, 0, Default::default()));
+
+        assert!(KMeans::fit(&x, 0, Default::default()).is_err());                
+        assert_eq!("Invalid number of clusters: 1", KMeans::fit(&x, 1, Default::default()).unwrap_err().to_string());
+
+    }
+
+    #[test]
     fn fit_predict_iris() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
@@ -287,9 +301,9 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let kmeans = KMeans::new(&x, 2, Default::default());
+        let kmeans = KMeans::fit(&x, 2, Default::default()).unwrap();
 
-        let y = kmeans.predict(&x);
+        let y = kmeans.predict(&x).unwrap();
 
         for i in 0..y.len() {
             assert_eq!(y[i] as usize, kmeans.y[i]);
@@ -321,7 +335,7 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let kmeans = KMeans::new(&x, 2, Default::default());
+        let kmeans = KMeans::fit(&x, 2, Default::default()).unwrap();
 
         let deserialized_kmeans: KMeans<f64> =
             serde_json::from_str(&serde_json::to_string(&kmeans).unwrap()).unwrap();
