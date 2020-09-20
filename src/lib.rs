@@ -3,7 +3,7 @@
 
 //! # SmartCore
 //!
-//! Welcome to SmartCore library, the most complete machine learning library for Rust!
+//! Welcome to SmartCore, the most advanced machine learning library in Rust!
 //!
 //! In SmartCore you will find implementation of these ML algorithms:
 //! * __Regression__: Linear Regression (OLS), Decision Tree Regressor, Random Forest Regressor, K Nearest Neighbors
