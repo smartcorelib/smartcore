@@ -62,8 +62,6 @@ mod tests {
         let score1: f64 = MeanSquareError {}.get_score(&y_pred, &y_true);
         let score2: f64 = MeanSquareError {}.get_score(&y_true, &y_true);
 
-        println!("{}", score1);
-
         assert!((score1 - 0.375).abs() < 1e-8);
         assert!((score2 - 0.0).abs() < 1e-8);
     }

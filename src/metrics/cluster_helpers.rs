@@ -106,14 +106,17 @@ mod tests {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];
         let v2 = vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
 
-        println!("{:?}", contingency_matrix(&v1, &v2));
+        assert_eq!(
+            vec!(vec!(1, 2), vec!(2, 0), vec!(1, 0), vec!(1, 0)),
+            contingency_matrix(&v1, &v2)
+        );
     }
 
     #[test]
     fn entropy_test() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];
 
-        println!("{:?}", entropy(&v1));
+        assert!((1.2770f32 - entropy(&v1).unwrap()).abs() < 1e-4);
     }
 
     #[test]
@@ -122,6 +125,6 @@ mod tests {
         let v2 = vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
         let s: f32 = mutual_info_score(&contingency_matrix(&v1, &v2));
 
-        println!("{}", s);
+        assert!((0.3254 - s).abs() < 1e-4);
     }
 }

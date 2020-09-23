@@ -5,13 +5,13 @@ use crate::math::num::RealNumber;
 use crate::metrics::cluster_helpers::*;
 
 #[derive(Serialize, Deserialize, Debug)]
-/// Mean Absolute Error
+/// Homogeneity, completeness and V-Measure scores.
 pub struct HCVScore {}
 
 impl HCVScore {
-    /// Computes mean absolute error
-    /// * `y_true` - Ground truth (correct) target values.
-    /// * `y_pred` - Estimated target values.    
+    /// Computes Homogeneity, completeness and V-Measure scores at once.
+    /// * `labels_true` - ground truth class labels to be used as a reference.
+    /// * `labels_pred` - cluster labels to evaluate.    
     pub fn get_score<T: RealNumber, V: BaseVector<T>>(
         &self,
         labels_true: &V,

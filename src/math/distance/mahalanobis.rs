@@ -108,8 +108,6 @@ impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
             );
         }
 
-        println!("{}", self.sigmaInv);
-
         let n = x.len();
         let mut z = vec![T::zero(); n];
         for i in 0..n {

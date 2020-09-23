@@ -8,6 +8,7 @@
 //!
 //! * [Classification metrics](struct.ClassificationMetrics.html)
 //! * [Regression metrics](struct.RegressionMetrics.html)
+//! * [Clustering metrics](struct.ClusterMetrics.html)
 //!
 //! Example:
 //! ```
@@ -54,6 +55,7 @@
 pub mod accuracy;
 /// Computes Area Under the Receiver Operating Characteristic Curve (ROC AUC) from prediction scores.
 pub mod auc;
+/// Compute the homogeneity, completeness and V-Measure scores.
 pub mod cluster_hcv;
 pub(crate) mod cluster_helpers;
 /// F1 score, also known as balanced F-score or F-measure.
@@ -126,7 +128,7 @@ impl RegressionMetrics {
 }
 
 impl ClusterMetrics {
-    /// Mean squared error, see [mean squared error](mean_squared_error/index.html).
+    /// Homogeneity and completeness and V-Measure scores at once.
     pub fn hcv_score() -> cluster_hcv::HCVScore {
         cluster_hcv::HCVScore {}
     }
@@ -188,27 +190,29 @@ pub fn r2<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::r2().get_score(y_true, y_pred)
 }
 
-/// Computes R2 score, see [R2](r2/index.html).
-/// * `y_true` - Ground truth (correct) target values.
-/// * `y_pred` - Estimated target values.
+/// Homogeneity metric of a cluster labeling given a ground truth (range is between 0.0 and 1.0).
+/// A cluster result satisfies homogeneity if all of its clusters contain only data points which are members of a single class.
+/// * `labels_true` - ground truth class labels to be used as a reference.
+/// * `labels_pred` - cluster labels to evaluate.
 pub fn homogeneity_score<T: RealNumber, V: BaseVector<T>>(labels_true: &V, labels_pred: &V) -> T {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .0
 }
 
-/// Computes R2 score, see [R2](r2/index.html).
-/// * `y_true` - Ground truth (correct) target values.
-/// * `y_pred` - Estimated target values.
+///
+/// Completeness metric of a cluster labeling given a ground truth (range is between 0.0 and 1.0).
+/// * `labels_true` - ground truth class labels to be used as a reference.
+/// * `labels_pred` - cluster labels to evaluate.
 pub fn completeness_score<T: RealNumber, V: BaseVector<T>>(labels_true: &V, labels_pred: &V) -> T {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .1
 }
 
-/// Computes R2 score, see [R2](r2/index.html).
-/// * `y_true` - Ground truth (correct) target values.
-/// * `y_pred` - Estimated target values.
+/// The harmonic mean between homogeneity and completeness.
+/// * `labels_true` - ground truth class labels to be used as a reference.
+/// * `labels_pred` - cluster labels to evaluate.
 pub fn v_measure_score<T: RealNumber, V: BaseVector<T>>(labels_true: &V, labels_pred: &V) -> T {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)

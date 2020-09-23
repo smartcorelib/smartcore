@@ -287,7 +287,6 @@ mod tests {
         let expected =
             DenseMatrix::from_2d_array(&[&[-6.0, 3.6, 1.4], &[5.0, -3.0, -1.0], &[-1.0, 0.8, 0.2]]);
         let a_inv = a.lu().and_then(|lu| lu.inverse()).unwrap();
-        println!("{}", a_inv);
         assert!(a_inv.approximate_eq(&expected, 1e-4));
     }
 }
