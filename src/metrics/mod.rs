@@ -54,6 +54,8 @@
 pub mod accuracy;
 /// Computes Area Under the Receiver Operating Characteristic Curve (ROC AUC) from prediction scores.
 pub mod auc;
+pub mod cluster_hcv;
+pub(crate) mod cluster_helpers;
 /// F1 score, also known as balanced F-score or F-measure.
 pub mod f1;
 /// Mean absolute error regression loss.
@@ -75,6 +77,9 @@ pub struct ClassificationMetrics {}
 
 /// Metrics for regression models.
 pub struct RegressionMetrics {}
+
+/// Cluster metrics.
+pub struct ClusterMetrics {}
 
 impl ClassificationMetrics {
     /// Accuracy score, see [accuracy](accuracy/index.html).
@@ -117,6 +122,13 @@ impl RegressionMetrics {
     /// Coefficient of determination (R2), see [R2](r2/index.html).
     pub fn r2() -> r2::R2 {
         r2::R2 {}
+    }
+}
+
+impl ClusterMetrics {
+    /// Mean squared error, see [mean squared error](mean_squared_error/index.html).
+    pub fn hcv_score() -> cluster_hcv::HCVScore {
+        cluster_hcv::HCVScore {}
     }
 }
 
@@ -174,4 +186,31 @@ pub fn mean_absolute_error<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: 
 /// * `y_pred` - Estimated target values.
 pub fn r2<T: RealNumber, V: BaseVector<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::r2().get_score(y_true, y_pred)
+}
+
+/// Computes R2 score, see [R2](r2/index.html).
+/// * `y_true` - Ground truth (correct) target values.
+/// * `y_pred` - Estimated target values.
+pub fn homogeneity_score<T: RealNumber, V: BaseVector<T>>(labels_true: &V, labels_pred: &V) -> T {
+    ClusterMetrics::hcv_score()
+        .get_score(labels_true, labels_pred)
+        .0
+}
+
+/// Computes R2 score, see [R2](r2/index.html).
+/// * `y_true` - Ground truth (correct) target values.
+/// * `y_pred` - Estimated target values.
+pub fn completeness_score<T: RealNumber, V: BaseVector<T>>(labels_true: &V, labels_pred: &V) -> T {
+    ClusterMetrics::hcv_score()
+        .get_score(labels_true, labels_pred)
+        .1
+}
+
+/// Computes R2 score, see [R2](r2/index.html).
+/// * `y_true` - Ground truth (correct) target values.
+/// * `y_pred` - Estimated target values.
+pub fn v_measure_score<T: RealNumber, V: BaseVector<T>>(labels_true: &V, labels_pred: &V) -> T {
+    ClusterMetrics::hcv_score()
+        .get_score(labels_true, labels_pred)
+        .2
 }

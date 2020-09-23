@@ -29,6 +29,7 @@ use super::Distance;
 pub struct Euclidian {}
 
 impl Euclidian {
+    #[inline]
     pub(crate) fn squared_distance<T: RealNumber>(x: &Vec<T>, y: &Vec<T>) -> T {
         if x.len() != y.len() {
             panic!("Input vector sizes are different.");
@@ -36,7 +37,8 @@ impl Euclidian {
 
         let mut sum = T::zero();
         for i in 0..x.len() {
-            sum = sum + (x[i] - y[i]).powf(T::two());
+            let d = x[i] - y[i];
+            sum = sum + d * d;
         }
 
         sum

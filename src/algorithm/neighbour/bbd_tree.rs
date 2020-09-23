@@ -71,11 +71,11 @@ impl<T: RealNumber> BBDTree<T> {
     ) -> T {
         let k = centroids.len();
 
-        counts.iter_mut().for_each(|x| *x = 0);
+        counts.iter_mut().for_each(|v| *v = 0);
         let mut candidates = vec![0; k];
         for i in 0..k {
             candidates[i] = i;
-            sums[i].iter_mut().for_each(|x| *x = T::zero());
+            sums[i].iter_mut().for_each(|v| *v = T::zero());
         }
 
         self.filter(
@@ -124,7 +124,7 @@ impl<T: RealNumber> BBDTree<T> {
                 if !BBDTree::prune(
                     &self.nodes[node].center,
                     &self.nodes[node].radius,
-                    &centroids,
+                    centroids,
                     closest,
                     candidates[i],
                 ) {
@@ -135,7 +135,7 @@ impl<T: RealNumber> BBDTree<T> {
 
             // Recurse if there's at least two
             if newk > 1 {
-                let result = self.filter(
+                return self.filter(
                     self.nodes[node].lower.unwrap(),
                     centroids,
                     &mut new_candidates,
@@ -152,7 +152,6 @@ impl<T: RealNumber> BBDTree<T> {
                     counts,
                     membership,
                 );
-                return result;
             }
         }
 
@@ -198,7 +197,7 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        return lhs >= T::two() * rhs;
+        lhs >= T::two() * rhs
     }
 
     fn build_node<M: Matrix<T>>(&mut self, data: &M, begin: usize, end: usize) -> usize {
@@ -336,7 +335,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
-    fn fit_predict_iris() {
+    fn bbdtree_iris() {
         let data = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],

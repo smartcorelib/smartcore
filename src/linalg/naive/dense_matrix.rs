@@ -54,6 +54,16 @@ pub struct DenseMatrix<T: RealNumber> {
     values: Vec<T>,
 }
 
+/// Column-major, dense matrix. See [Simple Dense Matrix](../index.html).
+#[derive(Debug)]
+pub struct DenseMatrixIterator<'a, T: RealNumber> {
+    cur_c: usize,
+    cur_r: usize,
+    max_c: usize,
+    max_r: usize,
+    m: &'a DenseMatrix<T>,
+}
+
 impl<T: RealNumber> fmt::Display for DenseMatrix<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
@@ -160,6 +170,36 @@ impl<T: RealNumber> DenseMatrix<T> {
             ncols: 1,
             nrows: values.len(),
             values: values,
+        }
+    }
+
+    /// Creates new column vector (_1xN_ matrix) from a vector.     
+    /// * `values` - values to initialize the matrix.
+    pub fn iter<'a>(&'a self) -> DenseMatrixIterator<'a, T> {
+        DenseMatrixIterator {
+            cur_c: 0,
+            cur_r: 0,
+            max_c: self.ncols,
+            max_r: self.nrows,
+            m: &self,
+        }
+    }
+}
+
+impl<'a, T: RealNumber> Iterator for DenseMatrixIterator<'a, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.cur_r * self.max_c + self.cur_c >= self.max_c * self.max_r {
+            None
+        } else {
+            let v = self.m.get(self.cur_r, self.cur_c);
+            self.cur_c += 1;
+            if self.cur_c >= self.max_c {
+                self.cur_c = 0;
+                self.cur_r += 1;
+            }
+            Some(v)
         }
     }
 }
@@ -339,12 +379,24 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         result
     }
 
+    fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
+        for c in 0..self.ncols {
+            result[c] = self.get(row, c);
+        }
+    }
+
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
         let mut result = vec![T::zero(); self.nrows];
         for r in 0..self.nrows {
             result[r] = self.get(r, col);
         }
         result
+    }
+
+    fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
+        for r in 0..self.nrows {
+            result[r] = self.get(r, col);
+        }
     }
 
     fn set(&mut self, row: usize, col: usize, x: T) {
@@ -850,6 +902,13 @@ mod tests {
             DenseMatrix::from_row_vector(vec.clone()).to_row_vector(),
             vec![1., 2., 3.]
         );
+    }
+
+    #[test]
+    fn iter() {
+        let vec = vec![1., 2., 3., 4., 5., 6.];
+        let m = DenseMatrix::from_array(3, 2, &vec);
+        assert_eq!(vec, m.iter().collect::<Vec<f32>>());
     }
 
     #[test]

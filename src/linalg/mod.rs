@@ -110,9 +110,19 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     /// * `row` - row number
     fn get_row_as_vec(&self, row: usize) -> Vec<T>;
 
+    /// Copies a vector with elements of the `row`'th row into `result`
+    /// * `row` - row number
+    /// * `result` - receiver for the row
+    fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>);
+
     /// Get a vector with elements of the `col`'th column
     /// * `col` - column number
     fn get_col_as_vec(&self, col: usize) -> Vec<T>;
+
+    /// Copies a vector with elements of the `col`'th column into `result`
+    /// * `col` - column number
+    /// * `result` - receiver for the col
+    fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>);
 
     /// Set an element at `col`, `row` to `x`
     fn set(&mut self, row: usize, col: usize, x: T);

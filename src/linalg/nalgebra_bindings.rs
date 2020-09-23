@@ -102,8 +102,24 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
         self.row(row).iter().map(|v| *v).collect()
     }
 
+    fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
+        let mut r = 0;
+        for e in self.row(row).iter() {
+            result[r] = *e;
+            r += 1;
+        }
+    }
+
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
         self.column(col).iter().map(|v| *v).collect()
+    }
+
+    fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
+        let mut r = 0;
+        for e in self.column(col).iter() {
+            result[r] = *e;
+            r += 1;
+        }
     }
 
     fn set(&mut self, row: usize, col: usize, x: T) {
@@ -561,6 +577,17 @@ mod tests {
 
         assert_eq!(m.get_row_as_vec(1), vec!(4., 5., 6.));
         assert_eq!(m.get_col_as_vec(1), vec!(2., 5., 8.));
+    }
+
+    #[test]
+    fn copy_row_col_as_vec() {
+        let m = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+        let mut v = vec![0f32; 3];
+
+        m.copy_row_as_vec(1, &mut v);
+        assert_eq!(v, vec!(4., 5., 6.));
+        m.copy_col_as_vec(1, &mut v);
+        assert_eq!(v, vec!(2., 5., 8.));
     }
 
     #[test]

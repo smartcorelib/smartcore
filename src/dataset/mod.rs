@@ -4,6 +4,7 @@
 pub mod boston;
 pub mod breast_cancer;
 pub mod diabetes;
+pub mod digits;
 pub mod iris;
 
 use crate::math::num::RealNumber;

@@ -109,8 +109,24 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
         self.row(row).to_vec()
     }
 
+    fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
+        let mut r = 0;
+        for e in self.row(row).iter() {
+            result[r] = *e;
+            r += 1;
+        }
+    }
+
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
         self.column(col).to_vec()
+    }
+
+    fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
+        let mut r = 0;
+        for e in self.column(col).iter() {
+            result[r] = *e;
+            r += 1;
+        }
     }
 
     fn set(&mut self, row: usize, col: usize, x: T) {
@@ -667,6 +683,17 @@ mod tests {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         let res = a.get_col_as_vec(1);
         assert_eq!(res, vec![2., 5., 8.]);
+    }
+
+    #[test]
+    fn copy_row_col_as_vec() {
+        let m = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        let mut v = vec![0f32; 3];
+
+        m.copy_row_as_vec(1, &mut v);
+        assert_eq!(v, vec!(4., 5., 6.));
+        m.copy_col_as_vec(1, &mut v);
+        assert_eq!(v, vec!(2., 5., 8.));
     }
 
     #[test]
