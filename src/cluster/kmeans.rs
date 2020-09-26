@@ -222,12 +222,8 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         let mut row = vec![T::zero(); m];
 
-        // pick the next center
         for j in 1..k {
-            // Loop over the samples and compare them to the most recent center.  Store
-            // the distance from each sample to its closest center in scores.
             for i in 0..n {
-                // compute the distance between this sample and the current center
                 data.copy_row_as_vec(i, &mut row);
                 let dist = Euclidian::squared_distance(&row, &centroid);
 
@@ -257,7 +253,6 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         for i in 0..n {
             data.copy_row_as_vec(i, &mut row);
-            // compute the distance between this sample and the current center
             let dist = Euclidian::squared_distance(&row, &centroid);
 
             if dist < d[i] {

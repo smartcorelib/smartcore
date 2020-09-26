@@ -103,9 +103,7 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
         d[i] = V.get(n - 1, i);
     }
 
-    // Householder reduction to tridiagonal form.
     for i in (1..n).rev() {
-        // Scale to avoid under/overflow.
         let mut scale = T::zero();
         let mut h = T::zero();
         for k in 0..i {
@@ -119,7 +117,6 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
                 V.set(j, i, T::zero());
             }
         } else {
-            // Generate Householder vector.
             for k in 0..i {
                 d[k] = d[k] / scale;
                 h = h + d[k] * d[k];
@@ -136,7 +133,6 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
                 e[j] = T::zero();
             }
 
-            // Apply similarity transformation to remaining columns.
             for j in 0..i {
                 f = d[j];
                 V.set(j, i, f);
@@ -169,7 +165,6 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
         d[i] = h;
     }
 
-    // Accumulate transformations.
     for i in 0..n - 1 {
         V.set(n - 1, i, V.get(i, i));
         V.set(i, i, T::one());
@@ -210,7 +205,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
     let mut f = T::zero();
     let mut tst1 = T::zero();
     for l in 0..n {
-        // Find small subdiagonal element
         tst1 = T::max(tst1, d[l].abs() + e[l].abs());
 
         let mut m = l;
@@ -226,8 +220,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
             }
         }
 
-        // If m == l, d[l] is an eigenvalue,
-        // otherwise, iterate.
         if m > l {
             let mut iter = 0;
             loop {
@@ -236,7 +228,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                     panic!("Too many iterations");
                 }
 
-                // Compute implicit shift
                 let mut g = d[l];
                 let mut p = (d[l + 1] - g) / (T::two() * e[l]);
                 let mut r = p.hypot(T::one());
@@ -252,7 +243,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                 }
                 f = f + h;
 
-                // Implicit QL transformation.
                 p = d[m];
                 let mut c = T::one();
                 let mut c2 = c;
@@ -273,7 +263,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                     p = c * d[i] - s * g;
                     d[i + 1] = h + s * (c * g + s * d[i]);
 
-                    // Accumulate transformation.
                     for k in 0..n {
                         h = V.get(k, i + 1);
                         V.set(k, i + 1, s * V.get(k, i) + c * h);
@@ -284,7 +273,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                 e[l] = s * p;
                 d[l] = c * p;
 
-                // Check for convergence.
                 if e[l].abs() <= tst1 * T::epsilon() {
                     break;
                 }
@@ -294,7 +282,6 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
         e[l] = T::zero();
     }
 
-    // Sort eigenvalues and corresponding vectors.
     for i in 0..n - 1 {
         let mut k = i;
         let mut p = d[i];

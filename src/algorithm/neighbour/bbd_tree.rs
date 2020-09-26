@@ -101,7 +101,6 @@ impl<T: RealNumber> BBDTree<T> {
     ) -> T {
         let d = centroids[0].len();
 
-        // Determine which mean the node mean is closest to
         let mut min_dist =
             Euclidian::squared_distance(&self.nodes[node].center, &centroids[candidates[0]]);
         let mut closest = candidates[0];
@@ -114,9 +113,7 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        // If this is a non-leaf node, recurse if necessary
         if !self.nodes[node].lower.is_none() {
-            // Build the new list of candidates
             let mut new_candidates = vec![0; k];
             let mut newk = 0;
 
@@ -133,7 +130,6 @@ impl<T: RealNumber> BBDTree<T> {
                 }
             }
 
-            // Recurse if there's at least two
             if newk > 1 {
                 return self.filter(
                     self.nodes[node].lower.unwrap(),
@@ -155,7 +151,6 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        // Assigns all data within this node to a single mean
         for i in 0..d {
             sums[closest][i] = sums[closest][i] + self.nodes[node].sum[i];
         }
@@ -203,14 +198,11 @@ impl<T: RealNumber> BBDTree<T> {
     fn build_node<M: Matrix<T>>(&mut self, data: &M, begin: usize, end: usize) -> usize {
         let (_, d) = data.shape();
 
-        // Allocate the node
         let mut node = BBDTreeNode::new(d);
 
-        // Fill in basic info
         node.count = end - begin;
         node.index = begin;
 
-        // Calculate the bounding box
         let mut lower_bound = vec![T::zero(); d];
         let mut upper_bound = vec![T::zero(); d];
 
@@ -231,7 +223,6 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        // Calculate bounding box stats
         let mut max_radius = T::from(-1.).unwrap();
         let mut split_index = 0;
         for i in 0..d {
@@ -243,7 +234,6 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        // If the max spread is 0, make this a leaf node
         if max_radius < T::from(1E-10).unwrap() {
             node.lower = Option::None;
             node.upper = Option::None;
@@ -262,9 +252,6 @@ impl<T: RealNumber> BBDTree<T> {
             return self.add_node(node);
         }
 
-        // Partition the data around the midpoint in this dimension. The
-        // partitioning is done in-place by iterating from left-to-right and
-        // right-to-left in the same way that partioning is done in quicksort.
         let split_cutoff = node.center[split_index];
         let mut i1 = begin;
         let mut i2 = end - 1;
@@ -291,11 +278,9 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        // Create the child nodes
         node.lower = Option::Some(self.build_node(data, begin, begin + size));
         node.upper = Option::Some(self.build_node(data, begin + size, end));
 
-        // Calculate the new sum and opt cost
         for i in 0..d {
             node.sum[i] =
                 self.nodes[node.lower.unwrap()].sum[i] + self.nodes[node.upper.unwrap()].sum[i];
