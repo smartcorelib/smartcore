@@ -9,7 +9,7 @@ license = "Apache-2.0"
 documentation = "https://docs.rs/smartcore"
 repository = "https://github.com/smartcorelib/smartcore"
 readme = "README.md"
-keywords = ["machine learning", "statistical", "modeling", "machine", "learning", "ai", "optimization", "linear algebra"]
+keywords = ["machine-learning", "statistical", "modeling", "machine", "learning", "ai", "optimization", "linear-algebra"]
 categories = ["science"]
 
 [features]
