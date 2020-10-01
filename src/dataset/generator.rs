@@ -1,0 +1,153 @@
+//! # The Boston Housing Dataset
+//!
+//! | Number of Instances | Number of Attributes | Missing Values? | Associated Tasks: |
+//! |-|-|-|-|
+//! | 506 | 13 | No | Regression |
+//!
+//! [The Boston house-price data](http://lib.stat.cmu.edu/datasets/boston) is derived from information collected by the U.S. Census Service concerning housing in the area of Boston, MA.
+//! The dataset has following attributes:
+//!
+//! | Predictor | Data Type | Target? |
+//! |-|-|-|
+//! | CRIM, per capita crime rate by town | Numerical | No |
+//! | ZN, proportion of residential land zoned for lots over 25,000 sq.ft. | Numerical | No |
+//! | INDUS, proportion of non-retail business acres per town. | Numerical | No |
+//! | CHAS, Charles River dummy variable (1 if tract bounds river; 0 otherwise) | Nominal | No |
+//! | NOX, nitric oxides concentration (parts per 10 million) | Numerical | No |
+//! | RM, average number of rooms per dwelling | Numerical | No |
+//! | AGE, proportion of owner-occupied units built prior to 1940 | Numerical | No |
+//! | DIS, weighted distances to five Boston employment centres | Numerical | No |
+//! | RAD, index of accessibility to radial highways | Ordinal | No |
+//! | TAX, full-value property-tax rate per $10,000 | Numerical | No |
+//! | PTRATIO, pupil-teacher ratio by town | Numerical | No |
+//! | B, 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town | Numerical | No |
+//! | LSTAT, % lower status of the population | Numerical | No |
+//! | MEDV, Median value of owner-occupied homes in $1000's | Numerical | Yes |
+//!
+use rand::distributions::Uniform;
+use rand::prelude::*;
+use rand_distr::Normal;
+
+use crate::dataset::Dataset;
+
+/// Generate `num_centers` clusters of normally distributed points
+pub fn make_blobs(
+    num_samples: usize,
+    num_features: usize,
+    num_centers: usize,
+) -> Dataset<f32, f32> {
+    let center_box = Uniform::from(-10.0..10.0);
+    let cluster_std = 1.0;
+    let mut centers: Vec<Vec<Normal<f32>>> = Vec::with_capacity(num_centers);
+
+    let mut rng = rand::thread_rng();
+    for _ in 0..num_centers {
+        centers.push(
+            (0..num_features)
+                .map(|_| Normal::new(center_box.sample(&mut rng), cluster_std).unwrap())
+                .collect(),
+        );
+    }
+
+    let mut y: Vec<f32> = Vec::with_capacity(num_samples);
+    let mut x: Vec<f32> = Vec::with_capacity(num_samples);
+
+    for i in 0..num_samples {
+        let label = i % num_centers;
+        y.push(label as f32);
+        for j in 0..num_features {
+            x.push(centers[label][j].sample(&mut rng));
+        }
+    }
+
+    Dataset {
+        data: x,
+        target: y,
+        num_samples: num_samples,
+        num_features: num_features,
+        feature_names: (0..num_features).map(|n| n.to_string()).collect(),
+        target_names: vec!["label".to_string()],
+        description: "Isotropic Gaussian blobs".to_string(),
+    }
+}
+
+/// Make a large circle containing a smaller circle in 2d.
+pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32, f32> {
+    if factor >= 1.0 || factor < 0.0 {
+        panic!("'factor' has to be between 0 and 1.");
+    }
+
+    let num_samples_out = num_samples / 2;
+    let num_samples_in = num_samples - num_samples_out;
+
+    let linspace_out = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_out);
+    let linspace_in = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_in);
+
+    println!("{:?}", linspace_out);
+    println!("{:?}", linspace_in);
+    let noise = Normal::new(0.0, noise).unwrap();
+    let mut rng = rand::thread_rng();
+
+    let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
+    let mut y: Vec<f32> = Vec::with_capacity(num_samples);
+
+    for v in linspace_out {
+        x.push(v.cos() + noise.sample(&mut rng));
+        x.push(v.sin() + noise.sample(&mut rng));
+        y.push(0.0);
+    }
+
+    for v in linspace_in {
+        x.push(v.cos() * factor + noise.sample(&mut rng));
+        x.push(v.sin() * factor + noise.sample(&mut rng));
+        y.push(1.0);
+    }
+
+    Dataset {
+        data: x,
+        target: y,
+        num_samples: num_samples,
+        num_features: 2,
+        feature_names: (0..2).map(|n| n.to_string()).collect(),
+        target_names: vec!["label".to_string()],
+        description: "Large circle containing a smaller circle in 2d".to_string(),
+    }
+}
+
+fn linspace(start: f32, stop: f32, num: usize) -> Vec<f32> {
+    let div = num as f32;
+    let delta = stop - start;
+    let step = delta / div;
+    (0..num).map(|v| v as f32 * step).collect()
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_make_blobs() {
+        let dataset = make_blobs(10, 2, 3);
+        assert_eq!(
+            dataset.data.len(),
+            dataset.num_features * dataset.num_samples
+        );
+        assert_eq!(dataset.target.len(), dataset.num_samples);
+        assert_eq!(dataset.num_features, 2);
+        assert_eq!(dataset.num_samples, 10);
+    }
+
+    #[test]
+    fn test_make_circles() {
+        let dataset = make_circles(10, 0.5, 0.05);
+        println!("{:?}", dataset.as_matrix());
+        assert_eq!(
+            dataset.data.len(),
+            dataset.num_features * dataset.num_samples
+        );
+        assert_eq!(dataset.target.len(), dataset.num_samples);
+        assert_eq!(dataset.num_features, 2);
+        assert_eq!(dataset.num_samples, 10);
+    }
+}

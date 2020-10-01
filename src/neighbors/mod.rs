@@ -46,7 +46,7 @@ pub mod knn_regressor;
 
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum KNNAlgorithmName {
     /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
     LinearSearch,
@@ -64,7 +64,7 @@ pub enum KNNWeightFunction {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
+pub(crate) enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
     LinearSearch(LinearKNNSearch<Vec<T>, T, D>),
     CoverTree(CoverTree<Vec<T>, T, D>),
 }
@@ -90,7 +90,7 @@ impl KNNWeightFunction {
 }
 
 impl KNNAlgorithmName {
-    fn fit<T: RealNumber, D: Distance<Vec<T>, T>>(
+    pub(crate) fn fit<T: RealNumber, D: Distance<Vec<T>, T>>(
         &self,
         data: Vec<Vec<T>>,
         distance: D,
@@ -107,10 +107,21 @@ impl KNNAlgorithmName {
 }
 
 impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
-    fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, T)>, Failed> {
+    pub fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, T, &Vec<T>)>, Failed> {
         match *self {
             KNNAlgorithm::LinearSearch(ref linear) => linear.find(from, k),
             KNNAlgorithm::CoverTree(ref cover) => cover.find(from, k),
+        }
+    }
+
+    pub fn find_radius(
+        &self,
+        from: &Vec<T>,
+        radius: T,
+    ) -> Result<Vec<(usize, T, &Vec<T>)>, Failed> {
+        match *self {
+            KNNAlgorithm::LinearSearch(ref linear) => linear.find_radius(from, radius),
+            KNNAlgorithm::CoverTree(ref cover) => cover.find_radius(from, radius),
         }
     }
 }
