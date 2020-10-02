@@ -32,10 +32,6 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use crate::algorithm::neighbour::cover_tree::CoverTree;
-use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
-use crate::error::Failed;
-use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 use serde::{Deserialize, Serialize};
 
@@ -44,15 +40,12 @@ pub mod knn_classifier;
 /// K Nearest Neighbors Regressor
 pub mod knn_regressor;
 
-/// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
-#[derive(Serialize, Deserialize, Debug)]
-pub enum KNNAlgorithmName {
-    /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
-    LinearSearch,
-    /// Cover Tree Search algorithm, see [`CoverTree`](../algorithm/neighbour/cover_tree/index.html)
-    CoverTree,
-}
+#[deprecated(
+    since = "0.2.0",
+    note = "please use `smartcore::algorithm::neighbour::KNNAlgorithmName` instead"
+)]
+pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
 
 /// Weight function that is used to determine estimated value.
 #[derive(Serialize, Deserialize, Debug)]
@@ -61,12 +54,6 @@ pub enum KNNWeightFunction {
     Uniform,
     /// k nearest points are weighted by the inverse of their distance. Closer neighbors will have a greater influence than neighbors which are further away.
     Distance,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
-    LinearSearch(LinearKNNSearch<Vec<T>, T, D>),
-    CoverTree(CoverTree<Vec<T>, T, D>),
 }
 
 impl KNNWeightFunction {
@@ -85,32 +72,6 @@ impl KNNWeightFunction {
                 }
             }
             KNNWeightFunction::Uniform => vec![T::one(); distances.len()],
-        }
-    }
-}
-
-impl KNNAlgorithmName {
-    fn fit<T: RealNumber, D: Distance<Vec<T>, T>>(
-        &self,
-        data: Vec<Vec<T>>,
-        distance: D,
-    ) -> Result<KNNAlgorithm<T, D>, Failed> {
-        match *self {
-            KNNAlgorithmName::LinearSearch => {
-                LinearKNNSearch::new(data, distance).map(|a| KNNAlgorithm::LinearSearch(a))
-            }
-            KNNAlgorithmName::CoverTree => {
-                CoverTree::new(data, distance).map(|a| KNNAlgorithm::CoverTree(a))
-            }
-        }
-    }
-}
-
-impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
-    fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, T)>, Failed> {
-        match *self {
-            KNNAlgorithm::LinearSearch(ref linear) => linear.find(from, k),
-            KNNAlgorithm::CoverTree(ref cover) => cover.find(from, k),
         }
     }
 }
