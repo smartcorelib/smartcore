@@ -40,7 +40,8 @@ use crate::error::Failed;
 use crate::linalg::{row_iter, BaseVector, Matrix};
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
-use crate::neighbors::{KNNAlgorithm, KNNAlgorithmName, KNNWeightFunction};
+use crate::neighbors::KNNWeightFunction;
+use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 
 /// `KNNRegressor` parameters. Use `Default::default()` for default values.
 #[derive(Serialize, Deserialize, Debug)]

@@ -40,10 +40,10 @@ use crate::error::Failed;
 use crate::linalg::{row_iter, Matrix};
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
-use crate::neighbors::{KNNAlgorithm, KNNAlgorithmName};
+use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::tree::decision_tree_classifier::which_max;
 
-/// K-Means clustering algorithm
+/// DBSCAN clustering algorithm
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
     cluster_labels: Vec<i16>,
@@ -53,11 +53,11 @@ pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
 }
 
 #[derive(Debug, Clone)]
-/// K-Means clustering algorithm parameters
+/// DBSCAN clustering algorithm parameters
 pub struct DBSCANParameters<T: RealNumber> {
     /// Maximum number of iterations of the k-means algorithm for a single run.
     pub min_samples: usize,
-    /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+    /// The number of samples in a neighborhood for a point to be considered as a core point.
     pub eps: T,
     /// KNN algorithm to use.
     pub algorithm: KNNAlgorithmName,
