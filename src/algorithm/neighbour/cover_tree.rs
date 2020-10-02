@@ -100,7 +100,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
     /// Find k nearest neighbors of `p`
     /// * `p` - look for k nearest points to `p`
     /// * `k` - the number of nearest neighbors to return
-    pub fn find(&self, p: &T, k: usize) -> Result<Vec<(usize, F)>, Failed> {
+    pub fn find(&self, p: &T, k: usize) -> Result<Vec<(usize, F, &T)>, Failed> {
         if k <= 0 {
             return Err(Failed::because(FailedError::FindFailed, "k should be > 0"));
         }
@@ -164,18 +164,72 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             current_cover_set = next_cover_set;
         }
 
-        let mut neighbors: Vec<(usize, F)> = Vec::new();
+        let mut neighbors: Vec<(usize, F, &T)> = Vec::new();
         let upper_bound = *heap.peek();
         for ds in zero_set {
             if ds.0 <= upper_bound {
                 let v = self.get_data_value(ds.1.idx);
                 if !self.identical_excluded || v != p {
-                    neighbors.push((ds.1.idx, ds.0));
+                    neighbors.push((ds.1.idx, ds.0, &v));
                 }
             }
         }
 
         Ok(neighbors.into_iter().take(k).collect())
+    }
+
+    /// Find all nearest neighbors within radius `radius` from `p`
+    /// * `p` - look for k nearest points to `p`
+    /// * `radius` - radius of the search
+    pub fn find_radius(&self, p: &T, radius: F) -> Result<Vec<(usize, F, &T)>, Failed> {
+        if radius <= F::zero() {
+            return Err(Failed::because(
+                FailedError::FindFailed,
+                "radius should be > 0",
+            ));
+        }
+
+        let mut neighbors: Vec<(usize, F, &T)> = Vec::new();
+
+        let mut current_cover_set: Vec<(F, &Node<F>)> = Vec::new();
+        let mut zero_set: Vec<(F, &Node<F>)> = Vec::new();
+
+        let e = self.get_data_value(self.root.idx);
+        let mut d = self.distance.distance(&e, p);
+        current_cover_set.push((d, &self.root));
+
+        while !current_cover_set.is_empty() {
+            let mut next_cover_set: Vec<(F, &Node<F>)> = Vec::new();
+            for par in current_cover_set {
+                let parent = par.1;
+                for c in 0..parent.children.len() {
+                    let child = &parent.children[c];
+                    if c == 0 {
+                        d = par.0;
+                    } else {
+                        d = self.distance.distance(self.get_data_value(child.idx), p);
+                    }
+
+                    if d <= radius + child.max_dist {
+                        if !child.children.is_empty() {
+                            next_cover_set.push((d, child));
+                        } else if d <= radius {
+                            zero_set.push((d, child));
+                        }
+                    }
+                }
+            }
+            current_cover_set = next_cover_set;
+        }
+
+        for ds in zero_set {
+            let v = self.get_data_value(ds.1.idx);
+            if !self.identical_excluded || v != p {
+                neighbors.push((ds.1.idx, ds.0, &v));
+            }
+        }
+
+        Ok(neighbors)
     }
 
     fn new_leaf(&self, idx: usize) -> Node<F> {
@@ -417,6 +471,11 @@ mod tests {
         knn.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         let knn: Vec<usize> = knn.iter().map(|v| v.0).collect();
         assert_eq!(vec!(3, 4, 5), knn);
+
+        let mut knn = tree.find_radius(&5, 2.0).unwrap();
+        knn.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let knn: Vec<i32> = knn.iter().map(|v| *v.2).collect();
+        assert_eq!(vec!(3, 4, 5, 6, 7), knn);
     }
 
     #[test]
