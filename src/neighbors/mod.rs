@@ -41,7 +41,10 @@ pub mod knn_classifier;
 pub mod knn_regressor;
 
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
-#[deprecated(since="0.2.0", note="please use `smartcore::algorithm::neighbour::KNNAlgorithmName` instead")]
+#[deprecated(
+    since = "0.2.0",
+    note = "please use `smartcore::algorithm::neighbour::KNNAlgorithmName` instead"
+)]
 pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
 
 /// Weight function that is used to determine estimated value.

@@ -36,11 +36,11 @@ use std::iter::Sum;
 
 use serde::{Deserialize, Serialize};
 
+use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::error::Failed;
 use crate::linalg::{row_iter, Matrix};
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
-use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::tree::decision_tree_classifier::which_max;
 
 /// DBSCAN clustering algorithm
