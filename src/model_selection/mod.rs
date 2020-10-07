@@ -107,3 +107,43 @@ mod tests {
         assert_eq!(x_test.shape().0, y_test.len());
     }
 }
+
+
+///
+/// KFold Cross-Validation
+///
+/// Entities involved in the KFold procedure:
+///     * a dataset
+///     * a number k of groups (k-folds)
+/// 
+/// Procedure in `cross_validate()`: 
+///   1. Shuffle the dataset randomly.
+///   2. Split the dataset into k groups
+///   3. For each unique group:
+///         1. Take the group as a hold out or test data set
+///         2. Take the remaining groups as a training data set
+///         3. Fit a model on the training set and evaluate it on the test set
+///         4. Retain the evaluation score and discard the model
+///   4. Summarize the skill of the model using the sample of model evaluation scores
+trait BaseKFold {
+    /// Return a tuple containing the the training set indices for that split and
+    /// the testing set indices for that split.
+    fn split(&self, X: Matrix) -> Iterator< Item = Tuple(ndarray::ArrayBase, ndarray::ArrayBase)>;
+
+    /// Returns integer indices corresponding to test sets
+    fn test_indices(&self, X: Matrix) -> Iterator< Item = i32>;
+
+    /// Return matrix corresponding to test sets
+    fn test_matrices(&self, X: Matrix) -> Iterator< Item = Matrix>;
+
+}
+
+struct KFold {
+    n_splits: i32,
+    shuffle: bool,
+    random_state: i32, 
+}
+
+impl BaseKFold for KFold {
+    ...
+}
