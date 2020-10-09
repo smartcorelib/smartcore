@@ -138,7 +138,7 @@ trait BaseKFold {
 
 }
 
-struct KFold {
+pub struct KFold {
     n_splits: i32,
     shuffle: bool,
     random_state: i32, 
