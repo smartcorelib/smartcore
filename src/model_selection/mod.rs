@@ -125,7 +125,7 @@ mod tests {
 ///         3. Fit a model on the training set and evaluate it on the test set
 ///         4. Retain the evaluation score and discard the model
 ///   4. Summarize the skill of the model using the sample of model evaluation scores
-trait BaseKFold {
+pub trait BaseKFold {
     /// Return a tuple containing the the training set indices for that split and
     /// the testing set indices for that split.
     fn split(&self, X: Matrix) -> Iterator< Item = Tuple(ndarray::ArrayBase, ndarray::ArrayBase)>;
