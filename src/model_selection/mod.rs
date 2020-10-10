@@ -121,7 +121,7 @@ pub struct KFold {
 impl BaseKFold for KFold {
     fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>> {
         // n_samples = _num_samples(X)  # number of sample in an array-like
-        let n_samples: usize = x.get_row_as_vec(0 as usize).len();
+        let n_samples: usize = x.shape().1;
         println!("n {:?}", &n_samples);
 
         // indices = np.arange(n_samples)  # an iterator of size len(x)
@@ -157,13 +157,14 @@ impl BaseKFold for KFold {
 
     // fn test_matrices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<&M> {
     //     // Python implementation
-    //     // for test_index in self._iter_test_indices(X, y, groups):
-    //     //     test_mask = np.zeros(_num_samples(X), dtype=bool)
-    //     //     test_mask[test_index] = True
-    //     //     yield test_mask
+    //     for test_index in self.test_indices(x) {
+    //         // test_mask = np.zeros(_num_samples(X), dtype=bool)
+    //         let test_mask = M::zeros(x.shape().0, x.shape().1);
+    //         test_mask[test_index] = True
+    //         yield test_mask
+    //     }
     //     let tmp = vec![&M::zeros(2, 2)];
     //     return tmp;
-
     // }
 
     // fn split<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
