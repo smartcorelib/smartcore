@@ -100,7 +100,7 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
 ///   4. Summarize the skill of the model using the sample of model evaluation scores
 trait BaseKFold {
     /// Returns integer indices corresponding to test sets
-    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<usize>;
+    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>>;
 
     // /// Return matrix corresponding to test sets
     // fn test_matrices<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<&M>;
@@ -119,7 +119,7 @@ pub struct KFold {
 }
 
 impl BaseKFold for KFold {
-    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<usize> {
+    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>> {
         // n_samples = _num_samples(X)  # number of sample in an array-like
         let n_samples: usize = x.get_row_as_vec(0 as usize).len();
         println!("n {:?}", &n_samples);
@@ -139,13 +139,13 @@ impl BaseKFold for KFold {
         }
         println!("fold size after correction{:?}", &fold_sizes);
 
-        let mut return_values: Vec<usize> = Vec::new();
+        let mut return_values: Vec<Vec<usize>> = Vec::new();
         let mut current: usize = 0;
         for fold_size in fold_sizes {
             let stop = current + fold_size;
             println!("current, stop {:?}, {:?}", &current, &stop);
-            return_values.extend_from_slice(
-                &indices[current..stop].to_vec()
+            return_values.push(
+                indices[current..stop].to_vec()
             );
             println!("loop {:?}", &return_values);
             current = stop
@@ -215,7 +215,9 @@ mod tests {
         let test_indices = k.test_indices(&x);
 
         println!("{:?}", &test_indices);
-        assert_eq!(test_indices, (0..33).collect::<Vec<usize>>())
+        assert_eq!(test_indices[0], (0..11).collect::<Vec<usize>>());
+        assert_eq!(test_indices[1], (11..22).collect::<Vec<usize>>());
+        assert_eq!(test_indices[2], (22..33).collect::<Vec<usize>>());
     }
 
     #[test]
@@ -227,6 +229,8 @@ mod tests {
         let test_indices = k.test_indices(&x);
 
         println!("{:?}", &test_indices);
-        assert_eq!(test_indices, (0..34).collect::<Vec<usize>>())
+        assert_eq!(test_indices[0], (0..12).collect::<Vec<usize>>());
+        assert_eq!(test_indices[1], (12..23).collect::<Vec<usize>>());
+        assert_eq!(test_indices[2], (23..34).collect::<Vec<usize>>());
     }
 }
