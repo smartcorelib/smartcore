@@ -141,7 +141,7 @@ impl BaseKFold for KFold {
 
         let mut return_values: Vec<Vec<usize>> = Vec::new();
         let mut current: usize = 0;
-        for fold_size in fold_sizes {
+        for fold_size in fold_sizes.drain(..) {
             let stop = current + fold_size;
             println!("current, stop {:?}, {:?}", &current, &stop);
             return_values.push(
@@ -155,7 +155,7 @@ impl BaseKFold for KFold {
 
     }
 
-    // fn test_matrices<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<&M> {
+    // fn test_matrices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<&M> {
     //     // Python implementation
     //     // for test_index in self._iter_test_indices(X, y, groups):
     //     //     test_mask = np.zeros(_num_samples(X), dtype=bool)
