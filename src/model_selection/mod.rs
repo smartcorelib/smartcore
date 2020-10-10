@@ -102,8 +102,8 @@ trait BaseKFold {
     /// Returns integer indices corresponding to test sets
     fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>>;
 
-    // /// Return matrix corresponding to test sets
-    // fn test_matrices<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<&M>;
+    /// Returns masksk corresponding to test sets
+    fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>>;
 
     // /// Return a tuple containing the the training set indices for that split and
     // /// the testing set indices for that split.
@@ -112,7 +112,7 @@ trait BaseKFold {
 
 /// An implementation of KFold
 pub struct KFold {
-    n_splits: i32,
+    n_splits: i32,  // cannot exceed std::usize::MAX
     // TODO: to be implemented later
     // shuffle: bool,
     // random_state: i32, 
@@ -120,26 +120,26 @@ pub struct KFold {
 
 impl BaseKFold for KFold {
     fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>> {
-        // n_samples = _num_samples(X)  # number of sample in an array-like
+        // number of samples (rows) in the matrix
         let n_samples: usize = x.shape().1;
         println!("n {:?}", &n_samples);
 
-        // indices = np.arange(n_samples)  # an iterator of size len(x)
+        // initialise indices
         let indices: Vec<usize> = (0..n_samples).collect();
         println!("starting indices{:?}", &indices);
 
-        //  Return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
-        // fold_sizes = np.full(n_splits, n_samples // n_splits, dtype=int)
+        //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
         let mut fold_sizes = vec![n_samples / self.n_splits as usize; self.n_splits as usize];
         println!("fold size {:?}", &fold_sizes);
 
-        // fold_sizes[:n_samples % n_splits] += 1
+        // increment by one if odd
         for i in 0..(n_samples % self.n_splits as usize) {
             fold_sizes[i] = fold_sizes[i] + 1;
         }
         println!("fold size after correction{:?}", &fold_sizes);
 
-        let mut return_values: Vec<Vec<usize>> = Vec::new();
+        // generate the right array of arrays for test indices
+        let mut return_values: Vec<Vec<usize>> = Vec::with_capacity(self.n_splits as usize);
         let mut current: usize = 0;
         for fold_size in fold_sizes.drain(..) {
             let stop = current + fold_size;
@@ -155,17 +155,19 @@ impl BaseKFold for KFold {
 
     }
 
-    // fn test_matrices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<&M> {
-    //     // Python implementation
-    //     for test_index in self.test_indices(x) {
-    //         // test_mask = np.zeros(_num_samples(X), dtype=bool)
-    //         let test_mask = M::zeros(x.shape().0, x.shape().1);
-    //         test_mask[test_index] = True
-    //         yield test_mask
-    //     }
-    //     let tmp = vec![&M::zeros(2, 2)];
-    //     return tmp;
-    // }
+    fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>> {
+        let mut return_values: Vec<Vec<bool>> = Vec::with_capacity(self.n_splits as usize);
+        for test_index in self.test_indices(x) {
+            // init mask
+            let mut test_mask = vec![false; x.shape().0];
+            // set mask's indices to true according to test indices
+            for i in test_index {
+                test_mask[i] = true;
+            }
+            return_values.push(test_mask);
+        }
+        return return_values;
+    }
 
     // fn split<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
     //     // Python implementation
@@ -210,9 +212,7 @@ mod tests {
     #[test]
     fn run_kfold_return_test_indices_simple() {
         let k = KFold { n_splits: 3};
-
-        let x: DenseMatrix<f64> = DenseMatrix::rand(33, 33);
-
+        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 33);
         let test_indices = k.test_indices(&x);
 
         println!("{:?}", &test_indices);
@@ -224,14 +224,33 @@ mod tests {
     #[test]
     fn run_kfold_return_test_indices_odd() {
         let k = KFold { n_splits: 3};
-
-        let x: DenseMatrix<f64> = DenseMatrix::rand(34, 34);
-
+        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 34);
         let test_indices = k.test_indices(&x);
 
         println!("{:?}", &test_indices);
         assert_eq!(test_indices[0], (0..12).collect::<Vec<usize>>());
         assert_eq!(test_indices[1], (12..23).collect::<Vec<usize>>());
         assert_eq!(test_indices[2], (23..34).collect::<Vec<usize>>());
+    }
+
+    #[test]
+    fn run_kfold_return_test_mask_simple() {
+        let k = KFold { n_splits: 2};
+        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 22);
+        let test_masks = k.test_masks(&x);
+
+        for t in &test_masks[0][0..11] {
+            assert_eq!(*t, true)
+        }
+        for t in &test_masks[0][11..22] {
+            assert_eq!(*t, false)
+        }
+
+        for t in &test_masks[1][0..11] {
+            assert_eq!(*t, false)
+        }
+        for t in &test_masks[1][11..22] {
+            assert_eq!(*t, true)
+        }
     }
 }
