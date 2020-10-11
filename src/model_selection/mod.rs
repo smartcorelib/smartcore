@@ -105,9 +105,9 @@ trait BaseKFold {
     /// Returns masksk corresponding to test sets
     fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>>;
 
-    // /// Return a tuple containing the the training set indices for that split and
-    // /// the testing set indices for that split.
-    // fn split<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<(Vec<usize>, Vec<usize>)>;
+    /// Return a tuple containing the the training set indices for that split and
+    /// the testing set indices for that split.
+    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)>;
 }
 
 /// An implementation of KFold
@@ -157,29 +157,43 @@ impl BaseKFold for KFold {
 
     fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>> {
         let mut return_values: Vec<Vec<bool>> = Vec::with_capacity(self.n_splits as usize);
-        for test_index in self.test_indices(x) {
+        for test_index in self.test_indices(x).drain(..) {
             // init mask
             let mut test_mask = vec![false; x.shape().0];
             // set mask's indices to true according to test indices
             for i in test_index {
-                test_mask[i] = true;
+                test_mask[i] = true;  // can be implemented with map()
             }
             return_values.push(test_mask);
         }
         return return_values;
     }
 
-    // fn split<T: RealNumber, M: Matrix<T>>(&self, X: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
-    //     // Python implementation
-    //     // X, y, groups = indexable(X, y, groups)
-    //     // indices = np.arange(_num_samples(X))  // an iterator of len(x)
-    //     // for test_index in self._iter_test_masks(X, y, groups):
-    //     //     train_index = indices[np.logical_not(test_index)]
-    //     //     test_index = indices[test_index]
-    //     //     yield train_index, test_index
-    //     let tmp = vec![(vec![0, 1], vec![0, 1])];
-    //     return tmp;
-    // }
+    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
+        let n_samples: usize = x.shape().1;
+        let indices: Vec<usize> = (0..n_samples).collect();
+        println!("starting indices{:?}", &indices);
+
+        let mut return_values: Vec<(Vec<usize>, Vec<usize>)> = Vec::with_capacity(
+            self.n_splits as usize
+        );  // TODO: init nested vecs with capacities by getting the length of test_index vecs
+
+        for test_index in self.test_masks(x).drain(..) {
+            let train_index = indices.clone().iter().enumerate()
+                .filter(|&(idx, _)| test_index[idx] == false)
+                .map(|(idx, _)| idx)
+                .collect::<Vec<usize>>();  // filter train indices out according to mask
+            let test_index = indices.iter().enumerate()
+                .filter(|&(idx, _)| test_index[idx] == true)
+                .map(|(idx, _)| idx)
+                .collect::<Vec<usize>>();  // filter tests indices out according to mask
+            return_values.push(
+                (train_index, test_index)
+            )
+            
+        }
+        return return_values;
+    }
 }
 
 
@@ -252,5 +266,18 @@ mod tests {
         for t in &test_masks[1][11..22] {
             assert_eq!(*t, true)
         }
+    }
+
+    #[test]
+    fn run_kfold_return_split_simple() {
+        let k = KFold { n_splits: 2};
+        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 22);
+        let train_test_splits = k.split(&x);
+        print!("{:?}", &train_test_splits);
+
+        assert_eq!(train_test_splits[0].1, (0..11).collect::<Vec<usize>>());
+        assert_eq!(train_test_splits[0].0, (11..22).collect::<Vec<usize>>());
+        assert_eq!(train_test_splits[1].0, (0..11).collect::<Vec<usize>>());
+        assert_eq!(train_test_splits[1].1, (11..22).collect::<Vec<usize>>());
     }
 }
