@@ -130,9 +130,6 @@ impl BaseKFold for KFold {
         if self.shuffle == true {
             indices.shuffle(&mut thread_rng());
         }
-
-        let indices = indices;
-
         //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
         let mut fold_sizes = vec![n_samples / self.n_splits as usize; self.n_splits as usize];
 
@@ -150,7 +147,6 @@ impl BaseKFold for KFold {
             current = stop
         }
 
-        let return_values = return_values;
         return_values
     }
 
