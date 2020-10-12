@@ -109,7 +109,7 @@ pub struct KFold {
 impl BaseKFold for KFold {
     fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>> {
         // number of samples (rows) in the matrix
-        let n_samples: usize = x.shape().1;
+        let n_samples: usize = x.shape().0;
 
         // initialise indices
         let indices: Vec<usize> = (0..n_samples).collect();
@@ -148,21 +148,9 @@ impl BaseKFold for KFold {
         return return_values;
     }
 
-#[test]
-    fn numpy_parity_test() {
-        let k = KFold { n_splits: 3 };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
-        let expected: Vec<(Vec<usize>, Vec<usize>)> = vec!(
-            (vec!(4, 5, 6, 7, 8, 9), vec!(0, 1, 2, 3)),
-            (vec!(0, 1, 2, 3, 7, 8, 9), vec!(4, 5, 6)),
-            (vec!(0, 1, 2, 3, 4, 5, 6), vec!(7, 8, 9))
-        );
-        for ((train, test), (expected_train, expected_test)) in k.split(&x).into_iter().zip(expected) {
-            assert_eq!(test, expected_test);
-            assert_eq!(train, expected_train);
-        }        
-    }
-        let n_samples: usize = x.shape().1;
+    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
+        let n_samples: usize = x.shape().0;
+        println!("{:?}", n_samples);
         let indices: Vec<usize> = (0..n_samples).collect();
 
         let mut return_values: Vec<(Vec<usize>, Vec<usize>)> =
@@ -217,7 +205,7 @@ mod tests {
     #[test]
     fn run_kfold_return_test_indices_simple() {
         let k = KFold { n_splits: 3 };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 33);
+        let x: DenseMatrix<f64> = DenseMatrix::rand(33, 100);
         let test_indices = k.test_indices(&x);
 
         assert_eq!(test_indices[0], (0..11).collect::<Vec<usize>>());
@@ -228,7 +216,7 @@ mod tests {
     #[test]
     fn run_kfold_return_test_indices_odd() {
         let k = KFold { n_splits: 3 };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 34);
+        let x: DenseMatrix<f64> = DenseMatrix::rand(34, 100);
         let test_indices = k.test_indices(&x);
 
         assert_eq!(test_indices[0], (0..12).collect::<Vec<usize>>());
@@ -239,7 +227,7 @@ mod tests {
     #[test]
     fn run_kfold_return_test_mask_simple() {
         let k = KFold { n_splits: 2 };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 22);
+        let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
         let test_masks = k.test_masks(&x);
 
         for t in &test_masks[0][0..11] {
@@ -261,12 +249,29 @@ mod tests {
     #[test]
     fn run_kfold_return_split_simple() {
         let k = KFold { n_splits: 2 };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 22);
+        let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
         let train_test_splits = k.split(&x);
 
         assert_eq!(train_test_splits[0].1, (0..11).collect::<Vec<usize>>());
         assert_eq!(train_test_splits[0].0, (11..22).collect::<Vec<usize>>());
         assert_eq!(train_test_splits[1].0, (0..11).collect::<Vec<usize>>());
         assert_eq!(train_test_splits[1].1, (11..22).collect::<Vec<usize>>());
+    }
+
+    #[test]
+    fn numpy_parity_test() {
+        let k = KFold { n_splits: 3 };
+        let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
+        let expected: Vec<(Vec<usize>, Vec<usize>)> = vec![
+            (vec![4, 5, 6, 7, 8, 9], vec![0, 1, 2, 3]),
+            (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
+            (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
+        ];
+        for ((train, test), (expected_train, expected_test)) in
+            k.split(&x).into_iter().zip(expected)
+        {
+            assert_eq!(test, expected_test);
+            assert_eq!(train, expected_train);
+        }
     }
 }
