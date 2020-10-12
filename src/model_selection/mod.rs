@@ -148,7 +148,20 @@ impl BaseKFold for KFold {
         return return_values;
     }
 
-    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
+#[test]
+    fn numpy_parity_test() {
+        let k = KFold { n_splits: 3 };
+        let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
+        let expected: Vec<(Vec<usize>, Vec<usize>)> = vec!(
+            (vec!(4, 5, 6, 7, 8, 9), vec!(0, 1, 2, 3)),
+            (vec!(0, 1, 2, 3, 7, 8, 9), vec!(4, 5, 6)),
+            (vec!(0, 1, 2, 3, 4, 5, 6), vec!(7, 8, 9))
+        );
+        for ((train, test), (expected_train, expected_test)) in k.split(&x).into_iter().zip(expected) {
+            assert_eq!(test, expected_test);
+            assert_eq!(train, expected_train);
+        }        
+    }
         let n_samples: usize = x.shape().1;
         let indices: Vec<usize> = (0..n_samples).collect();
 
