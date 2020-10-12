@@ -102,7 +102,7 @@ pub trait BaseKFold {
 /// An implementation of KFold
 ///
 pub struct KFold {
-    n_splits: i32, // cannot exceed std::usize::MAX
+    n_splits: usize, // cannot exceed std::usize::MAX
     shuffle: bool,
     // TODO: to be implemented later
     // random_state: i32,
@@ -111,7 +111,7 @@ pub struct KFold {
 impl Default for KFold {
     fn default() -> KFold {
         KFold {
-            n_splits: 3i32,
+            n_splits: 3 as usize,
             shuffle: true,
         }
     }
@@ -131,15 +131,15 @@ impl BaseKFold for KFold {
             indices.shuffle(&mut thread_rng());
         }
         //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
-        let mut fold_sizes = vec![n_samples / self.n_splits as usize; self.n_splits as usize];
+        let mut fold_sizes = vec![n_samples / self.n_splits; self.n_splits];
 
         // increment by one if odd
-        for i in 0..(n_samples % self.n_splits as usize) {
+        for i in 0..(n_samples % self.n_splits) {
             fold_sizes[i] = fold_sizes[i] + 1;
         }
 
         // generate the right array of arrays for test indices
-        let mut return_values: Vec<Vec<usize>> = Vec::with_capacity(self.n_splits as usize);
+        let mut return_values: Vec<Vec<usize>> = Vec::with_capacity(self.n_splits);
         let mut current: usize = 0;
         for fold_size in fold_sizes.drain(..) {
             let stop = current + fold_size;
@@ -151,7 +151,7 @@ impl BaseKFold for KFold {
     }
 
     fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>> {
-        let mut return_values: Vec<Vec<bool>> = Vec::with_capacity(self.n_splits as usize);
+        let mut return_values: Vec<Vec<bool>> = Vec::with_capacity(self.n_splits);
         for test_index in self.test_indices(x).drain(..) {
             // init mask
             let mut test_mask = vec![false; x.shape().0];
@@ -168,8 +168,7 @@ impl BaseKFold for KFold {
         let n_samples: usize = x.shape().0;
         let indices: Vec<usize> = (0..n_samples).collect();
 
-        let mut return_values: Vec<(Vec<usize>, Vec<usize>)> =
-            Vec::with_capacity(self.n_splits as usize); // TODO: init nested vecs with capacities by getting the length of test_index vecs
+        let mut return_values: Vec<(Vec<usize>, Vec<usize>)> = Vec::with_capacity(self.n_splits); // TODO: init nested vecs with capacities by getting the length of test_index vecs
 
         for test_index in self.test_masks(x).drain(..) {
             let train_index = indices
