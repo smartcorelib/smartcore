@@ -165,7 +165,7 @@ impl BaseKFold for KFold {
             }
             return_values.push(test_mask);
         }
-        return return_values;
+        return_values
     }
 
     fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
