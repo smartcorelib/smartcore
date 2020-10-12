@@ -191,7 +191,7 @@ impl BaseKFold for KFold {
                 .collect::<Vec<usize>>(); // filter tests indices out according to mask
             return_values.push((train_index, test_index))
         }
-        return return_values;
+        return_values
     }
 }
 
