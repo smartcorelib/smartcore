@@ -150,7 +150,6 @@ impl BaseKFold for KFold {
 
     fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
         let n_samples: usize = x.shape().0;
-        println!("{:?}", n_samples);
         let indices: Vec<usize> = (0..n_samples).collect();
 
         let mut return_values: Vec<(Vec<usize>, Vec<usize>)> =
