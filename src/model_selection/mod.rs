@@ -151,7 +151,7 @@ impl BaseKFold for KFold {
         }
 
         let return_values = return_values;
-        return return_values;
+        return_values
     }
 
     fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>> {
