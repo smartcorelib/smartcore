@@ -84,7 +84,7 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
 ///
 /// KFold Cross-Validation
 ///
-trait BaseKFold {
+pub trait BaseKFold {
     /// Returns integer indices corresponding to test sets
     fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>>;
 
