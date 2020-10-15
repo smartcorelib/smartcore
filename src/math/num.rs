@@ -6,10 +6,23 @@ use num_traits::{Float, FromPrimitive};
 use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
-pub trait RealNumber: Float + FromPrimitive + Debug + Display + Copy + Sum + Product {
+pub trait RealNumber:
+    Float
+    + FromPrimitive
+    + Debug
+    + Display
+    + Copy
+    + Sum
+    + Product
+    + AddAssign
+    + SubAssign
+    + MulAssign
+    + DivAssign
+{
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
 

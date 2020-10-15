@@ -85,6 +85,12 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
 
     /// Create new vector of size `len` where each element is set to `value`.
     fn fill(len: usize, value: T) -> Self;
+
+    /// Vector dot product
+    fn dot(&self, other: &Self) -> T;
+
+    /// Returns True if matrices are element-wise equal within a tolerance `error`.
+    fn approximate_eq(&self, other: &Self, error: T) -> bool;
 }
 
 /// Generic matrix type.
@@ -109,6 +115,10 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     /// Get a vector with elements of the `row`'th row
     /// * `row` - row number
     fn get_row_as_vec(&self, row: usize) -> Vec<T>;
+
+    /// Get the `row`'th row
+    /// * `row` - row number
+    fn get_row(&self, row: usize) -> Self::RowVector;
 
     /// Copies a vector with elements of the `row`'th row into `result`
     /// * `row` - row number

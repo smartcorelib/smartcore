@@ -44,6 +44,32 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
     fn fill(len: usize, value: T) -> Self {
         vec![value; len]
     }
+
+    fn dot(&self, other: &Self) -> T {
+        if self.len() != other.len() {
+            panic!("A and B should have the same size");
+        }
+
+        let mut result = T::zero();
+        for i in 0..self.len() {
+            result = result + self[i] * other[i];
+        }
+
+        result
+    }
+
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
+        if self.len() != other.len() {
+            false
+        } else {
+            for i in 0..other.len() {
+                if (self[i] - other[i]).abs() > error {
+                    return false;
+                }
+            }
+            true
+        }
+    }
 }
 
 /// Column-major, dense matrix. See [Simple Dense Matrix](../index.html).
@@ -369,6 +395,16 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             );
         }
         self.values[col * self.nrows + row]
+    }
+
+    fn get_row(&self, row: usize) -> Self::RowVector {
+        let mut v = vec![T::zero(); self.ncols];
+
+        for c in 0..self.ncols {
+            v[c] = self.get(row, c);
+        }
+
+        v
     }
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
@@ -866,6 +902,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn vec_dot() {
+        let v1 = vec![1., 2., 3.];
+        let v2 = vec![4., 5., 6.];
+        assert_eq!(32.0, BaseVector::dot(&v1, &v2));
+    }
+
+    #[test]
+    fn vec_approximate_eq() {
+        let a = vec![1., 2., 3.];
+        let b = vec![1. + 1e-5, 2. + 2e-5, 3. + 3e-5];
+        assert!(a.approximate_eq(&b, 1e-4));
+        assert!(!a.approximate_eq(&b, 1e-5));
+    }
+
+    #[test]
     fn from_array() {
         let vec = [1., 2., 3., 4., 5., 6.];
         assert_eq!(
@@ -937,6 +988,12 @@ mod tests {
         ]);
         let result = a.h_stack(&b);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn get_row() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        assert_eq!(vec![4., 5., 6.], a.get_row(1));
     }
 
     #[test]
