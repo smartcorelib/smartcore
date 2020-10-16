@@ -41,6 +41,9 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
 
     pub fn heapify(&mut self) {
         let n = self.heap.len();
+        if n <= 1 {
+            return;
+        }
         for i in (0..=(n / 2 - 1)).rev() {
             self.sift_down(i, n - 1);
         }

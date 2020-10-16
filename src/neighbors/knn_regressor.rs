@@ -116,9 +116,9 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
             )));
         }
 
-        if parameters.k <= 1 {
+        if parameters.k < 1 {
             return Err(Failed::fit(&format!(
-                "k should be > 1, k=[{}]",
+                "k should be > 0, k=[{}]",
                 parameters.k
             )));
         }
