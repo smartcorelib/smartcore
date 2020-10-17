@@ -57,7 +57,7 @@ use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
 
-impl<T: RealNumber> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
+impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn get(&self, i: usize) -> T {
         self[i]
     }
@@ -84,6 +84,14 @@ impl<T: RealNumber> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn fill(len: usize, value: T) -> Self {
         Array::from_elem(len, value)
     }
+
+    fn dot(&self, other: &Self) -> T {
+        self.dot(other)
+    }
+
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
+        (self - other).iter().all(|v| v.abs() <= error)
+    }
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
@@ -107,6 +115,10 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
         self.row(row).to_vec()
+    }
+
+    fn get_row(&self, row: usize) -> Self::RowVector {
+        self.row(row).to_owned()
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
@@ -438,6 +450,21 @@ mod tests {
     }
 
     #[test]
+    fn vec_dot() {
+        let v1 = arr1(&[1., 2., 3.]);
+        let v2 = arr1(&[4., 5., 6.]);
+        assert_eq!(32.0, BaseVector::dot(&v1, &v2));
+    }
+
+    #[test]
+    fn vec_approximate_eq() {
+        let a = arr1(&[1., 2., 3.]);
+        let noise = arr1(&[1e-5, 2e-5, 3e-5]);
+        assert!(a.approximate_eq(&(&noise + &a), 1e-4));
+        assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
+    }
+
+    #[test]
     fn from_to_row_vec() {
         let vec = arr1(&[1., 2., 3.]);
         assert_eq!(Array2::from_row_vector(vec.clone()), arr2(&[[1., 2., 3.]]));
@@ -676,6 +703,12 @@ mod tests {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         let res = a.get_row_as_vec(1);
         assert_eq!(res, vec![4., 5., 6.]);
+    }
+
+    #[test]
+    fn get_row() {
+        let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        assert_eq!(arr1(&[4., 5., 6.]), a.get_row(1));
     }
 
     #[test]

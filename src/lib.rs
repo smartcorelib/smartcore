@@ -88,5 +88,7 @@ pub mod model_selection;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
 pub(crate) mod optimization;
+/// Support Vector Machines
+pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;

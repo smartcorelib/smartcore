@@ -79,6 +79,20 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
         m.fill(value);
         m
     }
+
+    fn dot(&self, other: &Self) -> T {
+        self.dot(other)
+    }
+
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
+        if self.shape() != other.shape() {
+            false
+        } else {
+            self.iter()
+                .zip(other.iter())
+                .all(|(a, b)| (*a - *b).abs() <= error)
+        }
+    }
 }
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
@@ -100,6 +114,10 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
         self.row(row).iter().map(|v| *v).collect()
+    }
+
+    fn get_row(&self, row: usize) -> Self::RowVector {
+        self.row(row).into_owned()
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
@@ -487,6 +505,21 @@ mod tests {
     }
 
     #[test]
+    fn vec_dot() {
+        let v1 = RowDVector::from_vec(vec![1., 2., 3.]);
+        let v2 = RowDVector::from_vec(vec![4., 5., 6.]);
+        assert_eq!(32.0, BaseVector::dot(&v1, &v2));
+    }
+
+    #[test]
+    fn vec_approximate_eq() {
+        let a = RowDVector::from_vec(vec![1., 2., 3.]);
+        let noise = RowDVector::from_vec(vec![1e-5, 2e-5, 3e-5]);
+        assert!(a.approximate_eq(&(&noise + &a), 1e-4));
+        assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
+    }
+
+    #[test]
     fn get_set_dynamic() {
         let mut m = DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
 
@@ -577,6 +610,12 @@ mod tests {
 
         assert_eq!(m.get_row_as_vec(1), vec!(4., 5., 6.));
         assert_eq!(m.get_col_as_vec(1), vec!(2., 5., 8.));
+    }
+
+    #[test]
+    fn get_row() {
+        let a = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+        assert_eq!(RowDVector::from_vec(vec![4., 5., 6.]), a.get_row(1));
     }
 
     #[test]
