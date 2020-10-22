@@ -1,6 +1,7 @@
 //! # Support Vector Machines
 //!
 
+pub mod svc;
 pub mod svr;
 
 use serde::{Deserialize, Serialize};
