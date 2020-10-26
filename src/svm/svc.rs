@@ -462,7 +462,12 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         range
     }
 
-    fn select_pair(&mut self, idx_1: Option<usize>, idx_2: Option<usize>, cache: &mut Cache<T, M, K>) -> Option<(usize, usize, T)> {
+    fn select_pair(
+        &mut self,
+        idx_1: Option<usize>,
+        idx_2: Option<usize>,
+        cache: &mut Cache<T, M, K>,
+    ) -> Option<(usize, usize, T)> {
         let mut idx_1 = idx_1;
         let mut idx_2 = idx_2;
 
@@ -526,15 +531,14 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     }
                 }
             }
-        }        
+        }
 
         if idx_1.is_none() || idx_2.is_none() {
             None
         } else {
-
             let idx_1 = idx_1.unwrap();
             let idx_2 = idx_2.unwrap();
-        
+
             if k_v_12.is_none() {
                 k_v_12 = Some(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x));
             }
@@ -550,7 +554,6 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         tol: T,
         cache: &mut Cache<T, M, K>,
     ) -> bool {
-        
         match self.select_pair(idx_1, idx_2, cache) {
             Some((idx_1, idx_2, k_v_12)) => {
                 let mut curv = self.sv[idx_1].k + self.sv[idx_2].k - T::two() * k_v_12;
@@ -583,10 +586,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 self.update(idx_1, idx_2, step, cache);
 
                 return self.gmax - self.gmin > tol;
-            },
-            None => false
-        }        
-        
+            }
+            None => false,
+        }
     }
 
     fn update(&mut self, v1: usize, v2: usize, step: T, cache: &mut Cache<T, M, K>) {
