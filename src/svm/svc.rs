@@ -468,19 +468,18 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         idx_2: Option<usize>,
         cache: &mut Cache<T, M, K>,
     ) -> Option<(usize, usize, T)> {
-        
         match (idx_1, idx_2) {
             (None, None) => {
                 if self.gmax > -self.gmin {
                     self.select_pair(None, Some(self.svmax), cache)
                 } else {
                     self.select_pair(Some(self.svmin), None, cache)
-                }                
-            },
+                }
+            }
             (Some(idx_1), None) => {
-                let sv1 = &self.sv[idx_1];  
+                let sv1 = &self.sv[idx_1];
                 let mut idx_2 = None;
-                let mut k_v_12 = None;            
+                let mut k_v_12 = None;
                 let km = sv1.k;
                 let gm = sv1.grad;
                 let mut best = T::zero();
@@ -493,7 +492,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                         curv = self.tau;
                     }
                     let mu = z / curv;
-                    if (mu > T::zero() && v.alpha < v.cmax) || (mu < T::zero() && v.alpha > v.cmin) {
+                    if (mu > T::zero() && v.alpha < v.cmax) || (mu < T::zero() && v.alpha > v.cmin)
+                    {
                         let gain = z * mu;
                         if gain > best {
                             best = gain;
@@ -503,10 +503,14 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     }
                 }
 
-                idx_2.map(|idx_2| {                            
-                    (idx_1, idx_2, k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)))
-                })               
-            },
+                idx_2.map(|idx_2| {
+                    (
+                        idx_1,
+                        idx_2,
+                        k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)),
+                    )
+                })
+            }
             (None, Some(idx_2)) => {
                 let mut idx_1 = None;
                 let sv2 = &self.sv[idx_2];
@@ -524,7 +528,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     }
 
                     let mu = z / curv;
-                    if (mu > T::zero() && v.alpha > v.cmin) || (mu < T::zero() && v.alpha < v.cmax) {
+                    if (mu > T::zero() && v.alpha > v.cmin) || (mu < T::zero() && v.alpha < v.cmax)
+                    {
                         let gain = z * mu;
                         if gain > best {
                             best = gain;
@@ -534,15 +539,20 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     }
                 }
 
-                idx_1.map(|idx_1| {                            
-                    (idx_1, idx_2, k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)))
+                idx_1.map(|idx_1| {
+                    (
+                        idx_1,
+                        idx_2,
+                        k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)),
+                    )
                 })
-            },
-            (Some(idx_1), Some(idx_2)) => {
-                Some((idx_1, idx_2, self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)))
             }
+            (Some(idx_1), Some(idx_2)) => Some((
+                idx_1,
+                idx_2,
+                self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x),
+            )),
         }
-        
     }
 
     fn smo(
