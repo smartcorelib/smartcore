@@ -1,10 +1,10 @@
 //! #  Agglomerative hierarchical clustering
-//! 
+//!
 //! ## Definition
 //! SAHN (sequential, agglomerative, hierarchic, nonoverlapping methods)
 //!
 //! as defined in https://arxiv.org/pdf/1109.2378.pdf **by Müllner, 2011**
-//! 
+//!
 //! > Agglomerative clustering schemes start from the partition of
 //! > the data set into singleton nodes and merge step by step the current pair of mutually closest
 //! > nodes into a new node until there is one final node left, which comprises the entire data set.
@@ -12,21 +12,39 @@
 //! > in which the measure of inter-cluster dissimilarity is updated after each step. The seven most
 //! > common methods are termed single, complete, average (UPGMA), weighted (WPGMA, McQuitty), Ward,
 //! > centroid (UPGMC) and median (WPGMC) linkage.
-//! 
+//!
 //! ## Algorithms:
+//!
+//! ### Mentioned by Müllner, 2011
+//! Algorithms specified and tested by
 //! > The specific class of clustering algorithms which is dealt with in this paper has been
 //! > characterized by the acronym SAHN (sequential, agglomerative, hierarchic, nonoverlapping methods)"
-//! 
+//!
 //! * (availalbe in ver. 0.2) `PRIMITIVE_CLUSTERING`, as in Fig.1 in Müllner, 2011
 //! * `GENERIC_LINKAGE` Anderberg, 1973 and later improvements
 //! * `NN_CHAIN_LINKAGE` Murtagh, 1985 and later improvements
 //! * (to be implemented) MST-linkage` (The single linkage algorithm, aka fastcluster), as in Fig.6 in Müllner, 2011
-//! 
+//!
 //! `MST-linkage` is an implmenetation of `MST-linkage-core` plus two post-processing steps:
 //! * Sort by distance
 //! * LABEL (aka union-find), as in Fig.5 in Müllner, 2011
-//! 
-//! 
+//!
+//! ### Mentioned by Eppstein, 2000
+//! More generic algorithms for **Closest Pair Data Structures**.
+//! As listed in <https://www.ics.uci.edu/~eppstein/projects/pairs/Methods/>. among others:
+//!
+//! > Conga line. We partition the objects into O(log n) subsets and maintain a graph in each subset, such
+//! > that the closest pair is guaranteed to correspond to an edge in the graph. Each insertion creates a
+//! > new subset for the new object; each deletion may move an object from each existing subset to a new subset.
+//! > In each case, if necessary some pair of subsets is merged to maintain the desired number of subsets.
+//! > Amortized time per insertion is O(Q log n); amortized time per deletion is O(Q log2 n). Space is linear.
+//!
+//! > FastPair. We further simplify conga lines by making separate singleton subsets for the objects moved to
+//! > new subsets by a deletion. This can alternately be viewed as a modification to the neighbor heuristic, in
+//! > which the initial construction of all nearest neighbors is replaced by a conga line computation, and in
+//! > which each insertion does not update previously computed neighbors. Its time both theoretically and in practice
+//! > is qualitatively similar to the neighbor heuristic, but it typically runs 30% or so faster.
+//!
 //! Example:
 //!
 //! ```
@@ -57,70 +75,61 @@
 //!            &[5.2, 2.7, 3.9, 1.4],
 //!            ]);
 //!
-//! let primitive_clustering = PrimitiveClustering::fit(&x, 2, Default::default()).unwrap(); // Fit to data, 2 clusters
+//! // Fit to data, with a threshold
+//! let cluster = FastPair::fit(&x, 2.503, Default::default()).unwrap();
+//! // return the dendrogram
+//! let labels = cluster.labels()
 //!
 use std::cmp;
-use crate::math::num::RealNumber;
-use smartcore::math::distance::euclidian::Euclidian;
+use std::collections::LinkedList;
 
+use crate::math::num::RealNumber;
+use crate::math::distance::euclidian::Euclidian;
 
 pub trait SAHNClustering<T: RealNumber> {
-  pub fn fit<M: Matrix<T>>(
-    data: &M,
-    k: usize,
-  ) -> Result<ClusterResult<T>, Failed>;
+    //
+    // Aggregate the data according to given distance threshold
+    //
+    fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Self;
+
+    //
+    // Return the dendrogram to be used
+    //
+    fn labels(&self) -> ClusterLabels<T>;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct PrimitiveClustering {}
+struct FastPair<T: RealNumber> {}
 
-impl PrimitiveClustering {
-  fn compute(&self) ->  {
-    // 1: procedure Primitive_clustering(S, d) . S: node labels, d: pairwise dissimilarities
-    // 2: N ← |S| . Number of input nodes
-    // 3: L ← [ ] . Output list
-    // 4: size[x] ← 1 for all x ∈ S
-    // 5: for i ← 0, . . . , N − 2 do
-    // 6: (a, b) ← argmin(S×S)\∆ d
-    // 7: Append (a, b, d[a, b]) to L.
-    // 8: S ← S \ {a, b}
-    // 9: Create a new node label n /∈ S.
-    // 10: Update d with the information
-    // d[n, x] = d[x, n] = Formula(d[a, x], d[b, x], d[a, b], size[a], size[b], size[x])
-    // for all x ∈ S.
-    // 11: size[n] ← size[a] + size[b]
-    // 12: S ← S ∪ {n}
-    // 13: end for
-    // 14: return L . the stepwise dendrogram, an ((N − 1) × 3)-matrix
-    // 15: end procedure
-    // (As usual, ∆ denotes the diagonal in the Cartesian product S × S.)
-  }
+impl FastPair<T: RealNumber> {
+    // https://github.com/carsonfarmer/fastpair/blob/master/fastpair/base.py
 }
 
 ///
 /// An implementation of `PRIMITIVE_CLUSTERING`
 ///
-impl SAHNClustering for PrimitiveClustering {
-
+impl SAHNClustering for FastPair {
+    fn labels(&self) -> ClusterLabels<T> {
+        // ...
+    }
 }
-
 
 ///
 /// The triple defined as (observation_1, observation_2, distance).
-/// This defines the type for the elements of the list that 
+/// This defines the type for the elements of the list that
 ///   represents the Stepwise Dendrogram (Müllner, 2011)
-/// 
+///
 #[derive(Debug)]
-struct PairwiseDissimilarity<'a> {
-    node1: Vec<RealNumber>;
-    node2: Vec<RealNumber>;
-    distance: f32;
-    position: usize;
-};
+struct PairwiseDissimilarity<T: RealNumber> {
+    node1: Vec<RealNumber>,
+    node2: Vec<RealNumber>,
+    distance: T,
+    position: usize,
+}
 
 ///
 /// Compare distance
-/// 
+///
 impl Ord for PairwiseDissimilarity {
     fn cmp(&self, other: &Self) -> Ordering {
         self.distance.cmp(&other.distance)
@@ -142,52 +151,66 @@ impl PartialEq for PairwiseDissimilarity {
 ///
 /// Distance update formulas
 /// Formula for d(I ∪ J, K)  as in Fig.2 in Müllner, 2011
-/// 
-impl PairwiseDissimilarity<'a> {
-  fn single_euclidian(&self, I: &Vec<f32>, J: &Vec<f32>, K: &Vec<f32>) {
-    // min(d(I, K), d(J, K))
-    cmp::min(Euclidian {}.distance(I, K), Euclidian {}.distance(J, K))
-  }
+///
+impl PairwiseDissimilarity<T: RealNumber> {
+    fn single_euclidian(&self, I: &Vec<T>, J: &Vec<T>, K: &Vec<T>) {
+        // min(d(I, K), d(J, K))
+        cmp::min(Euclidian {}.distance(I, K), Euclidian {}.distance(J, K))
+    }
 
-  fn complete_euclidian(&self, I: &Vec<f32>, J: &Vec<f32>, K: &Vec<f32>) {
-    // max(d(I, K), d(J, K))
-    cmp::max(Euclidian {}.distance(I, K), Euclidian {}.distance(J, K))
-  }
+    fn complete_euclidian(&self, I: &Vec<T>, J: &Vec<T>, K: &Vec<T>) {
+        // max(d(I, K), d(J, K))
+        cmp::max(Euclidian {}.distance(I, K), Euclidian {}.distance(J, K))
+    }
 
-  // ...
+    // ...
 }
 
 ///
-/// Struct to hold result of linkage and clustering
-/// 
+/// Struct (dendrogram) to hold result of linkage and clustering
+///
 /// > The term 'dendrogram' has been used with three different
 /// > meanings: a mathematical object, a data structure and
 /// > a graphical representation of the former two. In the course of this section, we
 /// > define a data structure and call it 'stepwise dendrogram'.
-/// 
-/// Rust implementation: see options at <https://stackoverflow.com/a/40897053/2536357>
-pub struct ClusterResult<'a> {
-    Z: mut Vec<Box<PairwiseDissimilarity<'a`>>>;  // list of nodes in clustering process
-    current: Option<usize>;  // used to read as a doubly linked list
+///
+/// Use `std::collections::LinkedList`
+pub struct ClusterLabels {
+    Z: LinkedList<Box<PairwiseDissimilarity>>, // list of nodes in clustering process
+    current: Option<usize>,                    // used to read as a doubly linked list
 }
 
-impl ClusterResult {
+impl ClusterLabels<T: RealNumber> {
     pub fn new(&self, size: usize) -> Self {
-        Self { Z: Vec::with_capacity(size), current: None }
+        let mut z = LinkedList::with_capacity(size);
+        Self {
+            Z: z,
+            current: None,
+        }
     }
     // add a node to the dendrogram
-    pub fn append(node1: PairwiseDissimilarity, node2: PairwiseDissimilarity, dist: f32) -> () {
-        let idx = Z.len()
+    pub fn append(node1: PairwiseDissimilarity, node2: PairwiseDissimilarity, dist: T) -> () {
+        let idx = Z.len();
         let node: Box<PairwiseDissimilarity> = Box::new(PairwiseDissimilarity {
             node1: node1,
             node2: node2,
             distance: dist,
-            position: idx 
+            position: idx,
         });
         self.Z.push(node);
     }
 
-    // Methods for distances post-processing. 
+    //
+    // Return list of labels according to number of desired clusters
+    //
+    pub fn labels_by_k(k: usize) {}
+
+    //
+    // Return list of labels by distance threshold
+    //
+    pub fn labels_by_threshold(threshold: T) {}
+
+    // Methods for distances post-processing.
     // All of those have to be monotone or the ordering will change
     pub fn sqrt() -> () {
         for node in self.Z {
@@ -199,21 +222,20 @@ impl ClusterResult {
             *(node).distance = 2 * (*(node).distance.sqrt());
         }
     }
-    pub fn power(exp: f32) -> () {
-        let inv: f32 = 1 / exp;
+    pub fn power(exp: RealNumber) -> () {
+        let inv: RealNumber = 1 / exp;
         for node in self.Z {
             *(node).distance = *(node).distance.powf(inv);
-        }        
+        }
     }
     pub fn plusone() -> () {
         for node in self.Z {
             *(node).distance += 1;
-        }   
+        }
     }
-    pub fn divide(denom: f32) -> () {
+    pub fn divide(denom: RealNumber) -> () {
         for node in self.Z {
             *(node).distance = *(node).distance / denom;
-        }   
+        }
     }
 }
-
