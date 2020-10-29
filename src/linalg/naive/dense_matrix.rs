@@ -58,6 +58,96 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
         result
     }
 
+    fn norm2(&self) -> T {
+        let mut norm = T::zero();
+
+        for xi in self.iter() {
+            norm = norm + *xi * *xi;
+        }
+
+        norm.sqrt()
+    }
+
+    fn norm(&self, p: T) -> T {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iter()
+                .map(|x| x.abs())
+                .fold(T::neg_infinity(), |a, b| a.max(b))
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iter()
+                .map(|x| x.abs())
+                .fold(T::infinity(), |a, b| a.min(b))
+        } else {
+            let mut norm = T::zero();
+
+            for xi in self.iter() {
+                norm = norm + xi.abs().powf(p);
+            }
+
+            norm.powf(T::one() / p)
+        }
+    }
+
+    fn div_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] / x;
+    }
+
+    fn mul_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] * x;
+    }
+
+    fn add_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] + x
+    }
+
+    fn sub_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] - x;
+    }
+
+    fn add_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.add_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.sub_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.mul_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.div_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
     fn approximate_eq(&self, other: &Self, error: T) -> bool {
         if self.len() != other.len() {
             false
@@ -69,6 +159,21 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
             }
             true
         }
+    }
+
+    fn sum(&self) -> T {
+        let mut sum = T::zero();
+        for i in 0..self.len() {
+            sum = sum + self[i];
+        }
+        sum
+    }
+
+    fn unique(&self) -> Vec<T> {
+        let mut result = self.clone();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
     }
 }
 

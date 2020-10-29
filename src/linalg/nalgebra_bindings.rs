@@ -84,6 +84,76 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
         self.dot(other)
     }
 
+    fn norm2(&self) -> T {
+        self.iter().map(|x| *x * *x).sum::<T>().sqrt()
+    }
+
+    fn norm(&self, p: T) -> T {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iter().fold(T::neg_infinity(), |f, &val| {
+                let v = val.abs();
+                if f > v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iter().fold(T::infinity(), |f, &val| {
+                let v = val.abs();
+                if f < v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else {
+            let mut norm = T::zero();
+
+            for xi in self.iter() {
+                norm = norm + xi.abs().powf(p);
+            }
+
+            norm.powf(T::one() / p)
+        }
+    }
+
+    fn div_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() / x;
+    }
+
+    fn mul_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() * x;
+    }
+
+    fn add_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() + x;
+    }
+
+    fn sub_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() - x;
+    }
+
+    fn add_mut(&mut self, other: &Self) -> &Self {
+        *self += other;
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        *self -= other;
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        self.component_mul_assign(other);
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        self.component_div_assign(other);
+        self
+    }
+
     fn approximate_eq(&self, other: &Self, error: T) -> bool {
         if self.shape() != other.shape() {
             false
@@ -92,6 +162,21 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
                 .zip(other.iter())
                 .all(|(a, b)| (*a - *b).abs() <= error)
         }
+    }
+
+    fn sum(&self) -> T {
+        let mut sum = T::zero();
+        for v in self.iter() {
+            sum += *v;
+        }
+        sum
+    }
+
+    fn unique(&self) -> Vec<T> {
+        let mut result: Vec<T> = self.iter().map(|v| *v).collect();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
     }
 }
 
