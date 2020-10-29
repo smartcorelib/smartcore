@@ -79,7 +79,7 @@ impl Kernels {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LinearKernel {}
 
-/// Radial basis function (Gaussian) kernel 
+/// Radial basis function (Gaussian) kernel
 pub struct RBFKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,

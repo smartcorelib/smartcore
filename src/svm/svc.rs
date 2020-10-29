@@ -155,7 +155,8 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
 
         if classes.len() != 2 {
             return Err(Failed::fit(&format!(
-                "Incorrect number of classes {}", classes.len()
+                "Incorrect number of classes {}",
+                classes.len()
             )));
         }
 
@@ -166,7 +167,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
             if y_v != -T::one() || y_v != T::one() {
                 match y_v == classes[0] {
                     true => y.set(i, -T::one()),
-                    false => y.set(i, T::one())
+                    false => y.set(i, T::one()),
                 }
             }
         }
@@ -194,7 +195,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         for i in 0..n {
             let cls_idx = match self.predict_for_row(x.get_row(i)) == T::one() {
                 false => self.classes[0],
-                true => self.classes[1]
+                true => self.classes[1],
             };
             y_hat.set(i, cls_idx);
         }
@@ -720,7 +721,8 @@ mod tests {
         ]);
 
         let y: Vec<f64> = vec![
-            -1., -1., -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+            -1., -1., -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+            1.,
         ];
 
         let y_hat = SVC::fit(
@@ -734,7 +736,7 @@ mod tests {
             },
         )
         .and_then(|lr| lr.predict(&x))
-        .unwrap();        
+        .unwrap();
 
         assert!(accuracy(&y_hat, &y) >= 0.9);
     }
