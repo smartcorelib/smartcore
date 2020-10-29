@@ -80,17 +80,19 @@
 //! // return the dendrogram
 //! let labels = cluster.labels()
 //!
-use std::cmp;
 use std::collections::LinkedList;
 
+// use serde::{Deserialize, Serialize};
+use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::math::distance::euclidian::Euclidian;
+use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
+use crate::algorithm::neighbour::fastpair::FastPair;
 
-pub trait SAHNClustering<T: RealNumber> {
+pub trait SAHNClustering<'a, T: RealNumber, M: Matrix<T>> {
     //
     // Aggregate the data according to given distance threshold
     //
-    fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Self;
+    fn fit(data: &'a M, threshold: T) -> Self;
 
     //
     // Return the dendrogram to be used
@@ -98,144 +100,87 @@ pub trait SAHNClustering<T: RealNumber> {
     fn labels(&self) -> ClusterLabels<T>;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct FastPair<T: RealNumber> {}
+///
+/// An implementation for `FastPair`
+///
+// impl<'a, T: RealNumber, M: Matrix<T>> SAHNClustering<'a, T, M> for FastPair<'a, T, M> {
+//     fn labels(&self) -> () {
+//         // ...
+//         ()
+//     }
+// }
 
-impl FastPair<T: RealNumber> {
-    // https://github.com/carsonfarmer/fastpair/blob/master/fastpair/base.py
-}
 
-///
-/// An implementation of `PRIMITIVE_CLUSTERING`
-///
-impl SAHNClustering for FastPair {
-    fn labels(&self) -> ClusterLabels<T> {
-        // ...
-    }
-}
-
-///
-/// The triple defined as (observation_1, observation_2, distance).
-/// This defines the type for the elements of the list that
-///   represents the Stepwise Dendrogram (Müllner, 2011)
-///
-#[derive(Debug)]
-struct PairwiseDissimilarity<T: RealNumber> {
-    node1: Vec<RealNumber>,
-    node2: Vec<RealNumber>,
-    distance: T,
-    position: usize,
-}
-
-///
-/// Compare distance
-///
-impl Ord for PairwiseDissimilarity {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.distance.cmp(&other.distance)
-    }
-}
-
-impl PartialOrd for PairwiseDissimilarity {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for PairwiseDissimilarity {
-    fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance
-    }
-}
-
-///
-/// Distance update formulas
-/// Formula for d(I ∪ J, K)  as in Fig.2 in Müllner, 2011
-///
-impl PairwiseDissimilarity<T: RealNumber> {
-    fn single_euclidian(&self, I: &Vec<T>, J: &Vec<T>, K: &Vec<T>) {
-        // min(d(I, K), d(J, K))
-        cmp::min(Euclidian {}.distance(I, K), Euclidian {}.distance(J, K))
-    }
-
-    fn complete_euclidian(&self, I: &Vec<T>, J: &Vec<T>, K: &Vec<T>) {
-        // max(d(I, K), d(J, K))
-        cmp::max(Euclidian {}.distance(I, K), Euclidian {}.distance(J, K))
-    }
-
-    // ...
-}
-
-///
-/// Struct (dendrogram) to hold result of linkage and clustering
-///
-/// > The term 'dendrogram' has been used with three different
-/// > meanings: a mathematical object, a data structure and
-/// > a graphical representation of the former two. In the course of this section, we
-/// > define a data structure and call it 'stepwise dendrogram'.
-///
-/// Use `std::collections::LinkedList`
-pub struct ClusterLabels {
-    Z: LinkedList<Box<PairwiseDissimilarity>>, // list of nodes in clustering process
+// ///
+// /// Struct (dendrogram) to hold result of linkage and clustering
+// ///
+// /// > The term 'dendrogram' has been used with three different
+// /// > meanings: a mathematical object, a data structure and
+// /// > a graphical representation of the former two. In the course of this section, we
+// /// > define a data structure and call it 'stepwise dendrogram'.
+// ///
+// /// Use `std::collections::LinkedList`
+pub struct ClusterLabels<T: RealNumber> {
+    Z: LinkedList<Box<PairwiseDissimilarity<T>>>, // list of nodes in clustering process
     current: Option<usize>,                    // used to read as a doubly linked list
 }
 
-impl ClusterLabels<T: RealNumber> {
-    pub fn new(&self, size: usize) -> Self {
-        let mut z = LinkedList::with_capacity(size);
-        Self {
-            Z: z,
-            current: None,
-        }
-    }
-    // add a node to the dendrogram
-    pub fn append(node1: PairwiseDissimilarity, node2: PairwiseDissimilarity, dist: T) -> () {
-        let idx = Z.len();
-        let node: Box<PairwiseDissimilarity> = Box::new(PairwiseDissimilarity {
-            node1: node1,
-            node2: node2,
-            distance: dist,
-            position: idx,
-        });
-        self.Z.push(node);
-    }
+// impl ClusterLabels<T: RealNumber> {
+//     pub fn new(&self, size: usize) -> Self {
+//         let mut z = LinkedList::with_capacity(size);
+//         Self {
+//             Z: z,
+//             current: None,
+//         }
+//     }
+//     // add a node to the dendrogram
+//     pub fn append(node1: PairwiseDissimilarity, node2: PairwiseDissimilarity, dist: T) -> () {
+//         let idx = Z.len();
+//         let node: Box<PairwiseDissimilarity> = Box::new(PairwiseDissimilarity {
+//             node1: node1,
+//             node2: node2,
+//             distance: dist,
+//             position: idx,
+//         });
+//         self.Z.push(node);
+//     }
 
-    //
-    // Return list of labels according to number of desired clusters
-    //
-    pub fn labels_by_k(k: usize) {}
+//     //
+//     // Return list of labels according to number of desired clusters
+//     //
+//     pub fn labels_by_k(k: usize) {}
 
-    //
-    // Return list of labels by distance threshold
-    //
-    pub fn labels_by_threshold(threshold: T) {}
+//     //
+//     // Return list of labels by distance threshold
+//     //
+//     pub fn labels_by_threshold(threshold: T) {}
 
-    // Methods for distances post-processing.
-    // All of those have to be monotone or the ordering will change
-    pub fn sqrt() -> () {
-        for node in self.Z {
-            *(node).distance = *(node).distance.sqrt();
-        }
-    }
-    pub fn sqrt_double() -> () {
-        for node in self.Z {
-            *(node).distance = 2 * (*(node).distance.sqrt());
-        }
-    }
-    pub fn power(exp: RealNumber) -> () {
-        let inv: RealNumber = 1 / exp;
-        for node in self.Z {
-            *(node).distance = *(node).distance.powf(inv);
-        }
-    }
-    pub fn plusone() -> () {
-        for node in self.Z {
-            *(node).distance += 1;
-        }
-    }
-    pub fn divide(denom: RealNumber) -> () {
-        for node in self.Z {
-            *(node).distance = *(node).distance / denom;
-        }
-    }
-}
+//     // Methods for distances post-processing.
+//     // All of those have to be monotone or the ordering will change
+//     pub fn sqrt() -> () {
+//         for node in self.Z {
+//             *(node).distance = *(node).distance.sqrt();
+//         }
+//     }
+//     pub fn sqrt_double() -> () {
+//         for node in self.Z {
+//             *(node).distance = 2 * (*(node).distance.sqrt());
+//         }
+//     }
+//     pub fn power(exp: RealNumber) -> () {
+//         let inv: RealNumber = 1 / exp;
+//         for node in self.Z {
+//             *(node).distance = *(node).distance.powf(inv);
+//         }
+//     }
+//     pub fn plusone() -> () {
+//         for node in self.Z {
+//             *(node).distance += 1;
+//         }
+//     }
+//     pub fn divide(denom: RealNumber) -> () {
+//         for node in self.Z {
+//             *(node).distance = *(node).distance / denom;
+//         }
+//     }
+// }
