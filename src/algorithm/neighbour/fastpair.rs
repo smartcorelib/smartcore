@@ -24,6 +24,7 @@ pub struct FastPair<'a, T: RealNumber, M: Matrix<T>> {
 impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
     fn new(&self, m: &'a M) {
         // Go through and find all neighbors, placing then in a conga line
+        self.samples = m;
         let mut neighbours = Box::new(HashMap::with_capacity(self.samples.shape().0));
         let mut nodes      = Box::new(Vec::with_capacity(self.samples.shape().0));
 
@@ -54,8 +55,8 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
             let nbr = i + 1;
             let nbd: Option<T> = None;
             for j in (i+1)..last_idx {
-                let row_i = &(m.get_row_as_vec(i));
-                let row_j = &(m.get_row_as_vec(j));
+                let row_i = &(self.samples.get_row_as_vec(i));
+                let row_j = &(self.samples.get_row_as_vec(j));
 
                 let d = Euclidian::squared_distance(row_i, row_j);
                 if nbd.is_none() || d < nbd.unwrap() {
@@ -82,6 +83,36 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
         self.neighbours = Box::new(*neighbours);
         self.nodes = Box::new(*nodes);
     }
+
+    // Find and update nearest neighbor of a given point.
+    fn find_neighbour(&self, node: usize) -> &PairwiseDissimilarity<T> {
+        // Find first point unequal to `node` itself
+        let first_nbr = 0;
+        if node == (*self.nodes)[first_nbr].node {
+            first_nbr = 1;
+        }
+        self.neighbours[&node].neighbour = Some((*self.nodes)[first_nbr].node);
+        self.neighbours[&node].distance = Some(Euclidian::squared_distance(
+            &(self.samples.get_row_as_vec(node)),
+            &(self.samples.get_row_as_vec(self.neighbours[&node].neighbour.unwrap()))
+        ));
+        // Now test whether each other point is closer
+        for &q in self.nodes[first_nbr+1..(self.samples.shape().0 - 1)].iter().clone() {
+            if node != q.node {
+                let d = Euclidian::squared_distance(
+                    &(self.samples.get_row_as_vec(node)),
+                    &(self.samples.get_row_as_vec(q.node))
+                );
+                if d < self.neighbours[&node].distance.unwrap() {
+                    self.neighbours[&node].distance = Some(d);
+                    self.neighbours[&node].neighbour = Some(q.node);
+                }
+            }
+        }
+
+        return &(*self.neighbours)[&node]
+    }
+
 }
 
 
