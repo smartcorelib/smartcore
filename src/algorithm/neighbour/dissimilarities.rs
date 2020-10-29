@@ -32,11 +32,14 @@ pub(crate) struct PairwiseDissimilarity<T: RealNumber> {
 }
 
 ///
-/// Compare distance
+/// Compare `PairwiseDissimilarity`s by distance
 ///
 impl<T: RealNumber> Eq for PairwiseDissimilarity<T> {}
 
 impl<T: RealNumber> Ord for PairwiseDissimilarity<T> {
+    //
+    // None is MAX_DISTANCE
+    //
     fn cmp(&self, other: &Self) -> Ordering {
         if self.distance.is_none() {
            Ordering::Greater
