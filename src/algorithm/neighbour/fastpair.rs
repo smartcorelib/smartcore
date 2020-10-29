@@ -16,20 +16,29 @@ use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 /// <https://github.com/carsonfarmer/fastpair/blob/b8b4d3000ab6f795a878936667eee1b557bf353d/fastpair/base.py>
 #[derive(Debug)]
 pub struct FastPair<'a, T: RealNumber, M: Matrix<T>> {
+    /// initial matrix
     samples: &'a M,
+    /// closest pair hashmap:
+    /// * K: row number
+    /// * V: pairwise dissimilarity with closest neighbour
     neighbours: Box<HashMap<&'a usize, PairwiseDissimilarity<T>>>,
+    /// conga line used to compute the closest pair
     nodes: Box<Vec<PairwiseDissimilarity<T>>>
 }
 
 impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
+    ///
+    /// Initialise `FastPair` by passing a `Matrix`
+    /// 
     fn new(&self, m: &'a M) {
-        // Go through and find all neighbors, placing then in a conga line
+        // Go through and find all neighbors, placing them in a conga line
         self.samples = m;
         let mut neighbours = Box::new(HashMap::with_capacity(self.samples.shape().0));
         let mut nodes      = Box::new(Vec::with_capacity(self.samples.shape().0));
 
         let last_idx = self.samples.shape().0 - 1;
-        // initilize nodes list
+        // initilize conga list
+        // note: this could be removed by implementing upsert for conga line?
         for k in 0..last_idx {
             (*nodes).push(
                 PairwiseDissimilarity {
@@ -68,6 +77,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
             neighbours[&i].distance = nbd;
             neighbours[&i].neighbour = Some((*nodes)[nbr].node);
             (*nodes)[nbr] = (*nodes)[i+1];
+            // update next in line
             (*nodes)[i+1] = PairwiseDissimilarity {
                 node: neighbours[&i].neighbour.unwrap(),
                 neighbour: None,
@@ -111,6 +121,27 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
         }
 
         return &(*self.neighbours)[&node]
+    }
+
+    // Compute distances from input to all other points in data-structure.
+    // input is the row index of the sample matrix
+    fn distances_from(&self, row: usize) -> Vec<PairwiseDissimilarity<T>> {
+        let distances = Vec::<PairwiseDissimilarity<T>>::with_capacity(self.samples.shape().0);
+        for other in self.nodes.iter() {
+            if row != (*other).node {
+                distances.push(
+                    PairwiseDissimilarity {
+                        node: row,
+                        neighbour: Some((*other).node),
+                        distance: Some(Euclidian::squared_distance(
+                            &(self.samples.get_row_as_vec(row)),
+                            &(self.samples.get_row_as_vec((*other).node))
+                        ))
+                    }
+                )
+            }
+        }
+        distances
     }
 
 }
