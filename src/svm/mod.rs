@@ -1,20 +1,20 @@
 //! # Support Vector Machines
-//! 
-//! Support Vector Machines (SVM) is one of the most performant off-the-shelf machine learning algorithms. 
+//!
+//! Support Vector Machines (SVM) is one of the most performant off-the-shelf machine learning algorithms.
 //! SVM is based on the [Vapnik–Chervonenkiy theory](https://en.wikipedia.org/wiki/Vapnik%E2%80%93Chervonenkis_theory) that was developed during 1960–1990 by Vladimir Vapnik and Alexey Chervonenkiy.
-//! 
-//! SVM splits data into two sets using a maximal-margin decision boundary, \\(f(x)\\). For regression, the algorithm uses a value of the function \\(f(x)\\) to predict a target value. 
+//!
+//! SVM splits data into two sets using a maximal-margin decision boundary, \\(f(x)\\). For regression, the algorithm uses a value of the function \\(f(x)\\) to predict a target value.
 //! To classify a new point, algorithm calculates a sign of the decision function to see where the new point is relative to the boundary.
-//! 
+//!
 //! SVM is memory efficient since it uses only a subset of training data to find a decision boundary. This subset is called support vectors.
-//! 
-//! In SVM distance between a data point and the support vectors is defined by the kernel function. 
-//! SmartCore supports multiple kernel functions but you can always define a new kernel function by implementing the `Kernel` trait. Not all functions can be a kernel. 
-//! Building a new kernel requires a good mathematical understanding of the [Mercer theorem](https://en.wikipedia.org/wiki/Mercer%27s_theorem) 
+//!
+//! In SVM distance between a data point and the support vectors is defined by the kernel function.
+//! SmartCore supports multiple kernel functions but you can always define a new kernel function by implementing the `Kernel` trait. Not all functions can be a kernel.
+//! Building a new kernel requires a good mathematical understanding of the [Mercer theorem](https://en.wikipedia.org/wiki/Mercer%27s_theorem)
 //! that gives necessary and sufficient condition for a function to be a kernel function.
-//! 
+//!
 //! Pre-defined kernel functions:
-//! 
+//!
 //! * *Linear*, \\( K(x, x') = \langle x, x' \rangle\\)
 //! * *Polynomial*, \\( K(x, x') = (\gamma\langle x, x' \rangle + r)^d\\), where \\(d\\) is polynomial degree, \\(\gamma\\) is a kernel coefficient and \\(r\\) is an independent term in the kernel function.
 //! * *RBF (Gaussian)*, \\( K(x, x') = e^{-\gamma \lVert x - x' \rVert ^2} \\), where \\(\gamma\\) is kernel coefficient
