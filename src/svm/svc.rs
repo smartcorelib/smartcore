@@ -247,7 +247,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
 
 impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<T, M, K> {
     fn eq(&self, other: &Self) -> bool {
-        if self.b != other.b
+        if (self.b - other.b).abs() > T::epsilon() * T::two()
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {
