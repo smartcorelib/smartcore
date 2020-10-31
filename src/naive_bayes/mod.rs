@@ -2,31 +2,39 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-pub trait NBDistribution {
+use std::marker::PhantomData;
+
+pub trait NBDistribution<T: RealNumber, M: Matrix<T>> {
     // Fit distribution to some continuous or discrete data
-    fn fit<T: RealNumber, M: Matrix<T>>(x: &M, y: &M::RowVector) -> Self;
+    fn fit(x: &M, y: &M::RowVector) -> Self;
 
     // Prior of class k
-    fn prior<T: RealNumber>(&self, k: T) -> T;
+    fn prior(&self, k: T) -> T;
 
     // Conditional probability of feature j give class k
-    fn conditional_probability<T: RealNumber, M: Matrix<T>>(&self, k: T, j: &M::RowVector) -> T;
+    fn conditional_probability(&self, k: T, j: &M::RowVector) -> T;
 
     // Possible classes of the distribution
-    fn classes<T: RealNumber>(&self) -> Vec<T>;
+    fn classes(&self) -> Vec<T>;
 }
 
-pub struct BaseNaiveBayes<D: NBDistribution> {
+pub struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
     distribution: D,
+    _phantom_t: PhantomData<T>,
+    _phantom_m: PhantomData<M>,
 }
 
-impl<D: NBDistribution> BaseNaiveBayes<D> {
+impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, D> {
     pub fn fit(distribution: D) -> Result<Self, Failed> {
-        Ok(Self { distribution })
+        Ok(Self {
+            distribution,
+            _phantom_t: PhantomData,
+            _phantom_m: PhantomData,
+        })
     }
 
-    pub fn predict<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let y_classes = self.distribution.classes::<T>();
+    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        let y_classes = self.distribution.classes();
         let (rows, _) = x.shape();
         let predictions = (0..rows)
             .map(|row_index| {
@@ -36,9 +44,8 @@ impl<D: NBDistribution> BaseNaiveBayes<D> {
                     .map(|class| {
                         (
                             class,
-                            self.distribution
-                                .conditional_probability::<T, M>(*class, &row)
-                                * self.distribution.prior::<T>(*class),
+                            self.distribution.conditional_probability(*class, &row)
+                                * self.distribution.prior(*class),
                         )
                     })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
