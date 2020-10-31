@@ -60,3 +60,118 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
         Ok(y_hat)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    struct FakeDistribution<T: RealNumber, M: Matrix<T>> {
+        y_labels: Vec<T>,
+        label_count: Vec<usize>,
+        data_size: usize,
+        x: M,
+        y: M::RowVector,
+    }
+
+    impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for FakeDistribution<T, M> {
+        fn fit(x: &M, y: &M::RowVector) -> Self {
+            let x = x.clone();
+            let y = y.clone();
+            let mut y_sorted = y.to_vec();
+            let data_size = y.len();
+            y_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+            let mut y_labels = vec![];
+            let mut label_count = vec![];
+
+            y_labels.push(y_sorted[0]);
+            let mut current_count = 1;
+
+            for idx in 1..data_size {
+                if y_sorted[idx] == y_sorted[idx - 1] {
+                    current_count += 1;
+                } else {
+                    label_count.push(current_count);
+                    y_labels.push(y_sorted[idx]);
+                    current_count = 1
+                }
+            }
+
+            label_count.push(current_count);
+            Self {
+                data_size,
+                y_labels,
+                label_count,
+                x,
+                y,
+            }
+        }
+
+        fn prior(&self, k: T) -> T {
+            match self.y_labels.iter().position(|&t| t == k) {
+                Some(idx) => {
+                    T::from(self.label_count[idx]).unwrap() / T::from(self.data_size).unwrap()
+                }
+                None => T::zero(),
+            }
+        }
+
+        fn conditional_probability(&self, k: T, j: &M::RowVector) -> T {
+            let d = j.len();
+            let mut count = 0;
+            let mut probs: Vec<T> = vec![T::zero(); d];
+            for idx in 0..self.data_size {
+                if self.y.get(idx) != k {
+                    continue;
+                }
+                count += 1;
+                let row = self.x.get_row(idx);
+                for feature in 0..d {
+                    if j.get(feature) == row.get(feature) {
+                        probs[feature] += T::one();
+                    }
+                }
+            }
+
+            if count == 0 {
+                T::zero()
+            } else {
+                let mut prob = T::one();
+                for feat in probs.into_iter() {
+                    prob *= feat / T::from(count).unwrap()
+                }
+                prob
+            }
+        }
+
+        fn classes(&self) -> Vec<T> {
+            self.y_labels.clone()
+        }
+    }
+    #[test]
+    fn run_base_naive_bayes() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[0., 2., 1., 0.],
+            &[0., 2., 1., 1.],
+            &[1., 2., 1., 0.],
+            &[2., 1., 1., 0.],
+            &[2., 0., 0., 0.],
+            &[2., 0., 0., 1.],
+            &[1., 0., 0., 1.],
+            &[0., 1., 1., 0.],
+            &[0., 0., 0., 0.],
+            &[2., 1., 0., 0.],
+            &[0., 1., 0., 1.],
+            &[1., 1., 1., 1.],
+            &[1., 2., 0., 0.],
+            &[2., 1., 1., 1.],
+        ]);
+        let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
+
+        let distribution = FakeDistribution::<f64, DenseMatrix<f64>>::fit(&x, &y);
+        let nbc = BaseNaiveBayes::fit(distribution).unwrap();
+        let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
+        let y_hat = nbc.predict(&x_test).unwrap();
+        assert_eq!(y_hat, vec![0., 1.]);
+    }
+}
