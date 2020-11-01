@@ -4,20 +4,24 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use std::marker::PhantomData;
 
+/// Distribution used in the Naive Bayes classifier.
 pub trait NBDistribution<T: RealNumber, M: Matrix<T>> {
-    // Fit distribution to some continuous or discrete data
+    /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
+    /// * `x` - training data
+    /// * `y` - vector with target values (classes) of length N
     fn fit(x: &M, y: &M::RowVector) -> Self;
 
-    // Prior of class k
+    /// Prior of class k
     fn prior(&self, k: T) -> T;
 
-    // Conditional probability of feature j give class k
+    /// Conditional probability of feature j given class k
     fn conditional_probability(&self, k: T, j: &M::RowVector) -> T;
 
-    // Possible classes of the distribution
+    /// Possible classes of the distribution
     fn classes(&self) -> Vec<T>;
 }
 
+/// Base struct for the Naive Bayes classifier.
 pub struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
     distribution: D,
     _phantom_t: PhantomData<T>,
@@ -25,6 +29,8 @@ pub struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> 
 }
 
 impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, D> {
+    /// Fits NB classifier to a given NBdistribution.
+    /// * `distribution` - NBDistribution of the training data
     pub fn fit(distribution: D) -> Result<Self, Failed> {
         Ok(Self {
             distribution,
@@ -33,6 +39,9 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
         })
     }
 
+    /// Estimates the class labels for the provided data.
+    /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         let y_classes = self.distribution.classes();
         let (rows, _) = x.shape();
