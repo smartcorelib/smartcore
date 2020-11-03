@@ -18,7 +18,7 @@ use crate::math::num::RealNumber;
 /// a list of these structures.
 ///
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct PairwiseDissimilarity<T: RealNumber> {
+pub struct PairwiseDissimilarity<T: RealNumber> {
     // index of the vector in the original `Matrix` or list
     pub node: usize,
 

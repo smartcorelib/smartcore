@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 ///
 /// FastPair: Data-structure for the dynamic closest-pair problem.
 ///
@@ -13,6 +14,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
+use crate::linalg::naive::dense_matrix::*;
 
 ///
 /// FastPair factory function
@@ -40,27 +42,29 @@ pub fn FastPair<'a, T: RealNumber, M: Matrix<T>>(m: &'a M) -> Result<_FastPair<T
 ///
 /// FastPair
 ///
-/// Python implementation:
+/// Ported from Python implementation:
 /// <https://github.com/carsonfarmer/fastpair/blob/b8b4d3000ab6f795a878936667eee1b557bf353d/fastpair/base.py>
+/// MIT License (MIT) Copyright (c) 2016 Carson Farmer
 ///
 #[derive(Debug, Clone)]
 pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     /// initial matrix
     samples: &'a M,
     /// closest pair hashmap:
-    distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>,
+    pub distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>,
     /// conga line used to keep track of the closest pair
-    neighbours: Box<Vec<usize>>,
+    pub neighbours: Box<Vec<usize>>,
 }
 
 impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     ///
-    /// Initialise `FastPair` by passing a `Matrix`
+    /// Initialise `FastPair` by passing a `Matrix`.
+    /// Build a FastPairs data-structure from a set of (new) points.
     ///
     fn new(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
-        let max_index = ((self.samples.shape().0) - 1);
+        let max_index = (self.samples.shape().0 - 1);
 
         // Store all closest neighbors
         let _distances = Box::new(HashMap::with_capacity(len));
@@ -71,8 +75,6 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
 
         // fill neighbours with -1 values
         neighbours.extend(iter::repeat(0).take(len));
-
-        println!("Neighbours {:?}", neighbours);
 
         // loop through indeces and neighbours
         for index_row_i in 0..len {
@@ -86,17 +88,10 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                 },
             );
 
-            println!(
-                "Init Neighbour {:?} {:?}",
-                index_row_i,
-                distances.get(&index_row_i).unwrap()
-            );
-
             // start looking for the neighbour in the second element
             let mut index_closest = index_row_i + 1; // closest neighbour index
             let mut nbd: Option<T> = Some(T::max_value()); // init neighbour distance
             for index_row_j in (index_row_i + 1)..len {
-                println!("here J {:?}", index_row_j);
                 distances.insert(
                     index_row_j,
                     PairwiseDissimilarity {
@@ -110,9 +105,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                     &(self.samples.get_row_as_vec(index_row_i)),
                     &(self.samples.get_row_as_vec(index_row_j)),
                 );
-                println!("Euclidian distance: {:?}", d);
                 if d < nbd.unwrap() {
-                    println!("Assign new distance");
                     // set this j-value to be the closest neighbour
                     index_closest = index_row_j;
                     nbd = Some(d);
@@ -123,81 +116,49 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                 e.distance = nbd;
                 e.neighbour = Some(index_closest);
             });
-            println!(
-                "Dissimilarities {:?} -> {:?}",
-                index_row_i,
-                distances.get(&index_row_i)
-            );
 
             // update conga line
-            println!("Current conga {:?}", neighbours);
             if index_closest != len {
-                // self.points[nbr] = self.points[i + 1]
-                // self.points[i + 1] = self.neighbors[self.points[i]].neigh
-                println!("LENGTH: {:?}", neighbours.len());
                 neighbours[index_closest] = neighbours[index_row_i + 1];
                 neighbours[index_row_i + 1] = index_closest;
             }
-            println!("New conga {:?}", neighbours);
         }
         // No more neighbors, terminate conga line.
         // Last person on the line has no neigbors
-        println!("Assign last node {:?}", (len - 1));
         distances.get_mut(&max_index).unwrap().neighbour = Some(max_index);
-
         distances.get_mut(&(len - 1)).unwrap().distance = Some(T::max_value());
-        println!("AFTER LOOP");
 
         self.distances = Box::new(distances);
         self.neighbours = Box::new(neighbours);
     }
 
-    // // Find and update nearest neighbor of a given point.
-    // fn find_neighbour(&mut self, index_row: usize) -> Option<PairwiseDissimilarity<T>> {
-    //     // Find first point unequal to `node` itself
-    //     let mut first_nbr = 0;
-    //     if index_row == (*self.nodes)[first_nbr] {
-    //         first_nbr = 1;
-    //     }
-    //     self.neighbours.get_mut(&node).unwrap().neighbour = Some((*self.nodes)[first_nbr]);
-    //     self.neighbours.get_mut(&node).unwrap().distance = Some(Euclidian::squared_distance(
-    //         &(self.samples.get_row_as_vec(node)),
-    //         &(self
-    //             .samples
-    //             .get_row_as_vec(self.neighbours[&node].neighbour.unwrap())),
-    //     ));
-    //     // Now test whether each other point is closer
-    //     for &q in self.nodes[first_nbr + 1..(self.samples.shape().0 - 1)]
-    //         .iter()
-    //         .clone()
-    //     {
-    //         if node != q {
-    //             let d = Euclidian::squared_distance(
-    //                 &(self.samples.get_row_as_vec(node)),
-    //                 &(self.samples.get_row_as_vec(q)),
-    //             );
-    //             if d < self.neighbours.get_mut(&node).unwrap().distance.unwrap() {
-    //                 self.neighbours.get_mut(&node).unwrap().distance = Some(d);
-    //                 self.neighbours.get_mut(&node).unwrap().neighbour = Some(q);
-    //             }
-    //         }
-    //     }
-    //     let result = self.neighbours.get(&node);
-    //     let value = *(result.unwrap());
-    //     Some(value.clone())
-    // }
+    ///
+    /// Find closest pair by scanning list of nearest neighbors.
+    /// 
+    pub fn closest_pair(&self) -> (T, (usize, usize)) {
+        let mut a = self.neighbours[0];  // Start with first point
+        let mut d = self.distances[&a].distance;
+        for p in self.neighbours.iter() {
+            if self.distances[&p].distance < d {
+                a = *p;  // Update `a` and distance `d`
+                d = self.distances[&p].distance;
+            }
+        }
+        let b = self.distances[&a].neighbour;
+        (d.unwrap(), (a, b.unwrap()))
+    }
 
     // // Compute distances from input to all other points in data-structure.
     // // input is the row index of the sample matrix
-    // fn distances_from(&self, row: usize) -> Vec<PairwiseDissimilarity<'a, T>> {
+    // fn distances_from(&self, index_row: usize) -> Vec<PairwiseDissimilarity<T>> {
     //     let mut distances = Vec::<PairwiseDissimilarity<T>>::with_capacity(self.samples.shape().0);
-    //     for other in self.nodes.iter() {
-    //         if row != *other {
+    //     for other in self.neighbours.iter() {
+    //         if index_row != *other {
     //             distances.push(PairwiseDissimilarity {
-    //                 node: row,
+    //                 node: index_row,
     //                 neighbour: Some(*other),
     //                 distance: Some(Euclidian::squared_distance(
-    //                     &(self.samples.get_row_as_vec(row)),
+    //                     &(self.samples.get_row_as_vec(index_row)),
     //                     &(self.samples.get_row_as_vec(*other)),
     //                 )),
     //             })
@@ -206,6 +167,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     //     distances
     // }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -229,8 +191,8 @@ mod tests {
     }
 
     #[test]
-    fn fastpair_check() {
-        // input
+    fn fastpair_new() {
+        // compute
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
@@ -248,7 +210,6 @@ mod tests {
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
         ]);
-        // compute
         let fastpair = FastPair(&x);
         assert!(fastpair.is_ok());
 
@@ -303,4 +264,33 @@ mod tests {
             assert_eq!(distance, expected.get(&i).unwrap().distance.unwrap());
         }
     }
+
+    #[test]
+    fn fastpair_closest_pair() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+        ]);
+        // compute
+        let fastpair = FastPair(&x);
+        assert!(fastpair.is_ok());
+
+        let (result, pair) = fastpair.unwrap().closest_pair();
+
+        let closest = (0, PairwiseDissimilarity { node: 0, neighbour: Some(4), distance: Some(0.01999999999999995) });
+    }
+
 }
