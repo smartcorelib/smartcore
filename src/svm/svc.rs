@@ -1,6 +1,30 @@
 //! # Support Vector Classifier.
 //!
-//! Example
+//! Support Vector Classifier (SVC) is a binary classifier that uses an optimal hyperplane to separate the points in the input variable space by their class.
+//!
+//! During training, SVC chooses a Maximal-Margin hyperplane that can separate all training instances with the largest margin.
+//! The margin is calculated as the perpendicular distance from the boundary to only the closest points. Hence, only these points are relevant in defining
+//! the hyperplane and in the construction of the classifier. These points are called the support vectors.
+//!
+//! While SVC selects a hyperplane with the largest margin it allows some points in the training data to violate the separating boundary.
+//! The parameter `C` > 0 gives you control over how SVC will handle violating points. The bigger the value of this parameter the more we penalize the algorithm
+//! for incorrectly classified points. In other words, setting this parameter to a small value will result in a classifier that allows for a big number
+//! of misclassified samples. Mathematically, SVC optimization problem can be defined as:
+//!
+//! \\[\underset{w, \zeta}{minimize} \space \space \frac{1}{2} \lVert \vec{w} \rVert^2 + C\sum_{i=1}^m \zeta_i \\]
+//!
+//! subject to:
+//!
+//! \\[y_i(\langle\vec{w}, \vec{x}_i \rangle + b) \geq 1 - \zeta_i \\]
+//! \\[\zeta_i \geq 0 for \space any \space i = 1, ... , m\\]
+//!
+//! Where \\( m \\) is a number of training samples, \\( y_i \\) is a label value (either 1 or -1) and \\(\langle\vec{w}, \vec{x}_i \rangle + b\\) is a decision boundary.
+//!
+//! To solve this optimization problem, SmartCore uses an [approximate SVM solver](https://leon.bottou.org/projects/lasvm).
+//! The optimizer reaches accuracies similar to that of a real SVM after performing two passes through the training examples. You can choose the number of passes
+//! through the data that the algorithm takes by changing the `epoch` parameter of the classifier.
+//!
+//! Example:
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
@@ -47,8 +71,11 @@
 //!
 //! ## References:
 //!
-//! * ["Support Vector Machines" Kowalczyk A., 2017](https://www.svm-tutorial.com/2017/10/support-vector-machines-succinctly-released/)
+//! * ["Support Vector Machines", Kowalczyk A., 2017](https://www.svm-tutorial.com/2017/10/support-vector-machines-succinctly-released/)
 //! * ["Fast Kernel Classifiers with Online and Active Learning", Bordes A., Ertekin S., Weston J., Bottou L., 2005](https://www.jmlr.org/papers/volume6/bordes05a/bordes05a.pdf)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -220,7 +247,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
 
 impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<T, M, K> {
     fn eq(&self, other: &Self) -> bool {
-        if self.b != other.b
+        if (self.b - other.b).abs() > T::epsilon() * T::two()
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {

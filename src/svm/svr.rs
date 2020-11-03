@@ -1,6 +1,24 @@
 //! # Epsilon-Support Vector Regression.
 //!
-//! Example
+//! Support Vector Regression (SVR) is a popular algorithm used for regression that uses the same principle as SVM.
+//!
+//! Just like [SVC](../svc/index.html) SVR finds optimal decision boundary, \\(f(x)\\) that separates all training instances with the largest margin.
+//! Unlike SVC, in \\(\epsilon\\)-SVR regression the goal is to find a function \\(f(x)\\) that has at most \\(\epsilon\\) deviation from the
+//! known targets \\(y_i\\) for all the training data. To find this function, we need to find solution to this optimization problem:
+//!
+//! \\[\underset{w, \zeta}{minimize} \space \space \frac{1}{2} \lVert \vec{w} \rVert^2 + C\sum_{i=1}^m \zeta_i \\]
+//!
+//! subject to:
+//!
+//! \\[\lvert y_i - \langle\vec{w}, \vec{x}_i \rangle - b \rvert \leq \epsilon + \zeta_i \\]
+//! \\[\lvert \langle\vec{w}, \vec{x}_i \rangle + b - y_i \rvert \leq \epsilon + \zeta_i \\]
+//! \\[\zeta_i \geq 0 for \space any \space i = 1, ... , m\\]
+//!
+//! Where \\( m \\) is a number of training samples, \\( y_i \\) is a target value and \\(\langle\vec{w}, \vec{x}_i \rangle + b\\) is a decision boundary.
+//!
+//! The parameter `C` > 0 determines the trade-off between the flatness of \\(f(x)\\) and the amount up to which deviations larger than \\(\epsilon\\) are tolerated
+//!
+//! Example:
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
@@ -44,10 +62,13 @@
 //!
 //! ## References:
 //!
-//! * ["Support Vector Machines" Kowalczyk A., 2017](https://www.svm-tutorial.com/2017/10/support-vector-machines-succinctly-released/)
+//! * ["Support Vector Machines", Kowalczyk A., 2017](https://www.svm-tutorial.com/2017/10/support-vector-machines-succinctly-released/)
 //! * ["A Fast Algorithm for Training Support Vector Machines", Platt J.C., 1998](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/tr-98-14.pdf)
 //! * ["Working Set Selection Using Second Order Information for Training Support Vector Machines", Rong-En Fan et al., 2005](https://www.jmlr.org/papers/volume6/fan05a/fan05a.pdf)
-//! * ["A tutorial on support vector regression", SMOLA A.J., Scholkopf B., 2003](https://alex.smola.org/papers/2004/SmoSch04.pdf)
+//! * ["A tutorial on support vector regression", Smola A.J., Scholkopf B., 2003](https://alex.smola.org/papers/2004/SmoSch04.pdf)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 use std::cell::{Ref, RefCell};
 use std::fmt::Debug;
@@ -183,7 +204,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
 
 impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVR<T, M, K> {
     fn eq(&self, other: &Self) -> bool {
-        if self.b != other.b
+        if (self.b - other.b).abs() > T::epsilon() * T::two()
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {
