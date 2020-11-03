@@ -91,6 +91,76 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
 
     /// Returns True if matrices are element-wise equal within a tolerance `error`.
     fn approximate_eq(&self, other: &Self, error: T) -> bool;
+
+    /// Returns [L2 norm] of the vector(https://en.wikipedia.org/wiki/Matrix_norm).
+    fn norm2(&self) -> T;
+
+    /// Returns [vectors norm](https://en.wikipedia.org/wiki/Matrix_norm) of order `p`.
+    fn norm(&self, p: T) -> T;
+
+    /// Divide single element of the vector by `x`, write result to original vector.
+    fn div_element_mut(&mut self, pos: usize, x: T);
+
+    /// Multiply single element of the vector by `x`, write result to original vector.
+    fn mul_element_mut(&mut self, pos: usize, x: T);
+
+    /// Add single element of the vector to `x`, write result to original vector.
+    fn add_element_mut(&mut self, pos: usize, x: T);
+
+    /// Subtract `x` from single element of the vector, write result to original vector.
+    fn sub_element_mut(&mut self, pos: usize, x: T);
+
+    /// Add vectors, element-wise, overriding original vector with result.
+    fn add_mut(&mut self, other: &Self) -> &Self;
+
+    /// Subtract vectors, element-wise, overriding original vector with result.
+    fn sub_mut(&mut self, other: &Self) -> &Self;
+
+    /// Multiply vectors, element-wise, overriding original vector with result.
+    fn mul_mut(&mut self, other: &Self) -> &Self;
+
+    /// Divide vectors, element-wise, overriding original vector with result.
+    fn div_mut(&mut self, other: &Self) -> &Self;
+
+    /// Add vectors, element-wise
+    fn add(&self, other: &Self) -> Self {
+        let mut r = self.clone();
+        r.add_mut(other);
+        r
+    }
+
+    /// Subtract vectors, element-wise
+    fn sub(&self, other: &Self) -> Self {
+        let mut r = self.clone();
+        r.sub_mut(other);
+        r
+    }
+
+    /// Multiply vectors, element-wise
+    fn mul(&self, other: &Self) -> Self {
+        let mut r = self.clone();
+        r.mul_mut(other);
+        r
+    }
+
+    /// Divide vectors, element-wise
+    fn div(&self, other: &Self) -> Self {
+        let mut r = self.clone();
+        r.div_mut(other);
+        r
+    }
+
+    /// Calculates sum of all elements of the vector.
+    fn sum(&self) -> T;
+
+    /// Returns unique values from the vector.
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::*;
+    /// let a = vec!(1., 2., 2., -2., -6., -7., 2., 3., 4.);
+    ///
+    ///assert_eq!(a.unique(), vec![-7., -6., -2., 1., 2., 3., 4.]);
+    /// ```
+    fn unique(&self) -> Vec<T>;
 }
 
 /// Generic matrix type.

@@ -89,8 +89,89 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
         self.dot(other)
     }
 
+    fn norm2(&self) -> T {
+        self.iter().map(|x| *x * *x).sum::<T>().sqrt()
+    }
+
+    fn norm(&self, p: T) -> T {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iter().fold(T::neg_infinity(), |f, &val| {
+                let v = val.abs();
+                if f > v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iter().fold(T::infinity(), |f, &val| {
+                let v = val.abs();
+                if f < v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else {
+            let mut norm = T::zero();
+
+            for xi in self.iter() {
+                norm = norm + xi.abs().powf(p);
+            }
+
+            norm.powf(T::one() / p)
+        }
+    }
+
+    fn div_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] / x;
+    }
+
+    fn mul_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] * x;
+    }
+
+    fn add_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] + x;
+    }
+
+    fn sub_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] = self[pos] - x;
+    }
+
     fn approximate_eq(&self, other: &Self, error: T) -> bool {
         (self - other).iter().all(|v| v.abs() <= error)
+    }
+
+    fn add_mut(&mut self, other: &Self) -> &Self {
+        *self += other;
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        *self -= other;
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        *self *= other;
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        *self /= other;
+        self
+    }
+
+    fn sum(&self) -> T {
+        self.sum()
+    }
+
+    fn unique(&self) -> Vec<T> {
+        let mut result = self.clone().into_raw_vec();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
     }
 }
 
