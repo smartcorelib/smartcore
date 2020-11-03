@@ -18,7 +18,7 @@ pub trait NBDistribution<T: RealNumber, M: Matrix<T>> {
     fn conditional_probability(&self, k: T, j: &M::RowVector) -> T;
 
     /// Possible classes of the distribution
-    fn classes(&self) -> Vec<T>;
+    fn classes(&self) -> &Vec<T>;
 }
 
 /// Base struct for the Naive Bayes classifier.
@@ -153,8 +153,8 @@ mod tests {
             }
         }
 
-        fn classes(&self) -> Vec<T> {
-            self.y_labels.clone()
+        fn classes(&self) -> &Vec<T> {
+            &self.y_labels
         }
     }
     #[test]
