@@ -30,3 +30,19 @@ pub struct PairwiseDissimilarity<T: RealNumber> {
     // each algorithm has to match
     pub distance: Option<T>,
 }
+
+impl<T: RealNumber> Eq for PairwiseDissimilarity<T> {}
+
+impl<T: RealNumber> PartialEq for PairwiseDissimilarity<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node == other.node
+            && self.neighbour == other.neighbour
+            && self.distance == other.distance
+    }
+}
+
+impl<T: RealNumber> PartialOrd for PairwiseDissimilarity<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.distance.partial_cmp(&other.distance)
+    }
+}

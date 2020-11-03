@@ -11,10 +11,10 @@ use std::iter;
 
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 use crate::error::{Failed, FailedError};
+use crate::linalg::naive::dense_matrix::*;
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
-use crate::linalg::naive::dense_matrix::*;
 
 ///
 /// FastPair factory function
@@ -134,40 +134,45 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
 
     ///
     /// Find closest pair by scanning list of nearest neighbors.
-    /// 
-    pub fn closest_pair(&self) -> (T, (usize, usize)) {
-        let mut a = self.neighbours[0];  // Start with first point
+    ///
+    pub fn closest_pair(&self) -> PairwiseDissimilarity<T> {
+        let mut a = self.neighbours[0]; // Start with first point
         let mut d = self.distances[&a].distance;
         for p in self.neighbours.iter() {
             if self.distances[&p].distance < d {
-                a = *p;  // Update `a` and distance `d`
+                a = *p; // Update `a` and distance `d`
                 d = self.distances[&p].distance;
             }
         }
         let b = self.distances[&a].neighbour;
-        (d.unwrap(), (a, b.unwrap()))
+        PairwiseDissimilarity {
+            node: a,
+            neighbour: b,
+            distance: d,
+        }
     }
 
-    // // Compute distances from input to all other points in data-structure.
-    // // input is the row index of the sample matrix
-    // fn distances_from(&self, index_row: usize) -> Vec<PairwiseDissimilarity<T>> {
-    //     let mut distances = Vec::<PairwiseDissimilarity<T>>::with_capacity(self.samples.shape().0);
-    //     for other in self.neighbours.iter() {
-    //         if index_row != *other {
-    //             distances.push(PairwiseDissimilarity {
-    //                 node: index_row,
-    //                 neighbour: Some(*other),
-    //                 distance: Some(Euclidian::squared_distance(
-    //                     &(self.samples.get_row_as_vec(index_row)),
-    //                     &(self.samples.get_row_as_vec(*other)),
-    //                 )),
-    //             })
-    //         }
-    //     }
-    //     distances
-    // }
+    //
+    // Compute distances from input to all other points in data-structure.
+    // input is the row index of the sample matrix
+    //
+    fn distances_from(&self, index_row: usize) -> Vec<PairwiseDissimilarity<T>> {
+        let mut distances = Vec::<PairwiseDissimilarity<T>>::with_capacity(self.samples.shape().0);
+        for other in self.neighbours.iter() {
+            if index_row != *other {
+                distances.push(PairwiseDissimilarity {
+                    node: index_row,
+                    neighbour: Some(*other),
+                    distance: Some(Euclidian::squared_distance(
+                        &(self.samples.get_row_as_vec(index_row)),
+                        &(self.samples.get_row_as_vec(*other)),
+                    )),
+                })
+            }
+        }
+        distances
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -288,9 +293,46 @@ mod tests {
         let fastpair = FastPair(&x);
         assert!(fastpair.is_ok());
 
-        let (result, pair) = fastpair.unwrap().closest_pair();
+        let dissimilarity = fastpair.unwrap().closest_pair();
+        let closest = PairwiseDissimilarity {
+            node: 0,
+            neighbour: Some(4),
+            distance: Some(0.01999999999999995),
+        };
 
-        let closest = (0, PairwiseDissimilarity { node: 0, neighbour: Some(4), distance: Some(0.01999999999999995) });
+        assert_eq!(closest, dissimilarity);
     }
 
+    #[test]
+    fn fastpair_distances() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+        ]);
+        // compute
+        let fastpair = FastPair(&x);
+        assert!(fastpair.is_ok());
+
+        let dissimilarities = fastpair.unwrap().distances_from(0);
+        let closest = PairwiseDissimilarity {
+            node: 0,
+            neighbour: Some(4),
+            distance: Some(0.01999999999999995),
+        };
+
+        assert_eq!(closest, dissimilarities[0]);
+    }
 }

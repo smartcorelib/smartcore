@@ -11,7 +11,7 @@
 //! > in which the measure of inter-cluster dissimilarity is updated after each step. The seven most
 //! > common methods are termed single, complete, average (UPGMA), weighted (WPGMA, McQuitty), Ward,
 //! > centroid (UPGMC) and median (WPGMC) linkage.
-//! 
+//!
 //! Or in addition also "Hierarchical Clustering" as defined **by Eppstein, 2000**
 //!  in <https://www.ics.uci.edu/~eppstein/projects/pairs/Talks/ClusterGroup.pdf>.
 //!
@@ -48,7 +48,7 @@
 //! > is qualitatively similar to the neighbor heuristic, but it typically runs 30% or so faster.
 //!
 //! ## Interface
-//! Reference: 
+//! Reference:
 //!     >>> from sklearn.cluster import AgglomerativeClustering
 //!     >>> import numpy as np
 //!     >>> X = np.array([[1, 2], [1, 4], [1, 0],
@@ -58,7 +58,7 @@
 //!     AgglomerativeClustering()
 //!     >>> clustering.labels_
 //!     array([1, 1, 1, 0, 0, 0])
-//! 
+//!
 //! ## Example:
 //!
 //! ```
@@ -97,7 +97,7 @@
 //! let dissimilarities_pairs = cluster.edges().unwrap()
 //! let labels = cluster.labels().unwrap();
 //!
-use std::collections::{LinkedList, HashMap};
+use std::collections::{HashMap, LinkedList};
 
 // use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
@@ -124,14 +124,13 @@ pub trait SAHNClustering<T: RealNumber> {
 ///  Clustering with `FastPair`
 ///
 pub struct ClusterFastPair {
-    labels: Box<Vec<usize>>
+    labels: Box<Vec<usize>>,
 }
-
 
 impl<T: RealNumber> SAHNClustering<T> for ClusterFastPair {
     ///
     /// Run `FastPair` on matrix's rows
-    /// 
+    ///
     fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Result<ClusterFastPair, Failed> {
         let fastpair = FastPair(data).unwrap();
 
@@ -139,9 +138,7 @@ impl<T: RealNumber> SAHNClustering<T> for ClusterFastPair {
         // WIP
         let labels: Box<Vec<usize>> = Box::new(vec![0]);
 
-        Ok(ClusterFastPair {
-            labels: labels
-        })
+        Ok(ClusterFastPair { labels: labels })
     }
 
     fn labels(&self) -> &Box<Vec<usize>> {
@@ -160,7 +157,7 @@ impl<T: RealNumber> SAHNClustering<T> for ClusterFastPair {
 /// Use `std::collections::LinkedList`
 pub struct ClusterLabels<T: RealNumber> {
     Z: LinkedList<Box<PairwiseDissimilarity<T>>>, // list of nodes in clustering process
-    current: Option<usize>,                    // used to read as a doubly linked list
+    current: Option<usize>,                       // used to read as a doubly linked list
 }
 
 // impl ClusterLabels<T: RealNumber> {
