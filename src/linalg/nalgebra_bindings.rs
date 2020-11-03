@@ -46,6 +46,7 @@ use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::Matrix as SmartCoreMatrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
@@ -541,6 +542,11 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
     LUDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    CholeskyDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
 }
 

@@ -49,6 +49,7 @@ pub mod ndarray_bindings;
 pub mod qr;
 /// Singular value decomposition.
 pub mod svd;
+pub mod cholesky;
 
 use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
@@ -59,6 +60,7 @@ use evd::EVDDecomposableMatrix;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
 use svd::SVDDecomposableMatrix;
+use cholesky::CholeskyDecomposableMatrix;
 
 /// Column or row vector
 pub trait BaseVector<T: RealNumber>: Clone + Debug {
@@ -507,6 +509,7 @@ pub trait Matrix<T: RealNumber>:
     + EVDDecomposableMatrix<T>
     + QRDecomposableMatrix<T>
     + LUDecomposableMatrix<T>
+    + CholeskyDecomposableMatrix<T>
     + PartialEq
     + Display
 {

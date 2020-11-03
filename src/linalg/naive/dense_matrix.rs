@@ -12,6 +12,7 @@ use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::Matrix;
 pub use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
@@ -441,6 +442,8 @@ impl<T: RealNumber> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 impl<T: RealNumber> QRDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> LUDecomposableMatrix<T> for DenseMatrix<T> {}
+
+impl<T: RealNumber> CholeskyDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> Matrix<T> for DenseMatrix<T> {}
 

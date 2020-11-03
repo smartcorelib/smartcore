@@ -24,6 +24,8 @@ pub enum FailedError {
     FindFailed,
     /// Can't decompose a matrix
     DecompositionFailed,
+    /// Can't solve for x
+    SolutionFailed,
 }
 
 impl Failed {
@@ -87,6 +89,7 @@ impl fmt::Display for FailedError {
             FailedError::TransformFailed => "Transform failed",
             FailedError::FindFailed => "Find failed",
             FailedError::DecompositionFailed => "Decomposition failed",
+            FailedError::SolutionFailed => "Can't find solution",
         };
         write!(f, "{}", failed_err_str)
     }
