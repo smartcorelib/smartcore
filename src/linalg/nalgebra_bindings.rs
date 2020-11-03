@@ -42,11 +42,11 @@ use std::ops::{AddAssign, DivAssign, MulAssign, Range, SubAssign};
 
 use nalgebra::{DMatrix, Dynamic, Matrix, MatrixMN, RowDVector, Scalar, VecStorage, U1};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
-use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::Matrix as SmartCoreMatrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;

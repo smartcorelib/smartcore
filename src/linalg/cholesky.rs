@@ -1,9 +1,9 @@
 //! # Cholesky Decomposition
 //!
-//! every positive definite matrix \\(A \in R^{n \times n}\\) can be factored as 
+//! every positive definite matrix \\(A \in R^{n \times n}\\) can be factored as
 //!
 //! \\[A = R^TR\\]
-//! 
+//!
 //! where \\(R\\) is upper triangular matrix with positive diagonal elements
 //!
 //! Example:
@@ -12,8 +12,8 @@
 //! use crate::smartcore::linalg::cholesky::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
-//!                 &[25., 15., -5.], 
-//!                 &[15., 18., 0.], 
+//!                 &[25., 15., -5.],
+//!                 &[15., 18., 0.],
 //!                 &[-5., 0., 11.]
 //!         ]);
 //!
@@ -41,14 +41,14 @@ use crate::math::num::RealNumber;
 /// Results of Cholesky decomposition.
 pub struct Cholesky<T: RealNumber, M: BaseMatrix<T>> {
     R: M,
-    t: PhantomData<T>   
+    t: PhantomData<T>,
 }
 
 impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
     pub(crate) fn new(R: M) -> Cholesky<T, M> {
         Cholesky {
             R: R,
-            t: PhantomData
+            t: PhantomData,
         }
     }
 
@@ -65,10 +65,10 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
             }
         }
         R
-    } 
-    
+    }
+
     /// Get upper triangular matrix.
-    pub fn U(&self) -> M {        
+    pub fn U(&self) -> M {
         let (n, _) = self.R.shape();
         let mut R = M::zeros(n, n);
 
@@ -80,20 +80,20 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
             }
         }
         R
-    } 
+    }
 
     /// Solves Ax = b
-    pub(crate) fn solve(&self, mut b: M) -> Result<M, Failed> {        
-
+    pub(crate) fn solve(&self, mut b: M) -> Result<M, Failed> {
         let (bn, m) = b.shape();
         let (rn, _) = self.R.shape();
 
         if bn != rn {
-            return Err(Failed::because(FailedError::SolutionFailed, &format!(
-                "Can't solve Ax = b for x. Number of rows in b != number of rows in R."
-            )));            
+            return Err(Failed::because(
+                FailedError::SolutionFailed,
+                &format!("Can't solve Ax = b for x. Number of rows in b != number of rows in R."),
+            ));
         }
-        
+
         for k in 0..bn {
             for j in 0..m {
                 for i in 0..k {
@@ -102,7 +102,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
                 b.div_element_mut(k, j, self.R.get(k, k));
             }
         }
-        
+
         for k in (0..bn).rev() {
             for j in 0..m {
                 for i in k + 1..bn {
@@ -128,11 +128,12 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         let (m, n) = self.shape();
 
         if m != n {
-            return Err(Failed::because(FailedError::DecompositionFailed, &format!(
-                "Can't do Cholesky decomposition on a non-square matrix"
-            )));
+            return Err(Failed::because(
+                FailedError::DecompositionFailed,
+                &format!("Can't do Cholesky decomposition on a non-square matrix"),
+            ));
         }
-        
+
         for j in 0..n {
             let mut d = T::zero();
             for k in 0..j {
@@ -147,9 +148,10 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             d = self.get(j, j) - d;
 
             if d < T::zero() {
-                return Err(Failed::because(FailedError::DecompositionFailed, &format!(
-                    "The matrix is not positive definite."
-                )));                
+                return Err(Failed::because(
+                    FailedError::DecompositionFailed,
+                    &format!("The matrix is not positive definite."),
+                ));
             }
 
             self.set(j, j, d.sqrt());
@@ -172,35 +174,33 @@ mod tests {
     #[test]
     fn cholesky_decompose() {
         let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
-        let l = DenseMatrix::from_2d_array(&[
-            &[5.0, 0.0, 0.0],
-            &[3.0, 3.0, 0.0],
-            &[-1.0, 1.0, 3.0],
-        ]);
-        let u = DenseMatrix::from_2d_array(&[
-            &[5.0, 3.0, -1.0],
-            &[0.0, 3.0, 1.0],
-            &[0.0, 0.0, 3.0],
-        ]);
+        let l =
+            DenseMatrix::from_2d_array(&[&[5.0, 0.0, 0.0], &[3.0, 3.0, 0.0], &[-1.0, 1.0, 3.0]]);
+        let u =
+            DenseMatrix::from_2d_array(&[&[5.0, 3.0, -1.0], &[0.0, 3.0, 1.0], &[0.0, 0.0, 3.0]]);
         let cholesky = a.cholesky().unwrap();
-        
-        assert!(cholesky.L().abs().approximate_eq(&l.abs(), 1e-4));  
-        assert!(cholesky.U().abs().approximate_eq(&u.abs(), 1e-4));        
-        assert!(cholesky.L().matmul(&cholesky.U()).abs().approximate_eq(&a.abs(), 1e-4));        
+
+        assert!(cholesky.L().abs().approximate_eq(&l.abs(), 1e-4));
+        assert!(cholesky.U().abs().approximate_eq(&u.abs(), 1e-4));
+        assert!(cholesky
+            .L()
+            .matmul(&cholesky.U())
+            .abs()
+            .approximate_eq(&a.abs(), 1e-4));
     }
 
     #[test]
     fn cholesky_solve_mut() {
         let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
         let b = DenseMatrix::from_2d_array(&[&[40., 51., 28.]]);
-        let expected = DenseMatrix::from_2d_array(&[
-            &[1.0, 2.0, 3.0]
-        ]);
-        
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]);
+
         let cholesky = a.cholesky().unwrap();
 
-        assert!(cholesky.solve(b.transpose()).unwrap().transpose().approximate_eq(&expected, 1e-4));  
-        
+        assert!(cholesky
+            .solve(b.transpose())
+            .unwrap()
+            .transpose()
+            .approximate_eq(&expected, 1e-4));
     }
-
 }

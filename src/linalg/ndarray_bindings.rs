@@ -49,11 +49,11 @@ use std::ops::SubAssign;
 use ndarray::ScalarOperand;
 use ndarray::{s, stack, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::svd::SVDDecomposableMatrix;
-use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
