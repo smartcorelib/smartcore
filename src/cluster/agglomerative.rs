@@ -63,6 +63,7 @@
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::math::num::RealNumber;
 //! use smartcore::cluster::agglomerative::*;
 //! use smartcore::algorithm::neighbour::fastpair::FastPair;
 //!
@@ -94,23 +95,25 @@
 //! // example using FastPair
 //! let cluster = ClusterFastPair::fit(&x, 1.5).unwrap();
 //! // return results/labels/dendrogram
-//! let dissimilarities_pairs = cluster.edges().unwrap()
-//! let labels = cluster.labels().unwrap();
+//! let labels = cluster.labels();
+//! ```
 //!
 use std::collections::{HashMap, LinkedList};
+// use std::string::String;
 
 // use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 use crate::algorithm::neighbour::fastpair::{FastPair, _FastPair};
 use crate::error::{Failed, FailedError};
 use crate::linalg::Matrix;
+use crate::linalg::naive::dense_matrix::DenseMatrix;
 use crate::math::num::RealNumber;
 
 pub trait SAHNClustering<T: RealNumber> {
     //
     // Aggregate the data according to given distance threshold
     //
-    fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Result<ClusterFastPair, Failed>;
+    fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Result<ClusterFastPair<T>, Failed>;
 
     //
     // Return clusters, assign labels to dissimilarities, according
@@ -119,31 +122,110 @@ pub trait SAHNClustering<T: RealNumber> {
     fn labels(&self) -> &Box<Vec<usize>>;
 }
 
+
+// Perform hierarchy clustering using nearest-neighbor chain algorithm
+// scipy: https://github.com/scipy/scipy/blob/d286f8525c16b2cd4e179dea2c77b6b09622aff9/scipy/cluster/_hierarchy.pyx#L908
+//
+// Returns
+// -------
+// Z : ndarray, shape (n - 1, 4)
+//     Computed linkage matrix
+//
+fn nn_chain<T: RealNumber>(distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>, samples_n: usize, linkage: String) -> Option<DenseMatrix<T>> {
+    None
+}
+
+// Perform hierarchy clustering using MST-Linkage (fastcluster)
+// scipy: https://github.com/scipy/scipy/blob/d286f8525c16b2cd4e179dea2c77b6b09622aff9/scipy/cluster/_hierarchy.pyx#L1016
+// 
+// Returns
+// -------
+// Z : ndarray, shape (n - 1, 4)
+//     Computed linkage matrix.
+fn mst_single_linkage<T: RealNumber>(distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>, samples_n: usize) -> Option<DenseMatrix<T>> {
+            // Z_arr = np.empty((n - 1, 4))
+        // cdef double[:, :] Z = Z_arr
+
+        // # Which nodes were already merged.
+        // cdef int[:] merged = np.zeros(n, dtype=np.intc)
+
+        // cdef double[:] D = np.empty(n)
+        // D[:] = NPY_INFINITYF
+
+        // cdef int i, k, x, y
+        // cdef double dist, current_min
+
+        // x = 0
+        // for k in range(n - 1):
+        //     current_min = NPY_INFINITYF
+        //     merged[x] = 1
+        //     for i in range(n):
+        //         if merged[i] == 1:
+        //             continue
+
+        //         dist = dists[condensed_index(n, x, i)]
+        //         if D[i] > dist:
+        //             D[i] = dist
+
+        //         if D[i] < current_min:
+        //             y = i
+        //             current_min = D[i]
+
+        //     Z[k, 0] = x
+        //     Z[k, 1] = y
+        //     Z[k, 2] = current_min
+        //     x = y
+
+        // # Sort Z by cluster distances.
+        // order = np.argsort(Z_arr[:, 2], kind='mergesort')
+        // Z_arr = Z_arr[order]
+
+        // # Find correct cluster labels and compute cluster sizes inplace.
+        // label(Z_arr, n)
+
+        // return Z_arr
+        None
+}
+
 ///
 /// An implementation of Top-Down (Agglomerative) Hierarchical
 ///  Clustering with `FastPair`
 ///
-pub struct ClusterFastPair {
+pub struct ClusterFastPair<T: RealNumber> {
     labels: Box<Vec<usize>>,
+    dendrogram: Option<Dendrogram<T>>,
+    linkage_matrix: Option<DenseMatrix<T>>
 }
 
-impl<T: RealNumber> SAHNClustering<T> for ClusterFastPair {
+impl<T: RealNumber> SAHNClustering<T> for ClusterFastPair<T> {
     ///
-    /// Run `FastPair` on matrix's rows
+    /// 1. Compute `FastPair` on matrix's rows
+    /// 2. Compute linkage matrix
+    /// 3. Compute labels
     ///
-    fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Result<ClusterFastPair, Failed> {
+    /// The linkage distance threshold above which clusters will not be merged.
+    fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Result<ClusterFastPair<T>, Failed> {
         let fastpair = FastPair(data).unwrap();
+        // fastpair.dostances  -- connectivity matrix
+
+        // linkage? single, ward, complete and average
+        // mst linkage works only with single
 
         // compute labels
-        // WIP
+        let linkage_matrix = mst_single_linkage(fastpair.distances, data.shape().0);
         let labels: Box<Vec<usize>> = Box::new(vec![0]);
 
-        Ok(ClusterFastPair { labels: labels })
+        Ok(ClusterFastPair { 
+            labels: labels,
+            dendrogram: None,
+            linkage_matrix: None
+        })
     }
 
     fn labels(&self) -> &Box<Vec<usize>> {
         &self.labels
     }
+
 }
 
 ///
@@ -155,7 +237,7 @@ impl<T: RealNumber> SAHNClustering<T> for ClusterFastPair {
 /// > define a data structure and call it 'stepwise dendrogram'.
 ///
 /// Use `std::collections::LinkedList`
-pub struct ClusterLabels<T: RealNumber> {
+pub struct Dendrogram<T: RealNumber> {
     Z: LinkedList<Box<PairwiseDissimilarity<T>>>, // list of nodes in clustering process
     current: Option<usize>,                       // used to read as a doubly linked list
 }

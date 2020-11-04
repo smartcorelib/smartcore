@@ -45,12 +45,14 @@ pub fn FastPair<'a, T: RealNumber, M: Matrix<T>>(m: &'a M) -> Result<_FastPair<T
 /// Ported from Python implementation:
 /// <https://github.com/carsonfarmer/fastpair/blob/b8b4d3000ab6f795a878936667eee1b557bf353d/fastpair/base.py>
 /// MIT License (MIT) Copyright (c) 2016 Carson Farmer
+/// 
+/// affinity used is Euclidean so to allow linkage with single, ward, complete and average
 ///
 #[derive(Debug, Clone)]
 pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     /// initial matrix
     samples: &'a M,
-    /// closest pair hashmap:
+    /// closest pair hashmap (connectivity matrix for closest pairs)
     pub distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>,
     /// conga line used to keep track of the closest pair
     pub neighbours: Box<Vec<usize>>,
@@ -327,12 +329,24 @@ mod tests {
         assert!(fastpair.is_ok());
 
         let dissimilarities = fastpair.unwrap().distances_from(0);
+
+        let mut min_dissimilarity = PairwiseDissimilarity {
+            node: 0,
+            neighbour: None,
+            distance: Some(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0),
+        };
+        for p in dissimilarities.iter() {
+            if p.distance.unwrap() < min_dissimilarity.distance.unwrap() {
+                min_dissimilarity = p.clone()
+            }
+        } 
+
         let closest = PairwiseDissimilarity {
             node: 0,
             neighbour: Some(4),
             distance: Some(0.01999999999999995),
         };
 
-        assert_eq!(closest, dissimilarities[0]);
+        assert_eq!(closest, min_dissimilarity);
     }
 }
