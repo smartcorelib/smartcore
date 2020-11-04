@@ -2,6 +2,7 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+use crate::math::vector::RealNumberVector;
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
@@ -70,93 +71,108 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
     }
 }
 
+struct CategoricalNB<T: RealNumber> {
+    class_labels: Vec<T>,
+    class_probabilities: Vec<T>,
+    coef: Vec<Vec<Vec<T>>>,
+    feature_kinds: Vec<Vec<T>>,
+    alpha: T,
+}
+
+impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNB<T> {
+    fn fit(x: &M, y: &M::RowVector) -> Self {
+        let alpha = T::one();
+        let (n_samples, n_features) = x.shape();
+        let y = y.to_vec();
+        let (class_labels, y_indices) = <Vec<T> as RealNumberVector<T>>::unique(&y);
+        let mut classes_count: Vec<T> = vec![T::zero(); class_labels.len()];
+        for index in y_indices.into_iter() {
+            classes_count[index] += T::one();
+        }
+
+        let x = x.transpose();
+        let mut feature_kinds: Vec<Vec<T>> = Vec::with_capacity(n_features);
+        for feature in 0..n_features {
+            let feature_types = x.get_row(feature).unique();
+            feature_kinds.push(feature_types);
+        }
+        let mut coef: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
+        for (label, label_count) in class_labels.iter().zip(classes_count.iter()) {
+            let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
+            for feature in 0..n_features {
+                let row = x
+                    .get_row_as_vec(feature)
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _j)| y[*i] == *label)
+                    .map(|(_, j)| j.clone())
+                    .collect::<Vec<T>>();
+                let mut feat_count: Vec<usize> = Vec::with_capacity(feature_kinds[feature].len());
+                for k in feature_kinds[feature].iter() {
+                    let feat_k_count = row.iter().filter(|&v| v == k).collect::<Vec<_>>().len();
+                    feat_count.push(feat_k_count);
+                }
+
+                let coef_i_j = feat_count
+                    .iter()
+                    .map(|c| {
+                        (T::from(*c).unwrap() + alpha)
+                            / (T::from(*label_count).unwrap()
+                                + T::from(feature_kinds[feature].len()).unwrap() * alpha)
+                    })
+                    .collect::<Vec<T>>();
+                coef_i.push(coef_i_j);
+            }
+            coef.push(coef_i);
+        }
+        let class_probabilities = classes_count
+            .into_iter()
+            .map(|count| count / T::from(n_samples).unwrap())
+            .collect::<Vec<T>>();
+
+        Self {
+            alpha,
+            coef,
+            class_labels,
+            class_probabilities,
+            feature_kinds,
+        }
+    }
+
+    fn prior(&self, k: T) -> T {
+        match self.class_labels.iter().position(|&t| t == k) {
+            Some(idx) => self.class_probabilities[idx],
+            None => T::zero(),
+        }
+    }
+
+    fn conditional_probability(&self, k: T, j: &M::RowVector) -> T {
+        match self.class_labels.iter().position(|&t| t == k) {
+            Some(idx) => {
+                let mut prob = T::one();
+                for feature in 0..j.len() {
+                    let value = j.get(feature);
+                    match self.feature_kinds[feature].iter().position(|&t| t == value) {
+                        Some(_i) => prob *= self.coef[idx][feature][_i],
+                        None => return T::zero(),
+                    }
+                }
+                prob
+            }
+            None => T::zero(),
+        }
+    }
+
+    fn classes(&self) -> &Vec<T> {
+        &self.class_labels
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
-    struct FakeDistribution<T: RealNumber, M: Matrix<T>> {
-        y_labels: Vec<T>,
-        label_count: Vec<usize>,
-        data_size: usize,
-        x: M,
-        y: M::RowVector,
-    }
 
-    impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for FakeDistribution<T, M> {
-        fn fit(x: &M, y: &M::RowVector) -> Self {
-            let x = x.clone();
-            let y = y.clone();
-            let mut y_sorted = y.to_vec();
-            let data_size = y.len();
-            y_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-            let mut y_labels = vec![];
-            let mut label_count = vec![];
-
-            y_labels.push(y_sorted[0]);
-            let mut current_count = 1;
-
-            for idx in 1..data_size {
-                if y_sorted[idx] == y_sorted[idx - 1] {
-                    current_count += 1;
-                } else {
-                    label_count.push(current_count);
-                    y_labels.push(y_sorted[idx]);
-                    current_count = 1
-                }
-            }
-
-            label_count.push(current_count);
-            Self {
-                data_size,
-                y_labels,
-                label_count,
-                x,
-                y,
-            }
-        }
-
-        fn prior(&self, k: T) -> T {
-            match self.y_labels.iter().position(|&t| t == k) {
-                Some(idx) => {
-                    T::from(self.label_count[idx]).unwrap() / T::from(self.data_size).unwrap()
-                }
-                None => T::zero(),
-            }
-        }
-
-        fn conditional_probability(&self, k: T, j: &M::RowVector) -> T {
-            let d = j.len();
-            let mut count = 0;
-            let mut probs: Vec<T> = vec![T::zero(); d];
-            for idx in 0..self.data_size {
-                if self.y.get(idx) != k {
-                    continue;
-                }
-                count += 1;
-                let row = self.x.get_row(idx);
-                for feature in 0..d {
-                    if j.get(feature) == row.get(feature) {
-                        probs[feature] += T::one();
-                    }
-                }
-            }
-
-            if count == 0 {
-                T::zero()
-            } else {
-                let mut prob = T::one();
-                for feat in probs.into_iter() {
-                    prob *= feat / T::from(count).unwrap()
-                }
-                prob
-            }
-        }
-
-        fn classes(&self) -> &Vec<T> {
-            &self.y_labels
-        }
-    }
     #[test]
     fn run_base_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
@@ -177,7 +193,7 @@ mod tests {
         ]);
         let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
 
-        let distribution = FakeDistribution::<f64, DenseMatrix<f64>>::fit(&x, &y);
+        let distribution = CategoricalNB::<f64>::fit(&x, &y);
         let nbc = BaseNaiveBayes::fit(distribution).unwrap();
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = nbc.predict(&x_test).unwrap();
