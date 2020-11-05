@@ -7,11 +7,6 @@ use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
 pub trait NBDistribution<T: RealNumber, M: Matrix<T>> {
-    /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
-    /// * `x` - training data
-    /// * `y` - vector with target values (classes) of length N
-    fn fit(x: &M, y: &M::RowVector) -> Self;
-
     /// Prior of class k
     fn prior(&self, k: T) -> T;
 
@@ -71,74 +66,15 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
     }
 }
 
-struct CategoricalNB<T: RealNumber> {
+/// Naive Bayes classifier for categorical features
+pub struct CategoricalNB<T: RealNumber> {
     class_labels: Vec<T>,
     class_probabilities: Vec<T>,
     coef: Vec<Vec<Vec<T>>>,
-    feature_kinds: Vec<Vec<T>>,
-    alpha: T,
+    feature_categories: Vec<Vec<T>>,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNB<T> {
-    fn fit(x: &M, y: &M::RowVector) -> Self {
-        let alpha = T::one();
-        let (n_samples, n_features) = x.shape();
-        let y = y.to_vec();
-        let (class_labels, y_indices) = <Vec<T> as RealNumberVector<T>>::unique(&y);
-        let mut classes_count: Vec<T> = vec![T::zero(); class_labels.len()];
-        for index in y_indices.into_iter() {
-            classes_count[index] += T::one();
-        }
-
-        let x = x.transpose();
-        let mut feature_kinds: Vec<Vec<T>> = Vec::with_capacity(n_features);
-        for feature in 0..n_features {
-            let feature_types = x.get_row(feature).unique();
-            feature_kinds.push(feature_types);
-        }
-        let mut coef: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
-        for (label, label_count) in class_labels.iter().zip(classes_count.iter()) {
-            let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
-            for feature in 0..n_features {
-                let row = x
-                    .get_row_as_vec(feature)
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, _j)| y[*i] == *label)
-                    .map(|(_, j)| j.clone())
-                    .collect::<Vec<T>>();
-                let mut feat_count: Vec<usize> = Vec::with_capacity(feature_kinds[feature].len());
-                for k in feature_kinds[feature].iter() {
-                    let feat_k_count = row.iter().filter(|&v| v == k).collect::<Vec<_>>().len();
-                    feat_count.push(feat_k_count);
-                }
-
-                let coef_i_j = feat_count
-                    .iter()
-                    .map(|c| {
-                        (T::from(*c).unwrap() + alpha)
-                            / (T::from(*label_count).unwrap()
-                                + T::from(feature_kinds[feature].len()).unwrap() * alpha)
-                    })
-                    .collect::<Vec<T>>();
-                coef_i.push(coef_i_j);
-            }
-            coef.push(coef_i);
-        }
-        let class_probabilities = classes_count
-            .into_iter()
-            .map(|count| count / T::from(n_samples).unwrap())
-            .collect::<Vec<T>>();
-
-        Self {
-            alpha,
-            coef,
-            class_labels,
-            class_probabilities,
-            feature_kinds,
-        }
-    }
-
     fn prior(&self, k: T) -> T {
         match self.class_labels.iter().position(|&t| t == k) {
             Some(idx) => self.class_probabilities[idx],
@@ -152,7 +88,10 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNB<T> {
                 let mut prob = T::one();
                 for feature in 0..j.len() {
                     let value = j.get(feature);
-                    match self.feature_kinds[feature].iter().position(|&t| t == value) {
+                    match self.feature_categories[feature]
+                        .iter()
+                        .position(|&t| t == value)
+                    {
                         Some(_i) => prob *= self.coef[idx][feature][_i],
                         None => return T::zero(),
                     }
@@ -165,6 +104,70 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNB<T> {
 
     fn classes(&self) -> &Vec<T> {
         &self.class_labels
+    }
+}
+
+impl<T: RealNumber> CategoricalNB<T> {
+    /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
+    /// * `x` - training data.
+    /// * `y` - vector with target values (classes) of length N.
+    /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, alpha: T) -> Self {
+        let (n_samples, n_features) = x.shape();
+        let y = y.to_vec();
+        let (class_labels, y_indices) = <Vec<T> as RealNumberVector<T>>::unique(&y);
+        let mut classes_count: Vec<T> = vec![T::zero(); class_labels.len()];
+        for index in y_indices.into_iter() {
+            classes_count[index] += T::one();
+        }
+
+        let x = x.transpose();
+        let mut feature_categories: Vec<Vec<T>> = Vec::with_capacity(n_features);
+        for feature in 0..n_features {
+            let feature_types = x.get_row(feature).unique();
+            feature_categories.push(feature_types);
+        }
+        let mut coef: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
+        for (label, label_count) in class_labels.iter().zip(classes_count.iter()) {
+            let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
+            for feature in 0..n_features {
+                let row = x
+                    .get_row_as_vec(feature)
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _j)| y[*i] == *label)
+                    .map(|(_, j)| j.clone())
+                    .collect::<Vec<T>>();
+                let mut feat_count: Vec<usize> =
+                    Vec::with_capacity(feature_categories[feature].len());
+                for k in feature_categories[feature].iter() {
+                    let feat_k_count = row.iter().filter(|&v| v == k).collect::<Vec<_>>().len();
+                    feat_count.push(feat_k_count);
+                }
+
+                let coef_i_j = feat_count
+                    .iter()
+                    .map(|c| {
+                        (T::from(*c).unwrap() + alpha)
+                            / (T::from(*label_count).unwrap()
+                                + T::from(feature_categories[feature].len()).unwrap() * alpha)
+                    })
+                    .collect::<Vec<T>>();
+                coef_i.push(coef_i_j);
+            }
+            coef.push(coef_i);
+        }
+        let class_probabilities = classes_count
+            .into_iter()
+            .map(|count| count / T::from(n_samples).unwrap())
+            .collect::<Vec<T>>();
+
+        Self {
+            class_labels,
+            class_probabilities,
+            coef,
+            feature_categories,
+        }
     }
 }
 
@@ -193,7 +196,8 @@ mod tests {
         ]);
         let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
 
-        let distribution = CategoricalNB::<f64>::fit(&x, &y);
+        let alpha = 1.0;
+        let distribution = CategoricalNB::<f64>::fit(&x, &y, alpha);
         let nbc = BaseNaiveBayes::fit(distribution).unwrap();
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = nbc.predict(&x_test).unwrap();
