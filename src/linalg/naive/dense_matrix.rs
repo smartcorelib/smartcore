@@ -8,6 +8,7 @@ use serde::de::{Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
@@ -441,6 +442,8 @@ impl<T: RealNumber> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 impl<T: RealNumber> QRDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> LUDecomposableMatrix<T> for DenseMatrix<T> {}
+
+impl<T: RealNumber> CholeskyDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> Matrix<T> for DenseMatrix<T> {}
 

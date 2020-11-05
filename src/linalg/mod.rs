@@ -33,6 +33,7 @@
 //! let u: DenseMatrix<f64> = svd.U;
 //! ```
 
+pub mod cholesky;
 /// The matrix is represented in terms of its eigenvalues and eigenvectors.
 pub mod evd;
 /// Factors a matrix as the product of a lower triangular matrix and an upper triangular matrix.
@@ -55,6 +56,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use crate::math::num::RealNumber;
+use cholesky::CholeskyDecomposableMatrix;
 use evd::EVDDecomposableMatrix;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
@@ -507,6 +509,7 @@ pub trait Matrix<T: RealNumber>:
     + EVDDecomposableMatrix<T>
     + QRDecomposableMatrix<T>
     + LUDecomposableMatrix<T>
+    + CholeskyDecomposableMatrix<T>
     + PartialEq
     + Display
 {

@@ -49,6 +49,7 @@ use std::ops::SubAssign;
 use ndarray::ScalarOperand;
 use ndarray::{s, stack, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
@@ -491,6 +492,11 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     LUDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    CholeskyDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 
