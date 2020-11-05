@@ -112,8 +112,23 @@ impl<T: RealNumber> CategoricalNB<T> {
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, alpha: T) -> Self {
+    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, alpha: T) -> Result<Self, Failed> {
+        if alpha < T::zero() {
+            return Err(Failed::fit(&format!(
+                "alpha should be >= 0, alpha=[{}]",
+                alpha
+            )));
+        }
+
         let (n_samples, n_features) = x.shape();
+        let y_samples = y.len();
+        if y_samples != n_samples {
+            return Err(Failed::fit(&format!(
+                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
+                n_samples, y_samples
+            )));
+        }
+
         let y = y.to_vec();
         let (class_labels, y_indices) = <Vec<T> as RealNumberVector<T>>::unique(&y);
         let mut classes_count: Vec<T> = vec![T::zero(); class_labels.len()];
@@ -162,12 +177,12 @@ impl<T: RealNumber> CategoricalNB<T> {
             .map(|count| count / T::from(n_samples).unwrap())
             .collect::<Vec<T>>();
 
-        Self {
+        Ok(Self {
             class_labels,
             class_probabilities,
             coef,
             feature_categories,
-        }
+        })
     }
 }
 
@@ -197,7 +212,7 @@ mod tests {
         let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
 
         let alpha = 1.0;
-        let distribution = CategoricalNB::<f64>::fit(&x, &y, alpha);
+        let distribution = CategoricalNB::<f64>::fit(&x, &y, alpha).unwrap();
         let nbc = BaseNaiveBayes::fit(distribution).unwrap();
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = nbc.predict(&x_test).unwrap();
