@@ -2,7 +2,6 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::math::vector::RealNumberVector;
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
@@ -129,15 +128,26 @@ impl<T: RealNumber> CategoricalNB<T> {
             )));
         }
 
-        let y = y.to_vec();
-        let (class_labels, y_indices) = <Vec<T> as RealNumberVector<T>>::unique(&y);
-        let mut classes_count: Vec<T> = vec![T::zero(); class_labels.len()];
-        for index in y_indices.into_iter() {
-            classes_count[index] += T::one();
+        let mut y_sorted = y.to_vec();
+        y_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mut class_labels = Vec::with_capacity(y.len());
+        class_labels.push(y_sorted[0]);
+        let mut classes_count = Vec::with_capacity(y.len());
+        let mut current_count = T::one();
+        for idx in 1..y_samples {
+            if y_sorted[idx] == y_sorted[idx - 1] {
+                current_count += T::one();
+            } else {
+                classes_count.push(current_count);
+                class_labels.push(y_sorted[idx]);
+                current_count = T::one()
+            }
+            classes_count.push(current_count);
         }
 
         let x = x.transpose();
         let mut feature_categories: Vec<Vec<T>> = Vec::with_capacity(n_features);
+
         for feature in 0..n_features {
             let feature_types = x.get_row(feature).unique();
             feature_categories.push(feature_types);
@@ -150,7 +160,7 @@ impl<T: RealNumber> CategoricalNB<T> {
                     .get_row_as_vec(feature)
                     .iter()
                     .enumerate()
-                    .filter(|(i, _j)| y[*i] == *label)
+                    .filter(|(i, _j)| y.get(*i) == *label)
                     .map(|(_, j)| j.clone())
                     .collect::<Vec<T>>();
                 let mut feat_count: Vec<usize> =
