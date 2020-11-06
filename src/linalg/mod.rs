@@ -48,6 +48,7 @@ pub mod nalgebra_bindings;
 pub mod ndarray_bindings;
 /// QR factorization that factors a matrix into a product of an orthogonal matrix and an upper triangular matrix.
 pub mod qr;
+pub mod stats;
 /// Singular value decomposition.
 pub mod svd;
 
@@ -60,6 +61,7 @@ use cholesky::CholeskyDecomposableMatrix;
 use evd::EVDDecomposableMatrix;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
+use stats::MatrixStats;
 use svd::SVDDecomposableMatrix;
 
 /// Column or row vector
@@ -163,6 +165,32 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
     ///assert_eq!(a.unique(), vec![-7., -6., -2., 1., 2., 3., 4.]);
     /// ```
     fn unique(&self) -> Vec<T>;
+
+    /// Compute the arithmetic mean.
+    fn mean(&self) -> T {
+        let n = self.len();
+        let mut mean = T::zero();
+
+        for i in 0..n {
+            mean += self.get(i);
+        }
+        mean / T::from_usize(n).unwrap()
+    }
+    /// Compute the standard deviation.
+    fn std(&self) -> T {
+        let n = self.len();
+
+        let mut mu = T::zero();
+        let mut sum = T::zero();
+        let div = T::from_usize(n).unwrap();
+        for i in 0..n {
+            let xi = self.get(i);
+            mu += xi;
+            sum += xi * xi;
+        }
+        mu /= div;
+        (sum / div - mu * mu).sqrt()
+    }
 }
 
 /// Generic matrix type.
@@ -510,6 +538,7 @@ pub trait Matrix<T: RealNumber>:
     + QRDecomposableMatrix<T>
     + LUDecomposableMatrix<T>
     + CholeskyDecomposableMatrix<T>
+    + MatrixStats<T>
     + PartialEq
     + Display
 {
@@ -543,5 +572,24 @@ impl<'a, T: RealNumber, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
         }
         self.pos += 1;
         res
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::linalg::BaseVector;
+
+    #[test]
+    fn mean() {
+        let m = vec![1., 2., 3.];
+
+        assert_eq!(m.mean(), 2.0);
+    }
+
+    #[test]
+    fn std() {
+        let m = vec![1., 2., 3.];
+
+        assert!((m.std() - 0.81f64).abs() < 1e-2);
     }
 }
