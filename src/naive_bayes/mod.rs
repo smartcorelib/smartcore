@@ -128,6 +128,13 @@ impl<T: RealNumber> CategoricalNB<T> {
             )));
         }
 
+        if n_samples == 0 {
+            return Err(Failed::fit(&format!(
+                "Size of x and y should greater than 0; |x|=[{}]",
+                n_samples
+            )));
+        }
+
         let mut y_sorted = y.to_vec();
         y_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let mut class_labels = Vec::with_capacity(y.len());
