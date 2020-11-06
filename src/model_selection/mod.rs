@@ -44,10 +44,10 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
     let mut n_test = 0;
     let mut index = vec![false; n];
 
-    for i in 0..n {
+    for index_i in index.iter_mut().take(n) {
         let p_test: f32 = rng.gen();
         if p_test <= test_size {
-            index[i] = true;
+            *index_i = true;
             n_test += 1;
         }
     }
@@ -62,8 +62,8 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
     let mut r_train = 0;
     let mut r_test = 0;
 
-    for r in 0..n {
-        if index[r] {
+    for (r, index_r) in index.iter().enumerate().take(n) {
+        if *index_r {
             //sample belongs to test
             for c in 0..m {
                 x_test.set(r_test, c, x.get(r, c));
@@ -133,8 +133,8 @@ impl BaseKFold for KFold {
         let mut fold_sizes = vec![n_samples / self.n_splits; self.n_splits];
 
         // increment by one if odd
-        for i in 0..(n_samples % self.n_splits) {
-            fold_sizes[i] += 1;
+        for fold_size in fold_sizes.iter_mut().take(n_samples % self.n_splits) {
+            *fold_size += 1;
         }
 
         // generate the right array of arrays for test indices

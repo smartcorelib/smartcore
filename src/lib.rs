@@ -1,5 +1,4 @@
 #![allow(
-    clippy::needless_range_loop,
     clippy::ptr_arg,
     clippy::type_complexity,
     clippy::too_many_arguments,

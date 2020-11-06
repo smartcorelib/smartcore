@@ -51,10 +51,10 @@ pub fn mutual_info_score<T: RealNumber>(contingency: &Vec<Vec<usize>>) -> T {
     let (mut nzx, mut nzy, mut nz_val) = (Vec::new(), Vec::new(), Vec::new());
 
     for r in 0..contingency.len() {
-        for c in 0..contingency[0].len() {
+        for (c, pj_c) in pj.iter_mut().enumerate().take(contingency[0].len()) {
             contingency_sum += contingency[r][c];
             pi[r] += contingency[r][c];
-            pj[c] += contingency[r][c];
+            *pj_c += contingency[r][c];
             if contingency[r][c] > 0 {
                 nzx.push(r);
                 nzy.push(c);

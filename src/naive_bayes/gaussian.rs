@@ -119,9 +119,9 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
             .into_iter()
             .map(|v| {
                 let mut m = M::zeros(v.len(), n_features);
-                for row in 0..v.len() {
-                    for col in 0..n_features {
-                        m.set(row, col, v[row][col]);
+                for (row_i, v_i) in v.iter().enumerate() {
+                    for (col_j, v_i_j) in v_i.iter().enumerate().take(n_features) {
+                        m.set(row_i, col_j, *v_i_j);
                     }
                 }
                 m

@@ -22,14 +22,14 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
 
         let div = T::from_usize(m).unwrap();
 
-        for i in 0..n {
+        for (i, x_i) in x.iter_mut().enumerate().take(n) {
             for j in 0..m {
-                x[i] += match axis {
+                *x_i += match axis {
                     0 => self.get(j, i),
                     _ => self.get(i, j),
                 };
             }
-            x[i] /= div;
+            *x_i /= div;
         }
 
         x
@@ -49,7 +49,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
 
         let div = T::from_usize(m).unwrap();
 
-        for i in 0..n {
+        for (i, x_i) in x.iter_mut().enumerate().take(n) {
             let mut mu = T::zero();
             let mut sum = T::zero();
             for j in 0..m {
@@ -61,7 +61,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
                 sum += a * a;
             }
             mu /= div;
-            x[i] = sum / div - mu * mu;
+            *x_i = sum / div - mu * mu;
         }
 
         x
@@ -76,8 +76,8 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
             _ => self.shape().0,
         };
 
-        for i in 0..n {
-            x[i] = x[i].sqrt();
+        for x_i in x.iter_mut().take(n) {
+            *x_i = x_i.sqrt();
         }
 
         x

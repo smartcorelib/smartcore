@@ -44,8 +44,8 @@ pub struct QR<T: RealNumber, M: BaseMatrix<T>> {
 impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
     pub(crate) fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
         let mut singular = false;
-        for j in 0..tau.len() {
-            if tau[j] == T::zero() {
+        for tau_elem in tau.iter() {
+            if *tau_elem == T::zero() {
                 singular = true;
                 break;
             }
@@ -153,7 +153,7 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 
         let mut r_diagonal: Vec<T> = vec![T::zero(); n];
 
-        for k in 0..n {
+        for (k, r_diagonal_k) in r_diagonal.iter_mut().enumerate().take(n) {
             let mut nrm = T::zero();
             for i in k..m {
                 nrm = nrm.hypot(self.get(i, k));
@@ -179,7 +179,7 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     }
                 }
             }
-            r_diagonal[k] = -nrm;
+            *r_diagonal_k = -nrm;
         }
 
         Ok(QR::new(self, r_diagonal))
