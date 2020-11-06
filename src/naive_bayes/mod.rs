@@ -54,12 +54,12 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                     })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
                     .unwrap();
-                prediction.clone()
+                *prediction
             })
             .collect::<Vec<T>>();
         let mut y_hat = M::RowVector::zeros(rows);
-        for i in 0..rows {
-            y_hat.set(i, predictions[i]);
+        for (i, prediction) in predictions.iter().enumerate().take(rows) {
+            y_hat.set(i, *prediction);
         }
         Ok(y_hat)
     }
@@ -162,18 +162,19 @@ impl<T: RealNumber> CategoricalNB<T> {
         let mut coef: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
         for (label, label_count) in class_labels.iter().zip(classes_count.iter()) {
             let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
-            for feature in 0..n_features {
+            for (feature_index, feature_options) in
+                feature_categories.iter().enumerate().take(n_features)
+            {
                 let row = x
-                    .get_row_as_vec(feature)
+                    .get_row_as_vec(feature_index)
                     .iter()
                     .enumerate()
                     .filter(|(i, _j)| y.get(*i) == *label)
-                    .map(|(_, j)| j.clone())
+                    .map(|(_, j)| *j)
                     .collect::<Vec<T>>();
-                let mut feat_count: Vec<usize> =
-                    Vec::with_capacity(feature_categories[feature].len());
-                for k in feature_categories[feature].iter() {
-                    let feat_k_count = row.iter().filter(|&v| v == k).collect::<Vec<_>>().len();
+                let mut feat_count: Vec<usize> = Vec::with_capacity(feature_options.len());
+                for k in feature_options.iter() {
+                    let feat_k_count = row.iter().filter(|&v| v == k).count();
                     feat_count.push(feat_k_count);
                 }
 
@@ -182,7 +183,7 @@ impl<T: RealNumber> CategoricalNB<T> {
                     .map(|c| {
                         (T::from(*c).unwrap() + alpha)
                             / (T::from(*label_count).unwrap()
-                                + T::from(feature_categories[feature].len()).unwrap() * alpha)
+                                + T::from(feature_options.len()).unwrap() * alpha)
                     })
                     .collect::<Vec<T>>();
                 coef_i.push(coef_i_j);
