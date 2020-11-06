@@ -166,7 +166,7 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
     /// ```
     fn unique(&self) -> Vec<T>;
 
-    /// Compute the arithmetic mean.
+    /// Computes the arithmetic mean.
     fn mean(&self) -> T {
         let n = self.len();
         let mut mean = T::zero();
@@ -176,7 +176,7 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
         }
         mean / T::from_usize(n).unwrap()
     }
-    /// Compute the standard deviation.
+    /// Computes the standard deviation.
     fn std(&self) -> T {
         let n = self.len();
 

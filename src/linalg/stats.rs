@@ -1,13 +1,14 @@
 //! # Various Statistical Methods
 //!
-//!
+//! This module provides reference implementations for  various statistical functions.
+//! Concrete implementations of the `BaseMatrix` trait are free to override these methods for better performance.
 
 use crate::linalg::BaseMatrix;
 use crate::math::num::RealNumber;
 
 /// Defines baseline implementations for various statistical functions
 pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
-    /// Compute the arithmetic mean along the specified axis.
+    /// Computes the arithmetic mean along the specified axis.
     fn mean(&self, axis: u8) -> Vec<T> {
         let (n, m) = match axis {
             0 => {
@@ -34,7 +35,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
         x
     }
 
-    /// Compute the standard deviation along the specified axis.
+    /// Computes the standard deviation along the specified axis.
     fn std(&self, axis: u8) -> Vec<T> {
         let (n, m) = match axis {
             0 => {
