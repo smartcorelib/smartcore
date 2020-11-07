@@ -129,7 +129,7 @@ impl<T: RealNumber + Sum> KMeans<T> {
             return Err(Failed::fit(&format!("invalid number of clusters: {}", k)));
         }
 
-        if parameters.max_iter <= 0 {
+        if parameters.max_iter == 0 {
             return Err(Failed::fit(&format!(
                 "invalid maximum number of iterations: {}",
                 parameters.max_iter

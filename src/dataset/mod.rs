@@ -56,8 +56,8 @@ pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
 ) -> Result<(), io::Error> {
     match File::create(filename) {
         Ok(mut file) => {
-            file.write(&dataset.num_features.to_le_bytes())?;
-            file.write(&dataset.num_samples.to_le_bytes())?;
+            file.write_all(&dataset.num_features.to_le_bytes())?;
+            file.write_all(&dataset.num_samples.to_le_bytes())?;
             let x: Vec<u8> = dataset
                 .data
                 .iter()

@@ -101,7 +101,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
     /// * `p` - look for k nearest points to `p`
     /// * `k` - the number of nearest neighbors to return
     pub fn find(&self, p: &T, k: usize) -> Result<Vec<(usize, F, &T)>, Failed> {
-        if k <= 0 {
+        if k == 0 {
             return Err(Failed::because(FailedError::FindFailed, "k should be > 0"));
         }
 
