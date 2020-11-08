@@ -74,8 +74,8 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
         let f_x = f(&x);
 
         OptimizerResult {
-            x: x,
-            f_x: f_x,
+            x,
+            f_x,
             iterations: iter,
         }
     }

@@ -61,7 +61,7 @@ impl Failed {
     /// new instance of `err`
     pub fn because(err: FailedError, msg: &str) -> Self {
         Failed {
-            err: err,
+            err,
             msg: msg.to_string(),
         }
     }

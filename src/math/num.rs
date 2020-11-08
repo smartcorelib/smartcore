@@ -57,19 +57,19 @@ impl RealNumber for f64 {
 
     fn ln_1pe(self) -> f64 {
         if self > 15. {
-            return self;
+            self
         } else {
-            return self.exp().ln_1p();
+            self.exp().ln_1p()
         }
     }
 
     fn sigmoid(self) -> f64 {
         if self < -40. {
-            return 0.;
+            0.
         } else if self > 40. {
-            return 1.;
+            1.
         } else {
-            return 1. / (1. + f64::exp(-self));
+            1. / (1. + f64::exp(-self))
         }
     }
 
@@ -98,19 +98,19 @@ impl RealNumber for f32 {
 
     fn ln_1pe(self) -> f32 {
         if self > 15. {
-            return self;
+            self
         } else {
-            return self.exp().ln_1p();
+            self.exp().ln_1p()
         }
     }
 
     fn sigmoid(self) -> f32 {
         if self < -40. {
-            return 0.;
+            0.
         } else if self > 40. {
-            return 1.;
+            1.
         } else {
-            return 1. / (1. + f32::exp(-self));
+            1. / (1. + f32::exp(-self))
         }
     }
 

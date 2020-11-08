@@ -89,7 +89,7 @@ pub struct RandomForestClassifier<T: RealNumber> {
 impl<T: RealNumber> PartialEq for RandomForestClassifier<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.classes.len() != other.classes.len() || self.trees.len() != other.trees.len() {
-            return false;
+            false
         } else {
             for i in 0..self.classes.len() {
                 if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
@@ -164,8 +164,8 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         }
 
         Ok(RandomForestClassifier {
-            parameters: parameters,
-            trees: trees,
+            parameters,
+            trees,
             classes,
         })
     }
@@ -191,7 +191,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             result[tree.predict_for_row(x, row)] += 1;
         }
 
-        return which_max(&result);
+        which_max(&result)
     }
 
     fn sample_with_replacement(y: &Vec<usize>, num_classes: usize) -> Vec<usize> {

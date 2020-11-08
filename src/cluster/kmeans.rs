@@ -149,13 +149,13 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         for i in 0..n {
             for j in 0..d {
-                centroids[y[i]][j] = centroids[y[i]][j] + data.get(i, j);
+                centroids[y[i]][j] += data.get(i, j);
             }
         }
 
         for i in 0..k {
             for j in 0..d {
-                centroids[i][j] = centroids[i][j] / T::from(size[i]).unwrap();
+                centroids[i][j] /= T::from(size[i]).unwrap();
             }
         }
 
@@ -178,11 +178,11 @@ impl<T: RealNumber + Sum> KMeans<T> {
         }
 
         Ok(KMeans {
-            k: k,
-            y: y,
-            size: size,
-            distortion: distortion,
-            centroids: centroids,
+            k,
+            y,
+            size,
+            distortion,
+            centroids,
         })
     }
 
@@ -235,13 +235,13 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
             let mut sum: T = T::zero();
             for i in d.iter() {
-                sum = sum + *i;
+                sum += *i;
             }
             let cutoff = T::from(rng.gen::<f64>()).unwrap() * sum;
             let mut cost = T::zero();
             let mut index = 0;
             while index < n {
-                cost = cost + d[index];
+                cost += d[index];
                 if cost >= cutoff {
                     break;
                 }

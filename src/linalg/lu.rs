@@ -63,10 +63,10 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         }
 
         LU {
-            LU: LU,
-            pivot: pivot,
-            pivot_sign: pivot_sign,
-            singular: singular,
+            LU,
+            pivot,
+            pivot_sign,
+            singular,
             phantom: PhantomData,
         }
     }
@@ -220,10 +220,10 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 let kmax = usize::min(i, j);
                 let mut s = T::zero();
                 for k in 0..kmax {
-                    s = s + self.get(i, k) * LUcolj[k];
+                    s += self.get(i, k) * LUcolj[k];
                 }
 
-                LUcolj[i] = LUcolj[i] - s;
+                LUcolj[i] -= s;
                 self.set(i, j, LUcolj[i]);
             }
 
@@ -239,9 +239,7 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     self.set(p, k, self.get(j, k));
                     self.set(j, k, t);
                 }
-                let k = piv[p];
-                piv[p] = piv[j];
-                piv[j] = k;
+                piv.swap(p, j);
                 pivsign = -pivsign;
             }
 

@@ -173,9 +173,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         let (n, _) = x.shape();
 
         if n != y.len() {
-            return Err(Failed::fit(&format!(
-                "Number of rows of X doesn't match number of rows of Y"
-            )));
+            return Err(Failed::fit(
+                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+            ));
         }
 
         let classes = y.unique();
@@ -204,11 +204,11 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         let (support_vectors, weight, b) = optimizer.optimize();
 
         Ok(SVC {
-            classes: classes,
-            kernel: kernel,
+            classes,
+            kernel,
             instances: support_vectors,
             w: weight,
-            b: b,
+            b,
         })
     }
 
@@ -251,7 +251,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.w.len() {
                 if (self.w[i] - other.w[i]).abs() > T::epsilon() {
@@ -263,7 +263,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -278,12 +278,12 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
         };
         SupportVector {
             index: i,
-            x: x,
+            x,
             grad: g,
             k: k_v,
             alpha: T::zero(),
-            cmin: cmin,
-            cmax: cmax,
+            cmin,
+            cmax,
         }
     }
 }
@@ -291,7 +291,7 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
 impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M, K> {
     fn new(kernel: &'a K) -> Cache<'a, T, M, K> {
         Cache {
-            kernel: kernel,
+            kernel,
             data: HashMap::new(),
             phantom: PhantomData,
         }
@@ -326,8 +326,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let (n, _) = x.shape();
 
         Optimizer {
-            x: x,
-            y: y,
+            x,
+            y,
             parameters: &parameters,
             svmin: 0,
             svmax: 0,
@@ -335,7 +335,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             gmax: T::min_value(),
             tau: T::from_f64(1e-12).unwrap(),
             sv: Vec::with_capacity(n),
-            kernel: kernel,
+            kernel,
             recalculate_minmax_grad: true,
         }
     }
@@ -389,10 +389,11 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
                     cp += 1;
                 }
-            } else if self.y.get(i) == -T::one() && cn < few {
-                if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
-                    cn += 1;
-                }
+            } else if self.y.get(i) == -T::one()
+                && cn < few
+                && self.process(i, self.x.get_row(i), self.y.get(i), cache)
+            {
+                cn += 1;
             }
 
             if cp >= few && cn >= few {
@@ -420,10 +421,10 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 
         self.find_min_max_gradient();
 
-        if self.gmin < self.gmax {
-            if (y > T::zero() && g < self.gmin) || (y < T::zero() && g > self.gmax) {
-                return false;
-            }
+        if self.gmin < self.gmax
+            && ((y > T::zero() && g < self.gmin) || (y < T::zero() && g > self.gmax))
+        {
+            return false;
         }
 
         for v in cache_values {
@@ -494,13 +495,12 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let mut idxs_to_drop: HashSet<usize> = HashSet::new();
 
         self.sv.retain(|v| {
-            if v.alpha == T::zero() {
-                if (v.grad >= gmax && T::zero() >= v.cmax)
-                    || (v.grad <= gmin && T::zero() <= v.cmin)
-                {
-                    idxs_to_drop.insert(v.index);
-                    return false;
-                }
+            if v.alpha == T::zero()
+                && ((v.grad >= gmax && T::zero() >= v.cmax)
+                    || (v.grad <= gmin && T::zero() <= v.cmin))
+            {
+                idxs_to_drop.insert(v.index);
+                return false;
             };
             true
         });
@@ -647,7 +647,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 
                 self.update(idx_1, idx_2, step, cache);
 
-                return self.gmax - self.gmin > tol;
+                self.gmax - self.gmin > tol
             }
             None => false,
         }

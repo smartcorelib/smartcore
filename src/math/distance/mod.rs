@@ -45,7 +45,7 @@ impl Distances {
     /// Minkowski distance, see [`Minkowski`](minkowski/index.html)
     /// * `p` - function order. Should be >= 1
     pub fn minkowski(p: u16) -> minkowski::Minkowski {
-        minkowski::Minkowski { p: p }
+        minkowski::Minkowski { p }
     }
 
     /// Manhattan distance, see [`Manhattan`](manhattan/index.html)

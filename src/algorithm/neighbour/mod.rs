@@ -66,10 +66,10 @@ impl KNNAlgorithmName {
     ) -> Result<KNNAlgorithm<T, D>, Failed> {
         match *self {
             KNNAlgorithmName::LinearSearch => {
-                LinearKNNSearch::new(data, distance).map(|a| KNNAlgorithm::LinearSearch(a))
+                LinearKNNSearch::new(data, distance).map(KNNAlgorithm::LinearSearch)
             }
             KNNAlgorithmName::CoverTree => {
-                CoverTree::new(data, distance).map(|a| KNNAlgorithm::CoverTree(a))
+                CoverTree::new(data, distance).map(KNNAlgorithm::CoverTree)
             }
         }
     }

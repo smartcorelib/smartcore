@@ -113,8 +113,8 @@ impl Default for DecisionTreeRegressorParameters {
 impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: T) -> Self {
         Node {
-            index: index,
-            output: output,
+            index,
+            output,
             split_feature: 0,
             split_value: Option::None,
             split_score: Option::None,
@@ -144,14 +144,14 @@ impl<T: RealNumber> PartialEq for Node<T> {
 impl<T: RealNumber> PartialEq for DecisionTreeRegressor<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
-            return false;
+            false
         } else {
             for i in 0..self.nodes.len() {
                 if self.nodes[i] != other.nodes[i] {
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -177,14 +177,14 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
         level: u16,
     ) -> Self {
         NodeVisitor {
-            x: x,
-            y: y,
+            x,
+            y,
             node: node_id,
-            samples: samples,
-            order: order,
+            samples,
+            order,
             true_child_output: T::zero(),
             false_child_output: T::zero(),
-            level: level,
+            level,
         }
     }
 }
@@ -221,7 +221,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         let mut sum = T::zero();
         for i in 0..y_ncols {
             n += samples[i];
-            sum = sum + T::from(samples[i]).unwrap() * y_m.get(0, i);
+            sum += T::from(samples[i]).unwrap() * y_m.get(0, i);
         }
 
         let root = Node::new(0, sum / T::from(n).unwrap());
@@ -233,8 +233,8 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         }
 
         let mut tree = DecisionTreeRegressor {
-            nodes: nodes,
-            parameters: parameters,
+            nodes,
+            parameters,
             depth: 0,
         };
 
@@ -282,19 +282,18 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
                     let node = &self.nodes[node_id];
                     if node.true_child == None && node.false_child == None {
                         result = node.output;
+                    } else if x.get(row, node.split_feature) <= node.split_value.unwrap_or(T::nan())
+                    {
+                        queue.push_back(node.true_child.unwrap());
                     } else {
-                        if x.get(row, node.split_feature) <= node.split_value.unwrap_or(T::nan()) {
-                            queue.push_back(node.true_child.unwrap());
-                        } else {
-                            queue.push_back(node.false_child.unwrap());
-                        }
+                        queue.push_back(node.false_child.unwrap());
                     }
                 }
                 None => break,
             };
         }
 
-        return result;
+        result
     }
 
     fn find_best_cutoff<M: Matrix<T>>(
@@ -348,8 +347,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
                 if prevx.is_nan() || visitor.x.get(*i, j) == prevx {
                     prevx = visitor.x.get(*i, j);
                     true_count += visitor.samples[*i];
-                    true_sum =
-                        true_sum + T::from(visitor.samples[*i]).unwrap() * visitor.y.get(0, *i);
+                    true_sum += T::from(visitor.samples[*i]).unwrap() * visitor.y.get(0, *i);
                     continue;
                 }
 
@@ -360,8 +358,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
                 {
                     prevx = visitor.x.get(*i, j);
                     true_count += visitor.samples[*i];
-                    true_sum =
-                        true_sum + T::from(visitor.samples[*i]).unwrap() * visitor.y.get(0, *i);
+                    true_sum += T::from(visitor.samples[*i]).unwrap() * visitor.y.get(0, *i);
                     continue;
                 }
 
@@ -384,7 +381,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
                 }
 
                 prevx = visitor.x.get(*i, j);
-                true_sum = true_sum + T::from(visitor.samples[*i]).unwrap() * visitor.y.get(0, *i);
+                true_sum += T::from(visitor.samples[*i]).unwrap() * visitor.y.get(0, *i);
                 true_count += visitor.samples[*i];
             }
         }

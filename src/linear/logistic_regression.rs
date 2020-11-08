@@ -82,7 +82,7 @@ trait ObjectiveFunction<T: RealNumber, M: Matrix<T>> {
         let mut sum = T::zero();
         let p = x.shape().1;
         for i in 0..p {
-            sum = sum + x.get(m_row, i) * w.get(0, i + v_col);
+            sum += x.get(m_row, i) * w.get(0, i + v_col);
         }
 
         sum + w.get(0, p + v_col)
@@ -101,7 +101,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
             || self.num_attributes != other.num_attributes
             || self.classes.len() != other.classes.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.classes.len() {
                 if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
@@ -109,7 +109,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
                 }
             }
 
-            return self.weights == other.weights;
+            self.weights == other.weights
         }
     }
 }
@@ -123,7 +123,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
 
         for i in 0..n {
             let wx = BinaryObjectiveFunction::partial_dot(w_bias, self.x, 0, i);
-            f = f + (wx.ln_1pe() - (T::from(self.y[i]).unwrap()) * wx);
+            f += wx.ln_1pe() - (T::from(self.y[i]).unwrap()) * wx;
         }
 
         f
@@ -169,7 +169,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
                 );
             }
             prob.softmax_mut();
-            f = f - prob.get(0, self.y[i]).ln();
+            f -= prob.get(0, self.y[i]).ln();
         }
 
         f
@@ -215,9 +215,9 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         let (_, y_nrows) = y_m.shape();
 
         if x_nrows != y_nrows {
-            return Err(Failed::fit(&format!(
-                "Number of rows of X doesn't match number of rows of Y"
-            )));
+            return Err(Failed::fit(
+                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+            ));
         }
 
         let classes = y_m.unique();
@@ -240,7 +240,7 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
             let x0 = M::zeros(1, num_attributes + 1);
 
             let objective = BinaryObjectiveFunction {
-                x: x,
+                x,
                 y: yi,
                 phantom: PhantomData,
             };
@@ -249,17 +249,17 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
 
             Ok(LogisticRegression {
                 weights: result.x,
-                classes: classes,
-                num_attributes: num_attributes,
+                classes,
+                num_attributes,
                 num_classes: k,
             })
         } else {
             let x0 = M::zeros(1, (num_attributes + 1) * k);
 
             let objective = MultiClassObjectiveFunction {
-                x: x,
+                x,
                 y: yi,
-                k: k,
+                k,
                 phantom: PhantomData,
             };
 
@@ -268,9 +268,9 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
             let weights = result.x.reshape(k, num_attributes + 1);
 
             Ok(LogisticRegression {
-                weights: weights,
-                classes: classes,
-                num_attributes: num_attributes,
+                weights,
+                classes,
+                num_attributes,
                 num_classes: k,
             })
         }
@@ -362,7 +362,7 @@ mod tests {
 
         let objective = MultiClassObjectiveFunction {
             x: &x,
-            y: y,
+            y,
             k: 3,
             phantom: PhantomData,
         };
@@ -411,7 +411,7 @@ mod tests {
 
         let objective = BinaryObjectiveFunction {
             x: &x,
-            y: y,
+            y,
             phantom: PhantomData,
         };
 

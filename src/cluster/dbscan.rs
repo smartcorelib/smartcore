@@ -93,11 +93,11 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
         parameters: DBSCANParameters<T>,
     ) -> Result<DBSCAN<T, D>, Failed> {
         if parameters.min_samples < 1 {
-            return Err(Failed::fit(&format!("Invalid minPts")));
+            return Err(Failed::fit(&"Invalid minPts".to_string()));
         }
 
         if parameters.eps <= T::zero() {
-            return Err(Failed::fit(&format!("Invalid radius: ")));
+            return Err(Failed::fit(&"Invalid radius: ".to_string()));
         }
 
         let mut k = 0;

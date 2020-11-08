@@ -123,9 +123,9 @@ impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
         let (y_nrows, _) = b.shape();
 
         if x_nrows != y_nrows {
-            return Err(Failed::fit(&format!(
-                "Number of rows of X doesn't match number of rows of Y"
-            )));
+            return Err(Failed::fit(
+                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+            ));
         }
 
         let a = x.h_stack(&M::ones(x_nrows, 1));

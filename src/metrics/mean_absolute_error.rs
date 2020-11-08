@@ -43,7 +43,7 @@ impl MeanAbsoluteError {
         let n = y_true.len();
         let mut ras = T::zero();
         for i in 0..n {
-            ras = ras + (y_true.get(i) - y_pred.get(i)).abs();
+            ras += (y_true.get(i) - y_pred.get(i)).abs();
         }
 
         ras / T::from_usize(n).unwrap()

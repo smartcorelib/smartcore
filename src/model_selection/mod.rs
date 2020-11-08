@@ -127,7 +127,7 @@ impl BaseKFold for KFold {
 
         // initialise indices
         let mut indices: Vec<usize> = (0..n_samples).collect();
-        if self.shuffle == true {
+        if self.shuffle {
             indices.shuffle(&mut thread_rng());
         }
         //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
@@ -135,7 +135,7 @@ impl BaseKFold for KFold {
 
         // increment by one if odd
         for i in 0..(n_samples % self.n_splits) {
-            fold_sizes[i] = fold_sizes[i] + 1;
+            fold_sizes[i] += 1;
         }
 
         // generate the right array of arrays for test indices
@@ -175,13 +175,13 @@ impl BaseKFold for KFold {
                 .clone()
                 .iter()
                 .enumerate()
-                .filter(|&(idx, _)| test_index[idx] == false)
+                .filter(|&(idx, _)| !test_index[idx])
                 .map(|(idx, _)| idx)
                 .collect::<Vec<usize>>(); // filter train indices out according to mask
             let test_index = indices
                 .iter()
                 .enumerate()
-                .filter(|&(idx, _)| test_index[idx] == true)
+                .filter(|&(idx, _)| test_index[idx])
                 .map(|(idx, _)| idx)
                 .collect::<Vec<usize>>(); // filter tests indices out according to mask
             return_values.push((train_index, test_index))

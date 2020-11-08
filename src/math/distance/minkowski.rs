@@ -48,7 +48,7 @@ impl<T: RealNumber> Distance<Vec<T>, T> for Minkowski {
 
         for i in 0..x.len() {
             let d = (x[i] - y[i]).abs();
-            dist = dist + d.powf(p_t);
+            dist += d.powf(p_t);
         }
 
         dist.powf(T::one() / p_t)

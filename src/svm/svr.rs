@@ -160,9 +160,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
         let (n, _) = x.shape();
 
         if n != y.len() {
-            return Err(Failed::fit(&format!(
-                "Number of rows of X doesn't match number of rows of Y"
-            )));
+            return Err(Failed::fit(
+                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+            ));
         }
 
         let optimizer = Optimizer::new(x, y, &kernel, &parameters);
@@ -170,10 +170,10 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
         let (support_vectors, weight, b) = optimizer.smo();
 
         Ok(SVR {
-            kernel: kernel,
+            kernel,
             instances: support_vectors,
             w: weight,
-            b: b,
+            b,
         })
     }
 
@@ -198,7 +198,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
             f += self.w[i] * self.kernel.apply(&x, &self.instances[i]);
         }
 
-        return f;
+        f
     }
 }
 
@@ -208,7 +208,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVR<
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.w.len() {
                 if (self.w[i] - other.w[i]).abs() > T::epsilon() {
@@ -220,7 +220,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVR<
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -230,7 +230,7 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
         let k_v = k.apply(&x, &x);
         SupportVector {
             index: i,
-            x: x,
+            x,
             grad: [eps + y, eps - y],
             k: k_v,
             alpha: [T::zero(), T::zero()],
@@ -270,7 +270,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             gmaxindex: 0,
             tau: T::from_f64(1e-12).unwrap(),
             sv: support_vectors,
-            kernel: kernel,
+            kernel,
         }
     }
 
@@ -392,11 +392,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                         self.sv[v2].alpha[j] = T::zero();
                         self.sv[v1].alpha[i] = diff;
                     }
-                } else {
-                    if self.sv[v1].alpha[i] < T::zero() {
-                        self.sv[v1].alpha[i] = T::zero();
-                        self.sv[v2].alpha[j] = -diff;
-                    }
+                } else if self.sv[v1].alpha[i] < T::zero() {
+                    self.sv[v1].alpha[i] = T::zero();
+                    self.sv[v2].alpha[j] = -diff;
                 }
 
                 if diff > T::zero() {
@@ -404,11 +402,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                         self.sv[v1].alpha[i] = self.c;
                         self.sv[v2].alpha[j] = self.c - diff;
                     }
-                } else {
-                    if self.sv[v2].alpha[j] > self.c {
-                        self.sv[v2].alpha[j] = self.c;
-                        self.sv[v1].alpha[i] = self.c + diff;
-                    }
+                } else if self.sv[v2].alpha[j] > self.c {
+                    self.sv[v2].alpha[j] = self.c;
+                    self.sv[v1].alpha[i] = self.c + diff;
                 }
             } else {
                 let delta = (self.sv[v1].grad[i] - self.sv[v2].grad[j]) / curv;
@@ -421,11 +417,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                         self.sv[v1].alpha[i] = self.c;
                         self.sv[v2].alpha[j] = sum - self.c;
                     }
-                } else {
-                    if self.sv[v2].alpha[j] < T::zero() {
-                        self.sv[v2].alpha[j] = T::zero();
-                        self.sv[v1].alpha[i] = sum;
-                    }
+                } else if self.sv[v2].alpha[j] < T::zero() {
+                    self.sv[v2].alpha[j] = T::zero();
+                    self.sv[v1].alpha[i] = sum;
                 }
 
                 if sum > self.c {
@@ -433,11 +427,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                         self.sv[v2].alpha[j] = self.c;
                         self.sv[v1].alpha[i] = sum - self.c;
                     }
-                } else {
-                    if self.sv[v1].alpha[i] < T::zero() {
-                        self.sv[v1].alpha[i] = T::zero();
-                        self.sv[v2].alpha[j] = sum;
-                    }
+                } else if self.sv[v1].alpha[i] < T::zero() {
+                    self.sv[v1].alpha[i] = T::zero();
+                    self.sv[v2].alpha[j] = sum;
                 }
             }
 

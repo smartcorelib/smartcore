@@ -61,14 +61,14 @@ pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
             let x: Vec<u8> = dataset
                 .data
                 .iter()
-                .map(|v| *v)
+                .copied()
                 .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
                 .collect();
             file.write_all(&x)?;
             let y: Vec<u8> = dataset
                 .target
                 .iter()
-                .map(|v| *v)
+                .copied()
                 .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
                 .collect();
             file.write_all(&y)?;

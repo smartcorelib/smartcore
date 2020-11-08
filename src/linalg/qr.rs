@@ -51,11 +51,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
             }
         }
 
-        QR {
-            QR: QR,
-            tau: tau,
-            singular: singular,
-        }
+        QR { QR, tau, singular }
     }
 
     /// Get upper triangular matrix.
@@ -68,7 +64,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
                 R.set(i, j, self.QR.get(i, j));
             }
         }
-        return R;
+        R
     }
 
     /// Get an orthogonal matrix.
@@ -82,7 +78,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
                 if self.QR.get(k, k) != T::zero() {
                     let mut s = T::zero();
                     for i in k..m {
-                        s = s + self.QR.get(i, k) * Q.get(i, j);
+                        s += self.QR.get(i, k) * Q.get(i, j);
                     }
                     s = -s / self.QR.get(k, k);
                     for i in k..m {
@@ -96,7 +92,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
                 k -= 1;
             }
         }
-        return Q;
+        Q
     }
 
     fn solve(&self, mut b: M) -> Result<M, Failed> {
@@ -118,7 +114,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
             for j in 0..b_ncols {
                 let mut s = T::zero();
                 for i in k..m {
-                    s = s + self.QR.get(i, k) * b.get(i, j);
+                    s += self.QR.get(i, k) * b.get(i, j);
                 }
                 s = -s / self.QR.get(k, k);
                 for i in k..m {
@@ -175,7 +171,7 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 for j in k + 1..n {
                     let mut s = T::zero();
                     for i in k..m {
-                        s = s + self.get(i, k) * self.get(i, j);
+                        s += self.get(i, k) * self.get(i, j);
                     }
                     s = -s / self.get(k, k);
                     for i in k..m {

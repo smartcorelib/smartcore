@@ -51,7 +51,7 @@ impl<T, F: RealNumber, D: Distance<T, F>> PartialEq for CoverTree<T, F, D> {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
@@ -84,11 +84,11 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             scale: 0,
         };
         let mut tree = CoverTree {
-            base: base,
+            base,
             inv_log_base: F::one() / base.ln(),
-            distance: distance,
-            root: root,
-            data: data,
+            distance,
+            root,
+            data,
             identical_excluded: false,
         };
 
@@ -147,10 +147,11 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                         *heap.peek()
                     };
                     if d <= (upper_bound + child.max_dist) {
-                        if c > 0 && d < upper_bound {
-                            if !self.identical_excluded || self.get_data_value(child.idx) != p {
-                                heap.add(d);
-                            }
+                        if c > 0
+                            && d < upper_bound
+                            && (!self.identical_excluded || self.get_data_value(child.idx) != p)
+                        {
+                            heap.add(d);
                         }
 
                         if !child.children.is_empty() {
@@ -234,7 +235,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
 
     fn new_leaf(&self, idx: usize) -> Node<F> {
         Node {
-            idx: idx,
+            idx,
             max_dist: F::zero(),
             parent_dist: F::zero(),
             children: Vec::new(),
@@ -298,7 +299,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                     idx: p,
                     max_dist: F::zero(),
                     parent_dist: F::zero(),
-                    children: children,
+                    children,
                     scale: 100,
                 }
             } else {
@@ -368,7 +369,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                         idx: p,
                         max_dist: self.max(consumed_set),
                         parent_dist: F::zero(),
-                        children: children,
+                        children,
                         scale: (top_scale - max_scale),
                     }
                 }
@@ -442,7 +443,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                 max = n.dist[n.dist.len() - 1];
             }
         }
-        return max;
+        max
     }
 }
 
