@@ -561,7 +561,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     (
                         idx_1,
                         idx_2,
-                        k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)),
+                        k_v_12.unwrap_or_else(|| {
+                            self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)
+                        }),
                     )
                 })
             }
@@ -597,7 +599,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     (
                         idx_1,
                         idx_2,
-                        k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)),
+                        k_v_12.unwrap_or_else(|| {
+                            self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)
+                        }),
                     )
                 })
             }

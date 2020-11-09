@@ -376,7 +376,8 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
                     let node = &self.nodes[node_id];
                     if node.true_child == None && node.false_child == None {
                         result = node.output;
-                    } else if x.get(row, node.split_feature) <= node.split_value.unwrap_or(T::nan())
+                    } else if x.get(row, node.split_feature)
+                        <= node.split_value.unwrap_or_else(T::nan)
                     {
                         queue.push_back(node.true_child.unwrap());
                     } else {
@@ -529,7 +530,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         for i in 0..n {
             if visitor.samples[i] > 0 {
                 if visitor.x.get(i, self.nodes[visitor.node].split_feature)
-                    <= self.nodes[visitor.node].split_value.unwrap_or(T::nan())
+                    <= self.nodes[visitor.node].split_value.unwrap_or_else(T::nan)
                 {
                     true_samples[i] = visitor.samples[i];
                     tc += true_samples[i];

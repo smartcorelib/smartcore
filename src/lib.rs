@@ -65,7 +65,6 @@
 //! ```
 
 #![allow(
-    clippy::or_fun_call,
     clippy::needless_range_loop,
     clippy::ptr_arg,
     clippy::len_without_is_empty,

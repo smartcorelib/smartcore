@@ -137,13 +137,13 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
-        let mtry = parameters.m.unwrap_or(
+        let mtry = parameters.m.unwrap_or_else(|| {
             (T::from(num_attributes).unwrap())
                 .sqrt()
                 .floor()
                 .to_usize()
-                .unwrap(),
-        );
+                .unwrap()
+        });
 
         let classes = y_m.unique();
         let k = classes.len();
