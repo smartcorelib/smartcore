@@ -73,7 +73,6 @@
     clippy::type_complexity,
     clippy::needless_lifetimes,
     clippy::too_many_arguments,
-    clippy::let_and_return,
     clippy::many_single_char_names
 )]
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
