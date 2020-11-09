@@ -305,7 +305,7 @@ impl<T: RealNumber> DenseMatrix<T> {
 
     /// Creates new column vector (_1xN_ matrix) from a vector.     
     /// * `values` - values to initialize the matrix.
-    pub fn iter<'a>(&'a self) -> DenseMatrixIterator<'a, T> {
+    pub fn iter(&self) -> DenseMatrixIterator<'_, T> {
         DenseMatrixIterator {
             cur_c: 0,
             cur_r: 0,

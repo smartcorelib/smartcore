@@ -71,7 +71,6 @@
     clippy::map_entry,
     clippy::comparison_chain,
     clippy::type_complexity,
-    clippy::needless_lifetimes,
     clippy::too_many_arguments,
     clippy::many_single_char_names
 )]
