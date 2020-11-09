@@ -74,7 +74,6 @@
     clippy::type_complexity,
     clippy::needless_lifetimes,
     clippy::too_many_arguments,
-    clippy::unnecessary_mut_passed,
     clippy::let_and_return,
     clippy::many_single_char_names,
 )]

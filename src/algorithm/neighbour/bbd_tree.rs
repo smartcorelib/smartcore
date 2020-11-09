@@ -134,7 +134,7 @@ impl<T: RealNumber> BBDTree<T> {
                 return self.filter(
                     self.nodes[node].lower.unwrap(),
                     centroids,
-                    &mut new_candidates,
+                    &new_candidates,
                     newk,
                     sums,
                     counts,
@@ -142,7 +142,7 @@ impl<T: RealNumber> BBDTree<T> {
                 ) + self.filter(
                     self.nodes[node].upper.unwrap(),
                     centroids,
-                    &mut new_candidates,
+                    &new_candidates,
                     newk,
                     sums,
                     counts,
