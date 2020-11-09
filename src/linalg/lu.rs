@@ -33,6 +33,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -78,12 +79,10 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
 
         for i in 0..n_rows {
             for j in 0..n_cols {
-                if i > j {
-                    L.set(i, j, self.LU.get(i, j));
-                } else if i == j {
-                    L.set(i, j, T::one());
-                } else {
-                    L.set(i, j, T::zero());
+                match i.cmp(&j) {
+                    Ordering::Greater => L.set(i, j, self.LU.get(i, j)),
+                    Ordering::Equal => L.set(i, j, T::one()),
+                    Ordering::Less => L.set(i, j, T::zero()),
                 }
             }
         }

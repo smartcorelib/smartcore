@@ -52,6 +52,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -231,48 +232,50 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
-        if k < 2 {
-            Err(Failed::fit(&format!(
+        match k.cmp(&2) {
+            Ordering::Less => Err(Failed::fit(&format!(
                 "incorrect number of classes: {}. Should be >= 2.",
                 k
-            )))
-        } else if k == 2 {
-            let x0 = M::zeros(1, num_attributes + 1);
+            ))),
+            Ordering::Greater => {
+                let x0 = M::zeros(1, (num_attributes + 1) * k);
 
-            let objective = BinaryObjectiveFunction {
-                x,
-                y: yi,
-                phantom: PhantomData,
-            };
+                let objective = MultiClassObjectiveFunction {
+                    x,
+                    y: yi,
+                    k,
+                    phantom: PhantomData,
+                };
 
-            let result = LogisticRegression::minimize(x0, objective);
+                let result = LogisticRegression::minimize(x0, objective);
 
-            Ok(LogisticRegression {
-                weights: result.x,
-                classes,
-                num_attributes,
-                num_classes: k,
-            })
-        } else {
-            let x0 = M::zeros(1, (num_attributes + 1) * k);
+                let weights = result.x.reshape(k, num_attributes + 1);
 
-            let objective = MultiClassObjectiveFunction {
-                x,
-                y: yi,
-                k,
-                phantom: PhantomData,
-            };
+                Ok(LogisticRegression {
+                    weights,
+                    classes,
+                    num_attributes,
+                    num_classes: k,
+                })
+            }
+            Ordering::Equal => {
+                let x0 = M::zeros(1, num_attributes + 1);
 
-            let result = LogisticRegression::minimize(x0, objective);
+                let objective = BinaryObjectiveFunction {
+                    x,
+                    y: yi,
+                    phantom: PhantomData,
+                };
 
-            let weights = result.x.reshape(k, num_attributes + 1);
+                let result = LogisticRegression::minimize(x0, objective);
 
-            Ok(LogisticRegression {
-                weights,
-                classes,
-                num_attributes,
-                num_classes: k,
-            })
+                Ok(LogisticRegression {
+                    weights: result.x,
+                    classes,
+                    num_attributes,
+                    num_classes: k,
+                })
+            }
         }
     }
 

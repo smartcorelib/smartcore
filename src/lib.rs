@@ -69,7 +69,6 @@
     clippy::ptr_arg,
     clippy::len_without_is_empty,
     clippy::map_entry,
-    clippy::comparison_chain,
     clippy::type_complexity,
     clippy::too_many_arguments,
     clippy::many_single_char_names
