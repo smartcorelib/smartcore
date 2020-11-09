@@ -12,8 +12,8 @@ use crate::optimization::{DF, F};
 pub trait FirstOrderOptimizer<T: RealNumber> {
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
         &self,
-        f: &F<T, X>,
-        df: &'a DF<X>,
+        f: &F<'_, T, X>,
+        df: &'a DF<'_, X>,
         x0: &X,
         ls: &'a LS,
     ) -> OptimizerResult<T, X>;

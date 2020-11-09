@@ -8,7 +8,6 @@
 //! your data.
 //!
 //! In SmartCore you can split your data into training and test datasets using `train_test_split` function.
-extern crate rand;
 
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;

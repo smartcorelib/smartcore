@@ -378,7 +378,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         (support_vectors, w, b)
     }
 
-    fn initialize(&mut self, cache: &mut Cache<T, M, K>) {
+    fn initialize(&mut self, cache: &mut Cache<'_, T, M, K>) {
         let (n, _) = self.x.shape();
         let few = 5;
         let mut cp = 0;
@@ -402,7 +402,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         }
     }
 
-    fn process(&mut self, i: usize, x: M::RowVector, y: T, cache: &mut Cache<T, M, K>) -> bool {
+    fn process(&mut self, i: usize, x: M::RowVector, y: T, cache: &mut Cache<'_, T, M, K>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
@@ -445,13 +445,13 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         true
     }
 
-    fn reprocess(&mut self, tol: T, cache: &mut Cache<T, M, K>) -> bool {
+    fn reprocess(&mut self, tol: T, cache: &mut Cache<'_, T, M, K>) -> bool {
         let status = self.smo(None, None, tol, cache);
         self.clean(cache);
         status
     }
 
-    fn finish(&mut self, cache: &mut Cache<T, M, K>) {
+    fn finish(&mut self, cache: &mut Cache<'_, T, M, K>) {
         let mut max_iter = self.sv.len();
 
         while self.smo(None, None, self.parameters.tol, cache) && max_iter > 0 {
@@ -486,7 +486,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         self.recalculate_minmax_grad = false
     }
 
-    fn clean(&mut self, cache: &mut Cache<T, M, K>) {
+    fn clean(&mut self, cache: &mut Cache<'_, T, M, K>) {
         self.find_min_max_gradient();
 
         let gmax = self.gmax;
@@ -520,7 +520,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         &mut self,
         idx_1: Option<usize>,
         idx_2: Option<usize>,
-        cache: &mut Cache<T, M, K>,
+        cache: &mut Cache<'_, T, M, K>,
     ) -> Option<(usize, usize, T)> {
         match (idx_1, idx_2) {
             (None, None) => {
@@ -614,7 +614,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         idx_1: Option<usize>,
         idx_2: Option<usize>,
         tol: T,
-        cache: &mut Cache<T, M, K>,
+        cache: &mut Cache<'_, T, M, K>,
     ) -> bool {
         match self.select_pair(idx_1, idx_2, cache) {
             Some((idx_1, idx_2, k_v_12)) => {
@@ -653,7 +653,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         }
     }
 
-    fn update(&mut self, v1: usize, v2: usize, step: T, cache: &mut Cache<T, M, K>) {
+    fn update(&mut self, v1: usize, v2: usize, step: T, cache: &mut Cache<'_, T, M, K>) {
         self.sv[v1].alpha -= step;
         self.sv[v2].alpha += step;
 

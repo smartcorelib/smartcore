@@ -515,7 +515,7 @@ pub trait Matrix<T: RealNumber>:
 {
 }
 
-pub(crate) fn row_iter<F: RealNumber, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
+pub(crate) fn row_iter<F: RealNumber, M: BaseMatrix<F>>(m: &M) -> RowIter<'_, F, M> {
     RowIter {
         m,
         pos: 0,

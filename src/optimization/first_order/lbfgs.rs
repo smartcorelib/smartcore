@@ -100,8 +100,8 @@ impl<T: RealNumber> LBFGS<T> {
 
     fn update_state<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
         &self,
-        f: &'a F<T, X>,
-        df: &'a DF<X>,
+        f: &'a F<'_, T, X>,
+        df: &'a DF<'_, X>,
         ls: &'a LS,
         state: &mut LBFGSState<T, X>,
     ) {
@@ -162,7 +162,7 @@ impl<T: RealNumber> LBFGS<T> {
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    fn update_hessian<'a, X: Matrix<T>>(&self, _: &'a DF<X>, state: &mut LBFGSState<T, X>) {
+    fn update_hessian<'a, X: Matrix<T>>(&self, _: &'a DF<'_, X>, state: &mut LBFGSState<T, X>) {
         state.dg = state.x_df.sub(&state.x_df_prev);
         let rho_iteration = T::one() / state.dx.dot(&state.dg);
         if !rho_iteration.is_infinite() {
@@ -198,8 +198,8 @@ struct LBFGSState<T: RealNumber, X: Matrix<T>> {
 impl<T: RealNumber> FirstOrderOptimizer<T> for LBFGS<T> {
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
         &self,
-        f: &F<T, X>,
-        df: &'a DF<X>,
+        f: &F<'_, T, X>,
+        df: &'a DF<'_, X>,
         x0: &X,
         ls: &'a LS,
     ) -> OptimizerResult<T, X> {

@@ -334,7 +334,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
 
         let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &yi, 1);
 
-        let mut visitor_queue: LinkedList<NodeVisitor<T, M>> = LinkedList::new();
+        let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 
         if tree.find_best_cutoff(&mut visitor, mtry) {
             visitor_queue.push_back(visitor);
@@ -392,7 +392,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
 
     fn find_best_cutoff<M: Matrix<T>>(
         &mut self,
-        visitor: &mut NodeVisitor<T, M>,
+        visitor: &mut NodeVisitor<'_, T, M>,
         mtry: usize,
     ) -> bool {
         let (n_rows, n_attr) = visitor.x.shape();
@@ -455,7 +455,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
 
     fn find_best_split<M: Matrix<T>>(
         &mut self,
-        visitor: &mut NodeVisitor<T, M>,
+        visitor: &mut NodeVisitor<'_, T, M>,
         n: usize,
         count: &Vec<usize>,
         false_count: &mut Vec<usize>,

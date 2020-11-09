@@ -82,7 +82,7 @@ impl PartialEq for Failed {
 }
 
 impl fmt::Display for FailedError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let failed_err_str = match self {
             FailedError::FitFailed => "Fit failed",
             FailedError::PredictFailed => "Predict failed",
@@ -96,7 +96,7 @@ impl fmt::Display for FailedError {
 }
 
 impl fmt::Display for Failed {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.err, self.msg)
     }
 }

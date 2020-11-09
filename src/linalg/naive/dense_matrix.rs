@@ -1,4 +1,3 @@
-extern crate num;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -197,7 +196,7 @@ pub struct DenseMatrixIterator<'a, T: RealNumber> {
 }
 
 impl<T: RealNumber> fmt::Display for DenseMatrix<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
         for r in 0..self.nrows {
             rows.push(
@@ -356,7 +355,7 @@ impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for De
         impl<'a, T: RealNumber + fmt::Debug + Deserialize<'a>> Visitor<'a> for DenseMatrixVisitor<T> {
             type Value = DenseMatrix<T>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct DenseMatrix")
             }
 

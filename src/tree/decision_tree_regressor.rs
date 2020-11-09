@@ -240,7 +240,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
 
         let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &y_m, 1);
 
-        let mut visitor_queue: LinkedList<NodeVisitor<T, M>> = LinkedList::new();
+        let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 
         if tree.find_best_cutoff(&mut visitor, mtry) {
             visitor_queue.push_back(visitor);
@@ -298,7 +298,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
 
     fn find_best_cutoff<M: Matrix<T>>(
         &mut self,
-        visitor: &mut NodeVisitor<T, M>,
+        visitor: &mut NodeVisitor<'_, T, M>,
         mtry: usize,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
@@ -332,7 +332,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
 
     fn find_best_split<M: Matrix<T>>(
         &mut self,
-        visitor: &mut NodeVisitor<T, M>,
+        visitor: &mut NodeVisitor<'_, T, M>,
         n: usize,
         sum: T,
         parent_gain: T,

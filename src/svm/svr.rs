@@ -469,7 +469,7 @@ impl<T: Clone> Cache<T> {
         }
     }
 
-    fn get<F: Fn() -> Vec<T>>(&self, i: usize, or: F) -> Ref<Vec<T>> {
+    fn get<F: Fn() -> Vec<T>>(&self, i: usize, or: F) -> Ref<'_, Vec<T>> {
         if self.data[i].borrow().is_none() {
             self.data[i].replace(Some(or()));
         }
