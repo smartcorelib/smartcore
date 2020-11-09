@@ -77,7 +77,6 @@
     clippy::unnecessary_mut_passed,
     clippy::let_and_return,
     clippy::many_single_char_names,
-    clippy::tabs_in_doc_comments
 )]
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
