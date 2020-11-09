@@ -76,6 +76,11 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
     /// Get number of elevemnt in the vector
     fn len(&self) -> usize;
 
+    /// Returns true if the vector is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return a vector with the elements of the one-dimensional array.
     fn to_vec(&self) -> Vec<T>;
 
