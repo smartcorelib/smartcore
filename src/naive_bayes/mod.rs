@@ -6,13 +6,13 @@ use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
 pub(crate) trait NBDistribution<T: RealNumber, M: Matrix<T>> {
-    /// Prior of class k
-    fn prior(&self, k: T) -> T;
+    /// Prior of class at the given index.
+    fn prior(&self, class_index: usize) -> T;
 
-    /// Conditional probability of sample j given class k
-    fn conditional_probability(&self, k: T, j: &M::RowVector) -> T;
+    /// Conditional probability of sample j given class in the specified index.
+    fn conditional_probability(&self, class_index: usize, j: &M::RowVector) -> T;
 
-    /// Possible classes of the distribution
+    /// Possible classes of the distribution.
     fn classes(&self) -> &Vec<T>;
 }
 
@@ -45,11 +45,12 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                 let row = x.get_row(row_index);
                 let (prediction, _probability) = y_classes
                     .iter()
-                    .map(|class| {
+                    .enumerate()
+                    .map(|(class_index, class)| {
                         (
                             class,
-                            self.distribution.conditional_probability(*class, &row)
-                                * self.distribution.prior(*class),
+                            self.distribution.conditional_probability(class_index, &row)
+                                * self.distribution.prior(class_index),
                         )
                     })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
@@ -74,30 +75,30 @@ pub(crate) struct CategoricalNBDistribution<T: RealNumber> {
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T> {
-    fn prior(&self, k: T) -> T {
-        match self.class_labels.iter().position(|&t| t == k) {
-            Some(idx) => self.class_probabilities[idx],
-            None => T::zero(),
+    fn prior(&self, class_index: usize) -> T {
+        if class_index >= self.class_labels.len() {
+            T::zero()
+        } else {
+            self.class_probabilities[class_index]
         }
     }
 
-    fn conditional_probability(&self, k: T, j: &M::RowVector) -> T {
-        match self.class_labels.iter().position(|&t| t == k) {
-            Some(idx) => {
-                let mut prob = T::one();
-                for feature in 0..j.len() {
-                    let value = j.get(feature);
-                    match self.feature_categories[feature]
-                        .iter()
-                        .position(|&t| t == value)
-                    {
-                        Some(_i) => prob *= self.coef[idx][feature][_i],
-                        None => return T::zero(),
-                    }
+    fn conditional_probability(&self, class_index: usize, j: &M::RowVector) -> T {
+        if class_index < self.class_labels.len() {
+            let mut prob = T::one();
+            for feature in 0..j.len() {
+                let value = j.get(feature);
+                match self.feature_categories[feature]
+                    .iter()
+                    .position(|&t| t == value)
+                {
+                    Some(_i) => prob *= self.coef[class_index][feature][_i],
+                    None => return T::zero(),
                 }
-                prob
             }
-            None => T::zero(),
+            prob
+        } else {
+            T::zero()
         }
     }
 
