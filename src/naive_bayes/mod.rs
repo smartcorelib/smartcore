@@ -5,11 +5,11 @@ use crate::math::num::RealNumber;
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
-pub trait NBDistribution<T: RealNumber, M: Matrix<T>> {
+pub(crate) trait NBDistribution<T: RealNumber, M: Matrix<T>> {
     /// Prior of class k
     fn prior(&self, k: T) -> T;
 
-    /// Conditional probability of feature j given class k
+    /// Conditional probability of sample j given class k
     fn conditional_probability(&self, k: T, j: &M::RowVector) -> T;
 
     /// Possible classes of the distribution
@@ -17,7 +17,7 @@ pub trait NBDistribution<T: RealNumber, M: Matrix<T>> {
 }
 
 /// Base struct for the Naive Bayes classifier.
-pub struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
+pub(crate) struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
     distribution: D,
     _phantom_t: PhantomData<T>,
     _phantom_m: PhantomData<M>,
@@ -66,14 +66,14 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
 }
 
 /// Naive Bayes classifier for categorical features
-pub struct CategoricalNB<T: RealNumber> {
+pub(crate) struct CategoricalNBDistribution<T: RealNumber> {
     class_labels: Vec<T>,
     class_probabilities: Vec<T>,
     coef: Vec<Vec<Vec<T>>>,
     feature_categories: Vec<Vec<T>>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNB<T> {
+impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T> {
     fn prior(&self, k: T) -> T {
         match self.class_labels.iter().position(|&t| t == k) {
             Some(idx) => self.class_probabilities[idx],
@@ -106,12 +106,13 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNB<T> {
     }
 }
 
-impl<T: RealNumber> CategoricalNB<T> {
+impl<T: RealNumber> CategoricalNBDistribution<T> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, alpha: T) -> Result<Self, Failed> {
+    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, alpha: Option<T>) -> Result<Self, Failed> {
+        let alpha = alpha.unwrap_or(T::one());
         if alpha < T::zero() {
             return Err(Failed::fit(&format!(
                 "alpha should be >= 0, alpha=[{}]",
@@ -152,11 +153,10 @@ impl<T: RealNumber> CategoricalNB<T> {
             classes_count.push(current_count);
         }
 
-        let x = x.transpose();
         let mut feature_categories: Vec<Vec<T>> = Vec::with_capacity(n_features);
 
         for feature in 0..n_features {
-            let feature_types = x.get_row(feature).unique();
+            let feature_types = x.get_col_as_vec(feature).unique();
             feature_categories.push(feature_types);
         }
         let mut coef: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
@@ -165,8 +165,8 @@ impl<T: RealNumber> CategoricalNB<T> {
             for (feature_index, feature_options) in
                 feature_categories.iter().enumerate().take(n_features)
             {
-                let row = x
-                    .get_row_as_vec(feature_index)
+                let col = x
+                    .get_col_as_vec(feature_index)
                     .iter()
                     .enumerate()
                     .filter(|(i, _j)| y.get(*i) == *label)
@@ -174,7 +174,7 @@ impl<T: RealNumber> CategoricalNB<T> {
                     .collect::<Vec<T>>();
                 let mut feat_count: Vec<usize> = Vec::with_capacity(feature_options.len());
                 for k in feature_options.iter() {
-                    let feat_k_count = row.iter().filter(|&v| v == k).count();
+                    let feat_k_count = col.iter().filter(|&v| v == k).count();
                     feat_count.push(feat_k_count);
                 }
 
@@ -229,8 +229,7 @@ mod tests {
         ]);
         let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
 
-        let alpha = 1.0;
-        let distribution = CategoricalNB::<f64>::fit(&x, &y, alpha).unwrap();
+        let distribution = CategoricalNBDistribution::<f64>::fit(&x, &y, None).unwrap();
         let nbc = BaseNaiveBayes::fit(distribution).unwrap();
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = nbc.predict(&x_test).unwrap();
