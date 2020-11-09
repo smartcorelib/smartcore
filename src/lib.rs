@@ -68,14 +68,13 @@
     clippy::needless_range_loop,
     clippy::ptr_arg,
     clippy::len_without_is_empty,
-    clippy::extra_unused_lifetimes,
     clippy::map_entry,
     clippy::comparison_chain,
     clippy::type_complexity,
     clippy::needless_lifetimes,
     clippy::too_many_arguments,
     clippy::let_and_return,
-    clippy::many_single_char_names,
+    clippy::many_single_char_names
 )]
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
