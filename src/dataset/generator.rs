@@ -49,7 +49,7 @@ pub fn make_blobs(
 
 /// Make a large circle containing a smaller circle in 2d.
 pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32, f32> {
-    if factor >= 1.0 || factor < 0.0 {
+    if !(0.0..1.0).contains(&factor) {
         panic!("'factor' has to be between 0 and 1.");
     }
 

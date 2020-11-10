@@ -110,7 +110,7 @@ pub struct KFold {
 impl Default for KFold {
     fn default() -> KFold {
         KFold {
-            n_splits: 3 as usize,
+            n_splits: 3_usize,
             shuffle: true,
         }
     }

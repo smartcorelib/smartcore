@@ -328,8 +328,10 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
 
         let df = |g: &mut M, w: &M| objective.df(g, w);
 
-        let mut ls: Backtracking<T> = Default::default();
-        ls.order = FunctionOrder::THIRD;
+        let ls: Backtracking<T> = Backtracking {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
+        };
         let optimizer: LBFGS<T> = Default::default();
 
         optimizer.optimize(&f, &df, &x0, &ls)
