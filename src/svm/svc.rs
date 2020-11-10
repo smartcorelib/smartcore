@@ -300,11 +300,12 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M
     fn get(&mut self, i: &SupportVector<T, M::RowVector>, j: &SupportVector<T, M::RowVector>) -> T {
         let idx_i = i.index;
         let idx_j = j.index;
-        if !self.data.contains_key(&(idx_i, idx_j)) {
-            let v = self.kernel.apply(&i.x, &j.x);
-            self.data.insert((idx_i, idx_j), v);
-        }
-        *self.data.get(&(idx_i, idx_j)).unwrap()
+        #[allow(clippy::or_fun_call)]
+        let entry = self
+            .data
+            .entry((idx_i, idx_j))
+            .or_insert(self.kernel.apply(&i.x, &j.x));
+        *entry
     }
 
     fn insert(&mut self, key: (usize, usize), value: T) {

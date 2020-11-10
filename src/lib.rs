@@ -67,7 +67,6 @@
 #![allow(
     clippy::needless_range_loop,
     clippy::ptr_arg,
-    clippy::map_entry,
     clippy::type_complexity,
     clippy::too_many_arguments,
     clippy::many_single_char_names
