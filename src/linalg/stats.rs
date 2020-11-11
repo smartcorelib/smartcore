@@ -69,7 +69,6 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
 
     /// Computes the standard deviation along the specified axis.
     fn std(&self, axis: u8) -> Vec<T> {
-
         let mut x = self.var(axis);
 
         let n = match axis {
@@ -77,7 +76,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
             _ => self.shape().0,
         };
 
-        for i in 0..n {            
+        for i in 0..n {
             x[i] = x[i].sqrt();
         }
 
@@ -141,16 +140,13 @@ mod tests {
 
     #[test]
     fn var() {
-        let m = DenseMatrix::from_2d_array(&[
-            &[1., 2., 3., 4.],
-            &[5., 6., 7., 8.]
-        ]);
+        let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
         let expected_0 = vec![4., 4., 4., 4.];
         let expected_1 = vec![1.25, 1.25];
 
         assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
         assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
-    }   
+    }
 
     #[test]
     fn scale() {
