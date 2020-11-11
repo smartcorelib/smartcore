@@ -40,4 +40,4 @@ jobs:
           command: rustup component add clippy
       - run:
           name: Run cargo clippy
-          command: cargo clippy -- -Drust-2018-idioms -Dwarnings
+          command: cargo clippy --all-features -- -Drust-2018-idioms -Dwarnings
