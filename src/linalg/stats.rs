@@ -35,8 +35,8 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
         x
     }
 
-    /// Computes the standard deviation along the specified axis.
-    fn std(&self, axis: u8) -> Vec<T> {
+    /// Computes variance along the specified axis.
+    fn var(&self, axis: u8) -> Vec<T> {
         let (n, m) = match axis {
             0 => {
                 let (n, m) = self.shape();
@@ -61,7 +61,24 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
                 sum += a * a;
             }
             mu /= div;
-            x[i] = (sum / div - mu * mu).sqrt();
+            x[i] = sum / div - mu * mu;
+        }
+
+        x
+    }
+
+    /// Computes the standard deviation along the specified axis.
+    fn std(&self, axis: u8) -> Vec<T> {
+
+        let mut x = self.var(axis);
+
+        let n = match axis {
+            0 => self.shape().1,
+            _ => self.shape().0,
+        };
+
+        for i in 0..n {            
+            x[i] = x[i].sqrt();
         }
 
         x
@@ -121,6 +138,19 @@ mod tests {
         assert!(m.std(0).approximate_eq(&expected_0, 1e-2));
         assert!(m.std(1).approximate_eq(&expected_1, 1e-2));
     }
+
+    #[test]
+    fn var() {
+        let m = DenseMatrix::from_2d_array(&[
+            &[1., 2., 3., 4.],
+            &[5., 6., 7., 8.]
+        ]);
+        let expected_0 = vec![4., 4., 4., 4.];
+        let expected_1 = vec![1.25, 1.25];
+
+        assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
+        assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
+    }   
 
     #[test]
     fn scale() {

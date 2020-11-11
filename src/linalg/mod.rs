@@ -168,16 +168,10 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
 
     /// Computes the arithmetic mean.
     fn mean(&self) -> T {
-        let n = self.len();
-        let mut mean = T::zero();
-
-        for i in 0..n {
-            mean += self.get(i);
-        }
-        mean / T::from_usize(n).unwrap()
+        self.sum() / T::from_usize(self.len()).unwrap()
     }
-    /// Computes the standard deviation.
-    fn std(&self) -> T {
+    /// Computes variance.
+    fn var(&self) -> T {
         let n = self.len();
 
         let mut mu = T::zero();
@@ -189,7 +183,11 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
             sum += xi * xi;
         }
         mu /= div;
-        (sum / div - mu * mu).sqrt()
+        sum / div - mu * mu
+    }
+    /// Computes the standard deviation.
+    fn std(&self) -> T {
+        self.var().sqrt()
     }
 }
 
@@ -591,5 +589,12 @@ mod tests {
         let m = vec![1., 2., 3.];
 
         assert!((m.std() - 0.81f64).abs() < 1e-2);
+    }
+
+    #[test]
+    fn var() {
+        let m = vec![1., 2., 3., 4.];
+
+        assert!((m.var() - 1.25f64).abs() < std::f64::EPSILON);
     }
 }
