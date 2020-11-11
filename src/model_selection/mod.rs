@@ -292,10 +292,10 @@ mod tests {
         let x: DenseMatrix<f64> = DenseMatrix::rand(23, 100);
         let train_test_splits = k.split(&x);
 
-        assert_eq!(train_test_splits[0].1.len(), 12 as usize);
-        assert_eq!(train_test_splits[0].0.len(), 11 as usize);
-        assert_eq!(train_test_splits[1].0.len(), 12 as usize);
-        assert_eq!(train_test_splits[1].1.len(), 11 as usize);
+        assert_eq!(train_test_splits[0].1.len(), 12_usize);
+        assert_eq!(train_test_splits[0].0.len(), 11_usize);
+        assert_eq!(train_test_splits[1].0.len(), 12_usize);
+        assert_eq!(train_test_splits[1].1.len(), 11_usize);
     }
 
     #[test]
