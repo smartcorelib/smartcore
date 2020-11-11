@@ -4,7 +4,7 @@
 //! Formally, the distance can be any metric measure that is defined as \\( d(x, y) \geq 0\\) and follows three conditions:
 //! 1. \\( d(x, y) = 0 \\) if and only \\( x = y \\), positive definiteness
 //! 1. \\( d(x, y) = d(y, x) \\), symmetry
-//! 1. \\( d(x, y) \leq d(x, z) + d(z, y) \\), 	subadditivity or triangle inequality
+//! 1. \\( d(x, y) \leq d(x, z) + d(z, y) \\), subadditivity or triangle inequality
 //!
 //! for all \\(x, y, z \in Z \\)
 //!
@@ -45,7 +45,7 @@ impl Distances {
     /// Minkowski distance, see [`Minkowski`](minkowski/index.html)
     /// * `p` - function order. Should be >= 1
     pub fn minkowski(p: u16) -> minkowski::Minkowski {
-        minkowski::Minkowski { p: p }
+        minkowski::Minkowski { p }
     }
 
     /// Manhattan distance, see [`Manhattan`](manhattan/index.html)

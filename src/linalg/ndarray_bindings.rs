@@ -117,7 +117,7 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -125,19 +125,19 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn div_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] / x;
+        self[pos] /= x;
     }
 
     fn mul_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] * x;
+        self[pos] *= x;
     }
 
     fn add_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] + x;
+        self[pos] += x;
     }
 
     fn sub_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] - x;
+        self[pos] -= x;
     }
 
     fn approximate_eq(&self, other: &Self, error: T) -> bool {
@@ -204,10 +204,8 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.row(row).iter() {
+        for (r, e) in self.row(row).iter().enumerate() {
             result[r] = *e;
-            r += 1;
         }
     }
 
@@ -216,10 +214,8 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.column(col).iter() {
-            result[r] = *e;
-            r += 1;
+        for (c, e) in self.column(col).iter().enumerate() {
+            result[c] = *e;
         }
     }
 
@@ -347,7 +343,7 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -359,19 +355,19 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn div_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] / x;
+        self[[row, col]] /= x;
     }
 
     fn mul_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] * x;
+        self[[row, col]] *= x;
     }
 
     fn add_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] + x;
+        self[[row, col]] += x;
     }
 
     fn sub_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] - x;
+        self[[row, col]] -= x;
     }
 
     fn negative_mut(&mut self) {
@@ -425,7 +421,7 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
             for c in 0..self.ncols() {
                 let p = (self[(r, c)] - max).exp();
                 self.set(r, c, p);
-                z = z + p;
+                z += p;
             }
         }
         for r in 0..self.nrows() {

@@ -76,7 +76,7 @@ impl Default for KNNRegressorParameters {
 impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
     fn eq(&self, other: &Self) -> bool {
         if self.k != other.k || self.y.len() != other.y.len() {
-            return false;
+            false
         } else {
             for i in 0..self.y.len() {
                 if (self.y[i] - other.y[i]).abs() > T::epsilon() {
@@ -151,10 +151,10 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
         let weights = self
             .weight
             .calc_weights(search_result.iter().map(|v| v.1).collect());
-        let w_sum = weights.iter().map(|w| *w).sum();
+        let w_sum = weights.iter().copied().sum();
 
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            result = result + self.y[r.0] * (*w / w_sum);
+            result += self.y[r.0] * (*w / w_sum);
         }
 
         Ok(result)

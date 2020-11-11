@@ -24,8 +24,8 @@ impl HCVScore {
         let contingency = contingency_matrix(&labels_true, &labels_pred);
         let mi: T = mutual_info_score(&contingency);
 
-        let homogeneity = entropy_c.map(|e| mi / e).unwrap_or(T::one());
-        let completeness = entropy_k.map(|e| mi / e).unwrap_or(T::one());
+        let homogeneity = entropy_c.map(|e| mi / e).unwrap_or_else(T::one);
+        let completeness = entropy_k.map(|e| mi / e).unwrap_or_else(T::one);
 
         let v_measure_score = if homogeneity + completeness == T::zero() {
             T::zero()

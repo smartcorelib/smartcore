@@ -38,7 +38,7 @@ impl Euclidian {
         let mut sum = T::zero();
         for i in 0..x.len() {
             let d = x[i] - y[i];
-            sum = sum + d * d;
+            sum += d * d;
         }
 
         sum

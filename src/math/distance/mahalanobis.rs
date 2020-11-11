@@ -68,8 +68,8 @@ impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
         let sigma = data.cov();
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
-            sigma: sigma,
-            sigmaInv: sigmaInv,
+            sigma,
+            sigmaInv,
             t: PhantomData,
         }
     }
@@ -80,8 +80,8 @@ impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
         let sigma = cov.clone();
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
-            sigma: sigma,
-            sigmaInv: sigmaInv,
+            sigma,
+            sigmaInv,
             t: PhantomData,
         }
     }
@@ -118,7 +118,7 @@ impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
         let mut s = T::zero();
         for j in 0..n {
             for i in 0..n {
-                s = s + self.sigmaInv.get(i, j) * z[i] * z[j];
+                s += self.sigmaInv.get(i, j) * z[i] * z[j];
             }
         }
 

@@ -173,9 +173,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         let (n, _) = x.shape();
 
         if n != y.len() {
-            return Err(Failed::fit(&format!(
-                "Number of rows of X doesn't match number of rows of Y"
-            )));
+            return Err(Failed::fit(
+                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+            ));
         }
 
         let classes = y.unique();
@@ -204,11 +204,11 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         let (support_vectors, weight, b) = optimizer.optimize();
 
         Ok(SVC {
-            classes: classes,
-            kernel: kernel,
+            classes,
+            kernel,
             instances: support_vectors,
             w: weight,
-            b: b,
+            b,
         })
     }
 
@@ -251,7 +251,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.w.len() {
                 if (self.w[i] - other.w[i]).abs() > T::epsilon() {
@@ -263,7 +263,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -278,12 +278,12 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
         };
         SupportVector {
             index: i,
-            x: x,
+            x,
             grad: g,
             k: k_v,
             alpha: T::zero(),
-            cmin: cmin,
-            cmax: cmax,
+            cmin,
+            cmax,
         }
     }
 }
@@ -291,7 +291,7 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
 impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M, K> {
     fn new(kernel: &'a K) -> Cache<'a, T, M, K> {
         Cache {
-            kernel: kernel,
+            kernel,
             data: HashMap::new(),
             phantom: PhantomData,
         }
@@ -300,11 +300,12 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M
     fn get(&mut self, i: &SupportVector<T, M::RowVector>, j: &SupportVector<T, M::RowVector>) -> T {
         let idx_i = i.index;
         let idx_j = j.index;
-        if !self.data.contains_key(&(idx_i, idx_j)) {
-            let v = self.kernel.apply(&i.x, &j.x);
-            self.data.insert((idx_i, idx_j), v);
-        }
-        *self.data.get(&(idx_i, idx_j)).unwrap()
+        #[allow(clippy::or_fun_call)]
+        let entry = self
+            .data
+            .entry((idx_i, idx_j))
+            .or_insert(self.kernel.apply(&i.x, &j.x));
+        *entry
     }
 
     fn insert(&mut self, key: (usize, usize), value: T) {
@@ -326,8 +327,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let (n, _) = x.shape();
 
         Optimizer {
-            x: x,
-            y: y,
+            x,
+            y,
             parameters: &parameters,
             svmin: 0,
             svmax: 0,
@@ -335,7 +336,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             gmax: T::min_value(),
             tau: T::from_f64(1e-12).unwrap(),
             sv: Vec::with_capacity(n),
-            kernel: kernel,
+            kernel,
             recalculate_minmax_grad: true,
         }
     }
@@ -378,7 +379,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         (support_vectors, w, b)
     }
 
-    fn initialize(&mut self, cache: &mut Cache<T, M, K>) {
+    fn initialize(&mut self, cache: &mut Cache<'_, T, M, K>) {
         let (n, _) = self.x.shape();
         let few = 5;
         let mut cp = 0;
@@ -389,10 +390,11 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
                     cp += 1;
                 }
-            } else if self.y.get(i) == -T::one() && cn < few {
-                if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
-                    cn += 1;
-                }
+            } else if self.y.get(i) == -T::one()
+                && cn < few
+                && self.process(i, self.x.get_row(i), self.y.get(i), cache)
+            {
+                cn += 1;
             }
 
             if cp >= few && cn >= few {
@@ -401,7 +403,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         }
     }
 
-    fn process(&mut self, i: usize, x: M::RowVector, y: T, cache: &mut Cache<T, M, K>) -> bool {
+    fn process(&mut self, i: usize, x: M::RowVector, y: T, cache: &mut Cache<'_, T, M, K>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
@@ -420,10 +422,10 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 
         self.find_min_max_gradient();
 
-        if self.gmin < self.gmax {
-            if (y > T::zero() && g < self.gmin) || (y < T::zero() && g > self.gmax) {
-                return false;
-            }
+        if self.gmin < self.gmax
+            && ((y > T::zero() && g < self.gmin) || (y < T::zero() && g > self.gmax))
+        {
+            return false;
         }
 
         for v in cache_values {
@@ -444,13 +446,13 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         true
     }
 
-    fn reprocess(&mut self, tol: T, cache: &mut Cache<T, M, K>) -> bool {
+    fn reprocess(&mut self, tol: T, cache: &mut Cache<'_, T, M, K>) -> bool {
         let status = self.smo(None, None, tol, cache);
         self.clean(cache);
         status
     }
 
-    fn finish(&mut self, cache: &mut Cache<T, M, K>) {
+    fn finish(&mut self, cache: &mut Cache<'_, T, M, K>) {
         let mut max_iter = self.sv.len();
 
         while self.smo(None, None, self.parameters.tol, cache) && max_iter > 0 {
@@ -485,7 +487,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         self.recalculate_minmax_grad = false
     }
 
-    fn clean(&mut self, cache: &mut Cache<T, M, K>) {
+    fn clean(&mut self, cache: &mut Cache<'_, T, M, K>) {
         self.find_min_max_gradient();
 
         let gmax = self.gmax;
@@ -494,13 +496,12 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let mut idxs_to_drop: HashSet<usize> = HashSet::new();
 
         self.sv.retain(|v| {
-            if v.alpha == T::zero() {
-                if (v.grad >= gmax && T::zero() >= v.cmax)
-                    || (v.grad <= gmin && T::zero() <= v.cmin)
-                {
-                    idxs_to_drop.insert(v.index);
-                    return false;
-                }
+            if v.alpha == T::zero()
+                && ((v.grad >= gmax && T::zero() >= v.cmax)
+                    || (v.grad <= gmin && T::zero() <= v.cmin))
+            {
+                idxs_to_drop.insert(v.index);
+                return false;
             };
             true
         });
@@ -520,7 +521,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         &mut self,
         idx_1: Option<usize>,
         idx_2: Option<usize>,
-        cache: &mut Cache<T, M, K>,
+        cache: &mut Cache<'_, T, M, K>,
     ) -> Option<(usize, usize, T)> {
         match (idx_1, idx_2) {
             (None, None) => {
@@ -561,7 +562,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     (
                         idx_1,
                         idx_2,
-                        k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)),
+                        k_v_12.unwrap_or_else(|| {
+                            self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)
+                        }),
                     )
                 })
             }
@@ -597,7 +600,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                     (
                         idx_1,
                         idx_2,
-                        k_v_12.unwrap_or(self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)),
+                        k_v_12.unwrap_or_else(|| {
+                            self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)
+                        }),
                     )
                 })
             }
@@ -614,7 +619,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         idx_1: Option<usize>,
         idx_2: Option<usize>,
         tol: T,
-        cache: &mut Cache<T, M, K>,
+        cache: &mut Cache<'_, T, M, K>,
     ) -> bool {
         match self.select_pair(idx_1, idx_2, cache) {
             Some((idx_1, idx_2, k_v_12)) => {
@@ -647,13 +652,13 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 
                 self.update(idx_1, idx_2, step, cache);
 
-                return self.gmax - self.gmin > tol;
+                self.gmax - self.gmin > tol
             }
             None => false,
         }
     }
 
-    fn update(&mut self, v1: usize, v2: usize, step: T, cache: &mut Cache<T, M, K>) {
+    fn update(&mut self, v1: usize, v2: usize, step: T, cache: &mut Cache<'_, T, M, K>) {
         self.sv[v1].alpha -= step;
         self.sv[v2].alpha += step;
 

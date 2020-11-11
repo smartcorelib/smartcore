@@ -78,7 +78,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
             || self.k != other.k
             || self.y.len() != other.y.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.classes.len() {
                 if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
@@ -139,7 +139,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
         }
 
         Ok(KNNClassifier {
-            classes: classes,
+            classes,
             y: yi,
             k: parameters.k,
             knn_algorithm: parameters.algorithm.fit(data, distance)?,
@@ -166,13 +166,13 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
         let weights = self
             .weight
             .calc_weights(search_result.iter().map(|v| v.1).collect());
-        let w_sum = weights.iter().map(|w| *w).sum();
+        let w_sum = weights.iter().copied().sum();
 
         let mut c = vec![T::zero(); self.classes.len()];
         let mut max_c = T::zero();
         let mut max_i = 0;
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            c[self.y[r.0]] = c[self.y[r.0]] + (*w / w_sum);
+            c[self.y[r.0]] += *w / w_sum;
             if c[self.y[r.0]] > max_c {
                 max_c = c[self.y[r.0]];
                 max_i = self.y[r.0];

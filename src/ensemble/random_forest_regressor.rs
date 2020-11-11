@@ -42,7 +42,6 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-extern crate rand;
 
 use std::default::Default;
 use std::fmt::Debug;
@@ -95,7 +94,7 @@ impl Default for RandomForestRegressorParameters {
 impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.trees.len() != other.trees.len() {
-            return false;
+            false
         } else {
             for i in 0..self.trees.len() {
                 if self.trees[i] != other.trees[i] {
@@ -135,10 +134,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             trees.push(tree);
         }
 
-        Ok(RandomForestRegressor {
-            parameters: parameters,
-            trees: trees,
-        })
+        Ok(RandomForestRegressor { parameters, trees })
     }
 
     /// Predict class for `x`
@@ -161,7 +157,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         let mut result = T::zero();
 
         for tree in self.trees.iter() {
-            result = result + tree.predict_for_row(x, row);
+            result += tree.predict_for_row(x, row);
         }
 
         result / T::from(n_trees).unwrap()

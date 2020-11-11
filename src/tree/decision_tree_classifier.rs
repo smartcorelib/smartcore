@@ -126,7 +126,7 @@ impl<T: RealNumber> PartialEq for DecisionTreeClassifier<T> {
             || self.num_classes != other.num_classes
             || self.nodes.len() != other.nodes.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.classes.len() {
                 if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
@@ -138,7 +138,7 @@ impl<T: RealNumber> PartialEq for DecisionTreeClassifier<T> {
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -174,8 +174,8 @@ impl Default for DecisionTreeClassifierParameters {
 impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: usize) -> Self {
         Node {
-            index: index,
-            output: output,
+            index,
+            output,
             split_feature: 0,
             split_value: Option::None,
             split_score: Option::None,
@@ -206,7 +206,7 @@ fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &Vec<usize>, n: us
             for i in 0..count.len() {
                 if count[i] > 0 {
                     let p = T::from(count[i]).unwrap() / T::from(n).unwrap();
-                    impurity = impurity - p * p;
+                    impurity -= p * p;
                 }
             }
         }
@@ -215,7 +215,7 @@ fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &Vec<usize>, n: us
             for i in 0..count.len() {
                 if count[i] > 0 {
                     let p = T::from(count[i]).unwrap() / T::from(n).unwrap();
-                    impurity = impurity - p * p.log2();
+                    impurity -= p * p.log2();
                 }
             }
         }
@@ -229,7 +229,7 @@ fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &Vec<usize>, n: us
         }
     }
 
-    return impurity;
+    impurity
 }
 
 impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
@@ -242,14 +242,14 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
         level: u16,
     ) -> Self {
         NodeVisitor {
-            x: x,
-            y: y,
+            x,
+            y,
             node: node_id,
-            samples: samples,
-            order: order,
+            samples,
+            order,
             true_child_output: 0,
             false_child_output: 0,
-            level: level,
+            level,
             phantom: PhantomData,
         }
     }
@@ -266,7 +266,7 @@ pub(in crate) fn which_max(x: &Vec<usize>) -> usize {
         }
     }
 
-    return which;
+    which
 }
 
 impl<T: RealNumber> DecisionTreeClassifier<T> {
@@ -325,16 +325,16 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         }
 
         let mut tree = DecisionTreeClassifier {
-            nodes: nodes,
-            parameters: parameters,
+            nodes,
+            parameters,
             num_classes: k,
-            classes: classes,
+            classes,
             depth: 0,
         };
 
         let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &yi, 1);
 
-        let mut visitor_queue: LinkedList<NodeVisitor<T, M>> = LinkedList::new();
+        let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 
         if tree.find_best_cutoff(&mut visitor, mtry) {
             visitor_queue.push_back(visitor);
@@ -376,24 +376,24 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
                     let node = &self.nodes[node_id];
                     if node.true_child == None && node.false_child == None {
                         result = node.output;
+                    } else if x.get(row, node.split_feature)
+                        <= node.split_value.unwrap_or_else(T::nan)
+                    {
+                        queue.push_back(node.true_child.unwrap());
                     } else {
-                        if x.get(row, node.split_feature) <= node.split_value.unwrap_or(T::nan()) {
-                            queue.push_back(node.true_child.unwrap());
-                        } else {
-                            queue.push_back(node.false_child.unwrap());
-                        }
+                        queue.push_back(node.false_child.unwrap());
                     }
                 }
                 None => break,
             };
         }
 
-        return result;
+        result
     }
 
     fn find_best_cutoff<M: Matrix<T>>(
         &mut self,
-        visitor: &mut NodeVisitor<T, M>,
+        visitor: &mut NodeVisitor<'_, T, M>,
         mtry: usize,
     ) -> bool {
         let (n_rows, n_attr) = visitor.x.shape();
@@ -456,7 +456,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
 
     fn find_best_split<M: Matrix<T>>(
         &mut self,
-        visitor: &mut NodeVisitor<T, M>,
+        visitor: &mut NodeVisitor<'_, T, M>,
         n: usize,
         count: &Vec<usize>,
         false_count: &mut Vec<usize>,
@@ -530,7 +530,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         for i in 0..n {
             if visitor.samples[i] > 0 {
                 if visitor.x.get(i, self.nodes[visitor.node].split_feature)
-                    <= self.nodes[visitor.node].split_value.unwrap_or(T::nan())
+                    <= self.nodes[visitor.node].split_value.unwrap_or_else(T::nan)
                 {
                     true_samples[i] = visitor.samples[i];
                     tc += true_samples[i];

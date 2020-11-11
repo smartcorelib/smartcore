@@ -93,7 +93,7 @@ pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             sort(&mut d, &mut e, &mut V);
         }
 
-        Ok(EVD { V: V, d: d, e: e })
+        Ok(EVD { V, d, e })
     }
 }
 
@@ -107,7 +107,7 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
         let mut scale = T::zero();
         let mut h = T::zero();
         for k in 0..i {
-            scale = scale + d[k].abs();
+            scale += d[k].abs();
         }
         if scale == T::zero() {
             e[i] = d[i - 1];
@@ -118,8 +118,8 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
             }
         } else {
             for k in 0..i {
-                d[k] = d[k] / scale;
-                h = h + d[k] * d[k];
+                d[k] /= scale;
+                h += d[k] * d[k];
             }
             let mut f = d[i - 1];
             let mut g = h.sqrt();
@@ -127,7 +127,7 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
                 g = -g;
             }
             e[i] = scale * g;
-            h = h - f * g;
+            h -= f * g;
             d[i - 1] = f - g;
             for j in 0..i {
                 e[j] = T::zero();
@@ -138,19 +138,19 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
                 V.set(j, i, f);
                 g = e[j] + V.get(j, j) * f;
                 for k in j + 1..=i - 1 {
-                    g = g + V.get(k, j) * d[k];
-                    e[k] = e[k] + V.get(k, j) * f;
+                    g += V.get(k, j) * d[k];
+                    e[k] += V.get(k, j) * f;
                 }
                 e[j] = g;
             }
             f = T::zero();
             for j in 0..i {
-                e[j] = e[j] / h;
-                f = f + e[j] * d[j];
+                e[j] /= h;
+                f += e[j] * d[j];
             }
             let hh = f / (h + h);
             for j in 0..i {
-                e[j] = e[j] - hh * d[j];
+                e[j] -= hh * d[j];
             }
             for j in 0..i {
                 f = d[j];
@@ -176,7 +176,7 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
             for j in 0..=i {
                 let mut g = T::zero();
                 for k in 0..=i {
-                    g = g + V.get(k, i + 1) * V.get(k, j);
+                    g += V.get(k, i + 1) * V.get(k, j);
                 }
                 for k in 0..=i {
                     V.sub_element_mut(k, j, g * d[k]);
@@ -239,9 +239,9 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                 let dl1 = d[l + 1];
                 let mut h = g - d[l];
                 for i in l + 2..n {
-                    d[i] = d[i] - h;
+                    d[i] -= h;
                 }
-                f = f + h;
+                f += h;
 
                 p = d[m];
                 let mut c = T::one();
@@ -278,7 +278,7 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                 }
             }
         }
-        d[l] = d[l] + f;
+        d[l] += f;
         e[l] = T::zero();
     }
 
@@ -321,8 +321,8 @@ fn balance<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
             let mut c = T::zero();
             for j in 0..n {
                 if j != i {
-                    c = c + A.get(j, i).abs();
-                    r = r + A.get(i, j).abs();
+                    c += A.get(j, i).abs();
+                    r += A.get(i, j).abs();
                 }
             }
             if c != T::zero() && r != T::zero() {
@@ -330,18 +330,18 @@ fn balance<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
                 let mut f = T::one();
                 let s = c + r;
                 while c < g {
-                    f = f * radix;
-                    c = c * sqrdx;
+                    f *= radix;
+                    c *= sqrdx;
                 }
                 g = r * radix;
                 while c > g {
-                    f = f / radix;
-                    c = c / sqrdx;
+                    f /= radix;
+                    c /= sqrdx;
                 }
                 if (c + r) / f < t * s {
                     done = false;
                     g = T::one() / f;
-                    scale[i] = scale[i] * f;
+                    scale[i] *= f;
                     for j in 0..n {
                         A.mul_element_mut(i, j, g);
                     }
@@ -353,7 +353,7 @@ fn balance<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
         }
     }
 
-    return scale;
+    scale
 }
 
 fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
@@ -386,7 +386,7 @@ fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
             for i in (m + 1)..n {
                 let mut y = A.get(i, m - 1);
                 if y != T::zero() {
-                    y = y / x;
+                    y /= x;
                     A.set(i, m - 1, y);
                     for j in m..n {
                         A.sub_element_mut(i, j, y * A.get(m, j));
@@ -399,7 +399,7 @@ fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
         }
     }
 
-    return perm;
+    perm
 }
 
 fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &Vec<usize>) {
@@ -430,7 +430,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
 
     for i in 0..n {
         for j in i32::max(i as i32 - 1, 0)..n as i32 {
-            anorm = anorm + A.get(i, j as usize).abs();
+            anorm += A.get(i, j as usize).abs();
         }
     }
 
@@ -467,7 +467,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                     p = T::half() * (y - x);
                     q = p * p + w;
                     z = q.abs().sqrt();
-                    x = x + t;
+                    x += t;
                     A.set(nn, nn, x);
                     A.set(nn - 1, nn - 1, y + t);
                     if q >= T::zero() {
@@ -482,8 +482,8 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                         p = x / s;
                         q = z / s;
                         r = (p * p + q * q).sqrt();
-                        p = p / r;
-                        q = q / r;
+                        p /= r;
+                        q /= r;
                         for j in nn - 1..n {
                             z = A.get(nn - 1, j);
                             A.set(nn - 1, j, q * z + p * A.get(nn, j));
@@ -516,7 +516,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                         panic!("Too many iterations in hqr");
                     }
                     if its == 10 || its == 20 {
-                        t = t + x;
+                        t += x;
                         for i in 0..nn + 1 {
                             A.sub_element_mut(i, i, x);
                         }
@@ -535,9 +535,9 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                         q = A.get(m + 1, m + 1) - z - r - s;
                         r = A.get(m + 2, m + 1);
                         s = p.abs() + q.abs() + r.abs();
-                        p = p / s;
-                        q = q / s;
-                        r = r / s;
+                        p /= s;
+                        q /= s;
+                        r /= s;
                         if m == l {
                             break;
                         }
@@ -565,9 +565,9 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                             }
                             x = p.abs() + q.abs() + r.abs();
                             if x != T::zero() {
-                                p = p / x;
-                                q = q / x;
-                                r = r / x;
+                                p /= x;
+                                q /= x;
+                                r /= x;
                             }
                         }
                         let s = (p * p + q * q + r * r).sqrt().copysign(p);
@@ -579,16 +579,16 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                             } else {
                                 A.set(k, k - 1, -s * x);
                             }
-                            p = p + s;
+                            p += s;
                             x = p / s;
                             y = q / s;
                             z = r / s;
-                            q = q / p;
-                            r = r / p;
+                            q /= p;
+                            r /= p;
                             for j in k..n {
                                 p = A.get(k, j) + q * A.get(k + 1, j);
                                 if k + 1 != nn {
-                                    p = p + r * A.get(k + 2, j);
+                                    p += r * A.get(k + 2, j);
                                     A.sub_element_mut(k + 2, j, p * z);
                                 }
                                 A.sub_element_mut(k + 1, j, p * y);
@@ -603,7 +603,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                             for i in 0..mmin + 1 {
                                 p = x * A.get(i, k) + y * A.get(i, k + 1);
                                 if k + 1 != nn {
-                                    p = p + z * A.get(i, k + 2);
+                                    p += z * A.get(i, k + 2);
                                     A.sub_element_mut(i, k + 2, p * r);
                                 }
                                 A.sub_element_mut(i, k + 1, p * q);
@@ -612,7 +612,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                             for i in 0..n {
                                 p = x * V.get(i, k) + y * V.get(i, k + 1);
                                 if k + 1 != nn {
-                                    p = p + z * V.get(i, k + 2);
+                                    p += z * V.get(i, k + 2);
                                     V.sub_element_mut(i, k + 2, p * r);
                                 }
                                 V.sub_element_mut(i, k + 1, p * q);
@@ -642,7 +642,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                         let w = A.get(i, i) - p;
                         r = T::zero();
                         for j in m..=nn {
-                            r = r + A.get(i, j) * A.get(j, nn);
+                            r += A.get(i, j) * A.get(j, nn);
                         }
                         if e[i] < T::zero() {
                             z = w;
@@ -701,8 +701,8 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                         let mut ra = T::zero();
                         let mut sa = T::zero();
                         for j in m..=nn {
-                            ra = ra + A.get(i, j) * A.get(j, na);
-                            sa = sa + A.get(i, j) * A.get(j, nn);
+                            ra += A.get(i, j) * A.get(j, na);
+                            sa += A.get(i, j) * A.get(j, nn);
                         }
                         if e[i] < T::zero() {
                             z = w;
@@ -766,7 +766,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
             for i in 0..n {
                 z = T::zero();
                 for k in 0..=j {
-                    z = z + V.get(i, k) * A.get(k, j);
+                    z += V.get(i, k) * A.get(k, j);
                 }
                 V.set(i, j, z);
             }

@@ -44,8 +44,8 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
     /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../../../math/distance/index.html) interface.
     pub fn new(data: Vec<T>, distance: D) -> Result<LinearKNNSearch<T, F, D>, Failed> {
         Ok(LinearKNNSearch {
-            data: data,
-            distance: distance,
+            data,
+            distance,
             f: PhantomData,
         })
     }
@@ -157,7 +157,7 @@ mod tests {
             .iter()
             .map(|v| v.0)
             .collect();
-        found_idxs1.sort();
+        found_idxs1.sort_unstable();
 
         assert_eq!(vec!(0, 1, 2), found_idxs1);
 
@@ -167,7 +167,7 @@ mod tests {
             .iter()
             .map(|v| *v.2)
             .collect();
-        found_idxs1.sort();
+        found_idxs1.sort_unstable();
 
         assert_eq!(vec!(2, 3, 4, 5, 6, 7, 8), found_idxs1);
 
@@ -187,7 +187,7 @@ mod tests {
             .iter()
             .map(|v| v.0)
             .collect();
-        found_idxs2.sort();
+        found_idxs2.sort_unstable();
 
         assert_eq!(vec!(1, 2, 3), found_idxs2);
     }

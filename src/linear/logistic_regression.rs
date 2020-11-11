@@ -52,6 +52,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -82,7 +83,7 @@ trait ObjectiveFunction<T: RealNumber, M: Matrix<T>> {
         let mut sum = T::zero();
         let p = x.shape().1;
         for i in 0..p {
-            sum = sum + x.get(m_row, i) * w.get(0, i + v_col);
+            sum += x.get(m_row, i) * w.get(0, i + v_col);
         }
 
         sum + w.get(0, p + v_col)
@@ -101,7 +102,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
             || self.num_attributes != other.num_attributes
             || self.classes.len() != other.classes.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.classes.len() {
                 if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
@@ -109,7 +110,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
                 }
             }
 
-            return self.weights == other.weights;
+            self.weights == other.weights
         }
     }
 }
@@ -123,7 +124,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
 
         for i in 0..n {
             let wx = BinaryObjectiveFunction::partial_dot(w_bias, self.x, 0, i);
-            f = f + (wx.ln_1pe() - (T::from(self.y[i]).unwrap()) * wx);
+            f += wx.ln_1pe() - (T::from(self.y[i]).unwrap()) * wx;
         }
 
         f
@@ -169,7 +170,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
                 );
             }
             prob.softmax_mut();
-            f = f - prob.get(0, self.y[i]).ln();
+            f -= prob.get(0, self.y[i]).ln();
         }
 
         f
@@ -215,9 +216,9 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         let (_, y_nrows) = y_m.shape();
 
         if x_nrows != y_nrows {
-            return Err(Failed::fit(&format!(
-                "Number of rows of X doesn't match number of rows of Y"
-            )));
+            return Err(Failed::fit(
+                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+            ));
         }
 
         let classes = y_m.unique();
@@ -231,48 +232,50 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
-        if k < 2 {
-            Err(Failed::fit(&format!(
+        match k.cmp(&2) {
+            Ordering::Less => Err(Failed::fit(&format!(
                 "incorrect number of classes: {}. Should be >= 2.",
                 k
-            )))
-        } else if k == 2 {
-            let x0 = M::zeros(1, num_attributes + 1);
+            ))),
+            Ordering::Greater => {
+                let x0 = M::zeros(1, (num_attributes + 1) * k);
 
-            let objective = BinaryObjectiveFunction {
-                x: x,
-                y: yi,
-                phantom: PhantomData,
-            };
+                let objective = MultiClassObjectiveFunction {
+                    x,
+                    y: yi,
+                    k,
+                    phantom: PhantomData,
+                };
 
-            let result = LogisticRegression::minimize(x0, objective);
+                let result = LogisticRegression::minimize(x0, objective);
 
-            Ok(LogisticRegression {
-                weights: result.x,
-                classes: classes,
-                num_attributes: num_attributes,
-                num_classes: k,
-            })
-        } else {
-            let x0 = M::zeros(1, (num_attributes + 1) * k);
+                let weights = result.x.reshape(k, num_attributes + 1);
 
-            let objective = MultiClassObjectiveFunction {
-                x: x,
-                y: yi,
-                k: k,
-                phantom: PhantomData,
-            };
+                Ok(LogisticRegression {
+                    weights,
+                    classes,
+                    num_attributes,
+                    num_classes: k,
+                })
+            }
+            Ordering::Equal => {
+                let x0 = M::zeros(1, num_attributes + 1);
 
-            let result = LogisticRegression::minimize(x0, objective);
+                let objective = BinaryObjectiveFunction {
+                    x,
+                    y: yi,
+                    phantom: PhantomData,
+                };
 
-            let weights = result.x.reshape(k, num_attributes + 1);
+                let result = LogisticRegression::minimize(x0, objective);
 
-            Ok(LogisticRegression {
-                weights: weights,
-                classes: classes,
-                num_attributes: num_attributes,
-                num_classes: k,
-            })
+                Ok(LogisticRegression {
+                    weights: result.x,
+                    classes,
+                    num_attributes,
+                    num_classes: k,
+                })
+            }
         }
     }
 
@@ -325,8 +328,10 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
 
         let df = |g: &mut M, w: &M| objective.df(g, w);
 
-        let mut ls: Backtracking<T> = Default::default();
-        ls.order = FunctionOrder::THIRD;
+        let ls: Backtracking<T> = Backtracking {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
+        };
         let optimizer: LBFGS<T> = Default::default();
 
         optimizer.optimize(&f, &df, &x0, &ls)
@@ -362,7 +367,7 @@ mod tests {
 
         let objective = MultiClassObjectiveFunction {
             x: &x,
-            y: y,
+            y,
             k: 3,
             phantom: PhantomData,
         };
@@ -411,7 +416,7 @@ mod tests {
 
         let objective = BinaryObjectiveFunction {
             x: &x,
-            y: y,
+            y,
             phantom: PhantomData,
         };
 

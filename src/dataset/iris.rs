@@ -28,8 +28,8 @@ pub fn load_dataset() -> Dataset<f32, f32> {
     Dataset {
         data: x,
         target: y,
-        num_samples: num_samples,
-        num_features: num_features,
+        num_samples,
+        num_features,
         feature_names: vec![
             "sepal length (cm)",
             "sepal width (cm)",

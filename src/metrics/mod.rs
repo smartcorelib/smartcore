@@ -101,7 +101,7 @@ impl ClassificationMetrics {
 
     /// F1 score, also known as balanced F-score or F-measure, see [F1](f1/index.html).
     pub fn f1<T: RealNumber>(beta: T) -> f1::F1<T> {
-        f1::F1 { beta: beta }
+        f1::F1 { beta }
     }
 
     /// Area Under the Receiver Operating Characteristic Curve (ROC AUC), see [AUC](auc/index.html).

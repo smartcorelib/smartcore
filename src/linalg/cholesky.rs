@@ -46,10 +46,7 @@ pub struct Cholesky<T: RealNumber, M: BaseMatrix<T>> {
 
 impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
     pub(crate) fn new(R: M) -> Cholesky<T, M> {
-        Cholesky {
-            R: R,
-            t: PhantomData,
-        }
+        Cholesky { R, t: PhantomData }
     }
 
     /// Get lower triangular matrix.
@@ -90,7 +87,8 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
         if bn != rn {
             return Err(Failed::because(
                 FailedError::SolutionFailed,
-                &format!("Can't solve Ax = b for x. Number of rows in b != number of rows in R."),
+                &"Can\'t solve Ax = b for x. Number of rows in b != number of rows in R."
+                    .to_string(),
             ));
         }
 
@@ -130,7 +128,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         if m != n {
             return Err(Failed::because(
                 FailedError::DecompositionFailed,
-                &format!("Can't do Cholesky decomposition on a non-square matrix"),
+                &"Can\'t do Cholesky decomposition on a non-square matrix".to_string(),
             ));
         }
 
@@ -143,14 +141,14 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 }
                 s = (self.get(j, k) - s) / self.get(k, k);
                 self.set(j, k, s);
-                d = d + s * s;
+                d += s * s;
             }
             d = self.get(j, j) - d;
 
             if d < T::zero() {
                 return Err(Failed::because(
                     FailedError::DecompositionFailed,
-                    &format!("The matrix is not positive definite."),
+                    &"The matrix is not positive definite.".to_string(),
                 ));
             }
 

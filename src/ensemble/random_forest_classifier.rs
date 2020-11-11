@@ -45,8 +45,6 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-extern crate rand;
-
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -89,7 +87,7 @@ pub struct RandomForestClassifier<T: RealNumber> {
 impl<T: RealNumber> PartialEq for RandomForestClassifier<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.classes.len() != other.classes.len() || self.trees.len() != other.trees.len() {
-            return false;
+            false
         } else {
             for i in 0..self.classes.len() {
                 if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
@@ -139,13 +137,13 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             yi[i] = classes.iter().position(|c| yc == *c).unwrap();
         }
 
-        let mtry = parameters.m.unwrap_or(
+        let mtry = parameters.m.unwrap_or_else(|| {
             (T::from(num_attributes).unwrap())
                 .sqrt()
                 .floor()
                 .to_usize()
-                .unwrap(),
-        );
+                .unwrap()
+        });
 
         let classes = y_m.unique();
         let k = classes.len();
@@ -164,8 +162,8 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         }
 
         Ok(RandomForestClassifier {
-            parameters: parameters,
-            trees: trees,
+            parameters,
+            trees,
             classes,
         })
     }
@@ -191,7 +189,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             result[tree.predict_for_row(x, row)] += 1;
         }
 
-        return which_max(&result);
+        which_max(&result)
     }
 
     fn sample_with_replacement(y: &Vec<usize>, num_classes: usize) -> Vec<usize> {

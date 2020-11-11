@@ -50,8 +50,8 @@ impl<T: RealNumber> BBDTree<T> {
         }
 
         let mut tree = BBDTree {
-            nodes: nodes,
-            index: index,
+            nodes,
+            index,
             root: 0,
         };
 
@@ -113,7 +113,7 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        if !self.nodes[node].lower.is_none() {
+        if self.nodes[node].lower.is_some() {
             let mut new_candidates = vec![0; k];
             let mut newk = 0;
 
@@ -134,7 +134,7 @@ impl<T: RealNumber> BBDTree<T> {
                 return self.filter(
                     self.nodes[node].lower.unwrap(),
                     centroids,
-                    &mut new_candidates,
+                    &new_candidates,
                     newk,
                     sums,
                     counts,
@@ -142,7 +142,7 @@ impl<T: RealNumber> BBDTree<T> {
                 ) + self.filter(
                     self.nodes[node].upper.unwrap(),
                     centroids,
-                    &mut new_candidates,
+                    &new_candidates,
                     newk,
                     sums,
                     counts,
@@ -152,7 +152,7 @@ impl<T: RealNumber> BBDTree<T> {
         }
 
         for i in 0..d {
-            sums[closest][i] = sums[closest][i] + self.nodes[node].sum[i];
+            sums[closest][i] += self.nodes[node].sum[i];
         }
 
         counts[closest] += self.nodes[node].count;
@@ -184,11 +184,11 @@ impl<T: RealNumber> BBDTree<T> {
         let mut rhs = T::zero();
         for i in 0..d {
             let diff = test[i] - best[i];
-            lhs = lhs + diff * diff;
+            lhs += diff * diff;
             if diff > T::zero() {
-                rhs = rhs + (center[i] + radius[i] - best[i]) * diff;
+                rhs += (center[i] + radius[i] - best[i]) * diff;
             } else {
-                rhs = rhs + (center[i] - radius[i] - best[i]) * diff;
+                rhs += (center[i] - radius[i] - best[i]) * diff;
             }
         }
 
@@ -244,7 +244,7 @@ impl<T: RealNumber> BBDTree<T> {
             if end > begin + 1 {
                 let len = end - begin;
                 for i in 0..d {
-                    node.sum[i] = node.sum[i] * T::from(len).unwrap();
+                    node.sum[i] *= T::from(len).unwrap();
                 }
             }
 
@@ -261,9 +261,7 @@ impl<T: RealNumber> BBDTree<T> {
             let mut i2_good = data.get(self.index[i2], split_index) >= split_cutoff;
 
             if !i1_good && !i2_good {
-                let temp = self.index[i1];
-                self.index[i1] = self.index[i2];
-                self.index[i2] = temp;
+                self.index.swap(i1, i2);
                 i1_good = true;
                 i2_good = true;
             }
@@ -302,7 +300,7 @@ impl<T: RealNumber> BBDTree<T> {
         let mut scatter = T::zero();
         for i in 0..d {
             let x = (node.sum[i] / T::from(node.count).unwrap()) - center[i];
-            scatter = scatter + x * x;
+            scatter += x * x;
         }
         node.cost + T::from(node.count).unwrap() * scatter
     }

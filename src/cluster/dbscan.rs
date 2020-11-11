@@ -29,8 +29,6 @@
 //! * ["A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise", Ester M., Kriegel HP., Sander J., Xu X.](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 //! * ["Density-Based Clustering in Spatial Databases: The Algorithm GDBSCAN and its Applications", Sander J., Ester M., Kriegel HP., Xu X.](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.63.1629&rep=rep1&type=pdf)
 
-extern crate rand;
-
 use std::fmt::Debug;
 use std::iter::Sum;
 
@@ -93,11 +91,11 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
         parameters: DBSCANParameters<T>,
     ) -> Result<DBSCAN<T, D>, Failed> {
         if parameters.min_samples < 1 {
-            return Err(Failed::fit(&format!("Invalid minPts")));
+            return Err(Failed::fit(&"Invalid minPts".to_string()));
         }
 
         if parameters.eps <= T::zero() {
-            return Err(Failed::fit(&format!("Invalid radius: ")));
+            return Err(Failed::fit(&"Invalid radius: ".to_string()));
         }
 
         let mut k = 0;
