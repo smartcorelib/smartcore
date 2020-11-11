@@ -1,3 +1,10 @@
+#![allow(
+    clippy::needless_range_loop,
+    clippy::ptr_arg,
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    clippy::many_single_char_names
+)]
 #![warn(missing_docs)]
 #![warn(missing_doc_code_examples)]
 
@@ -64,13 +71,6 @@
 //! let y_hat = knn.predict(&x).unwrap();
 //! ```
 
-#![allow(
-    clippy::needless_range_loop,
-    clippy::ptr_arg,
-    clippy::type_complexity,
-    clippy::too_many_arguments,
-    clippy::many_single_char_names
-)]
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
 /// Algorithms for clustering of unlabeled data
