@@ -130,7 +130,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
 
         if n <= p {
             return Err(Failed::fit(
-                "Number of rows in X should be >= number of columns in X"
+                "Number of rows in X should be >= number of columns in X",
             ));
         }
 
