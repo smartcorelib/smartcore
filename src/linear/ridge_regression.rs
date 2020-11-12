@@ -129,13 +129,13 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
         let (n, p) = x.shape();
 
         if n <= p {
-            return Err(Failed::fit(&format!(
+            return Err(Failed::fit(
                 "Number of rows in X should be >= number of columns in X"
-            )));
+            ));
         }
 
         if y.len() != n {
-            return Err(Failed::fit(&format!("Number of rows in X should = len(y)")));
+            return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
 
         let y_column = M::from_row_vector(y.clone()).transpose();

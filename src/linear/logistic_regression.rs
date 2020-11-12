@@ -110,8 +110,8 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LogisticRegression<T, M> {
                     return false;
                 }
             }
-          
-            return self.coefficients == other.coefficients && self.intercept == other.intercept;
+
+            self.coefficients == other.coefficients && self.intercept == other.intercept
         }
     }
 }
@@ -242,7 +242,7 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
                 let x0 = M::zeros(1, num_attributes + 1);
 
                 let objective = BinaryObjectiveFunction {
-                    x: x,
+                    x,
                     y: yi,
                     phantom: PhantomData,
                 };
@@ -254,8 +254,8 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
                 Ok(LogisticRegression {
                     coefficients: weights.slice(0..1, 0..num_attributes),
                     intercept: weights.slice(0..1, num_attributes..num_attributes + 1),
-                    classes: classes,
-                    num_attributes: num_attributes,
+                    classes,
+                    num_attributes,
                     num_classes: k,
                 })
             }
@@ -263,9 +263,9 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
                 let x0 = M::zeros(1, (num_attributes + 1) * k);
 
                 let objective = MultiClassObjectiveFunction {
-                    x: x,
+                    x,
                     y: yi,
-                    k: k,
+                    k,
                     phantom: PhantomData,
                 };
 
@@ -275,8 +275,8 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
                 Ok(LogisticRegression {
                     coefficients: weights.slice(0..k, 0..num_attributes),
                     intercept: weights.slice(0..k, num_attributes..num_attributes + 1),
-                    classes: classes,
-                    num_attributes: num_attributes,
+                    classes,
+                    num_attributes,
                     num_classes: k,
                 })
             }
