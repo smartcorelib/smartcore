@@ -37,7 +37,7 @@ pub fn entropy<T: RealNumber>(data: &Vec<T>) -> Option<T> {
     for &c in bincounts.values() {
         if c > 0 {
             let pi = T::from_usize(c).unwrap();
-            entropy = entropy - (pi / sum) * (pi.ln() - sum.ln());
+            entropy -= (pi / sum) * (pi.ln() - sum.ln());
         }
     }
 
@@ -89,9 +89,8 @@ pub fn mutual_info_score<T: RealNumber>(contingency: &Vec<Vec<usize>>) -> T {
     let mut result = T::zero();
 
     for i in 0..log_outer.len() {
-        result = result
-            + ((contingency_nm[i] * (log_contingency_nm[i] - contingency_sum_ln))
-                + contingency_nm[i] * log_outer[i])
+        result += (contingency_nm[i] * (log_contingency_nm[i] - contingency_sum_ln))
+            + contingency_nm[i] * log_outer[i]
     }
 
     result.max(T::zero())

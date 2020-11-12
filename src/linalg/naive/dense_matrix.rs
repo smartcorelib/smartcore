@@ -1,4 +1,3 @@
-extern crate num;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -31,8 +30,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
     }
 
     fn to_vec(&self) -> Vec<T> {
-        let v = self.clone();
-        v
+        self.clone()
     }
 
     fn zeros(len: usize) -> Self {
@@ -54,7 +52,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
 
         let mut result = T::zero();
         for i in 0..self.len() {
-            result = result + self[i] * other[i];
+            result += self[i] * other[i];
         }
 
         result
@@ -64,7 +62,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
         let mut norm = T::zero();
 
         for xi in self.iter() {
-            norm = norm + *xi * *xi;
+            norm += *xi * *xi;
         }
 
         norm.sqrt()
@@ -83,7 +81,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -91,19 +89,19 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
     }
 
     fn div_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] / x;
+        self[pos] /= x;
     }
 
     fn mul_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] * x;
+        self[pos] *= x;
     }
 
     fn add_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] + x
+        self[pos] += x
     }
 
     fn sub_element_mut(&mut self, pos: usize, x: T) {
-        self[pos] = self[pos] - x;
+        self[pos] -= x;
     }
 
     fn add_mut(&mut self, other: &Self) -> &Self {
@@ -166,7 +164,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
     fn sum(&self) -> T {
         let mut sum = T::zero();
         for i in 0..self.len() {
-            sum = sum + self[i];
+            sum += self[i];
         }
         sum
     }
@@ -198,7 +196,7 @@ pub struct DenseMatrixIterator<'a, T: RealNumber> {
 }
 
 impl<T: RealNumber> fmt::Display for DenseMatrix<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
         for r in 0..self.nrows {
             rows.push(
@@ -217,15 +215,15 @@ impl<T: RealNumber> DenseMatrix<T> {
     /// `values` should be in column-major order.
     pub fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
         DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
-            values: values,
+            ncols,
+            nrows,
+            values,
         }
     }
 
     /// New instance of `DenseMatrix` from 2d array.
     pub fn from_2d_array(values: &[&[T]]) -> Self {
-        DenseMatrix::from_2d_vec(&values.into_iter().map(|row| Vec::from(*row)).collect())
+        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect())
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
@@ -236,8 +234,8 @@ impl<T: RealNumber> DenseMatrix<T> {
             .unwrap_or_else(|| panic!("Cannot create 2d matrix from an empty vector"))
             .len();
         let mut m = DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
+            ncols,
+            nrows,
             values: vec![T::zero(); ncols * nrows],
         };
         for row in 0..nrows {
@@ -262,8 +260,8 @@ impl<T: RealNumber> DenseMatrix<T> {
     /// * `values` - values to initialize the matrix.
     pub fn from_vec(nrows: usize, ncols: usize, values: &Vec<T>) -> DenseMatrix<T> {
         let mut m = DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
+            ncols,
+            nrows,
             values: vec![T::zero(); ncols * nrows],
         };
         for row in 0..nrows {
@@ -286,7 +284,7 @@ impl<T: RealNumber> DenseMatrix<T> {
         DenseMatrix {
             ncols: values.len(),
             nrows: 1,
-            values: values,
+            values,
         }
     }
 
@@ -302,13 +300,13 @@ impl<T: RealNumber> DenseMatrix<T> {
         DenseMatrix {
             ncols: 1,
             nrows: values.len(),
-            values: values,
+            values,
         }
     }
 
     /// Creates new column vector (_1xN_ matrix) from a vector.     
     /// * `values` - values to initialize the matrix.
-    pub fn iter<'a>(&'a self) -> DenseMatrixIterator<'a, T> {
+    pub fn iter(&self) -> DenseMatrixIterator<'_, T> {
         DenseMatrixIterator {
             cur_c: 0,
             cur_r: 0,
@@ -357,7 +355,7 @@ impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for De
         impl<'a, T: RealNumber + fmt::Debug + Deserialize<'a>> Visitor<'a> for DenseMatrixVisitor<T> {
             type Value = DenseMatrix<T>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct DenseMatrix")
             }
 
@@ -413,7 +411,7 @@ impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for De
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["nrows", "ncols", "values"];
+        const FIELDS: &[&str] = &["nrows", "ncols", "values"];
         deserializer.deserialize_struct(
             "DenseMatrix",
             FIELDS,
@@ -565,7 +563,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             matrix.set(i, i, T::one());
         }
 
-        return matrix;
+        matrix
     }
 
     fn shape(&self) -> (usize, usize) {
@@ -617,7 +615,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             for c in 0..other.ncols {
                 let mut s = T::zero();
                 for i in 0..inner_d {
-                    s = s + self.get(r, i) * other.get(i, c);
+                    s += self.get(r, i) * other.get(i, c);
                 }
                 result.set(r, c, s);
             }
@@ -636,7 +634,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 
         let mut result = T::zero();
         for i in 0..(self.nrows * self.ncols) {
-            result = result + self.values[i] * other.values[i];
+            result += self.values[i] * other.values[i];
         }
 
         result
@@ -730,19 +728,19 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     }
 
     fn div_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] / x;
+        self.values[col * self.nrows + row] /= x;
     }
 
     fn mul_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] * x;
+        self.values[col * self.nrows + row] *= x;
     }
 
     fn add_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] + x
+        self.values[col * self.nrows + row] += x
     }
 
     fn sub_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] - x;
+        self.values[col * self.nrows + row] -= x;
     }
 
     fn transpose(&self) -> Self {
@@ -762,9 +760,9 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn rand(nrows: usize, ncols: usize) -> Self {
         let values: Vec<T> = (0..nrows * ncols).map(|_| T::rand()).collect();
         DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
-            values: values,
+            ncols,
+            nrows,
+            values,
         }
     }
 
@@ -772,7 +770,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         let mut norm = T::zero();
 
         for xi in self.values.iter() {
-            norm = norm + *xi * *xi;
+            norm += *xi * *xi;
         }
 
         norm.sqrt()
@@ -793,7 +791,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             let mut norm = T::zero();
 
             for xi in self.values.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -805,12 +803,12 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 
         for r in 0..self.nrows {
             for c in 0..self.ncols {
-                mean[c] = mean[c] + self.get(r, c);
+                mean[c] += self.get(r, c);
             }
         }
 
         for i in 0..mean.len() {
-            mean[i] = mean[i] / T::from(self.nrows).unwrap();
+            mean[i] /= T::from(self.nrows).unwrap();
         }
 
         mean
@@ -818,28 +816,28 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 
     fn add_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] + scalar;
+            self.values[i] += scalar;
         }
         self
     }
 
     fn sub_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] - scalar;
+            self.values[i] -= scalar;
         }
         self
     }
 
     fn mul_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] * scalar;
+            self.values[i] *= scalar;
         }
         self
     }
 
     fn div_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] / scalar;
+            self.values[i] /= scalar;
         }
         self
     }
@@ -905,7 +903,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn sum(&self) -> T {
         let mut sum = T::zero();
         for i in 0..self.values.len() {
-            sum = sum + self.values[i];
+            sum += self.values[i];
         }
         sum
     }
@@ -937,7 +935,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             for c in 0..self.ncols {
                 let p = (self.get(r, c) - max).exp();
                 self.set(r, c, p);
-                z = z + p;
+                z += p;
             }
         }
         for r in 0..self.nrows {
@@ -1061,7 +1059,7 @@ mod tests {
             DenseMatrix::new(1, 3, vec![1., 2., 3.])
         );
         assert_eq!(
-            DenseMatrix::from_row_vector(vec.clone()).to_row_vector(),
+            DenseMatrix::from_row_vector(vec).to_row_vector(),
             vec![1., 2., 3.]
         );
     }

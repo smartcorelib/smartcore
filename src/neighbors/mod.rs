@@ -10,7 +10,7 @@
 //! and follows three conditions:
 //! 1. \\( d(x, y) = 0 \\) if and only \\( x = y \\), positive definiteness
 //! 1. \\( d(x, y) = d(y, x) \\), symmetry
-//! 1. \\( d(x, y) \leq d(x, z) + d(z, y) \\), 	subadditivity or triangle inequality
+//! 1. \\( d(x, y) \leq d(x, z) + d(z, y) \\), subadditivity or triangle inequality
 //!
 //! for all \\(x, y, z \in Z \\)
 //!

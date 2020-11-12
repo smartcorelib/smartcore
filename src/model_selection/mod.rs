@@ -8,7 +8,6 @@
 //! your data.
 //!
 //! In SmartCore you can split your data into training and test datasets using `train_test_split` function.
-extern crate rand;
 
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -111,7 +110,7 @@ pub struct KFold {
 impl Default for KFold {
     fn default() -> KFold {
         KFold {
-            n_splits: 3 as usize,
+            n_splits: 3_usize,
             shuffle: true,
         }
     }
@@ -127,7 +126,7 @@ impl BaseKFold for KFold {
 
         // initialise indices
         let mut indices: Vec<usize> = (0..n_samples).collect();
-        if self.shuffle == true {
+        if self.shuffle {
             indices.shuffle(&mut thread_rng());
         }
         //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
@@ -135,7 +134,7 @@ impl BaseKFold for KFold {
 
         // increment by one if odd
         for i in 0..(n_samples % self.n_splits) {
-            fold_sizes[i] = fold_sizes[i] + 1;
+            fold_sizes[i] += 1;
         }
 
         // generate the right array of arrays for test indices
@@ -175,13 +174,13 @@ impl BaseKFold for KFold {
                 .clone()
                 .iter()
                 .enumerate()
-                .filter(|&(idx, _)| test_index[idx] == false)
+                .filter(|&(idx, _)| !test_index[idx])
                 .map(|(idx, _)| idx)
                 .collect::<Vec<usize>>(); // filter train indices out according to mask
             let test_index = indices
                 .iter()
                 .enumerate()
-                .filter(|&(idx, _)| test_index[idx] == true)
+                .filter(|&(idx, _)| test_index[idx])
                 .map(|(idx, _)| idx)
                 .collect::<Vec<usize>>(); // filter tests indices out according to mask
             return_values.push((train_index, test_index))
@@ -293,10 +292,10 @@ mod tests {
         let x: DenseMatrix<f64> = DenseMatrix::rand(23, 100);
         let train_test_splits = k.split(&x);
 
-        assert_eq!(train_test_splits[0].1.len(), 12 as usize);
-        assert_eq!(train_test_splits[0].0.len(), 11 as usize);
-        assert_eq!(train_test_splits[1].0.len(), 12 as usize);
-        assert_eq!(train_test_splits[1].1.len(), 11 as usize);
+        assert_eq!(train_test_splits[0].1.len(), 12_usize);
+        assert_eq!(train_test_splits[0].0.len(), 11_usize);
+        assert_eq!(train_test_splits[1].0.len(), 12_usize);
+        assert_eq!(train_test_splits[1].1.len(), 11_usize);
     }
 
     #[test]

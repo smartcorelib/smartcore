@@ -68,14 +68,14 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
         if self.eigenvectors != other.eigenvectors
             || self.eigenvalues.len() != other.eigenvalues.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.eigenvalues.len() {
                 if (self.eigenvalues[i] - other.eigenvalues[i]).abs() > T::epsilon() {
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -190,16 +190,16 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
         let mut pmu = vec![T::zero(); n_components];
         for k in 0..n {
             for i in 0..n_components {
-                pmu[i] = pmu[i] + projection.get(i, k) * mu[k];
+                pmu[i] += projection.get(i, k) * mu[k];
             }
         }
 
         Ok(PCA {
-            eigenvectors: eigenvectors,
-            eigenvalues: eigenvalues,
+            eigenvectors,
+            eigenvalues,
             projection: projection.transpose(),
-            mu: mu,
-            pmu: pmu,
+            mu,
+            pmu,
         })
     }
 

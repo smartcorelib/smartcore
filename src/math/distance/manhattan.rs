@@ -35,7 +35,7 @@ impl<T: RealNumber> Distance<Vec<T>, T> for Manhattan {
 
         let mut dist = T::zero();
         for i in 0..x.len() {
-            dist = dist + (x[i] - y[i]).abs();
+            dist += (x[i] - y[i]).abs();
         }
 
         dist

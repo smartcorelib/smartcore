@@ -25,8 +25,8 @@ impl<T: RealNumber> Default for GradientDescent<T> {
 impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
     fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
         &self,
-        f: &'a F<T, X>,
-        df: &'a DF<X>,
+        f: &'a F<'_, T, X>,
+        df: &'a DF<'_, X>,
         x0: &X,
         ls: &'a LS,
     ) -> OptimizerResult<T, X> {
@@ -74,8 +74,8 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
         let f_x = f(&x);
 
         OptimizerResult {
-            x: x,
-            f_x: f_x,
+            x,
+            f_x,
             iterations: iter,
         }
     }

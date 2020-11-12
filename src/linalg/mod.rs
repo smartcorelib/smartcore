@@ -78,6 +78,11 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
     /// Get number of elevemnt in the vector
     fn len(&self) -> usize;
 
+    /// Returns true if the vector is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return a vector with the elements of the one-dimensional array.
     fn to_vec(&self) -> Vec<T>;
 
@@ -542,9 +547,9 @@ pub trait Matrix<T: RealNumber>:
 {
 }
 
-pub(crate) fn row_iter<F: RealNumber, M: BaseMatrix<F>>(m: &M) -> RowIter<F, M> {
+pub(crate) fn row_iter<F: RealNumber, M: BaseMatrix<F>>(m: &M) -> RowIter<'_, F, M> {
     RowIter {
-        m: m,
+        m,
         pos: 0,
         max_pos: m.shape().0,
         phantom: PhantomData,

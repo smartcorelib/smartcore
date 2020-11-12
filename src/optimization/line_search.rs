@@ -2,7 +2,7 @@ use crate::optimization::FunctionOrder;
 use num_traits::Float;
 
 pub trait LineSearchMethod<T: Float> {
-    fn search<'a>(
+    fn search(
         &self,
         f: &(dyn Fn(T) -> T),
         df: &(dyn Fn(T) -> T),

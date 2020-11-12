@@ -65,7 +65,7 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
     }
 
     fn to_vec(&self) -> Vec<T> {
-        self.row(0).iter().map(|v| *v).collect()
+        self.row(0).iter().copied().collect()
     }
 
     fn zeros(len: usize) -> Self {
@@ -113,7 +113,7 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -175,7 +175,7 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
     }
 
     fn unique(&self) -> Vec<T> {
-        let mut result: Vec<T> = self.iter().map(|v| *v).collect();
+        let mut result: Vec<T> = self.iter().copied().collect();
         result.sort_by(|a, b| a.partial_cmp(b).unwrap());
         result.dedup();
         result
@@ -200,7 +200,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
     }
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
-        self.row(row).iter().map(|v| *v).collect()
+        self.row(row).iter().copied().collect()
     }
 
     fn get_row(&self, row: usize) -> Self::RowVector {
@@ -208,22 +208,18 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.row(row).iter() {
+        for (r, e) in self.row(row).iter().enumerate() {
             result[r] = *e;
-            r += 1;
         }
     }
 
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
-        self.column(col).iter().map(|v| *v).collect()
+        self.column(col).iter().copied().collect()
     }
 
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.column(col).iter() {
-            result[r] = *e;
-            r += 1;
+        for (c, e) in self.column(col).iter().enumerate() {
+            result[c] = *e;
         }
     }
 
@@ -369,7 +365,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -478,7 +474,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
             for c in 0..self.ncols() {
                 let p = (self[(r, c)] - max).exp();
                 self.set(r, c, p);
-                z = z + p;
+                z += p;
             }
         }
         for r in 0..self.nrows() {
@@ -515,7 +511,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
     }
 
     fn unique(&self) -> Vec<T> {
-        let mut result: Vec<T> = self.iter().map(|v| *v).collect();
+        let mut result: Vec<T> = self.iter().copied().collect();
         result.sort_by(|a, b| a.partial_cmp(b).unwrap());
         result.dedup();
         result

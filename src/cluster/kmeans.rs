@@ -52,8 +52,6 @@
 //! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 10.3.1 K-Means Clustering](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 //! * ["k-means++: The Advantages of Careful Seeding", Arthur D., Vassilvitskii S.](http://ilpubs.stanford.edu:8090/778/1/2006-13.pdf)
 
-extern crate rand;
-
 use rand::Rng;
 use std::fmt::Debug;
 use std::iter::Sum;
@@ -129,7 +127,7 @@ impl<T: RealNumber + Sum> KMeans<T> {
             return Err(Failed::fit(&format!("invalid number of clusters: {}", k)));
         }
 
-        if parameters.max_iter <= 0 {
+        if parameters.max_iter == 0 {
             return Err(Failed::fit(&format!(
                 "invalid maximum number of iterations: {}",
                 parameters.max_iter
@@ -149,13 +147,13 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         for i in 0..n {
             for j in 0..d {
-                centroids[y[i]][j] = centroids[y[i]][j] + data.get(i, j);
+                centroids[y[i]][j] += data.get(i, j);
             }
         }
 
         for i in 0..k {
             for j in 0..d {
-                centroids[i][j] = centroids[i][j] / T::from(size[i]).unwrap();
+                centroids[i][j] /= T::from(size[i]).unwrap();
             }
         }
 
@@ -178,11 +176,11 @@ impl<T: RealNumber + Sum> KMeans<T> {
         }
 
         Ok(KMeans {
-            k: k,
-            y: y,
-            size: size,
-            distortion: distortion,
-            centroids: centroids,
+            k,
+            y,
+            size,
+            distortion,
+            centroids,
         })
     }
 
@@ -235,13 +233,13 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
             let mut sum: T = T::zero();
             for i in d.iter() {
-                sum = sum + *i;
+                sum += *i;
             }
             let cutoff = T::from(rng.gen::<f64>()).unwrap() * sum;
             let mut cost = T::zero();
             let mut index = 0;
             while index < n {
-                cost = cost + d[index];
+                cost += d[index];
                 if cost >= cutoff {
                     break;
                 }

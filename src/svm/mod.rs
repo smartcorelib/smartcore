@@ -48,7 +48,7 @@ impl Kernels {
 
     /// Radial basis function kernel (Gaussian)
     pub fn rbf<T: RealNumber>(gamma: T) -> RBFKernel<T> {
-        RBFKernel { gamma: gamma }
+        RBFKernel { gamma }
     }
 
     /// Polynomial kernel
@@ -57,9 +57,9 @@ impl Kernels {
     /// * `coef0` - independent term in kernel function
     pub fn polynomial<T: RealNumber>(degree: T, gamma: T, coef0: T) -> PolynomialKernel<T> {
         PolynomialKernel {
-            degree: degree,
-            gamma: gamma,
-            coef0: coef0,
+            degree,
+            gamma,
+            coef0,
         }
     }
 
@@ -79,17 +79,14 @@ impl Kernels {
     /// * `gamma` - kernel coefficient
     /// * `coef0` - independent term in kernel function
     pub fn sigmoid<T: RealNumber>(gamma: T, coef0: T) -> SigmoidKernel<T> {
-        SigmoidKernel {
-            gamma: gamma,
-            coef0: coef0,
-        }
+        SigmoidKernel { gamma, coef0 }
     }
 
     /// Sigmoid kernel    
     /// * `gamma` - kernel coefficient    
     pub fn sigmoid_with_gamma<T: RealNumber>(gamma: T) -> SigmoidKernel<T> {
         SigmoidKernel {
-            gamma: gamma,
+            gamma,
             coef0: T::one(),
         }
     }

@@ -106,13 +106,13 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 
             if i < m {
                 for k in i..m {
-                    scale = scale + U.get(k, i).abs();
+                    scale += U.get(k, i).abs();
                 }
 
                 if scale.abs() > T::epsilon() {
                     for k in i..m {
                         U.div_element_mut(k, i, scale);
-                        s = s + U.get(k, i) * U.get(k, i);
+                        s += U.get(k, i) * U.get(k, i);
                     }
 
                     let mut f = U.get(i, i);
@@ -122,7 +122,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     for j in l - 1..n {
                         s = T::zero();
                         for k in i..m {
-                            s = s + U.get(k, i) * U.get(k, j);
+                            s += U.get(k, i) * U.get(k, j);
                         }
                         f = s / h;
                         for k in i..m {
@@ -140,15 +140,15 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             let mut s = T::zero();
             scale = T::zero();
 
-            if i + 1 <= m && i + 1 != n {
+            if i < m && i + 1 != n {
                 for k in l - 1..n {
-                    scale = scale + U.get(i, k).abs();
+                    scale += U.get(i, k).abs();
                 }
 
                 if scale.abs() > T::epsilon() {
                     for k in l - 1..n {
                         U.div_element_mut(i, k, scale);
-                        s = s + U.get(i, k) * U.get(i, k);
+                        s += U.get(i, k) * U.get(i, k);
                     }
 
                     let f = U.get(i, l - 1);
@@ -163,7 +163,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     for j in l - 1..m {
                         s = T::zero();
                         for k in l - 1..n {
-                            s = s + U.get(j, k) * U.get(i, k);
+                            s += U.get(j, k) * U.get(i, k);
                         }
 
                         for k in l - 1..n {
@@ -189,7 +189,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     for j in l..n {
                         let mut s = T::zero();
                         for k in l..n {
-                            s = s + U.get(i, k) * v.get(k, j);
+                            s += U.get(i, k) * v.get(k, j);
                         }
                         for k in l..n {
                             v.add_element_mut(k, j, s * v.get(k, i));
@@ -218,7 +218,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 for j in l..n {
                     let mut s = T::zero();
                     for k in l..m {
-                        s = s + U.get(k, i) * U.get(k, j);
+                        s += U.get(k, i) * U.get(k, j);
                     }
                     let f = (s / U.get(i, i)) * g;
                     for k in i..m {
@@ -316,7 +316,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     f = x * c + g * s;
                     g = g * c - x * s;
                     h = y * s;
-                    y = y * c;
+                    y *= c;
 
                     for jj in 0..n {
                         x = v.get(jj, j);
@@ -431,13 +431,13 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
         let full = s.len() == m.min(n);
         let tol = T::half() * (T::from(m + n).unwrap() + T::one()).sqrt() * s[0] * T::epsilon();
         SVD {
-            U: U,
-            V: V,
-            s: s,
-            full: full,
-            m: m,
-            n: n,
-            tol: tol,
+            U,
+            V,
+            s,
+            full,
+            m,
+            n,
+            tol,
         }
     }
 
@@ -458,9 +458,9 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
                 let mut r = T::zero();
                 if self.s[j] > self.tol {
                     for i in 0..self.m {
-                        r = r + self.U.get(i, j) * b.get(i, k);
+                        r += self.U.get(i, j) * b.get(i, k);
                     }
-                    r = r / self.s[j];
+                    r /= self.s[j];
                 }
                 tmp[j] = r;
             }
@@ -468,7 +468,7 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
             for j in 0..self.n {
                 let mut r = T::zero();
                 for jj in 0..self.n {
-                    r = r + self.V.get(j, jj) * tmp[jj];
+                    r += self.V.get(j, jj) * tmp[jj];
                 }
                 b.set(j, k, r);
             }

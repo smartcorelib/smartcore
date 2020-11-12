@@ -43,7 +43,7 @@ impl MeanSquareError {
         let n = y_true.len();
         let mut rss = T::zero();
         for i in 0..n {
-            rss = rss + (y_true.get(i) - y_pred.get(i)).square();
+            rss += (y_true.get(i) - y_pred.get(i)).square();
         }
 
         rss / T::from_usize(n).unwrap()
