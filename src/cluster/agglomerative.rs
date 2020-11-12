@@ -103,10 +103,10 @@ use std::collections::{HashMap, LinkedList};
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 use crate::algorithm::neighbour::fastpair::{FastPair, _FastPair};
 use crate::error::{Failed, FailedError};
-use crate::linalg::{BaseMatrix, Matrix};
 use crate::linalg::naive::dense_matrix::DenseMatrix;
-use crate::math::num::RealNumber;
+use crate::linalg::{BaseMatrix, Matrix};
 use crate::math::distance::euclidian::Euclidian;
+use crate::math::num::RealNumber;
 
 ///
 /// Abstract trait for sequential, agglomerative, hierarchic, non-overlapping methods
@@ -124,7 +124,6 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
     fn labels(&self) -> &Box<Vec<usize>>;
 }
 
-
 ///
 /// An implementation of Bottom-Up (Agglomerative) Hierarchical
 ///  Clustering with `FastPair`
@@ -132,7 +131,7 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
 pub struct AggregativeFastPair<T: RealNumber, M: Matrix<T>> {
     labels: Box<Vec<usize>>,
     dendrogram: Box<M>,
-    current: Option<T>
+    current: Option<T>,
 }
 
 ///
@@ -140,19 +139,20 @@ pub struct AggregativeFastPair<T: RealNumber, M: Matrix<T>> {
 ///  "which is the upper triangle (without the diagonal elements) of the full distance matrix"
 ///  <https://lionel.kr.hs-niederrhein.de/~dalitz/data/hclust/>
 ///
-/// Closest pairs dissimilarity structure is a sparse matrix, return full connectivity matrix 
+/// Closest pairs dissimilarity structure is a sparse matrix, return full connectivity matrix
 fn condensed_matrix<T: RealNumber, M: Matrix<T>>(sparse_matrix: Box<M>, samples: &M) -> M {
     let len = samples.shape().0;
     let mut full_connectivity: M = *(sparse_matrix).clone();
 
     for i in 0..len {
         for j in 0..len {
-            if full_connectivity.get(i, j) == T::zero() { 
+            if full_connectivity.get(i, j) == T::zero() {
                 full_connectivity.set(
-                    i, j,
+                    i,
+                    j,
                     Euclidian::squared_distance(
                         &samples.get_row_as_vec(i),
-                        &samples.get_row_as_vec(j)
+                        &samples.get_row_as_vec(j),
                     ),
                 );
             }
@@ -164,7 +164,7 @@ fn condensed_matrix<T: RealNumber, M: Matrix<T>>(sparse_matrix: Box<M>, samples:
 // Add linkage algorithms
 impl<T: RealNumber, M: Matrix<T>> FastCluster<T> for AggregativeFastPair<T, M> {}
 
-// 
+//
 impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T, M> {
     //
     // 1. Compute `FastPair` on matrix's rows
@@ -173,37 +173,36 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
     // The linkage distance threshold above which clusters will not be merged.
     fn fit(data: &M, threshold: T) -> Result<AggregativeFastPair<T, M>, Failed> {
         let fastpair = FastPair(data).unwrap();
-        
+
         // compute full connectivity from sparse matrix
         let full_connectivity = condensed_matrix(fastpair.connectivity.unwrap(), data);
 
         // compute clusters
-        let dendrogram = AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0);
+        let dendrogram =
+            AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0);
 
         let labels: Box<Vec<usize>> = Box::new(vec![0]);
-        Ok(AggregativeFastPair { 
+        Ok(AggregativeFastPair {
             labels: labels,
             dendrogram: Box::new(dendrogram.unwrap()),
-            current: None
+            current: None,
         })
     }
 
     fn labels(&self) -> &Box<Vec<usize>> {
         &self.labels
     }
-
 }
 
-
-/// 
+///
 /// Abstract trait for FastCluster (MST-Linkage and post-processing: Union-Find, labels)
 ///   Müllner, 2011 in Fig. 6 <https://arxiv.org/pdf/1109.2378.pdf>
-/// 
+///
 pub trait FastCluster<T: RealNumber> {
     // Perform hierarchy clustering using MST-Linkage (fastcluster)
     // scipy: https://github.com/scipy/scipy/blob/d286f8525c16b2cd4e179dea2c77b6b09622aff9/scipy/cluster/_hierarchy.pyx#L1016
     // MST_linkage_core https://github.com/cdalitz/hclust-cpp/blob/dc68e86cda36aea724ba19cae2f645cedfb65ce6/fastcluster_dm.cpp#L395
-    // 
+    //
     // Parameters
     // ----------
     // dists : ndarray
@@ -214,7 +213,7 @@ pub trait FastCluster<T: RealNumber> {
     // -------
     // Z : ndarray, shape (n - 1, 4)
     //     Computed linkage matrix.
-    fn mst_single_linkage<M: Matrix<T>>(full_connectivity: M, n: usize) -> Option<M> {    
+    fn mst_single_linkage<M: Matrix<T>>(full_connectivity: M, n: usize) -> Option<M> {
         // cdef class LinkageUnionFind:
         //     """Structure for fast cluster labeling in unsorted dendrogram."""
         //     cdef int[:] parent
@@ -258,14 +257,21 @@ pub trait FastCluster<T: RealNumber> {
         //         else:
         //             Z[i, 0], Z[i, 1] = y_root, x_root
         //         Z[i, 3] = uf.merge(x_root, y_root)
-        let mut Z = M::zeros((n-1), 4);
+        let mut Z = M::zeros((n - 1), 4);
 
         // Which nodes were already merged.
         let mut merged = vec![-1; n];
 
         let mut D = vec![T::max_value(); n];
 
-        let (mut i, mut k, mut x, mut y, mut dist, mut current_min): (usize, usize, usize, usize, T, T);
+        let (mut i, mut k, mut x, mut y, mut dist, mut current_min): (
+            usize,
+            usize,
+            usize,
+            usize,
+            T,
+            T,
+        );
 
         println!("{:?}", n);
         x = 0;
@@ -309,4 +315,3 @@ pub trait FastCluster<T: RealNumber> {
         Some(Z)
     }
 }
-
