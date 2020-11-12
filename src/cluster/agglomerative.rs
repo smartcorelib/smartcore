@@ -178,11 +178,12 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
         let full_connectivity = condensed_matrix(fastpair.connectivity.unwrap(), data);
 
         // compute clusters
+        let dendrogram = AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0);
 
         let labels: Box<Vec<usize>> = Box::new(vec![0]);
         Ok(AggregativeFastPair { 
             labels: labels,
-            dendrogram: Box::new(full_connectivity),
+            dendrogram: Box::new(dendrogram.unwrap()),
             current: None
         })
     }
@@ -260,18 +261,23 @@ pub trait FastCluster<T: RealNumber> {
         let mut Z = M::zeros((n-1), 4);
 
         // Which nodes were already merged.
-        let mut merged = Vec::with_capacity(n);
+        let mut merged = vec![-1; n];
 
         let mut D = vec![T::max_value(); n];
 
         let (mut i, mut k, mut x, mut y, mut dist, mut current_min): (usize, usize, usize, usize, T, T);
 
+        println!("{:?}", n);
         x = 0;
         y = 0;
         for k in 0..(n - 1) {
+            println!("here");
             current_min = T::max_value();
+            println!("{:?}", merged);
             merged[x] = 1;
+            println!("there 1");
             for i in 0..n {
+                println!("there 2");
                 if (merged[i] == 1) {
                     continue;
                 }
@@ -304,99 +310,3 @@ pub trait FastCluster<T: RealNumber> {
     }
 }
 
-
-// impl<T: RealNumber> FastCluster<T> for AggregativeFast<T> {
-//     fn fit<M: Matrix<T>>(data: &M, threshold: T) -> Result<AggregativeFast<T>, Failed> {
-//         let fastpair = FastPair(data).unwrap();
-//         // fastpair.distances  -- connectivity matrix
-
-//         // linkage? single, ward, complete and average
-//         // mst linkage works only with single
-
-//         // compute labels
-//         let dendrogram = mst_single_linkage(fastpair.distances, data.shape().0);
-//         let labels: Box<Vec<usize>> = Box::new(vec![0]);
-
-//         Ok(AggregativeFast { 
-//             labels: labels,
-//             dendrogram: None,
-//         })
-//     }
-
-//     fn labels(&self) -> &Box<Vec<usize>> {
-        
-//  }
-
-// ///
-// /// Struct (dendrogram) to hold result of linkage and clustering
-// ///
-// /// > The term 'dendrogram' has been used with three different
-// /// > meanings: a mathematical object, a data structure and
-// /// > a graphical representation of the former two. In the course of this section, we
-// /// > define a data structure and call it 'stepwise dendrogram'.
-// ///
-// /// Use `std::collections::LinkedList`
-// pub struct Dendrogram<T: RealNumber> {
-//     Z: LinkedList<Box<PairwiseDissimilarity<T>>>, // list of nodes in clustering process
-//     current: Option<usize>,                       // used to read as a doubly linked list
-// }
-
-// // impl ClusterLabels<T: RealNumber> {
-// //     pub fn new(&self, size: usize) -> Self {
-// //         let mut z = LinkedList::with_capacity(size);
-// //         Self {
-// //             Z: z,
-// //             current: None,
-// //         }
-// //     }
-// //     // add a node to the dendrogram
-// //     pub fn append(node1: PairwiseDissimilarity, node2: PairwiseDissimilarity, dist: T) -> () {
-// //         let idx = Z.len();
-// //         let node: Box<PairwiseDissimilarity> = Box::new(PairwiseDissimilarity {
-// //             node1: node1,
-// //             node2: node2,
-// //             distance: dist,
-// //             position: idx,
-// //         });
-// //         self.Z.push(node);
-// //     }
-
-// //     //
-// //     // Return list of labels according to number of desired clusters
-// //     //
-// //     pub fn labels_by_k(k: usize) {}
-
-// //     //
-// //     // Return list of labels by distance threshold
-// //     //
-// //     pub fn labels_by_threshold(threshold: T) {}
-
-// //     // Methods for distances post-processing.
-// //     // All of those have to be monotone or the ordering will change
-// //     pub fn sqrt() -> () {
-// //         for node in self.Z {
-// //             *(node).distance = *(node).distance.sqrt();
-// //         }
-// //     }
-// //     pub fn sqrt_double() -> () {
-// //         for node in self.Z {
-// //             *(node).distance = 2 * (*(node).distance.sqrt());
-// //         }
-// //     }
-// //     pub fn power(exp: RealNumber) -> () {
-// //         let inv: RealNumber = 1 / exp;
-// //         for node in self.Z {
-// //             *(node).distance = *(node).distance.powf(inv);
-// //         }
-// //     }
-// //     pub fn plusone() -> () {
-// //         for node in self.Z {
-// //             *(node).distance += 1;
-// //         }
-// //     }
-// //     pub fn divide(denom: RealNumber) -> () {
-// //         for node in self.Z {
-// //             *(node).distance = *(node).distance / denom;
-// //         }
-// //     }
-// // }
