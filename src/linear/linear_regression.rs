@@ -154,8 +154,8 @@ impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
     }
 
     /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> M {
-        self.coefficients.clone()
+    pub fn coefficients(&self) -> &M {
+        &self.coefficients
     }
 
     /// Get estimate of intercept

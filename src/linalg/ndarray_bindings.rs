@@ -53,6 +53,7 @@ use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
+use crate::linalg::stats::MatrixStats;
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
@@ -493,6 +494,11 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     CholeskyDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    MatrixStats<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 
