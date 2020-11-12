@@ -58,7 +58,7 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                 *prediction
             })
             .collect::<Vec<T>>();
-        let y_hat = M::RowVector::from_slice(&predictions);
+        let y_hat = M::RowVector::from_array(&predictions);
         Ok(y_hat)
     }
 }
