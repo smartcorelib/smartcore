@@ -7,8 +7,8 @@ pub fn contingency_matrix<T: RealNumber>(
     labels_true: &Vec<T>,
     labels_pred: &Vec<T>,
 ) -> Vec<Vec<usize>> {
-    let (classes, class_idx) = labels_true.unique();
-    let (clusters, cluster_idx) = labels_pred.unique();
+    let (classes, class_idx) = labels_true.unique_with_indices();
+    let (clusters, cluster_idx) = labels_pred.unique_with_indices();
 
     let mut contingency_matrix = Vec::with_capacity(classes.len());
 

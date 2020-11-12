@@ -83,6 +83,21 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
         self.len() == 0
     }
 
+    /// Create a new vector from a &[T]
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::*;
+    /// let a: [f64; 5] = [0., 0.5, 2., 3., 4.];
+    /// let v: Vec<f64> = BaseVector::from_array(&a);
+    /// assert_eq!(v, vec![0., 0.5, 2., 3., 4.]);
+    /// ```
+    fn from_array(f: &[T]) -> Self {
+        let mut v = Self::zeros(f.len());
+        for (i, elem) in f.iter().enumerate() {
+            v.set(i, *elem);
+        }
+        v
+    }
+
     /// Return a vector with the elements of the one-dimensional array.
     fn to_vec(&self) -> Vec<T>;
 
