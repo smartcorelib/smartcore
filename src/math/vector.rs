@@ -3,11 +3,11 @@ use std::collections::HashMap;
 
 use crate::linalg::BaseVector;
 pub trait RealNumberVector<T: RealNumber> {
-    fn unique(&self) -> (Vec<T>, Vec<usize>);
+    fn unique_with_indices(&self) -> (Vec<T>, Vec<usize>);
 }
 
 impl<T: RealNumber, V: BaseVector<T>> RealNumberVector<T> for V {
-    fn unique(&self) -> (Vec<T>, Vec<usize>) {
+    fn unique_with_indices(&self) -> (Vec<T>, Vec<usize>) {
         let mut unique = self.to_vec();
         unique.sort_by(|a, b| a.partial_cmp(b).unwrap());
         unique.dedup();
@@ -28,14 +28,14 @@ impl<T: RealNumber, V: BaseVector<T>> RealNumberVector<T> for V {
 
 #[cfg(test)]
 mod tests {
-    use super::RealNumberVector;
+    use super::*;
 
     #[test]
-    fn unique() {
+    fn unique_with_indices() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];
         assert_eq!(
             (vec!(0.0, 1.0, 2.0, 4.0), vec!(0, 0, 1, 1, 2, 0, 3)),
-            v1.unique()
+            v1.unique_with_indices()
         );
     }
 }
