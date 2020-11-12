@@ -1,13 +1,14 @@
 use crate::math::num::RealNumber;
 use std::collections::HashMap;
 
+use crate::linalg::BaseVector;
 pub trait RealNumberVector<T: RealNumber> {
     fn unique(&self) -> (Vec<T>, Vec<usize>);
 }
 
-impl<T: RealNumber> RealNumberVector<T> for Vec<T> {
+impl<T: RealNumber, V: BaseVector<T>> RealNumberVector<T> for V {
     fn unique(&self) -> (Vec<T>, Vec<usize>) {
-        let mut unique = self.clone();
+        let mut unique = self.to_vec();
         unique.sort_by(|a, b| a.partial_cmp(b).unwrap());
         unique.dedup();
 
@@ -17,8 +18,8 @@ impl<T: RealNumber> RealNumberVector<T> for Vec<T> {
         }
 
         let mut unique_index = Vec::with_capacity(self.len());
-        for e in self {
-            unique_index.push(index[&e.to_i64().unwrap()]);
+        for idx in 0..self.len() {
+            unique_index.push(index[&self.get(idx).to_i64().unwrap()]);
         }
 
         (unique, unique_index)
@@ -27,7 +28,7 @@ impl<T: RealNumber> RealNumberVector<T> for Vec<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::RealNumberVector;
 
     #[test]
     fn unique() {
