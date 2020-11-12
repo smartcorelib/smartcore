@@ -34,6 +34,8 @@ pub fn FastPair<'a, T: RealNumber, M: Matrix<T>>(m: &'a M) -> Result<_FastPair<T
         samples: m,
         distances: distances,
         neighbours: neighbours,
+        // to be computed in new(..)
+        connectivity: None,
     };
     init.new();
     Ok(init)
@@ -45,7 +47,7 @@ pub fn FastPair<'a, T: RealNumber, M: Matrix<T>>(m: &'a M) -> Result<_FastPair<T
 /// Ported from Python implementation:
 /// <https://github.com/carsonfarmer/fastpair/blob/b8b4d3000ab6f795a878936667eee1b557bf353d/fastpair/base.py>
 /// MIT License (MIT) Copyright (c) 2016 Carson Farmer
-/// 
+///
 /// affinity used is Euclidean so to allow linkage with single, ward, complete and average
 ///
 #[derive(Debug, Clone)]
@@ -56,6 +58,9 @@ pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     pub distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>,
     /// conga line used to keep track of the closest pair
     pub neighbours: Box<Vec<usize>>,
+    /// sparse matrix of closest pairs
+    /// values are set for closest pairs distances, other pairs are zeroed
+    pub connectivity: Option<Box<M>>,
 }
 
 impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
@@ -130,8 +135,17 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         distances.get_mut(&max_index).unwrap().neighbour = Some(max_index);
         distances.get_mut(&(len - 1)).unwrap().distance = Some(T::max_value());
 
+        // compute sparse matrix (connectivity matrix)
+        let mut sparse_matrix = M::zeros(len, len);
+        for (_, p) in distances.iter() {
+            sparse_matrix.set(p.node, p.neighbour.unwrap(), p.distance.unwrap());
+        }
+
+        // TODO: as we now store the connectivity matrix in `self.connectivity`,
+        //       it may be possible to avoid storing closest pairs in `self.distances`
         self.distances = Box::new(distances);
         self.neighbours = Box::new(neighbours);
+        self.connectivity = Some(Box::new(sparse_matrix));
     }
 
     ///
@@ -191,8 +205,11 @@ mod tests {
         let result = fastpair.unwrap();
         let distances = *result.distances;
         let neighbours = *result.neighbours;
+        let sparse_matrix = *(result.connectivity.unwrap());
         assert_eq!(10, neighbours.len());
         assert_eq!(10, distances.len());
+        assert_eq!(10, sparse_matrix.shape().0);
+        assert_eq!(10, sparse_matrix.shape().1);
 
         println!("DISTANCES {:?}", distances)
     }
@@ -224,6 +241,7 @@ mod tests {
         let result = fastpair.unwrap();
         let neighbours = *result.neighbours;
         let distances = *result.distances;
+        let sparse_matrix = *(result.connectivity.unwrap());
 
         println!("RESULTS neighbours: {:?}", &neighbours);
         println!("RESULTS distances: {:?}", &distances);
@@ -269,7 +287,13 @@ mod tests {
                 expected.get(&i).unwrap().neighbour.unwrap()
             );
             assert_eq!(distance, expected.get(&i).unwrap().distance.unwrap());
+            assert_eq!(
+                sparse_matrix.get(i, input_neighbour),
+                expected.get(&i).unwrap().distance.unwrap()
+            );
         }
+
+        println!("RESULTS connectivity: {:?}", &sparse_matrix);
     }
 
     #[test]
@@ -339,7 +363,7 @@ mod tests {
             if p.distance.unwrap() < min_dissimilarity.distance.unwrap() {
                 min_dissimilarity = p.clone()
             }
-        } 
+        }
 
         let closest = PairwiseDissimilarity {
             node: 0,
