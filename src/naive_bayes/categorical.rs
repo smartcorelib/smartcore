@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Naive Bayes classifier for categorical features
 struct CategoricalNBDistribution<T: RealNumber> {
     class_labels: Vec<T>,
-    class_probabilities: Vec<T>,
+    class_priors: Vec<T>,
     coef: Vec<Vec<Vec<T>>>,
     feature_categories: Vec<Vec<T>>,
 }
@@ -18,24 +18,24 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribu
         if class_index >= self.class_labels.len() {
             T::zero()
         } else {
-            self.class_probabilities[class_index]
+            self.class_priors[class_index]
         }
     }
 
-    fn conditional_probability(&self, class_index: usize, j: &M::RowVector) -> T {
+    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T {
         if class_index < self.class_labels.len() {
-            let mut prob = T::one();
+            let mut likelihood = T::zero();
             for feature in 0..j.len() {
                 let value = j.get(feature);
                 match self.feature_categories[feature]
                     .iter()
                     .position(|&t| t == value)
                 {
-                    Some(_i) => prob *= self.coef[class_index][feature][_i],
+                    Some(_i) => likelihood += self.coef[class_index][feature][_i],
                     None => return T::zero(),
                 }
             }
-            prob
+            likelihood
         } else {
             T::zero()
         }
@@ -120,23 +120,24 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                 let coef_i_j = feat_count
                     .iter()
                     .map(|c| {
-                        (T::from(*c).unwrap() + alpha)
+                        ((T::from(*c).unwrap() + alpha)
                             / (T::from(*label_count).unwrap()
-                                + T::from(feature_options.len()).unwrap() * alpha)
+                                + T::from(feature_options.len()).unwrap() * alpha))
+                            .ln()
                     })
                     .collect::<Vec<T>>();
                 coef_i.push(coef_i_j);
             }
             coef.push(coef_i);
         }
-        let class_probabilities = classes_count
+        let class_priors = classes_count
             .into_iter()
             .map(|count| count / T::from(n_samples).unwrap())
             .collect::<Vec<T>>();
 
         Ok(Self {
             class_labels,
-            class_probabilities,
+            class_priors,
             coef,
             feature_categories,
         })
