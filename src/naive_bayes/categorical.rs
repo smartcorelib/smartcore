@@ -89,8 +89,8 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                 class_labels.push(y_sorted[idx]);
                 current_count = T::one()
             }
-            classes_count.push(current_count);
         }
+        classes_count.push(current_count);
 
         let mut feature_categories: Vec<Vec<T>> = Vec::with_capacity(n_features);
 
@@ -206,7 +206,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
-    fn run_base_naive_bayes() {
+    fn run_categorical_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
             &[0., 2., 1., 0.],
             &[0., 2., 1., 1.],
