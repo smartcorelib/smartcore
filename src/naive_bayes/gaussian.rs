@@ -10,10 +10,14 @@ use serde::{Deserialize, Serialize};
 /// Naive Bayes classifier for categorical features
 #[derive(Serialize, Deserialize, Debug)]
 struct GaussianNBDistribution<T: RealNumber> {
+    /// class labels known to the classifier
     class_labels: Vec<T>,
-    class_probabilities: Vec<T>,
-    std: Vec<Vec<T>>,
-    means: Vec<Vec<T>>,
+    /// probability of each class.
+    class_priors: Vec<T>,
+    /// variance of each feature per class
+    sigma: Vec<Vec<T>>,
+    /// mean of each feature per class
+    theta: Vec<Vec<T>>,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for GaussianNBDistribution<T> {
@@ -21,7 +25,7 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for GaussianNBDistributio
         if class_index >= self.class_labels.len() {
             T::zero()
         } else {
-            self.class_probabilities[class_index]
+            self.class_priors[class_index]
         }
     }
 
@@ -30,9 +34,9 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for GaussianNBDistributio
             let mut likelihood = T::zero();
             for feature in 0..j.len() {
                 let value = j.get(feature);
-                let mean = self.means[class_index][feature];
-                let std = self.std[class_index][feature];
-                likelihood += self.calculate_log_probability(value, mean, std);
+                let mean = self.theta[class_index][feature];
+                let variance = self.sigma[class_index][feature];
+                likelihood += self.calculate_log_probability(value, mean, variance);
             }
             likelihood
         } else {
@@ -103,13 +107,13 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
                 *class_data = class_data.v_stack(&m);
             }
         }
-        let class_probabilities = if let Some(class_probabilities) = priors {
-            if class_probabilities.len() != class_labels.len() {
+        let class_priors = if let Some(class_priors) = priors {
+            if class_priors.len() != class_labels.len() {
                 return Err(Failed::fit(
                     "Size of priors provided does not match the number of classes of the data.",
                 ));
             }
-            class_probabilities
+            class_priors
         } else {
             class_count
                 .into_iter()
@@ -117,25 +121,25 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
                 .collect()
         };
 
-        let (std, means): (Vec<Vec<T>>, Vec<Vec<T>>) = subdataset
+        let (sigma, theta): (Vec<Vec<T>>, Vec<Vec<T>>) = subdataset
             .iter()
-            .map(|data| (data.std(0), data.mean(0)))
+            .map(|data| (data.var(0), data.mean(0)))
             .unzip();
 
         Ok(Self {
             class_labels,
-            class_probabilities,
-            std,
-            means,
+            class_priors,
+            sigma,
+            theta,
         })
     }
 
-    /// Calculate probability of x equals to a value of a Gaussian distribution given its mean and it
-    /// standard deviation.
-    fn calculate_log_probability(&self, value: T, mean: T, std: T) -> T {
+    /// Calculate probability of x equals to a value of a Gaussian distribution given its mean and its
+    /// variance.
+    fn calculate_log_probability(&self, value: T, mean: T, variance: T) -> T {
         let pi = T::from(std::f64::consts::PI).unwrap();
-        -((value - mean).powf(T::two()) / (T::two() * std * std))
-            - (T::two() * pi * std * std).sqrt().ln()
+        -((value - mean).powf(T::two()) / (T::two() * variance))
+            - (T::two() * pi * variance).sqrt().ln()
     }
 }
 
@@ -188,5 +192,17 @@ mod tests {
         let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
         let y_hat = gnb.predict(&x).unwrap();
         assert_eq!(y_hat, y);
+        assert_eq!(
+            gnb.inner.distribution.sigma,
+            &[
+                &[0.666666666666667, 0.22222222222222232],
+                &[0.666666666666667, 0.22222222222222232]
+            ]
+        );
+
+        assert_eq!(
+            gnb.inner.distribution.theta,
+            &[&[-2., -1.3333333333333333], &[2., 1.3333333333333333]]
+        );
     }
 }
