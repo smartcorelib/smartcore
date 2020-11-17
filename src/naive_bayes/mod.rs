@@ -2,6 +2,7 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
@@ -9,14 +10,15 @@ pub(crate) trait NBDistribution<T: RealNumber, M: Matrix<T>> {
     /// Prior of class at the given index.
     fn prior(&self, class_index: usize) -> T;
 
-    /// Conditional probability of sample j given class in the specified index.
-    fn conditional_probability(&self, class_index: usize, j: &M::RowVector) -> T;
+    /// Logarithm of conditional probability of sample j given class in the specified index.
+    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T;
 
     /// Possible classes of the distribution.
     fn classes(&self) -> &Vec<T>;
 }
 
 /// Base struct for the Naive Bayes classifier.
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
     distribution: D,
     _phantom_t: PhantomData<T>,
@@ -49,8 +51,8 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                     .map(|(class_index, class)| {
                         (
                             class,
-                            self.distribution.conditional_probability(class_index, &row)
-                                * self.distribution.prior(class_index),
+                            self.distribution.log_likelihood(class_index, &row)
+                                + self.distribution.prior(class_index).ln(),
                         )
                     })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())

@@ -6,11 +6,11 @@ use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
+#[derive(Debug)]
 struct CategoricalNBDistribution<T: RealNumber> {
     class_labels: Vec<T>,
-    class_probabilities: Vec<T>,
-    coef: Vec<Vec<Vec<T>>>,
-    feature_categories: Vec<Vec<T>>,
+    class_priors: Vec<T>,
+    coefficients: Vec<Vec<Vec<T>>>,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T> {
@@ -18,24 +18,22 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribu
         if class_index >= self.class_labels.len() {
             T::zero()
         } else {
-            self.class_probabilities[class_index]
+            self.class_priors[class_index]
         }
     }
 
-    fn conditional_probability(&self, class_index: usize, j: &M::RowVector) -> T {
+    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T {
         if class_index < self.class_labels.len() {
-            let mut prob = T::one();
+            let mut likelihood = T::zero();
             for feature in 0..j.len() {
-                let value = j.get(feature);
-                match self.feature_categories[feature]
-                    .iter()
-                    .position(|&t| t == value)
-                {
-                    Some(_i) => prob *= self.coef[class_index][feature][_i],
-                    None => return T::zero(),
+                let value = j.get(feature).floor().to_usize().unwrap();
+                if self.coefficients[class_index][feature].len() > value {
+                    likelihood += self.coefficients[class_index][feature][value];
+                } else {
+                    return T::zero();
                 }
             }
-            prob
+            likelihood
         } else {
             T::zero()
         }
@@ -74,31 +72,45 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                 n_samples
             )));
         }
+        let y: Vec<usize> = y
+            .to_vec()
+            .iter()
+            .map(|y_i| y_i.floor().to_usize().unwrap())
+            .collect();
 
-        let mut y_sorted = y.to_vec();
-        y_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let mut class_labels = Vec::with_capacity(y.len());
-        class_labels.push(y_sorted[0]);
-        let mut classes_count = Vec::with_capacity(y.len());
-        let mut current_count = T::one();
-        for idx in 1..y_samples {
-            if y_sorted[idx] == y_sorted[idx - 1] {
-                current_count += T::one();
-            } else {
-                classes_count.push(current_count);
-                class_labels.push(y_sorted[idx]);
-                current_count = T::one()
-            }
-            classes_count.push(current_count);
+        let y_max = y
+            .iter()
+            .max()
+            .ok_or_else(|| Failed::fit(&"Failed to get the labels of y.".to_string()))?;
+
+        let class_labels: Vec<T> = (0..*y_max + 1)
+            .map(|label| T::from(label).unwrap())
+            .collect();
+        let mut classes_count: Vec<T> = vec![T::zero(); class_labels.len()];
+        for elem in y.iter() {
+            classes_count[*elem] += T::one();
         }
 
         let mut feature_categories: Vec<Vec<T>> = Vec::with_capacity(n_features);
-
         for feature in 0..n_features {
-            let feature_types = x.get_col_as_vec(feature).unique();
+            let feature_max = x
+                .get_col_as_vec(feature)
+                .iter()
+                .map(|f_i| f_i.floor().to_usize().unwrap())
+                .max()
+                .ok_or_else(|| {
+                    Failed::fit(&format!(
+                        "Failed to get the categories for feature = {}",
+                        feature
+                    ))
+                })?;
+            let feature_types = (0..feature_max + 1)
+                .map(|feat| T::from(feat).unwrap())
+                .collect();
             feature_categories.push(feature_types);
         }
-        let mut coef: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
+
+        let mut coefficients: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
         for (label, label_count) in class_labels.iter().zip(classes_count.iter()) {
             let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
             for (feature_index, feature_options) in
@@ -108,37 +120,36 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                     .get_col_as_vec(feature_index)
                     .iter()
                     .enumerate()
-                    .filter(|(i, _j)| y.get(*i) == *label)
+                    .filter(|(i, _j)| T::from(y[*i]).unwrap() == *label)
                     .map(|(_, j)| *j)
                     .collect::<Vec<T>>();
-                let mut feat_count: Vec<usize> = Vec::with_capacity(feature_options.len());
-                for k in feature_options.iter() {
-                    let feat_k_count = col.iter().filter(|&v| v == k).count();
-                    feat_count.push(feat_k_count);
+                let mut feat_count: Vec<T> = vec![T::zero(); feature_options.len()];
+                for row in col.iter() {
+                    let index = row.floor().to_usize().unwrap();
+                    feat_count[index] += T::one();
                 }
-
                 let coef_i_j = feat_count
                     .iter()
                     .map(|c| {
-                        (T::from(*c).unwrap() + alpha)
-                            / (T::from(*label_count).unwrap()
-                                + T::from(feature_options.len()).unwrap() * alpha)
+                        ((*c + alpha)
+                            / (*label_count + T::from(feature_options.len()).unwrap() * alpha))
+                            .ln()
                     })
                     .collect::<Vec<T>>();
                 coef_i.push(coef_i_j);
             }
-            coef.push(coef_i);
+            coefficients.push(coef_i);
         }
-        let class_probabilities = classes_count
+
+        let class_priors = classes_count
             .into_iter()
             .map(|count| count / T::from(n_samples).unwrap())
             .collect::<Vec<T>>();
 
         Ok(Self {
             class_labels,
-            class_probabilities,
-            coef,
-            feature_categories,
+            class_priors,
+            coefficients,
         })
     }
 }
@@ -170,6 +181,7 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 }
 
 /// CategoricalNB implements the categorical naive Bayes algorithm for categorically distributed data.
+#[derive(Debug)]
 pub struct CategoricalNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T>>,
 }
@@ -205,7 +217,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
-    fn run_base_naive_bayes() {
+    fn run_categorical_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
             &[0., 2., 1., 0.],
             &[0., 2., 1., 1.],
@@ -228,5 +240,33 @@ mod tests {
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = cnb.predict(&x_test).unwrap();
         assert_eq!(y_hat, vec![0., 1.]);
+    }
+
+    #[test]
+    fn run_categorical_naive_bayes2() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[3., 4., 0., 1.],
+            &[3., 0., 0., 1.],
+            &[4., 4., 1., 2.],
+            &[4., 2., 4., 3.],
+            &[4., 2., 4., 2.],
+            &[4., 1., 1., 0.],
+            &[1., 1., 1., 1.],
+            &[0., 4., 1., 0.],
+            &[0., 3., 2., 1.],
+            &[0., 3., 1., 1.],
+            &[3., 4., 0., 1.],
+            &[3., 4., 2., 4.],
+            &[0., 3., 1., 2.],
+            &[0., 4., 1., 2.],
+        ]);
+        let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
+
+        let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
+        let y_hat = cnb.predict(&x).unwrap();
+        assert_eq!(
+            y_hat,
+            vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 0., 1., 1., 1.]
+        );
     }
 }
