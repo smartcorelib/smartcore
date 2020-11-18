@@ -8,7 +8,7 @@ use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 struct GaussianNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -146,12 +146,13 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
     fn calculate_log_probability(&self, value: T, mean: T, variance: T) -> T {
         let pi = T::from(std::f64::consts::PI).unwrap();
         -((value - mean).powf(T::two()) / (T::two() * variance))
-            - (T::two() * pi * variance).sqrt().ln()
+            - (T::two() * pi).ln() / T::two()
+            - (variance).ln() / T::two()
     }
 }
 
 /// GaussianNB implements the categorical naive Bayes algorithm for categorically distributed data.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct GaussianNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, GaussianNBDistribution<T>>,
 }
@@ -207,9 +208,49 @@ mod tests {
             ]
         );
 
+        assert_eq!(gnb.inner.distribution.class_priors, &[0.5, 0.5]);
+
         assert_eq!(
             gnb.inner.distribution.theta,
             &[&[-2., -1.3333333333333333], &[2., 1.3333333333333333]]
         );
+    }
+
+    #[test]
+    fn run_gaussian_naive_bayes_with_priors() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[-1., -1.],
+            &[-2., -1.],
+            &[-3., -2.],
+            &[1., 1.],
+            &[2., 1.],
+            &[3., 2.],
+        ]);
+        let y = vec![1., 1., 1., 2., 2., 2.];
+
+        let priors = vec![0.3, 0.7];
+        let parameters = GaussianNBParameters::new(Some(priors.clone()));
+        let gnb = GaussianNB::fit(&x, &y, parameters).unwrap();
+
+        assert_eq!(gnb.inner.distribution.class_priors, priors);
+    }
+
+    #[test]
+    fn serde() {
+        let x = DenseMatrix::<f64>::from_2d_array(&[
+            &[-1., -1.],
+            &[-2., -1.],
+            &[-3., -2.],
+            &[1., 1.],
+            &[2., 1.],
+            &[3., 2.],
+        ]);
+        let y = vec![1., 1., 1., 2., 2., 2.];
+
+        let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
+        let deserialized_gnb: GaussianNB<f64, DenseMatrix<f64>> =
+            serde_json::from_str(&serde_json::to_string(&gnb).unwrap()).unwrap();
+
+        assert_eq!(gnb, deserialized_gnb);
     }
 }
