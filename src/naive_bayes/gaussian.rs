@@ -162,6 +162,7 @@ impl<T: RealNumber, M: Matrix<T>> GaussianNB<T, M> {
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
     /// features.
     /// * `y` - vector with target values (classes) of length N.
+    /// * `parameters` - additional parameters like class priors.
     pub fn fit(
         x: &M,
         y: &M::RowVector,
