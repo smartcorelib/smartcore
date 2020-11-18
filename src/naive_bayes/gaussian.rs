@@ -74,7 +74,7 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
         y: &M::RowVector,
         priors: Option<Vec<T>>,
     ) -> Result<Self, Failed> {
-        let (n_samples, _) = x.shape();
+        let (n_samples, n_features) = x.shape();
         let y_samples = y.len();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
@@ -94,19 +94,13 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
 
         let mut class_count = vec![T::zero(); class_labels.len()];
 
-        let mut subdataset: Vec<M> = vec![M::zeros(0, 0); class_labels.len()];
+        let mut subdataset: Vec<Vec<Vec<T>>> = vec![vec![]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices.iter()) {
             class_count[*class_index] += T::one();
-            let row_vector = M::RowVector::from_array(&row);
-            let m = M::from_row_vector(row_vector);
-            let class_data = subdataset.get_mut(*class_index).unwrap();
-            if let (0, 0) = class_data.shape() {
-                *class_data = m;
-            } else {
-                *class_data = class_data.v_stack(&m);
-            }
+            subdataset[*class_index].push(row);
         }
+
         let class_priors = if let Some(class_priors) = priors {
             if class_priors.len() != class_labels.len() {
                 return Err(Failed::fit(
@@ -120,6 +114,19 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
                 .map(|c| c / T::from(n_samples).unwrap())
                 .collect()
         };
+
+        let subdataset: Vec<M> = subdataset
+            .into_iter()
+            .map(|v| {
+                let mut m = M::zeros(v.len(), n_features);
+                for row in 0..v.len() {
+                    for col in 0..n_features {
+                        m.set(row, col, v[row][col]);
+                    }
+                }
+                m
+            })
+            .collect();
 
         let (sigma, theta): (Vec<Vec<T>>, Vec<Vec<T>>) = subdataset
             .iter()
