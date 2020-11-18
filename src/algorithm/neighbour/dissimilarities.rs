@@ -5,11 +5,8 @@
 //!  compute clusters or closest neighbors in Matrices rows.
 //!  The struct `PairwiseDissimilarity` can be used to represent edges between
 //!  closest pairs by storing the nodes' indeces.
-use std::cmp;
 use std::cmp::{Eq, Ordering, PartialOrd};
 
-// use serde::{Deserialize, Serialize};
-use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
 
 ///

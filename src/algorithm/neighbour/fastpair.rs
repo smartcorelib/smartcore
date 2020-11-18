@@ -71,7 +71,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     fn new(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
-        let max_index = (self.samples.shape().0 - 1);
+        let max_index = self.samples.shape().0 - 1;
 
         // Store all closest neighbors
         let _distances = Box::new(HashMap::with_capacity(len));

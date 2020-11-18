@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 //! #  Agglomerative hierarchical clustering
 //!
 //! ## Definition
@@ -93,17 +94,13 @@
 //!
 //! // Fit to data, with a threshold
 //! // example using FastPair
-//! let cluster = AggregativeFastPair::fit(&x, 1.5).unwrap();
+//! let cluster = AggregativeFastPair::fit(&x, 4).unwrap();
 //! // return results/labels/dendrogram
 //! let labels = cluster.labels();
 //! ```
 //!
-use std::collections::{HashMap, LinkedList};
-
-use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
-use crate::algorithm::neighbour::fastpair::{FastPair, _FastPair};
-use crate::error::{Failed, FailedError};
-use crate::linalg::naive::dense_matrix::DenseMatrix;
+use crate::algorithm::neighbour::fastpair::FastPair;
+use crate::error::Failed;
 use crate::linalg::{BaseMatrix, Matrix};
 use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
@@ -112,16 +109,20 @@ use crate::math::num::RealNumber;
 /// Abstract trait for sequential, agglomerative, hierarchic, non-overlapping methods
 ///
 pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
-    //
-    // Aggregate the data according to given distance threshold
-    //
-    fn fit(data: &M, threshold: T) -> Result<AggregativeFastPair<T, M>, Failed>;
+    ///
+    /// Aggregate the data according to given distance threshold
+    ///
+    fn fit(data: &M, k: usize) -> Result<AggregativeFastPair<T, M>, Failed>;
 
-    //
-    // Return clusters, assign labels to dissimilarities, according
-    // to threshold.
-    //
-    fn labels(&self) -> &Box<Vec<usize>>;
+    ///
+    /// Return clusters labels
+    ///
+    fn labels(&self) -> &M;
+
+    ///
+    /// Recompute labels according to a threshold
+    ///
+    fn labels_with_threhshold(&self, threshold: T);
 }
 
 ///
@@ -129,69 +130,48 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
 ///  Clustering with `FastPair`
 ///
 pub struct AggregativeFastPair<T: RealNumber, M: Matrix<T>> {
-    labels: Box<Vec<usize>>,
-    dendrogram: Box<M>,
+    labels: Box<M>, // copmuted cluster labels
     current: Option<T>,
-}
-
-///
-/// Return distances condensed matrix
-///  "which is the upper triangle (without the diagonal elements) of the full distance matrix"
-///  <https://lionel.kr.hs-niederrhein.de/~dalitz/data/hclust/>
-///
-/// Closest pairs dissimilarity structure is a sparse matrix, return full connectivity matrix
-fn condensed_matrix<T: RealNumber, M: Matrix<T>>(sparse_matrix: Box<M>, samples: &M) -> M {
-    let len = samples.shape().0;
-    let mut full_connectivity: M = *(sparse_matrix).clone();
-
-    for i in 0..len {
-        for j in 0..len {
-            if full_connectivity.get(i, j) == T::zero() {
-                full_connectivity.set(
-                    i,
-                    j,
-                    Euclidian::squared_distance(
-                        &samples.get_row_as_vec(i),
-                        &samples.get_row_as_vec(j),
-                    ),
-                );
-            }
-        }
-    }
-    full_connectivity
 }
 
 // Add linkage algorithms
 impl<T: RealNumber, M: Matrix<T>> FastCluster<T> for AggregativeFastPair<T, M> {}
 
-//
+// Implement aggregative clustering using FastPair and fastcluster
 impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T, M> {
     //
     // 1. Compute `FastPair` on matrix's rows
     // 2. Port dissimilarities into upper-trinagular matrix
+    // 3. Compute dendrogram
     //
     // The linkage distance threshold above which clusters will not be merged.
-    fn fit(data: &M, threshold: T) -> Result<AggregativeFastPair<T, M>, Failed> {
+    fn fit(data: &M, _k: usize) -> Result<AggregativeFastPair<T, M>, Failed> {
         let fastpair = FastPair(data).unwrap();
 
         // compute full connectivity from sparse matrix
-        let full_connectivity = condensed_matrix(fastpair.connectivity.unwrap(), data);
+        let full_connectivity: M =
+            AggregativeFastPair::<T, M>::condensed_matrix(fastpair.connectivity.unwrap(), data);
 
         // compute clusters
-        let dendrogram =
-            AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0);
+        let mut dendrogram: M =
+            AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0)
+                .unwrap();
+        
+        let n: usize = dendrogram.shape().0;
+        dendrogram = AggregativeFastPair::<T, M>::label(dendrogram, n);
 
-        let labels: Box<Vec<usize>> = Box::new(vec![0]);
         Ok(AggregativeFastPair {
-            labels: labels,
-            dendrogram: Box::new(dendrogram.unwrap()),
+            labels: Box::new(dendrogram),
             current: None,
         })
     }
 
-    fn labels(&self) -> &Box<Vec<usize>> {
-        &self.labels
+    fn labels(&self) -> &M {
+        // Find correct cluster labels and compute cluster sizes inplace.
+        &(*(self.labels))
     }
+
+    fn labels_with_threhshold(&self, _threshold: T) {}
 }
 
 ///
@@ -199,92 +179,69 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
 ///   Müllner, 2011 in Fig. 6 <https://arxiv.org/pdf/1109.2378.pdf>
 ///
 pub trait FastCluster<T: RealNumber> {
-    // Perform hierarchy clustering using MST-Linkage (fastcluster)
-    // scipy: https://github.com/scipy/scipy/blob/d286f8525c16b2cd4e179dea2c77b6b09622aff9/scipy/cluster/_hierarchy.pyx#L1016
-    // MST_linkage_core https://github.com/cdalitz/hclust-cpp/blob/dc68e86cda36aea724ba19cae2f645cedfb65ce6/fastcluster_dm.cpp#L395
-    //
-    // Parameters
-    // ----------
-    // dists : ndarray
-    //    A condensed matrix stores the pairwise distances of the observations.
-    // n : int
-    //    The number of observations.
-    // Returns
-    // -------
-    // Z : ndarray, shape (n - 1, 4)
-    //     Computed linkage matrix.
+    ///
+    /// Return distances condensed matrix
+    ///  "which is the upper triangle (without the diagonal elements) of the full distance matrix"
+    ///  <https://lionel.kr.hs-niederrhein.de/~dalitz/data/hclust/>
+    ///
+    /// Closest pairs dissimilarity structure is a sparse matrix, return full connectivity matrix
+    fn condensed_matrix<M: Matrix<T>>(sparse_matrix: Box<M>, samples: &M) -> M {
+        let len = samples.shape().0;
+        let mut full_connectivity: M = *(sparse_matrix).clone();
+
+        for i in 0..len {
+            for j in 0..len {
+                if full_connectivity.get(i, j) == T::zero() {
+                    full_connectivity.set(
+                        i,
+                        j,
+                        Euclidian::squared_distance(
+                            &samples.get_row_as_vec(i),
+                            &samples.get_row_as_vec(j),
+                        ),
+                    );
+                }
+            }
+        }
+        full_connectivity
+    }
+
+    /// Perform linkage using MST-Linkage (fastcluster)
+    /// scipy: https://github.com/scipy/scipy/blob/d286f8525c16b2cd4e179dea2c77b6b09622aff9/scipy/cluster/_hierarchy.pyx#L1016
+    /// MST_linkage_core https://github.com/cdalitz/hclust-cpp/blob/dc68e86cda36aea724ba19cae2f645cedfb65ce6/fastcluster_dm.cpp#L395
+    ///
+    /// Parameters
+    /// ----------
+    /// full_connectivity :
+    ///    A condensed matrix stores the pairwise distances of the observations.
+    /// n :
+    ///    The number of observations.
+    /// Returns
+    /// -------
+    /// Z : shape (n - 1, 4)
+    ///     Computed linkage matrix.
     fn mst_single_linkage<M: Matrix<T>>(full_connectivity: M, n: usize) -> Option<M> {
-        // cdef class LinkageUnionFind:
-        //     """Structure for fast cluster labeling in unsorted dendrogram."""
-        //     cdef int[:] parent
-        //     cdef int[:] size
-        //     cdef int next_label
-
-        //     def __init__(self, int n):
-        //         self.parent = np.arange(2 * n - 1, dtype=np.intc)
-        //         self.next_label = n
-        //         self.size = np.ones(2 * n - 1, dtype=np.intc)
-
-        //     cdef int merge(self, int x, int y):
-        //         self.parent[x] = self.next_label
-        //         self.parent[y] = self.next_label
-        //         cdef int size = self.size[x] + self.size[y]
-        //         self.size[self.next_label] = size
-        //         self.next_label += 1
-        //         return size
-
-        //     cdef find(self, int x):
-        //         cdef int p = x
-
-        //         while self.parent[x] != x:
-        //             x = self.parent[x]
-
-        //         while self.parent[p] != x:
-        //             p, self.parent[p] = self.parent[p], x
-
-        //         return x
-
-        // cdef label(double[:, :] Z, int n):
-        //     """Correctly label clusters in unsorted dendrogram."""
-        //     cdef LinkageUnionFind uf = LinkageUnionFind(n)
-        //     cdef int i, x, y, x_root, y_root
-
-        //     for i in range(n - 1):
-        //         x, y = int(Z[i, 0]), int(Z[i, 1])
-        //         x_root, y_root = uf.find(x), uf.find(y)
-        //         if x_root < y_root:
-        //             Z[i, 0], Z[i, 1] = x_root, y_root
-        //         else:
-        //             Z[i, 0], Z[i, 1] = y_root, x_root
-        //         Z[i, 3] = uf.merge(x_root, y_root)
-        let mut Z = M::zeros((n - 1), 4);
+        let mut Z = M::zeros(n-1, 4);
 
         // Which nodes were already merged.
         let mut merged = vec![-1; n];
 
         let mut D = vec![T::max_value(); n];
 
-        let (mut i, mut k, mut x, mut y, mut dist, mut current_min): (
-            usize,
-            usize,
+        let (mut x, mut y, mut dist, mut current_min): (
             usize,
             usize,
             T,
             T,
         );
 
-        println!("{:?}", n);
         x = 0;
         y = 0;
         for k in 0..(n - 1) {
-            println!("here");
             current_min = T::max_value();
-            println!("{:?}", merged);
             merged[x] = 1;
-            println!("there 1");
             for i in 0..n {
-                println!("there 2");
-                if (merged[i] == 1) {
+                if merged[i] == 1 {
                     continue;
                 }
 
@@ -303,15 +260,83 @@ pub trait FastCluster<T: RealNumber> {
             Z.set(k, 2, current_min);
             x = y;
         }
-        // Z is now a stepwise dendrogram
+        // Z is now an unsorted dendrogram
 
         // # Sort Z by cluster distances.
         // order = np.argsort(Z_arr[:, 2], kind='mergesort')
         // Z_arr = Z_arr[order]
 
-        // # Find correct cluster labels and compute cluster sizes inplace.
-        // label(Z_arr, n)
-
         Some(Z)
+    }
+
+    ///
+    /// Correctly label clusters in unsorted dendrogram.
+    ///
+    fn label<M: BaseMatrix<T>>(mut Z: M, n: usize) -> M {
+        let mut uf: LinkageUnionFind = LinkageUnionFind(n);
+        let (mut x, mut y, mut x_root, mut y_root): (T, T, usize, usize);
+
+        for i in 0..(n - 1) {
+            x = Z.get_row_as_vec(i)[0];
+            y = Z.get_row_as_vec(i)[1];
+            let x_tmp: usize = T::to_usize(&x).unwrap();
+            let y_tmp: usize = T::to_usize(&y).unwrap();
+            x_root = uf.find(x_tmp);
+            y_root = uf.find(y_tmp);
+            if x_root < y_root {
+                Z.set(i, 0, T::from(x_root).unwrap());
+                Z.set(i, 1, T::from(y_root).unwrap());
+            } else {
+                Z.set(i, 0, T::from(y_root).unwrap());
+                Z.set(i, 1, T::from(x_root).unwrap());
+            }
+            let merged = uf.merge(x_root, y_root);
+            Z.set(i, 3, T::from(merged).unwrap());
+        }
+        Z
+    }
+}
+
+///
+/// fastcluster post-processing linkage
+///
+fn LinkageUnionFind(n: usize) -> LinkageUnionFind {
+    LinkageUnionFind {
+        parent: Box::new((0..(2*n - 1)).collect()),
+        next_label: n,
+        size: Box::new(vec![1; 2*n - 1]),
+    }
+}
+
+struct LinkageUnionFind {
+    parent: Box<Vec<usize>>,
+    next_label: usize,
+    size: Box<Vec<usize>>,
+}
+
+impl LinkageUnionFind {
+    fn merge(&mut self, x: usize, y: usize) -> usize {
+        self.parent[x] = self.next_label;
+        self.parent[y] = self.next_label;
+        let size: usize = self.size[x] + self.size[y];
+        self.size[self.next_label] = size;
+        self.next_label += 1;
+        size
+    }
+
+    fn find(&mut self, x: usize) -> usize {
+        let mut x: usize = x;
+        let mut p: usize = x;
+
+        while self.parent[x] != x {
+            x = self.parent[x];
+        }
+
+        while self.parent[p] != x {
+            p = self.parent[p];
+            self.parent[p] = x;
+        }
+
+        x
     }
 }
