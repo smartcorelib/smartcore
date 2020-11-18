@@ -156,7 +156,7 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
         let mut dendrogram: M =
             AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0)
                 .unwrap();
-        
+
         let n: usize = dendrogram.shape().0;
         dendrogram = AggregativeFastPair::<T, M>::label(dendrogram, n);
 
@@ -221,19 +221,14 @@ pub trait FastCluster<T: RealNumber> {
     /// Z : shape (n - 1, 4)
     ///     Computed linkage matrix.
     fn mst_single_linkage<M: Matrix<T>>(full_connectivity: M, n: usize) -> Option<M> {
-        let mut Z = M::zeros(n-1, 4);
+        let mut Z = M::zeros(n - 1, 4);
 
         // Which nodes were already merged.
         let mut merged = vec![-1; n];
 
         let mut D = vec![T::max_value(); n];
 
-        let (mut x, mut y, mut dist, mut current_min): (
-            usize,
-            usize,
-            T,
-            T,
-        );
+        let (mut x, mut y, mut dist, mut current_min): (usize, usize, T, T);
 
         x = 0;
         y = 0;
@@ -302,9 +297,9 @@ pub trait FastCluster<T: RealNumber> {
 ///
 fn LinkageUnionFind(n: usize) -> LinkageUnionFind {
     LinkageUnionFind {
-        parent: Box::new((0..(2*n - 1)).collect()),
+        parent: Box::new((0..(2 * n - 1)).collect()),
         next_label: n,
-        size: Box::new(vec![1; 2*n - 1]),
+        size: Box::new(vec![1; 2 * n - 1]),
     }
 }
 
