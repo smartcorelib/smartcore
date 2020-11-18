@@ -1,6 +1,4 @@
 use crate::error::Failed;
-use crate::linalg::naive::dense_matrix::DenseMatrix;
-use crate::linalg::BaseMatrix;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -9,12 +7,12 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-struct CategoricalNBDistribution<T: RealNumber> {
+struct CategoricalNBDistribution<T: RealNumber, M: Matrix<T>> {
     class_labels: Vec<T>,
     class_priors: Vec<T>,
-    coefficients: Vec<Vec<DenseMatrix<T>>>,
+    coefficients: Vec<Vec<M>>,
 }
-impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T> {
+impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T, M> {
     fn prior(&self, class_index: usize) -> T {
         if class_index >= self.class_labels.len() {
             T::zero()
@@ -45,12 +43,12 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribu
     }
 }
 
-impl<T: RealNumber> CategoricalNBDistribution<T> {
+impl<T: RealNumber, M: Matrix<T>> CategoricalNBDistribution<T, M> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub fn fit<M: Matrix<T>>(x: &M, y: &M::RowVector, alpha: T) -> Result<Self, Failed> {
+    pub fn fit(x: &M, y: &M::RowVector, alpha: T) -> Result<Self, Failed> {
         if alpha < T::zero() {
             return Err(Failed::fit(&format!(
                 "alpha should be >= 0, alpha=[{}]",
@@ -138,7 +136,8 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                     })
                     .collect::<Vec<T>>();
 
-                let coef_i_j = DenseMatrix::new(1, feat_count.len(), coef_i_j);
+                let coef_i_j = M::RowVector::from_array(&coef_i_j);
+                let coef_i_j = M::from_row_vector(coef_i_j);
                 coef_i.push(coef_i_j);
             }
             coefficients.push(coef_i);
@@ -186,7 +185,7 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 /// CategoricalNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CategoricalNB<T: RealNumber, M: Matrix<T>> {
-    inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T>>,
+    inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T, M>>,
 }
 
 impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
