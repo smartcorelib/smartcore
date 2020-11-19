@@ -65,4 +65,6 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
     }
 }
 mod categorical;
+mod gaussian;
 pub use categorical::{CategoricalNB, CategoricalNBParameters};
+pub use gaussian::{GaussianNB, GaussianNBParameters};
