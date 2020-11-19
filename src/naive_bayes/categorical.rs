@@ -7,14 +7,10 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(bound(
-    serialize = "M::RowVector: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, T: Deserialize<'de>",
-))]
 struct CategoricalNBDistribution<T: RealNumber, M: Matrix<T>> {
     class_labels: Vec<T>,
     class_priors: Vec<T>,
-    coefficients: Vec<Vec<M::RowVector>>,
+    coefficients: Vec<Vec<M>>,
 }
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T, M> {
     fn prior(&self, class_index: usize) -> T {
@@ -30,8 +26,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribu
             let mut likelihood = T::zero();
             for feature in 0..j.len() {
                 let value = j.get(feature).floor().to_usize().unwrap();
-                if self.coefficients[class_index][feature].len() > value {
-                    likelihood += self.coefficients[class_index][feature].get(value);
+                if self.coefficients[class_index][feature].shape().1 > value {
+                    likelihood += self.coefficients[class_index][feature].get(0, value);
                 } else {
                     return T::zero();
                 }
@@ -141,6 +137,7 @@ impl<T: RealNumber, M: Matrix<T>> CategoricalNBDistribution<T, M> {
                     .collect::<Vec<T>>();
 
                 let coef_i_j = M::RowVector::from_array(&coef_i_j);
+                let coef_i_j = M::from_row_vector(coef_i_j);
                 coef_i.push(coef_i_j);
             }
             coefficients.push(coef_i);
@@ -187,10 +184,6 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 
 /// CategoricalNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(bound(
-    serialize = "M::RowVector: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, T: Deserialize<'de>",
-))]
 pub struct CategoricalNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T, M>>,
 }

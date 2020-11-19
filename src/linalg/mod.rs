@@ -65,7 +65,7 @@ use stats::MatrixStats;
 use svd::SVDDecomposableMatrix;
 
 /// Column or row vector
-pub trait BaseVector<T: RealNumber>: Clone + Debug + PartialEq {
+pub trait BaseVector<T: RealNumber>: Clone + Debug {
     /// Get an element of a vector
     /// * `i` - index of an element
     fn get(&self, i: usize) -> T;
