@@ -1,6 +1,4 @@
 use crate::error::Failed;
-use crate::linalg::naive::dense_matrix::DenseMatrix;
-use crate::linalg::BaseMatrix;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -8,12 +6,41 @@ use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug)]
 struct CategoricalNBDistribution<T: RealNumber> {
     class_labels: Vec<T>,
     class_priors: Vec<T>,
-    coefficients: Vec<Vec<DenseMatrix<T>>>,
+    coefficients: Vec<Vec<Vec<T>>>,
 }
+
+impl<T: RealNumber> PartialEq for CategoricalNBDistribution<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.class_labels == other.class_labels && self.class_priors == other.class_priors {
+            if self.coefficients.len() != other.coefficients.len() {
+                return false;
+            }
+            for (a, b) in self.coefficients.iter().zip(other.coefficients.iter()) {
+                if a.len() != b.len() {
+                    return false;
+                }
+                for (a_i, b_i) in a.iter().zip(b.iter()) {
+                    if a_i.len() != b_i.len() {
+                        return false;
+                    }
+                    for (a_i_j, b_i_j) in a_i.iter().zip(b_i.iter()) {
+                        if (*a_i_j - *b_i_j).abs() > T::epsilon() {
+                            return false;
+                        }
+                    }
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+}
+
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribution<T> {
     fn prior(&self, class_index: usize) -> T {
         if class_index >= self.class_labels.len() {
@@ -28,8 +55,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribu
             let mut likelihood = T::zero();
             for feature in 0..j.len() {
                 let value = j.get(feature).floor().to_usize().unwrap();
-                if self.coefficients[class_index][feature].shape().1 > value {
-                    likelihood += self.coefficients[class_index][feature].get(0, value);
+                if self.coefficients[class_index][feature].len() > value {
+                    likelihood += self.coefficients[class_index][feature][value];
                 } else {
                     return T::zero();
                 }
@@ -111,9 +138,9 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             feature_categories.push(feature_types);
         }
 
-        let mut coefficients: Vec<Vec<_>> = Vec::with_capacity(class_labels.len());
+        let mut coefficients: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
         for (label, label_count) in class_labels.iter().zip(classes_count.iter()) {
-            let mut coef_i: Vec<_> = Vec::with_capacity(n_features);
+            let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
             for (feature_index, feature_options) in
                 feature_categories.iter().enumerate().take(n_features)
             {
@@ -137,8 +164,6 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                             .ln()
                     })
                     .collect::<Vec<T>>();
-
-                let coef_i_j = DenseMatrix::new(1, feat_count.len(), coef_i_j);
                 coef_i.push(coef_i_j);
             }
             coefficients.push(coef_i);
