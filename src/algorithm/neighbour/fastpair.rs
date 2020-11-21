@@ -210,8 +210,6 @@ mod tests {
         assert_eq!(10, distances.len());
         assert_eq!(10, sparse_matrix.shape().0);
         assert_eq!(10, sparse_matrix.shape().1);
-
-        println!("DISTANCES {:?}", distances)
     }
 
     #[test]
@@ -240,11 +238,8 @@ mod tests {
         // unwrap results
         let result = fastpair.unwrap();
         let neighbours = *result.neighbours;
-        let distances = *result.distances;
+        // let distances = *result.distances;
         let sparse_matrix = *(result.connectivity.unwrap());
-
-        println!("RESULTS neighbours: {:?}", &neighbours);
-        println!("RESULTS distances: {:?}", &distances);
 
         // sequence of indeces computed
         assert_eq!(
@@ -292,8 +287,6 @@ mod tests {
                 expected.get(&i).unwrap().distance.unwrap()
             );
         }
-
-        println!("RESULTS connectivity: {:?}", &sparse_matrix);
     }
 
     #[test]

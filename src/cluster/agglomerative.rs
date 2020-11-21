@@ -93,15 +93,19 @@
 //!            ]);
 //!
 //! // Fit to data, with a threshold
-//! // example using FastPair
-//! let cluster = AggregativeFastPair::fit(&x, 4).unwrap();
-//! // return results/labels/dendrogram
-//! let labels = cluster.labels();
+//! // example using FastPair, compute dendrogram
+//! let cluster = AggregativeFastPair::fit(&x).unwrap();
+//! // return labels by threshold
+//! let labels = cluster.labels_by_threhshold(threshold);
+//! // return labels by number of cluster
+//! let labels = cluster.labels_by_cluster(k);
 //! ```
 //!
+use std::marker::PhantomData;
+
 use crate::algorithm::neighbour::fastpair::FastPair;
 use crate::error::Failed;
-use crate::linalg::{BaseMatrix, Matrix};
+use crate::linalg::Matrix;
 use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
 
@@ -112,17 +116,22 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
     ///
     /// Aggregate the data according to given distance threshold
     ///
-    fn fit(data: &M, k: usize) -> Result<AggregativeFastPair<T, M>, Failed>;
+    fn fit(data: &M) -> Result<AggregativeFastPair<T, M>, Failed>;
 
     ///
     /// Return clusters labels
     ///
-    fn labels(&self) -> &M;
+    fn labels(&self) -> &Vec<Vec<T>>;
 
     ///
     /// Recompute labels according to a threshold
     ///
-    fn labels_with_threhshold(&self, threshold: T);
+    fn labels_by_threhshold(&self, threshold: T);
+
+    ///
+    /// Recompute labels according to a fixed number of cluster
+    ///
+    fn labels_by_cluster(&self, k: usize);
 }
 
 ///
@@ -130,8 +139,10 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
 ///  Clustering with `FastPair`
 ///
 pub struct AggregativeFastPair<T: RealNumber, M: Matrix<T>> {
-    labels: Box<M>, // copmuted cluster labels
-    current: Option<T>,
+    dendrogram: Box<Vec<Vec<T>>>, // computed labels
+    threshold: Option<T>,
+    k: Option<usize>,
+    _marker: PhantomData<M>,
 }
 
 // Add linkage algorithms
@@ -141,11 +152,11 @@ impl<T: RealNumber, M: Matrix<T>> FastCluster<T> for AggregativeFastPair<T, M> {
 impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T, M> {
     //
     // 1. Compute `FastPair` on matrix's rows
-    // 2. Port dissimilarities into upper-trinagular matrix
+    // 2. Compute sparse dissimilarities into upper-trinagular matrix
     // 3. Compute dendrogram
     //
     // The linkage distance threshold above which clusters will not be merged.
-    fn fit(data: &M, _k: usize) -> Result<AggregativeFastPair<T, M>, Failed> {
+    fn fit(data: &M) -> Result<AggregativeFastPair<T, M>, Failed> {
         let fastpair = FastPair(data).unwrap();
 
         // compute full connectivity from sparse matrix
@@ -153,25 +164,28 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
             AggregativeFastPair::<T, M>::condensed_matrix(fastpair.connectivity.unwrap(), data);
 
         // compute clusters
-        let mut dendrogram: M =
-            AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0)
-                .unwrap();
+        let mut dendrogram: Vec<Vec<T>> =
+            AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0);
 
-        let n: usize = dendrogram.shape().0;
+        let n: usize = dendrogram.len();
         dendrogram = AggregativeFastPair::<T, M>::label(dendrogram, n);
 
         Ok(AggregativeFastPair {
-            labels: Box::new(dendrogram),
-            current: None,
+            dendrogram: Box::new(dendrogram),
+            threshold: None,
+            k: None,
+            _marker: PhantomData,
         })
     }
 
-    fn labels(&self) -> &M {
+    fn labels(&self) -> &Vec<Vec<T>> {
         // Find correct cluster labels and compute cluster sizes inplace.
-        &(*(self.labels))
+        &(*(self.dendrogram))
     }
 
-    fn labels_with_threhshold(&self, _threshold: T) {}
+    fn labels_by_threhshold(&self, _threshold: T) {}
+
+    fn labels_by_cluster(&self, _k: usize) {}
 }
 
 ///
@@ -220,8 +234,8 @@ pub trait FastCluster<T: RealNumber> {
     /// -------
     /// Z : shape (n - 1, 4)
     ///     Computed linkage matrix.
-    fn mst_single_linkage<M: Matrix<T>>(full_connectivity: M, n: usize) -> Option<M> {
-        let mut Z = M::zeros(n - 1, 4);
+    fn mst_single_linkage<M: Matrix<T>>(full_connectivity: M, n: usize) -> Vec<Vec<T>> {
+        let mut Z = vec![vec![T::zero(); 4]; n - 1];
 
         // Which nodes were already merged.
         let mut merged = vec![-1; n];
@@ -250,43 +264,41 @@ pub trait FastCluster<T: RealNumber> {
                     current_min = D[i];
                 }
             }
-            Z.set(k, 0, T::from(x).unwrap());
-            Z.set(k, 1, T::from(y).unwrap());
-            Z.set(k, 2, current_min);
+            Z[k][0] = T::from(x).unwrap();
+            Z[k][1] = T::from(y).unwrap();
+            Z[k][2] = current_min;
             x = y;
         }
         // Z is now an unsorted dendrogram
 
-        // # Sort Z by cluster distances.
-        // order = np.argsort(Z_arr[:, 2], kind='mergesort')
-        // Z_arr = Z_arr[order]
-
-        Some(Z)
+        // Sort Z by cluster distances.
+        Z.sort_by(|a, b|a[2].partial_cmp(&b[2]).unwrap());
+        Z
     }
 
     ///
     /// Correctly label clusters in unsorted dendrogram.
     ///
-    fn label<M: BaseMatrix<T>>(mut Z: M, n: usize) -> M {
+    fn label(mut Z: Vec<Vec<T>>, n: usize) -> Vec<Vec<T>> {
         let mut uf: LinkageUnionFind = LinkageUnionFind(n);
         let (mut x, mut y, mut x_root, mut y_root): (T, T, usize, usize);
 
         for i in 0..(n - 1) {
-            x = Z.get_row_as_vec(i)[0];
-            y = Z.get_row_as_vec(i)[1];
+            x = Z[i][0];
+            y = Z[i][1];
             let x_tmp: usize = T::to_usize(&x).unwrap();
             let y_tmp: usize = T::to_usize(&y).unwrap();
             x_root = uf.find(x_tmp);
             y_root = uf.find(y_tmp);
             if x_root < y_root {
-                Z.set(i, 0, T::from(x_root).unwrap());
-                Z.set(i, 1, T::from(y_root).unwrap());
+                Z[i][0] = T::from(x_root).unwrap();
+                Z[i][1] = T::from(y_root).unwrap();
             } else {
-                Z.set(i, 0, T::from(y_root).unwrap());
-                Z.set(i, 1, T::from(x_root).unwrap());
+                Z[i][0] = T::from(y_root).unwrap();
+                Z[i][1] = T::from(x_root).unwrap();
             }
             let merged = uf.merge(x_root, y_root);
-            Z.set(i, 3, T::from(merged).unwrap());
+            Z[i][3] = T::from(merged).unwrap();
         }
         Z
     }
@@ -333,5 +345,42 @@ impl LinkageUnionFind {
         }
 
         x
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::linalg::naive::dense_matrix::*;
+
+    #[test]
+    fn aggregative_fit() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
+        let cluster = AggregativeFastPair::fit(&x).unwrap();
+        let labels = cluster.labels();
+
+        println!("{:?}", labels);
     }
 }
