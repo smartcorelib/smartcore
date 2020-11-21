@@ -272,7 +272,7 @@ pub trait FastCluster<T: RealNumber> {
         // Z is now an unsorted dendrogram
 
         // Sort Z by cluster distances.
-        Z.sort_by(|a, b|a[2].partial_cmp(&b[2]).unwrap());
+        Z.sort_by(|a, b| a[2].partial_cmp(&b[2]).unwrap());
         Z
     }
 
@@ -382,7 +382,7 @@ mod tests {
         let labels = cluster.labels();
 
         let expected = [
-        //  index, index, distance, label
+            //  index, index, distance, label
             [0.0, 4.0, 0.01999999999999995, 2.0],
             [7.0, 19.0, 0.029999999999999964, 3.0],
             [1.0, 9.0, 0.030000000000000037, 2.0],
@@ -401,11 +401,11 @@ mod tests {
             [15.0, 33.0, 0.54, 12.0],
             [31.0, 34.0, 0.6899999999999995, 18.0],
             [17.0, 35.0, 0.7000000000000001, 19.0],
-            [5.0, 17.0, 4.460000000000001, 0.0]
+            [5.0, 17.0, 4.460000000000001, 0.0],
         ];
 
         let mut i = 0;
-        for v in expected.iter() {  
+        for v in expected.iter() {
             assert_eq!(labels[i], v);
             i += 1;
         }
