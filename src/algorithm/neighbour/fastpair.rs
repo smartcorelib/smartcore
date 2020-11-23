@@ -148,6 +148,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     ///
     /// Find closest pair by scanning list of nearest neighbors.
     ///
+    #[allow(dead_code)]
     pub fn closest_pair(&self) -> PairwiseDissimilarity<T> {
         let mut a = self.neighbours[0]; // Start with first point
         let mut d = self.distances[&a].distance;
