@@ -19,7 +19,7 @@ use crate::math::num::RealNumber;
 ///
 /// FastPair factory function
 ///
-pub fn FastPair<'a, T: RealNumber, M: Matrix<T>>(m: &'a M) -> Result<_FastPair<T, M>, Failed> {
+pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<T, M>, Failed> {
     if m.shape().0 < 3 {
         return Err(Failed::because(
             FailedError::FindFailed,
@@ -27,13 +27,10 @@ pub fn FastPair<'a, T: RealNumber, M: Matrix<T>>(m: &'a M) -> Result<_FastPair<T
         ));
     }
 
-    let distances = Box::new(HashMap::with_capacity(m.shape().0));
-    let neighbours = Box::new(Vec::with_capacity(m.shape().0 + 1));
-
     let mut init = _FastPair {
         samples: m,
-        distances: distances,
-        neighbours: neighbours,
+        distances: Box::new(HashMap::with_capacity(m.shape().0)),
+        neighbours: Vec::with_capacity(m.shape().0 + 1),
         // to be computed in new(..)
         connectivity: None,
     };
@@ -57,7 +54,7 @@ pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     /// closest pair hashmap (connectivity matrix for closest pairs)
     pub distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>,
     /// conga line used to keep track of the closest pair
-    pub neighbours: Box<Vec<usize>>,
+    pub neighbours: Vec<usize>,
     /// sparse matrix of closest pairs
     /// values are set for closest pairs distances, other pairs are zeroed
     pub connectivity: Option<Box<M>>,
@@ -144,7 +141,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         // TODO: as we now store the connectivity matrix in `self.connectivity`,
         //       it may be possible to avoid storing closest pairs in `self.distances`
         self.distances = Box::new(distances);
-        self.neighbours = Box::new(neighbours);
+        self.neighbours = neighbours;
         self.connectivity = Some(Box::new(sparse_matrix));
     }
 
@@ -172,6 +169,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     // Compute distances from input to all other points in data-structure.
     // input is the row index of the sample matrix
     //
+    #[allow(dead_code)]
     fn distances_from(&self, index_row: usize) -> Vec<PairwiseDissimilarity<T>> {
         let mut distances = Vec::<PairwiseDissimilarity<T>>::with_capacity(self.samples.shape().0);
         for other in self.neighbours.iter() {
@@ -204,7 +202,7 @@ mod tests {
 
         let result = fastpair.unwrap();
         let distances = *result.distances;
-        let neighbours = *result.neighbours;
+        let neighbours = result.neighbours;
         let sparse_matrix = *(result.connectivity.unwrap());
         assert_eq!(10, neighbours.len());
         assert_eq!(10, distances.len());
@@ -237,7 +235,7 @@ mod tests {
 
         // unwrap results
         let result = fastpair.unwrap();
-        let neighbours = *result.neighbours;
+        let neighbours = result.neighbours;
         // let distances = *result.distances;
         let sparse_matrix = *(result.connectivity.unwrap());
 

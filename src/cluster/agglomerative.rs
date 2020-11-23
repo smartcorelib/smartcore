@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(unused_imports)]
 //! #  Agglomerative hierarchical clustering
 //!
 //! ## Definition
@@ -126,7 +127,7 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
 ///  Clustering with `FastPair`
 ///
 pub struct AggregativeFastPair<T: RealNumber, M: Matrix<T>> {
-    dendrogram: Box<Vec<Vec<T>>>, // computed labels
+    dendrogram: Vec<Vec<T>>, // computed labels
     _marker: PhantomData<M>,
 }
 
@@ -149,20 +150,20 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
             AggregativeFastPair::<T, M>::condensed_matrix(fastpair.connectivity.unwrap(), data);
 
         // compute clusters
-        let mut dendrogram: Vec<Vec<T>> =
+        let dendrogram: Vec<Vec<T>> =
             AggregativeFastPair::<T, M>::mst_single_linkage(full_connectivity, data.shape().0);
 
         let n: usize = dendrogram.len();
-        dendrogram = AggregativeFastPair::<T, M>::label(dendrogram, n);
 
         Ok(AggregativeFastPair {
-            dendrogram: Box::new(dendrogram),
+            // assign computed dendrogram to structure
+            dendrogram: AggregativeFastPair::<T, M>::label(dendrogram, n),
             _marker: PhantomData,
         })
     }
 
     fn labels(&self) -> &Vec<Vec<T>> {
-        &(*self.dendrogram)
+        &self.dendrogram
     }
 }
 
@@ -287,16 +288,16 @@ pub trait FastCluster<T: RealNumber> {
 ///
 fn LinkageUnionFind(n: usize) -> LinkageUnionFind {
     LinkageUnionFind {
-        parent: Box::new((0..(2 * n - 1)).collect()),
+        parent: (0..(2 * n - 1)).collect(),
         next_label: n,
-        size: Box::new(vec![1; 2 * n - 1]),
+        size: vec![1; 2 * n - 1],
     }
 }
 
 struct LinkageUnionFind {
-    parent: Box<Vec<usize>>,
+    parent: Vec<usize>,
     next_label: usize,
-    size: Box<Vec<usize>>,
+    size: Vec<usize>,
 }
 
 impl LinkageUnionFind {
