@@ -122,16 +122,6 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
     /// Return clusters labels
     ///
     fn labels(&self) -> &Vec<Vec<T>>;
-
-    ///
-    /// Recompute labels according to a threshold
-    ///
-    fn labels_by_threhshold(&self, threshold: T);
-
-    ///
-    /// Recompute labels according to a fixed number of cluster
-    ///
-    fn labels_by_cluster(&self, k: usize);
 }
 
 ///
@@ -140,8 +130,6 @@ pub trait SAHNClustering<T: RealNumber, M: Matrix<T>> {
 ///
 pub struct AggregativeFastPair<T: RealNumber, M: Matrix<T>> {
     dendrogram: Box<Vec<Vec<T>>>, // computed labels
-    threshold: Option<T>,
-    k: Option<usize>,
     _marker: PhantomData<M>,
 }
 
@@ -172,20 +160,13 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
 
         Ok(AggregativeFastPair {
             dendrogram: Box::new(dendrogram),
-            threshold: None,
-            k: None,
             _marker: PhantomData,
         })
     }
 
     fn labels(&self) -> &Vec<Vec<T>> {
-        // Find correct cluster labels and compute cluster sizes inplace.
-        &(*(self.dendrogram))
+        &(*self.dendrogram)
     }
-
-    fn labels_by_threhshold(&self, _threshold: T) {}
-
-    fn labels_by_cluster(&self, _k: usize) {}
 }
 
 ///

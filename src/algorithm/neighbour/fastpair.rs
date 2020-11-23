@@ -194,7 +194,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
 mod tests {
 
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::naive::dense_matrix::DenseMatrix;
 
     #[test]
     fn fastpair_init() {
