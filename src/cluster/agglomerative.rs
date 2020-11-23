@@ -94,11 +94,8 @@
 //!
 //! // Fit to data, with a threshold
 //! // example using FastPair, compute dendrogram
-//! let cluster = AggregativeFastPair::fit(&x).unwrap();
-//! // return labels by threshold
-//! let labels = cluster.labels_by_threhshold(threshold);
-//! // return labels by number of cluster
-//! let labels = cluster.labels_by_cluster(k);
+//! let clustering = AggregativeFastPair::fit(&x).unwrap();
+//! let dendrogram = clustering.labels();
 //! ```
 //!
 use std::marker::PhantomData;
