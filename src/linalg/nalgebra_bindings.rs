@@ -698,6 +698,12 @@ mod tests {
     }
 
     #[test]
+    fn col_matrix_to_row_vector() {
+        let m: DMatrix<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
+    }
+
+    #[test]
     fn get_row_col_as_vec() {
         let m = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
 
