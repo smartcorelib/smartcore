@@ -289,7 +289,7 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         let n = x.shape().0;
         let mut result = M::zeros(1, n);
         if self.num_classes == 2 {
-            let y_hat: Vec<T> = x.matmul(&self.coefficients.transpose()).get_col_as_vec(0);
+            let y_hat: Vec<T> = x.ab(false, &self.coefficients, true).get_col_as_vec(0);
             let intercept = self.intercept.get(0, 0);
             for i in 0..n {
                 result.set(
