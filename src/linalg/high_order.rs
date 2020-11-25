@@ -19,7 +19,7 @@ pub trait HighOrderOperations<T: RealNumber>: BaseMatrix<T> {
     /// ```
     fn ab(&self, a_transpose: bool, b: &Self, b_transpose: bool) -> Self {
         match (a_transpose, b_transpose) {
-            (true, true) => self.transpose().matmul(&b.transpose()),
+            (true, true) => b.matmul(self).transpose(),
             (false, true) => self.matmul(&b.transpose()),
             (true, false) => self.transpose().matmul(b),
             (false, false) => self.matmul(b),
