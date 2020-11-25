@@ -564,6 +564,12 @@ mod tests {
     }
 
     #[test]
+    fn col_matrix_to_row_vector() {
+        let m: Array2<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
+    }
+
+    #[test]
     fn add_mut() {
         let mut a1 = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
         let a2 = a1.clone();

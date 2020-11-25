@@ -185,14 +185,15 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
     BaseMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
-    type RowVector = MatrixMN<T, U1, Dynamic>;
+    type RowVector = RowDVector<T>;
 
     fn from_row_vector(vec: Self::RowVector) -> Self {
         Matrix::from_rows(&[vec])
     }
 
     fn to_row_vector(self) -> Self::RowVector {
-        self.row(0).into_owned()
+        let (nrows, ncols) = self.shape();
+        self.reshape_generic(U1, Dynamic::new(nrows * ncols))
     }
 
     fn get(&self, row: usize, col: usize) -> T {
@@ -695,6 +696,12 @@ mod tests {
         let expected = v.clone();
         let m: DMatrix<f64> = BaseMatrix::from_row_vector(v);
         assert_eq!(m.to_row_vector(), expected);
+    }
+
+    #[test]
+    fn col_matrix_to_row_vector() {
+        let m: DMatrix<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
     }
 
     #[test]

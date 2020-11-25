@@ -1065,6 +1065,12 @@ mod tests {
     }
 
     #[test]
+    fn col_matrix_to_row_vector() {
+        let m: DenseMatrix<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
+    }
+
+    #[test]
     fn iter() {
         let vec = vec![1., 2., 3., 4., 5., 6.];
         let m = DenseMatrix::from_array(3, 2, &vec);
