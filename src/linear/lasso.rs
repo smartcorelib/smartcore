@@ -447,7 +447,7 @@ mod tests {
             &y,
             LassoParameters {
                 alpha: 0.1,
-                normalize: false,
+                normalize: true,
                 tol: 1e-4,
                 max_iter: 1000,
             },
