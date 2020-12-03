@@ -51,6 +51,7 @@ use ndarray::{s, stack, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
+use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
 use crate::linalg::stats::MatrixStats;
@@ -499,6 +500,11 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
     MatrixStats<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    HighOrderOperations<T> for ArrayBase<OwnedRepr<T>, Ix2>
 {
 }
 

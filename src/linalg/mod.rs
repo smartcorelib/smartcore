@@ -36,6 +36,7 @@
 pub mod cholesky;
 /// The matrix is represented in terms of its eigenvalues and eigenvectors.
 pub mod evd;
+pub mod high_order;
 /// Factors a matrix as the product of a lower triangular matrix and an upper triangular matrix.
 pub mod lu;
 /// Dense matrix with column-major order that wraps [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html).
@@ -59,6 +60,7 @@ use std::ops::Range;
 use crate::math::num::RealNumber;
 use cholesky::CholeskyDecomposableMatrix;
 use evd::EVDDecomposableMatrix;
+use high_order::HighOrderOperations;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
 use stats::MatrixStats;
@@ -133,6 +135,66 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
 
     /// Subtract `x` from single element of the vector, write result to original vector.
     fn sub_element_mut(&mut self, pos: usize, x: T);
+
+    /// Subtract scalar
+    fn sub_scalar_mut(&mut self, x: T) -> &Self {
+        for i in 0..self.len() {
+            self.set(i, self.get(i) - x);
+        }
+        self
+    }
+
+    /// Subtract scalar
+    fn add_scalar_mut(&mut self, x: T) -> &Self {
+        for i in 0..self.len() {
+            self.set(i, self.get(i) + x);
+        }
+        self
+    }
+
+    /// Subtract scalar
+    fn mul_scalar_mut(&mut self, x: T) -> &Self {
+        for i in 0..self.len() {
+            self.set(i, self.get(i) * x);
+        }
+        self
+    }
+
+    /// Subtract scalar
+    fn div_scalar_mut(&mut self, x: T) -> &Self {
+        for i in 0..self.len() {
+            self.set(i, self.get(i) / x);
+        }
+        self
+    }
+
+    /// Add vectors, element-wise
+    fn add_scalar(&self, x: T) -> Self {
+        let mut r = self.clone();
+        r.add_scalar_mut(x);
+        r
+    }
+
+    /// Subtract vectors, element-wise
+    fn sub_scalar(&self, x: T) -> Self {
+        let mut r = self.clone();
+        r.sub_scalar_mut(x);
+        r
+    }
+
+    /// Multiply vectors, element-wise
+    fn mul_scalar(&self, x: T) -> Self {
+        let mut r = self.clone();
+        r.mul_scalar_mut(x);
+        r
+    }
+
+    /// Divide vectors, element-wise
+    fn div_scalar(&self, x: T) -> Self {
+        let mut r = self.clone();
+        r.div_scalar_mut(x);
+        r
+    }
 
     /// Add vectors, element-wise, overriding original vector with result.
     fn add_mut(&mut self, other: &Self) -> &Self;
@@ -557,6 +619,7 @@ pub trait Matrix<T: RealNumber>:
     + LUDecomposableMatrix<T>
     + CholeskyDecomposableMatrix<T>
     + MatrixStats<T>
+    + HighOrderOperations<T>
     + PartialEq
     + Display
 {
