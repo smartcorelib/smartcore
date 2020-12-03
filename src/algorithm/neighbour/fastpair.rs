@@ -11,7 +11,6 @@ use std::iter;
 
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 use crate::error::{Failed, FailedError};
-use crate::linalg::naive::dense_matrix::*;
 use crate::linalg::Matrix;
 use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
@@ -19,7 +18,7 @@ use crate::math::num::RealNumber;
 ///
 /// FastPair factory function
 ///
-pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<T, M>, Failed> {
+pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M>, Failed> {
     if m.shape().0 < 3 {
         return Err(Failed::because(
             FailedError::FindFailed,
@@ -193,7 +192,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
 mod tests {
 
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::naive::dense_matrix::*;
 
     #[test]
     fn fastpair_init() {
