@@ -147,7 +147,7 @@ impl<T: RealNumber, M: Matrix<T>> SAHNClustering<T, M> for AggregativeFastPair<T
 
         // compute full connectivity from sparse matrix
         let full_connectivity: M =
-            AggregativeFastPair::<T, M>::condensed_matrix(fastpair.connectivity.unwrap(), data);
+            AggregativeFastPair::<T, M>::condensed_matrix(*(fastpair.connectivity.unwrap()), data);
 
         // compute clusters
         let dendrogram: Vec<Vec<T>> =
@@ -178,9 +178,9 @@ pub trait FastCluster<T: RealNumber> {
     ///  <https://lionel.kr.hs-niederrhein.de/~dalitz/data/hclust/>
     ///
     /// Closest pairs dissimilarity structure is a sparse matrix, return full connectivity matrix
-    fn condensed_matrix<M: Matrix<T>>(sparse_matrix: Box<M>, samples: &M) -> M {
+    fn condensed_matrix<M: Matrix<T>>(sparse_matrix: M, samples: &M) -> M {
         let len = samples.shape().0;
-        let mut full_connectivity: M = *(sparse_matrix).clone();
+        let mut full_connectivity: M = sparse_matrix;
 
         for i in 0..len {
             for j in 0..len {

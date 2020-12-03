@@ -30,10 +30,10 @@ pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M
         samples: m,
         distances: Box::new(HashMap::with_capacity(m.shape().0)),
         neighbours: Vec::with_capacity(m.shape().0 + 1),
-        // to be computed in new(..)
+        // to be computed in inti(..)
         connectivity: None,
     };
-    init.new();
+    init.init();
     Ok(init)
 }
 
@@ -64,7 +64,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     /// Initialise `FastPair` by passing a `Matrix`.
     /// Build a FastPairs data-structure from a set of (new) points.
     ///
-    fn new(&mut self) {
+    fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
         let max_index = self.samples.shape().0 - 1;
