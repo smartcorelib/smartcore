@@ -101,5 +101,3 @@ pub(crate) mod optimization;
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
-
-mod preprocessing;

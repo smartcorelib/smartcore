@@ -5,7 +5,6 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::math::vector::RealNumberVector;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
-use crate::preprocessing::binarize;
 
 use serde::{Deserialize, Serialize};
 
@@ -180,7 +179,7 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     ) -> Result<Self, Failed> {
         let distribution = if let Some(threshold) = parameters.binarize {
             BernoulliNBDistribution::fit(
-                &binarize(x, threshold),
+                &(x.binarize(threshold)),
                 y,
                 parameters.alpha,
                 parameters.priors,
@@ -201,7 +200,7 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         if let Some(threshold) = self.binarize {
-            self.inner.predict(&binarize(x, threshold))
+            self.inner.predict(&(x.binarize(threshold)))
         } else {
             self.inner.predict(x)
         }

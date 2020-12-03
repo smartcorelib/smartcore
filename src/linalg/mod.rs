@@ -63,7 +63,7 @@ use evd::EVDDecomposableMatrix;
 use high_order::HighOrderOperations;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
-use stats::MatrixStats;
+use stats::{MatrixPreprocessing, MatrixStats};
 use svd::SVDDecomposableMatrix;
 
 /// Column or row vector
@@ -619,6 +619,7 @@ pub trait Matrix<T: RealNumber>:
     + LUDecomposableMatrix<T>
     + CholeskyDecomposableMatrix<T>
     + MatrixStats<T>
+    + MatrixPreprocessing<T>
     + HighOrderOperations<T>
     + PartialEq
     + Display
