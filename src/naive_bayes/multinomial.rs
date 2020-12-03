@@ -19,24 +19,16 @@ struct MultinomialNBDistribution<T: RealNumber> {
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribution<T> {
     fn prior(&self, class_index: usize) -> T {
-        if class_index >= self.class_labels.len() {
-            T::zero()
-        } else {
-            self.class_priors[class_index]
-        }
+        self.class_priors[class_index]
     }
 
     fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T {
-        if class_index < self.class_labels.len() {
-            let mut likelihood = T::zero();
-            for feature in 0..j.len() {
-                let value = j.get(feature);
-                likelihood += value * self.feature_prob[class_index][feature].ln();
-            }
-            likelihood
-        } else {
-            T::zero()
+        let mut likelihood = T::zero();
+        for feature in 0..j.len() {
+            let value = j.get(feature);
+            likelihood += value * self.feature_prob[class_index][feature].ln();
         }
+        likelihood
     }
 
     fn classes(&self) -> &Vec<T> {
