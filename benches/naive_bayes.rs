@@ -1,5 +1,5 @@
 use criterion::BenchmarkId;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use nalgebra::DMatrix;
 use ndarray::Array2;
@@ -25,7 +25,7 @@ pub fn gaussian_naive_bayes_fit_benchmark(c: &mut Criterion) {
                 n_samples,
                 |b, _| {
                     b.iter(|| {
-                        GaussianNB::fit(&x, &y, Default::default()).unwrap();
+                        GaussianNB::fit(black_box(&x), black_box(&y), Default::default()).unwrap();
                     })
                 },
             );
@@ -43,7 +43,7 @@ pub fn gaussian_naive_matrix_datastructure(c: &mut Criterion) {
         let y = <DenseMatrix<f64> as BaseMatrix<f64>>::RowVector::from_array(&classes);
 
         b.iter(|| {
-            GaussianNB::fit(&x, &y, Default::default()).unwrap();
+            GaussianNB::fit(black_box(&x), black_box(&y), Default::default()).unwrap();
         })
     });
 
@@ -52,7 +52,7 @@ pub fn gaussian_naive_matrix_datastructure(c: &mut Criterion) {
         let y = <Array2<f64> as BaseMatrix<f64>>::RowVector::from_array(&classes);
 
         b.iter(|| {
-            GaussianNB::fit(&x, &y, Default::default()).unwrap();
+            GaussianNB::fit(black_box(&x), black_box(&y), Default::default()).unwrap();
         })
     });
 
@@ -61,7 +61,7 @@ pub fn gaussian_naive_matrix_datastructure(c: &mut Criterion) {
         let y = <DMatrix<f64> as BaseMatrix<f64>>::RowVector::from_array(&classes);
 
         b.iter(|| {
-            GaussianNB::fit(&x, &y, Default::default()).unwrap();
+            GaussianNB::fit(black_box(&x), black_box(&y), Default::default()).unwrap();
         })
     });
 }
