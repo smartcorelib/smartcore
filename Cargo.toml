@@ -36,3 +36,8 @@ bincode = "1.3.1"
 [[bench]]
 name = "distance"
 harness = false
+
+[[bench]]
+name = "naive_bayes"
+harness = false
+required-features = ["ndarray-bindings", "nalgebra-bindings"]
