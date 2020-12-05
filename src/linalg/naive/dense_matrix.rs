@@ -12,7 +12,7 @@ use crate::linalg::evd::EVDDecomposableMatrix;
 use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
-use crate::linalg::stats::MatrixStats;
+use crate::linalg::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 pub use crate::linalg::{BaseMatrix, BaseVector};
@@ -478,6 +478,7 @@ impl<T: RealNumber> HighOrderOperations<T> for DenseMatrix<T> {
 }
 
 impl<T: RealNumber> MatrixStats<T> for DenseMatrix<T> {}
+impl<T: RealNumber> MatrixPreprocessing<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> Matrix<T> for DenseMatrix<T> {}
 

@@ -104,6 +104,47 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
     }
 }
 
+/// Defines baseline implementations for various matrix processing functions
+pub trait MatrixPreprocessing<T: RealNumber>: BaseMatrix<T> {
+    /// Each element of the matrix greater than the threshold becomes 1, while values less than or equal to the threshold become 0
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::*;
+    /// use crate::smartcore::linalg::stats::MatrixPreprocessing;
+    /// let mut a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
+    /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
+    /// a.binarize_mut(0.);
+    ///
+    /// assert_eq!(a, expected);
+    /// ```
+
+    fn binarize_mut(&mut self, threshold: T) {
+        let (nrows, ncols) = self.shape();
+        for row in 0..nrows {
+            for col in 0..ncols {
+                if self.get(row, col) > threshold {
+                    self.set(row, col, T::one());
+                } else {
+                    self.set(row, col, T::zero());
+                }
+            }
+        }
+    }
+    /// Returns new matrix where elements are binarized according to a given threshold.
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::*;
+    /// use crate::smartcore::linalg::stats::MatrixPreprocessing;
+    /// let a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
+    /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
+    ///
+    /// assert_eq!(a.binarize(0.), expected);
+    /// ```
+    fn binarize(&self, threshold: T) -> Self {
+        let mut m = self.clone();
+        m.binarize_mut(threshold);
+        m
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
