@@ -112,9 +112,9 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
 
         let mut x = data.clone();
 
-        for c in 0..n {
+        for (c, mu_c) in mu.iter().enumerate().take(n) {
             for r in 0..m {
-                x.sub_element_mut(r, c, mu[c]);
+                x.sub_element_mut(r, c, *mu_c);
             }
         }
 
@@ -124,8 +124,8 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
         if m > n && !parameters.use_correlation_matrix {
             let svd = x.svd()?;
             eigenvalues = svd.s;
-            for i in 0..eigenvalues.len() {
-                eigenvalues[i] = eigenvalues[i] * eigenvalues[i];
+            for eigenvalue in &mut eigenvalues {
+                *eigenvalue = *eigenvalue * (*eigenvalue);
             }
 
             eigenvectors = svd.V;
@@ -149,8 +149,8 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
 
             if parameters.use_correlation_matrix {
                 let mut sd = vec![T::zero(); n];
-                for i in 0..n {
-                    sd[i] = cov.get(i, i).sqrt();
+                for (i, sd_i) in sd.iter_mut().enumerate().take(n) {
+                    *sd_i = cov.get(i, i).sqrt();
                 }
 
                 for i in 0..n {
@@ -166,9 +166,9 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
 
                 eigenvectors = evd.V;
 
-                for i in 0..n {
+                for (i, sd_i) in sd.iter().enumerate().take(n) {
                     for j in 0..n {
-                        eigenvectors.div_element_mut(i, j, sd[i]);
+                        eigenvectors.div_element_mut(i, j, *sd_i);
                     }
                 }
             } else {
@@ -188,9 +188,9 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
         }
 
         let mut pmu = vec![T::zero(); n_components];
-        for k in 0..n {
-            for i in 0..n_components {
-                pmu[i] += projection.get(i, k) * mu[k];
+        for (k, mu_k) in mu.iter().enumerate().take(n) {
+            for (i, pmu_i) in pmu.iter_mut().enumerate().take(n_components) {
+                *pmu_i += projection.get(i, k) * (*mu_k);
             }
         }
 

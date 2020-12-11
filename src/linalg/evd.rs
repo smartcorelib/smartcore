@@ -99,27 +99,27 @@ pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 
 fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = V.shape();
-    for i in 0..n {
-        d[i] = V.get(n - 1, i);
+    for (i, d_i) in d.iter_mut().enumerate().take(n) {
+        *d_i = V.get(n - 1, i);
     }
 
     for i in (1..n).rev() {
         let mut scale = T::zero();
         let mut h = T::zero();
-        for k in 0..i {
-            scale += d[k].abs();
+        for d_k in d.iter().take(i) {
+            scale += d_k.abs();
         }
         if scale == T::zero() {
             e[i] = d[i - 1];
-            for j in 0..i {
-                d[j] = V.get(i - 1, j);
+            for (j, d_j) in d.iter_mut().enumerate().take(i) {
+                *d_j = V.get(i - 1, j);
                 V.set(i, j, T::zero());
                 V.set(j, i, T::zero());
             }
         } else {
-            for k in 0..i {
-                d[k] /= scale;
-                h += d[k] * d[k];
+            for d_k in d.iter_mut().take(i) {
+                *d_k /= scale;
+                h += (*d_k) * (*d_k);
             }
             let mut f = d[i - 1];
             let mut g = h.sqrt();
@@ -129,8 +129,8 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
             e[i] = scale * g;
             h -= f * g;
             d[i - 1] = f - g;
-            for j in 0..i {
-                e[j] = T::zero();
+            for e_j in e.iter_mut().take(i) {
+                *e_j = T::zero();
             }
 
             for j in 0..i {
@@ -170,16 +170,16 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
         V.set(i, i, T::one());
         let h = d[i + 1];
         if h != T::zero() {
-            for k in 0..=i {
-                d[k] = V.get(k, i + 1) / h;
+            for (k, d_k) in d.iter_mut().enumerate().take(i + 1) {
+                *d_k = V.get(k, i + 1) / h;
             }
             for j in 0..=i {
                 let mut g = T::zero();
                 for k in 0..=i {
                     g += V.get(k, i + 1) * V.get(k, j);
                 }
-                for k in 0..=i {
-                    V.sub_element_mut(k, j, g * d[k]);
+                for (k, d_k) in d.iter().enumerate().take(i + 1) {
+                    V.sub_element_mut(k, j, g * (*d_k));
                 }
             }
         }
@@ -187,8 +187,8 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
             V.set(k, i + 1, T::zero());
         }
     }
-    for j in 0..n {
-        d[j] = V.get(n - 1, j);
+    for (j, d_j) in d.iter_mut().enumerate().take(n) {
+        *d_j = V.get(n - 1, j);
         V.set(n - 1, j, T::zero());
     }
     V.set(n - 1, n - 1, T::one());
@@ -238,8 +238,8 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
                 d[l + 1] = e[l] * (p + r);
                 let dl1 = d[l + 1];
                 let mut h = g - d[l];
-                for i in l + 2..n {
-                    d[i] -= h;
+                for d_i in d.iter_mut().take(n).skip(l + 2) {
+                    *d_i -= h;
                 }
                 f += h;
 
@@ -285,10 +285,10 @@ fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<
     for i in 0..n - 1 {
         let mut k = i;
         let mut p = d[i];
-        for j in i + 1..n {
-            if d[j] > p {
+        for (j, d_j) in d.iter().enumerate().take(n).skip(i + 1) {
+            if *d_j > p {
                 k = j;
-                p = d[j];
+                p = *d_j;
             }
         }
         if k != i {
@@ -316,7 +316,7 @@ fn balance<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
     let mut done = false;
     while !done {
         done = true;
-        for i in 0..n {
+        for (i, scale_i) in scale.iter_mut().enumerate().take(n) {
             let mut r = T::zero();
             let mut c = T::zero();
             for j in 0..n {
@@ -341,7 +341,7 @@ fn balance<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<T> {
                 if (c + r) / f < t * s {
                     done = false;
                     g = T::one() / f;
-                    scale[i] *= f;
+                    *scale_i *= f;
                     for j in 0..n {
                         A.mul_element_mut(i, j, g);
                     }
@@ -360,7 +360,7 @@ fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
     let (n, _) = A.shape();
     let mut perm = vec![0; n];
 
-    for m in 1..n - 1 {
+    for (m, perm_m) in perm.iter_mut().enumerate().take(n - 1).skip(1) {
         let mut x = T::zero();
         let mut i = m;
         for j in m..n {
@@ -369,7 +369,7 @@ fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
                 i = j;
             }
         }
-        perm[m] = i;
+        *perm_m = i;
         if i != m {
             for j in (m - 1)..n {
                 let swap = A.get(i, j);
@@ -402,7 +402,7 @@ fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
     perm
 }
 
-fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &Vec<usize>) {
+fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &[usize]) {
     let (n, _) = A.shape();
     for mp in (1..n - 1).rev() {
         for k in mp + 1..n {
@@ -774,11 +774,11 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
     }
 }
 
-fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &Vec<T>) {
+fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &[T]) {
     let (n, _) = V.shape();
-    for i in 0..n {
+    for (i, scale_i) in scale.iter().enumerate().take(n) {
         for j in 0..n {
-            V.mul_element_mut(i, j, scale[i]);
+            V.mul_element_mut(i, j, *scale_i);
         }
     }
 }
@@ -789,8 +789,8 @@ fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut
     for j in 1..n {
         let real = d[j];
         let img = e[j];
-        for k in 0..n {
-            temp[k] = V.get(k, j);
+        for (k, temp_k) in temp.iter_mut().enumerate().take(n) {
+            *temp_k = V.get(k, j);
         }
         let mut i = j as i32 - 1;
         while i >= 0 {
@@ -806,8 +806,8 @@ fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut
         }
         d[i as usize + 1] = real;
         e[i as usize + 1] = img;
-        for k in 0..n {
-            V.set(k, i as usize + 1, temp[k]);
+        for (k, temp_k) in temp.iter().enumerate().take(n) {
+            V.set(k, i as usize + 1, *temp_k);
         }
     }
 }

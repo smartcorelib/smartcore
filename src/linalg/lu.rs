@@ -202,24 +202,21 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     fn lu_mut(mut self) -> Result<LU<T, Self>, Failed> {
         let (m, n) = self.shape();
 
-        let mut piv = vec![0; m];
-        for i in 0..m {
-            piv[i] = i;
-        }
+        let mut piv = (0..m).collect::<Vec<_>>();
 
         let mut pivsign = 1;
         let mut LUcolj = vec![T::zero(); m];
 
         for j in 0..n {
-            for i in 0..m {
-                LUcolj[i] = self.get(i, j);
+            for (i, LUcolj_i) in LUcolj.iter_mut().enumerate().take(m) {
+                *LUcolj_i = self.get(i, j);
             }
 
             for i in 0..m {
                 let kmax = usize::min(i, j);
                 let mut s = T::zero();
-                for k in 0..kmax {
-                    s += self.get(i, k) * LUcolj[k];
+                for (k, LUcolj_k) in LUcolj.iter().enumerate().take(kmax) {
+                    s += self.get(i, k) * (*LUcolj_k);
                 }
 
                 LUcolj[i] -= s;

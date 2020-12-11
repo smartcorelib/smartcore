@@ -132,9 +132,9 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         let mut yi: Vec<usize> = vec![0; y_ncols];
         let classes = y_m.unique();
 
-        for i in 0..y_ncols {
+        for (i, yi_i) in yi.iter_mut().enumerate().take(y_ncols) {
             let yc = y_m.get(0, i);
-            yi[i] = classes.iter().position(|c| yc == *c).unwrap();
+            *yi_i = classes.iter().position(|c| yc == *c).unwrap();
         }
 
         let mtry = parameters.m.unwrap_or_else(|| {
@@ -192,22 +192,22 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         which_max(&result)
     }
 
-    fn sample_with_replacement(y: &Vec<usize>, num_classes: usize) -> Vec<usize> {
+    fn sample_with_replacement(y: &[usize], num_classes: usize) -> Vec<usize> {
         let mut rng = rand::thread_rng();
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();
         let mut samples = vec![0; nrows];
-        for l in 0..num_classes {
+        for (l, class_weight_l) in class_weight.iter().enumerate().take(num_classes) {
             let mut n_samples = 0;
             let mut index: Vec<usize> = Vec::new();
-            for i in 0..nrows {
-                if y[i] == l {
+            for (i, y_i) in y.iter().enumerate().take(nrows) {
+                if *y_i == l {
                     index.push(i);
                     n_samples += 1;
                 }
             }
 
-            let size = ((n_samples as f64) / class_weight[l]) as usize;
+            let size = ((n_samples as f64) / *class_weight_l) as usize;
             for _ in 0..size {
                 let xi: usize = rng.gen_range(0, n_samples);
                 samples[index[xi]] += 1;

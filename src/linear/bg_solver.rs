@@ -85,9 +85,9 @@ pub trait BiconjugateGradientSolver<T: RealNumber, M: Matrix<T>> {
         let diag = Self::diag(a);
         let n = diag.len();
 
-        for i in 0..n {
-            if diag[i] != T::zero() {
-                x.set(i, 0, b.get(i, 0) / diag[i]);
+        for (i, diag_i) in diag.iter().enumerate().take(n) {
+            if *diag_i != T::zero() {
+                x.set(i, 0, b.get(i, 0) / *diag_i);
             } else {
                 x.set(i, 0, b.get(i, 0));
             }

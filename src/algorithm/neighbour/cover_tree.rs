@@ -436,7 +436,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         }
     }
 
-    fn max(&self, distance_set: &Vec<DistanceSet<F>>) -> F {
+    fn max(&self, distance_set: &[DistanceSet<F>]) -> F {
         let mut max = F::zero();
         for n in distance_set {
             if max < n.dist[n.dist.len() - 1] {

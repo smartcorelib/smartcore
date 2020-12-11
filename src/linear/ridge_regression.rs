@@ -155,14 +155,14 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
                 RidgeRegressionSolverName::SVD => x_t_x.svd_solve_mut(x_t_y)?,
             };
 
-            for i in 0..p {
-                w.set(i, 0, w.get(i, 0) / col_std[i]);
+            for (i, col_std_i) in col_std.iter().enumerate().take(p) {
+                w.set(i, 0, w.get(i, 0) / *col_std_i);
             }
 
             let mut b = T::zero();
 
-            for i in 0..p {
-                b += w.get(i, 0) * col_mean[i];
+            for (i, col_mean_i) in col_mean.iter().enumerate().take(p) {
+                b += w.get(i, 0) * *col_mean_i;
             }
 
             let b = y.mean() - b;
@@ -196,8 +196,8 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
         let col_mean = x.mean(0);
         let col_std = x.std(0);
 
-        for i in 0..col_std.len() {
-            if (col_std[i] - T::zero()).abs() < T::epsilon() {
+        for (i, col_std_i) in col_std.iter().enumerate() {
+            if (*col_std_i - T::zero()).abs() < T::epsilon() {
                 return Err(Failed::fit(&format!(
                     "Cannot rescale constant column {}",
                     i

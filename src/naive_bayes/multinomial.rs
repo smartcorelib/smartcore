@@ -122,8 +122,8 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         let mut feature_in_class_counter = vec![vec![T::zero(); n_features]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices) {
-            for idx in 0..n_features {
-                feature_in_class_counter[class_index][idx] += row[idx];
+            for (idx, row_i) in row.iter().enumerate().take(n_features) {
+                feature_in_class_counter[class_index][idx] += *row_i;
             }
         }
 

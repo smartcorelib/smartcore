@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -164,8 +165,8 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
 
     fn sum(&self) -> T {
         let mut sum = T::zero();
-        for i in 0..self.len() {
-            sum += self[i];
+        for self_i in self.iter() {
+            sum += *self_i;
         }
         sum
     }
@@ -239,9 +240,9 @@ impl<T: RealNumber> DenseMatrix<T> {
             nrows,
             values: vec![T::zero(); ncols * nrows],
         };
-        for row in 0..nrows {
-            for col in 0..ncols {
-                m.set(row, col, values[row][col]);
+        for (row_index, row) in values.iter().enumerate().take(nrows) {
+            for (col_index, value) in row.iter().enumerate().take(ncols) {
+                m.set(row_index, col_index, *value);
             }
         }
         m
@@ -259,7 +260,7 @@ impl<T: RealNumber> DenseMatrix<T> {
     /// * `nrows` - number of rows in new matrix.
     /// * `ncols` - number of columns in new matrix.
     /// * `values` - values to initialize the matrix.
-    pub fn from_vec(nrows: usize, ncols: usize, values: &Vec<T>) -> DenseMatrix<T> {
+    pub fn from_vec(nrows: usize, ncols: usize, values: &[T]) -> DenseMatrix<T> {
         let mut m = DenseMatrix {
             ncols,
             nrows,
@@ -543,8 +544,8 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn get_row(&self, row: usize) -> Self::RowVector {
         let mut v = vec![T::zero(); self.ncols];
 
-        for c in 0..self.ncols {
-            v[c] = self.get(row, c);
+        for (c, v_c) in v.iter_mut().enumerate().take(self.ncols) {
+            *v_c = self.get(row, c);
         }
 
         v
@@ -552,29 +553,29 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
         let mut result = vec![T::zero(); self.ncols];
-        for c in 0..self.ncols {
-            result[c] = self.get(row, c);
+        for (c, result_c) in result.iter_mut().enumerate().take(self.ncols) {
+            *result_c = self.get(row, c);
         }
         result
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
-        for c in 0..self.ncols {
-            result[c] = self.get(row, c);
+        for (c, result_c) in result.iter_mut().enumerate().take(self.ncols) {
+            *result_c = self.get(row, c);
         }
     }
 
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
         let mut result = vec![T::zero(); self.nrows];
-        for r in 0..self.nrows {
-            result[r] = self.get(r, col);
+        for (r, result_r) in result.iter_mut().enumerate().take(self.nrows) {
+            *result_r = self.get(r, col);
         }
         result
     }
 
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
-        for r in 0..self.nrows {
-            result[r] = self.get(r, col);
+        for (r, result_r) in result.iter_mut().enumerate().take(self.nrows) {
+            *result_r = self.get(r, col);
         }
     }
 
@@ -836,13 +837,13 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         let mut mean = vec![T::zero(); self.ncols];
 
         for r in 0..self.nrows {
-            for c in 0..self.ncols {
-                mean[c] += self.get(r, c);
+            for (c, mean_c) in mean.iter_mut().enumerate().take(self.ncols) {
+                *mean_c += self.get(r, c);
             }
         }
 
-        for i in 0..mean.len() {
-            mean[i] /= T::from(self.nrows).unwrap();
+        for mean_i in mean.iter_mut() {
+            *mean_i /= T::from(self.nrows).unwrap();
         }
 
         mean
@@ -989,7 +990,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn argmax(&self) -> Vec<usize> {
         let mut res = vec![0usize; self.nrows];
 
-        for r in 0..self.nrows {
+        for (r, res_r) in res.iter_mut().enumerate().take(self.nrows) {
             let mut max = T::neg_infinity();
             let mut max_pos = 0usize;
             for c in 0..self.ncols {
@@ -999,7 +1000,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
                     max_pos = c;
                 }
             }
-            res[r] = max_pos;
+            *res_r = max_pos;
         }
 
         res

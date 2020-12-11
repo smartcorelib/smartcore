@@ -119,9 +119,9 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
         let mut yi: Vec<usize> = vec![0; y_n];
         let classes = y_m.unique();
 
-        for i in 0..y_n {
+        for (i, yi_i) in yi.iter_mut().enumerate().take(y_n) {
             let yc = y_m.get(0, i);
-            yi[i] = classes.iter().position(|c| yc == *c).unwrap();
+            *yi_i = classes.iter().position(|c| yc == *c).unwrap();
         }
 
         if x_n != y_n {

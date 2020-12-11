@@ -228,9 +228,9 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
 
         let mut yi: Vec<usize> = vec![0; y_nrows];
 
-        for i in 0..y_nrows {
+        for (i, yi_i) in yi.iter_mut().enumerate().take(y_nrows) {
             let yc = y_m.get(0, i);
-            yi[i] = classes.iter().position(|c| yc == *c).unwrap();
+            *yi_i = classes.iter().position(|c| yc == *c).unwrap();
         }
 
         match k.cmp(&2) {
@@ -291,11 +291,11 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
         if self.num_classes == 2 {
             let y_hat: Vec<T> = x.ab(false, &self.coefficients, true).get_col_as_vec(0);
             let intercept = self.intercept.get(0, 0);
-            for i in 0..n {
+            for (i, y_hat_i) in y_hat.iter().enumerate().take(n) {
                 result.set(
                     0,
                     i,
-                    self.classes[if (y_hat[i] + intercept).sigmoid() > T::half() {
+                    self.classes[if (*y_hat_i + intercept).sigmoid() > T::half() {
                         1
                     } else {
                         0
@@ -310,8 +310,8 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
                 }
             }
             let class_idxs = y_hat.argmax();
-            for i in 0..n {
-                result.set(0, i, self.classes[class_idxs[i]]);
+            for (i, class_i) in class_idxs.iter().enumerate().take(n) {
+                result.set(0, i, self.classes[*class_i]);
             }
         }
         Ok(result.to_row_vector())
