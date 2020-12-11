@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -259,7 +260,7 @@ impl<T: RealNumber> DenseMatrix<T> {
     /// * `nrows` - number of rows in new matrix.
     /// * `ncols` - number of columns in new matrix.
     /// * `values` - values to initialize the matrix.
-    pub fn from_vec(nrows: usize, ncols: usize, values: &Vec<T>) -> DenseMatrix<T> {
+    pub fn from_vec(nrows: usize, ncols: usize, values: &[T]) -> DenseMatrix<T> {
         let mut m = DenseMatrix {
             ncols,
             nrows,

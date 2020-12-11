@@ -187,17 +187,17 @@ impl<T: RealNumber> Node<T> {
 
 struct NodeVisitor<'a, T: RealNumber, M: Matrix<T>> {
     x: &'a M,
-    y: &'a Vec<usize>,
+    y: &'a [usize],
     node: usize,
     samples: Vec<usize>,
-    order: &'a Vec<Vec<usize>>,
+    order: &'a [Vec<usize>],
     true_child_output: usize,
     false_child_output: usize,
     level: u16,
     phantom: PhantomData<&'a T>,
 }
 
-fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &Vec<usize>, n: usize) -> T {
+fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &[usize], n: usize) -> T {
     let mut impurity = T::zero();
 
     match criterion {
@@ -236,9 +236,9 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
     fn new(
         node_id: usize,
         samples: Vec<usize>,
-        order: &'a Vec<Vec<usize>>,
+        order: &'a [Vec<usize>],
         x: &'a M,
-        y: &'a Vec<usize>,
+        y: &'a [usize],
         level: u16,
     ) -> Self {
         NodeVisitor {

@@ -192,7 +192,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         which_max(&result)
     }
 
-    fn sample_with_replacement(y: &Vec<usize>, num_classes: usize) -> Vec<usize> {
+    fn sample_with_replacement(y: &[usize], num_classes: usize) -> Vec<usize> {
         let mut rng = rand::thread_rng();
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();

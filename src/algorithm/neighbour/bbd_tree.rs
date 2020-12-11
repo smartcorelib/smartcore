@@ -61,7 +61,7 @@ impl<T: RealNumber> BBDTree<T> {
 
     pub(in crate) fn clustering(
         &self,
-        centroids: &Vec<Vec<T>>,
+        centroids: &[Vec<T>],
         sums: &mut Vec<Vec<T>>,
         counts: &mut Vec<usize>,
         membership: &mut Vec<usize>,
@@ -89,8 +89,8 @@ impl<T: RealNumber> BBDTree<T> {
     fn filter(
         &self,
         node: usize,
-        centroids: &Vec<Vec<T>>,
-        candidates: &Vec<usize>,
+        centroids: &[Vec<T>],
+        candidates: &[usize],
         k: usize,
         sums: &mut Vec<Vec<T>>,
         counts: &mut Vec<usize>,
@@ -163,9 +163,9 @@ impl<T: RealNumber> BBDTree<T> {
     }
 
     fn prune(
-        center: &Vec<T>,
-        radius: &Vec<T>,
-        centroids: &Vec<Vec<T>>,
+        center: &[T],
+        radius: &[T],
+        centroids: &[Vec<T>],
         best_index: usize,
         test_index: usize,
     ) -> bool {
@@ -292,7 +292,7 @@ impl<T: RealNumber> BBDTree<T> {
         self.add_node(node)
     }
 
-    fn node_cost(node: &BBDTreeNode<T>, center: &Vec<T>) -> T {
+    fn node_cost(node: &BBDTreeNode<T>, center: &[T]) -> T {
         let d = center.len();
         let mut scatter = T::zero();
         for (i, center_i) in center.iter().enumerate().take(d) {

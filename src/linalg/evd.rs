@@ -402,7 +402,7 @@ fn elmhes<T: RealNumber, M: BaseMatrix<T>>(A: &mut M) -> Vec<usize> {
     perm
 }
 
-fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &Vec<usize>) {
+fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &[usize]) {
     let (n, _) = A.shape();
     for mp in (1..n - 1).rev() {
         for k in mp + 1..n {
@@ -774,7 +774,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
     }
 }
 
-fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &Vec<T>) {
+fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &[T]) {
     let (n, _) = V.shape();
     for (i, scale_i) in scale.iter().enumerate().take(n) {
         for j in 0..n {

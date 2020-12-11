@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 use std::collections::HashMap;
 
 use crate::math::num::RealNumber;
@@ -23,7 +24,7 @@ pub fn contingency_matrix<T: RealNumber>(
     contingency_matrix
 }
 
-pub fn entropy<T: RealNumber>(data: &Vec<T>) -> Option<T> {
+pub fn entropy<T: RealNumber>(data: &[T]) -> Option<T> {
     let mut bincounts = HashMap::with_capacity(data.len());
 
     for e in data.iter() {
@@ -44,7 +45,7 @@ pub fn entropy<T: RealNumber>(data: &Vec<T>) -> Option<T> {
     Some(entropy)
 }
 
-pub fn mutual_info_score<T: RealNumber>(contingency: &Vec<Vec<usize>>) -> T {
+pub fn mutual_info_score<T: RealNumber>(contingency: &[Vec<usize>]) -> T {
     let mut contingency_sum = 0;
     let mut pi = vec![0; contingency.len()];
     let mut pj = vec![0; contingency[0].len()];

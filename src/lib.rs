@@ -1,5 +1,4 @@
 #![allow(
-    clippy::ptr_arg,
     clippy::type_complexity,
     clippy::too_many_arguments,
     clippy::many_single_char_names

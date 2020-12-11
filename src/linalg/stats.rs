@@ -84,7 +84,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
     }
 
     /// standardize values by removing the mean and scaling to unit variance
-    fn scale_mut(&mut self, mean: &Vec<T>, std: &Vec<T>, axis: u8) {
+    fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8) {
         let (n, m) = match axis {
             0 => {
                 let (n, m) = self.shape();
