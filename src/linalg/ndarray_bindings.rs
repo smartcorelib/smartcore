@@ -176,6 +176,10 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
         result.dedup();
         result
     }
+
+    fn copy_from(&mut self, other: &Self) {
+        self.assign(&other);
+    }
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
@@ -535,6 +539,16 @@ mod tests {
 
         assert_eq!(result, expected);
         assert_eq!(5., BaseVector::get(&result, 1));
+    }
+
+    #[test]
+    fn vec_copy_from() {
+        let mut v1 = arr1(&[1., 2., 3.]);
+        let mut v2 = arr1(&[4., 5., 6.]);
+        v1.copy_from(&v2);
+        assert_eq!(v1, v2);
+        v2[0] = 10.0;
+        assert_ne!(v1, v2);
     }
 
     #[test]

@@ -176,6 +176,20 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
         result.dedup();
         result
     }
+
+    fn copy_from(&mut self, other: &Self) {
+        if self.len() != other.len() {
+            panic!(
+                "Can't copy vector of length {} into a vector of length {}.",
+                self.len(),
+                other.len()
+            );
+        }
+
+        for i in 0..self.len() {
+            self[i] = other[i];
+        }
+    }
 }
 
 /// Column-major, dense matrix. See [Simple Dense Matrix](../index.html).

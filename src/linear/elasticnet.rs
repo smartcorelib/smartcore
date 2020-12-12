@@ -1,24 +1,10 @@
-//! # Lasso
+//! # Elastic Net
 //!
-//! [Linear regression](../linear_regression/index.html) is the standard algorithm for predicting a quantitative response \\(y\\) on the basis of a linear combination of explanatory variables \\(X\\)
-//! that assumes that there is approximately a linear relationship between \\(X\\) and \\(y\\).
-//! Lasso is an extension to linear regression that adds L1 regularization term to the loss function during training.
-//!
-//! Similar to [ridge regression](../ridge_regression/index.html), the lasso shrinks the coefficient estimates towards zero when. However, in the case of the lasso, the l1 penalty has the effect of
-//! forcing some of the coefficient estimates to be exactly equal to zero when the tuning parameter \\(\alpha\\) is sufficiently large.
-//!
-//! Lasso coefficient estimates solve the problem:
-//!
-//! \\[\underset{\beta}{minimize} \space \space \sum_{i=1}^n \left( y_i - \beta_0 - \sum_{j=1}^p \beta_jx_{ij} \right)^2 + \alpha \sum_{j=1}^p \lVert \beta_j \rVert_1\\]
-//!
-//! This problem is solved with an interior-point method that is comparable to coordinate descent in solving large problems with modest accuracy,
-//! but is able to solve them with high accuracy with relatively small additional computational cost.
 //!
 //! ## References:
 //!
 //! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 6.2. Shrinkage Methods](http://faculty.marshall.usc.edu/gareth-james/ISL/)
-//! * ["An Interior-Point Method for Large-Scale l1-Regularized Least Squares",  K. Koh, M. Lustig, S. Boyd, D. Gorinevsky](https://web.stanford.edu/~boyd/papers/pdf/l1_ls.pdf)
-//! * [Simple Matlab Solver for l1-regularized Least Squares Problems](https://web.stanford.edu/~boyd/l1_ls/)
+//! * ["Regularization and variable selection via the elastic net",  Hui Zou and Trevor Hastie](https://web.stanford.edu/~hastie/Papers/B67.2%20(2005)%20301-320%20Zou%20&%20Hastie.pdf)
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -29,34 +15,32 @@ use serde::{Deserialize, Serialize};
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
-use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 use crate::math::num::RealNumber;
 
-/// Lasso regression parameters
+use crate::linear::lasso_optimizer::InteriorPointOptimizer;
+
+/// Ridge Regression parameters
 #[derive(Serialize, Deserialize, Debug)]
-pub struct LassoParameters<T: RealNumber> {
-    /// Controls the strength of the penalty to the loss function.
+pub struct ElasticNetParameters<T: RealNumber> {
     pub alpha: T,
-    /// If true the regressors X will be normalized before regression
-    /// by subtracting the mean and dividing by the standard deviation.
+    pub l1_ratio: T,
     pub normalize: bool,
-    /// The tolerance for the optimization
     pub tol: T,
-    /// The maximum number of iterations
     pub max_iter: usize,
 }
 
+/// Ridge regression
 #[derive(Serialize, Deserialize, Debug)]
-/// Lasso regressor
-pub struct Lasso<T: RealNumber, M: Matrix<T>> {
+pub struct ElasticNet<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
 }
 
-impl<T: RealNumber> Default for LassoParameters<T> {
+impl<T: RealNumber> Default for ElasticNetParameters<T> {
     fn default() -> Self {
-        LassoParameters {
+        ElasticNetParameters {
             alpha: T::one(),
+            l1_ratio: T::half(),
             normalize: true,
             tol: T::from_f64(1e-4).unwrap(),
             max_iter: 1000,
@@ -64,62 +48,48 @@ impl<T: RealNumber> Default for LassoParameters<T> {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> PartialEq for Lasso<T, M> {
+impl<T: RealNumber, M: Matrix<T>> PartialEq for ElasticNet<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
-    /// Fits Lasso regression to your data.
+impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
+    /// Fits ridge regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
         x: &M,
         y: &M::RowVector,
-        parameters: LassoParameters<T>,
-    ) -> Result<Lasso<T, M>, Failed> {
+        parameters: ElasticNetParameters<T>,
+    ) -> Result<ElasticNet<T, M>, Failed> {
         let (n, p) = x.shape();
-
-        if n <= p {
-            return Err(Failed::fit(
-                "Number of rows in X should be >= number of columns in X",
-            ));
-        }
-
-        if parameters.alpha < T::zero() {
-            return Err(Failed::fit("alpha should be >= 0"));
-        }
-
-        if parameters.tol <= T::zero() {
-            return Err(Failed::fit("tol should be > 0"));
-        }
-
-        if parameters.max_iter == 0 {
-            return Err(Failed::fit("max_iter should be > 0"));
-        }
 
         if y.len() != n {
             return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
 
+        let n_float = T::from_usize(n).unwrap();
+
+        let l1_reg = parameters.alpha * parameters.l1_ratio * n_float;
+        let l2_reg = parameters.alpha * (T::one() - parameters.l1_ratio) * n_float;
+
+        let y_mean = y.mean();
+
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
 
-            let mut optimizer = InteriorPointOptimizer::new(&scaled_x, p);
+            let (x, y, gamma) = Self::augment_X_and_y(&scaled_x, y, l2_reg);
 
-            let mut w = optimizer.optimize(
-                &scaled_x,
-                y,
-                parameters.alpha,
-                parameters.max_iter,
-                parameters.tol,
-            )?;
+            let mut optimizer = InteriorPointOptimizer::new(&x, p);
 
-            for j in 0..p {
-                w.set(j, 0, w.get(j, 0) / col_std[j]);
+            let mut w =
+                optimizer.optimize(&x, &y, l1_reg * gamma, parameters.max_iter, parameters.tol)?;
+
+            for i in 0..p {
+                w.set(i, 0, gamma * w.get(i, 0) / col_std[i]);
             }
 
             let mut b = T::zero();
@@ -128,18 +98,25 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
                 b += w.get(i, 0) * col_mean[i];
             }
 
-            b = y.mean() - b;
+            b = y_mean - b;
+
             (w, b)
         } else {
-            let mut optimizer = InteriorPointOptimizer::new(x, p);
+            let (x, y, gamma) = Self::augment_X_and_y(x, y, l2_reg);
 
-            let w =
-                optimizer.optimize(x, y, parameters.alpha, parameters.max_iter, parameters.tol)?;
+            let mut optimizer = InteriorPointOptimizer::new(&x, p);
 
-            (w, y.mean())
+            let mut w =
+                optimizer.optimize(&x, &y, l1_reg * gamma, parameters.max_iter, parameters.tol)?;
+
+            for i in 0..p {
+                w.set(i, 0, gamma * w.get(i, 0));
+            }
+
+            (w, y_mean)
         };
 
-        Ok(Lasso {
+        Ok(ElasticNet {
             intercept: b,
             coefficients: w,
         })
@@ -181,6 +158,30 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
         scaled_x.scale_mut(&col_mean, &col_std, 0);
         Ok((scaled_x, col_mean, col_std))
     }
+
+    fn augment_X_and_y(x: &M, y: &M::RowVector, l2_reg: T) -> (M, M::RowVector, T) {
+        let (n, p) = x.shape();
+
+        let gamma = T::one() / (T::one() + l2_reg).sqrt();
+        let padding = gamma * l2_reg.sqrt();
+
+        let mut y2 = M::RowVector::zeros(n + p);
+        for i in 0..y.len() {
+            y2.set(i, y.get(i));
+        }
+
+        let mut x2 = M::zeros(n + p, p);
+
+        for j in 0..p {
+            for i in 0..n {
+                x2.set(i, j, gamma * x.get(i, j));
+            }
+
+            x2.set(j + n, j, padding);
+        }
+
+        (x2, y2, gamma)
+    }
 }
 
 #[cfg(test)]
@@ -190,7 +191,7 @@ mod tests {
     use crate::metrics::mean_absolute_error;
 
     #[test]
-    fn lasso_fit_predict() {
+    fn elasticnet_longley() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
             &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
@@ -215,26 +216,12 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let y_hat = Lasso::fit(
+        let y_hat = ElasticNet::fit(
             &x,
             &y,
-            LassoParameters {
-                alpha: 0.1,
-                normalize: true,
-                tol: 1e-4,
-                max_iter: 1000,
-            },
-        )
-        .and_then(|lr| lr.predict(&x))
-        .unwrap();
-
-        assert!(mean_absolute_error(&y_hat, &y) < 2.0);
-
-        let y_hat = Lasso::fit(
-            &x,
-            &y,
-            LassoParameters {
-                alpha: 0.1,
+            ElasticNetParameters {
+                alpha: 1.0,
+                l1_ratio: 0.5,
                 normalize: false,
                 tol: 1e-4,
                 max_iter: 1000,
@@ -243,7 +230,73 @@ mod tests {
         .and_then(|lr| lr.predict(&x))
         .unwrap();
 
-        assert!(mean_absolute_error(&y_hat, &y) < 2.0);
+        assert!(mean_absolute_error(&y_hat, &y) < 30.0);
+    }
+
+    #[test]
+    fn elasticnet_fit_predict1() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[0.0, 1931.0, 1.2232755825400514],
+            &[1.0, 1933.0, 1.1379726120972395],
+            &[2.0, 1920.0, 1.4366265120543429],
+            &[3.0, 1918.0, 1.206005737827858],
+            &[4.0, 1934.0, 1.436613542400669],
+            &[5.0, 1918.0, 1.1594588621640636],
+            &[6.0, 1933.0, 1.19809994745985],
+            &[7.0, 1918.0, 1.3396363871645678],
+            &[8.0, 1931.0, 1.2535342096493207],
+            &[9.0, 1933.0, 1.3101281563456293],
+            &[10.0, 1922.0, 1.3585833349920762],
+            &[11.0, 1930.0, 1.4830786699709897],
+            &[12.0, 1916.0, 1.4919891143094546],
+            &[13.0, 1915.0, 1.259655137451551],
+            &[14.0, 1932.0, 1.3979191428724789],
+            &[15.0, 1917.0, 1.3686634746782371],
+            &[16.0, 1932.0, 1.381658454569724],
+            &[17.0, 1918.0, 1.4054969025700674],
+            &[18.0, 1929.0, 1.3271699396384906],
+            &[19.0, 1915.0, 1.1373332337674806],
+        ]);
+
+        let y: Vec<f64> = vec![
+            1.48, 2.72, 4.52, 5.72, 5.25, 4.07, 3.75, 4.75, 6.77, 4.72, 6.78, 6.79, 8.3, 7.42,
+            10.2, 7.92, 7.62, 8.06, 9.06, 9.29,
+        ];
+
+        let l1_model = ElasticNet::fit(
+            &x,
+            &y,
+            ElasticNetParameters {
+                alpha: 1.0,
+                l1_ratio: 1.0,
+                normalize: true,
+                tol: 1e-4,
+                max_iter: 1000,
+            },
+        )
+        .unwrap();
+
+        let l2_model = ElasticNet::fit(
+            &x,
+            &y,
+            ElasticNetParameters {
+                alpha: 1.0,
+                l1_ratio: 0.0,
+                normalize: true,
+                tol: 1e-4,
+                max_iter: 1000,
+            },
+        )
+        .unwrap();
+
+        let mae_l1 = mean_absolute_error(&l1_model.predict(&x).unwrap(), &y);
+        let mae_l2 = mean_absolute_error(&l2_model.predict(&x).unwrap(), &y);
+
+        assert!(mae_l1 < 2.0);
+        assert!(mae_l2 < 2.0);
+
+        assert!(l1_model.coefficients().get(0, 0) > l1_model.coefficients().get(1, 0));
+        assert!(l1_model.coefficients().get(0, 0) > l1_model.coefficients().get(2, 0));
     }
 
     #[test]
@@ -272,9 +325,9 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let lr = Lasso::fit(&x, &y, Default::default()).unwrap();
+        let lr = ElasticNet::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: Lasso<f64, DenseMatrix<f64>> =
+        let deserialized_lr: ElasticNet<f64, DenseMatrix<f64>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);
