@@ -30,7 +30,7 @@ pub struct Euclidian {}
 
 impl Euclidian {
     #[inline]
-    pub(crate) fn squared_distance<T: RealNumber>(x: &Vec<T>, y: &Vec<T>) -> T {
+    pub(crate) fn squared_distance<T: RealNumber>(x: &[T], y: &[T]) -> T {
         if x.len() != y.len() {
             panic!("Input vector sizes are different.");
         }

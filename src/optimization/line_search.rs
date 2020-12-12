@@ -41,7 +41,7 @@ impl<T: Float> Default for Backtracking<T> {
 }
 
 impl<T: Float> LineSearchMethod<T> for Backtracking<T> {
-    fn search<'a>(
+    fn search(
         &self,
         f: &(dyn Fn(T) -> T),
         _: &(dyn Fn(T) -> T),

@@ -44,10 +44,7 @@ impl<T: RealNumber> BBDTree<T> {
 
         let (n, _) = data.shape();
 
-        let mut index = vec![0; n];
-        for i in 0..n {
-            index[i] = i;
-        }
+        let index = (0..n).collect::<Vec<_>>();
 
         let mut tree = BBDTree {
             nodes,
@@ -64,7 +61,7 @@ impl<T: RealNumber> BBDTree<T> {
 
     pub(in crate) fn clustering(
         &self,
-        centroids: &Vec<Vec<T>>,
+        centroids: &[Vec<T>],
         sums: &mut Vec<Vec<T>>,
         counts: &mut Vec<usize>,
         membership: &mut Vec<usize>,
@@ -92,8 +89,8 @@ impl<T: RealNumber> BBDTree<T> {
     fn filter(
         &self,
         node: usize,
-        centroids: &Vec<Vec<T>>,
-        candidates: &Vec<usize>,
+        centroids: &[Vec<T>],
+        candidates: &[usize],
         k: usize,
         sums: &mut Vec<Vec<T>>,
         counts: &mut Vec<usize>,
@@ -117,15 +114,15 @@ impl<T: RealNumber> BBDTree<T> {
             let mut new_candidates = vec![0; k];
             let mut newk = 0;
 
-            for i in 0..k {
+            for candidate in candidates.iter().take(k) {
                 if !BBDTree::prune(
                     &self.nodes[node].center,
                     &self.nodes[node].radius,
                     centroids,
                     closest,
-                    candidates[i],
+                    *candidate,
                 ) {
-                    new_candidates[newk] = candidates[i];
+                    new_candidates[newk] = *candidate;
                     newk += 1;
                 }
             }
@@ -166,9 +163,9 @@ impl<T: RealNumber> BBDTree<T> {
     }
 
     fn prune(
-        center: &Vec<T>,
-        radius: &Vec<T>,
-        centroids: &Vec<Vec<T>>,
+        center: &[T],
+        radius: &[T],
+        centroids: &[Vec<T>],
         best_index: usize,
         test_index: usize,
     ) -> bool {
@@ -285,8 +282,8 @@ impl<T: RealNumber> BBDTree<T> {
         }
 
         let mut mean = vec![T::zero(); d];
-        for i in 0..d {
-            mean[i] = node.sum[i] / T::from(node.count).unwrap();
+        for (i, mean_i) in mean.iter_mut().enumerate().take(d) {
+            *mean_i = node.sum[i] / T::from(node.count).unwrap();
         }
 
         node.cost = BBDTree::node_cost(&self.nodes[node.lower.unwrap()], &mean)
@@ -295,11 +292,11 @@ impl<T: RealNumber> BBDTree<T> {
         self.add_node(node)
     }
 
-    fn node_cost(node: &BBDTreeNode<T>, center: &Vec<T>) -> T {
+    fn node_cost(node: &BBDTreeNode<T>, center: &[T]) -> T {
         let d = center.len();
         let mut scatter = T::zero();
-        for i in 0..d {
-            let x = (node.sum[i] / T::from(node.count).unwrap()) - center[i];
+        for (i, center_i) in center.iter().enumerate().take(d) {
+            let x = (node.sum[i] / T::from(node.count).unwrap()) - *center_i;
             scatter += x * x;
         }
         node.cost + T::from(node.count).unwrap() * scatter

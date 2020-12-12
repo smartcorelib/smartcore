@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 //! # Nearest Neighbors Search Algorithms and Data Structures
 //!
 //! Nearest neighbor search is a basic computational tool that is particularly relevant to machine learning,
