@@ -1,5 +1,51 @@
+#![allow(clippy::needless_range_loop)]
 //! # Elastic Net
 //!
+//! Elastic net is an extension of [linear regression](../linear_regression/index.html) that adds regularization penalties to the loss function during training.
+//! Just like in ordinary linear regression you assume a linear relationship between input variables and the target variable.
+//! Unlike linear regression elastic net adds regularization penalties to the loss function during training.
+//! In particular, the elastic net coefficient estimates \\(\beta\\) are the values that minimize
+//!
+//! \\[L(\alpha, \beta) = \vert \boldsymbol{y} - \boldsymbol{X}\beta\vert^2 + \lambda_1 \vert \beta \vert^2 + \lambda_2 \vert \beta \vert_1\\]
+//!
+//! where \\(\lambda_1 = \\alpha l_{1r}\\), \\(\lambda_2 = \\alpha (1 -  l_{1r})\\) and \\(l_{1r}\\) is the l1 ratio, elastic net mixing parameter.
+//!
+//! In essense, elastic net combines both the [L1](../lasso/index.html) and [L2](../ridge_regression/index.html) penalties during training,
+//! which can result in better performance than a model with either one or the other penalty on some problems.
+//! The elastic net is particularly useful when the number of predictors (p) is much bigger than the number of observations (n).
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linear::elastic_net::*;
+//!
+//! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
+//! let x = DenseMatrix::from_2d_array(&[
+//!               &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
+//!               &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+//!               &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+//!               &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
+//!               &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+//!               &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
+//!               &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
+//!               &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
+//!               &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+//!               &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
+//!               &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+//!               &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
+//!               &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+//!               &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+//!               &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+//!               &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+//!          ]);
+//!
+//! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
+//!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
+//!
+//! let y_hat = ElasticNet::fit(&x, &y, Default::default()).
+//!                 and_then(|lr| lr.predict(&x)).unwrap();
+//! ```
 //!
 //! ## References:
 //!
@@ -19,17 +65,24 @@ use crate::math::num::RealNumber;
 
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 
-/// Ridge Regression parameters
+/// Elastic net parameters
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ElasticNetParameters<T: RealNumber> {
+    /// Regularization parameter.
     pub alpha: T,
+    /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
+    /// For l1_ratio = 0 the penalty is an L2 penalty.
+    /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     pub l1_ratio: T,
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
+    /// The tolerance for the optimization
     pub tol: T,
+    /// The maximum number of iterations
     pub max_iter: usize,
 }
 
-/// Ridge regression
+/// Elastic net
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ElasticNet<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
@@ -56,7 +109,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for ElasticNet<T, M> {
 }
 
 impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
-    /// Fits ridge regression to your data.
+    /// Fits elastic net regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
@@ -81,7 +134,7 @@ impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
 
-            let (x, y, gamma) = Self::augment_X_and_y(&scaled_x, y, l2_reg);
+            let (x, y, gamma) = Self::augment_x_and_y(&scaled_x, y, l2_reg);
 
             let mut optimizer = InteriorPointOptimizer::new(&x, p);
 
@@ -102,7 +155,7 @@ impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
 
             (w, b)
         } else {
-            let (x, y, gamma) = Self::augment_X_and_y(x, y, l2_reg);
+            let (x, y, gamma) = Self::augment_x_and_y(x, y, l2_reg);
 
             let mut optimizer = InteriorPointOptimizer::new(&x, p);
 
@@ -159,7 +212,7 @@ impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
         Ok((scaled_x, col_mean, col_std))
     }
 
-    fn augment_X_and_y(x: &M, y: &M::RowVector, l2_reg: T) -> (M, M::RowVector, T) {
+    fn augment_x_and_y(x: &M, y: &M::RowVector, l2_reg: T) -> (M, M::RowVector, T) {
         let (n, p) = x.shape();
 
         let gamma = T::one() / (T::one() + l2_reg).sqrt();

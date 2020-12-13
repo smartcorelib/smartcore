@@ -187,9 +187,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
             );
         }
 
-        for i in 0..self.len() {
-            self[i] = other[i];
-        }
+        self[..].clone_from_slice(&other[..]);
     }
 }
 
@@ -929,9 +927,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             );
         }
 
-        for i in 0..self.values.len() {
-            self.values[i] = other.values[i];
-        }
+        self.values[..].clone_from_slice(&other.values[..]);
     }
 
     fn abs_mut(&mut self) -> &Self {
@@ -1067,6 +1063,14 @@ mod tests {
     }
 
     #[test]
+    fn vec_copy_from() {
+        let mut v1 = vec![1., 2., 3.];
+        let v2 = vec![4., 5., 6.];
+        v1.copy_from(&v2);
+        assert_eq!(v1, v2);
+    }
+
+    #[test]
     fn vec_approximate_eq() {
         let a = vec![1., 2., 3.];
         let b = vec![1. + 1e-5, 2. + 2e-5, 3. + 3e-5];
@@ -1197,6 +1201,14 @@ mod tests {
         let a = DenseMatrix::from_array(1, 3, &[1., 2., 3.]);
         let b = DenseMatrix::from_array(1, 3, &[4., 5., 6.]);
         assert_eq!(a.dot(&b), 32.);
+    }
+
+    #[test]
+    fn copy_from() {
+        let mut a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
+        let b = DenseMatrix::from_2d_array(&[&[7., 8.], &[9., 10.], &[11., 12.]]);
+        a.copy_from(&b);
+        assert_eq!(a, b);
     }
 
     #[test]

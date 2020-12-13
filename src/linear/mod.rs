@@ -21,7 +21,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 pub(crate) mod bg_solver;
-pub mod elasticnet;
+pub mod elastic_net;
 pub mod lasso;
 pub(crate) mod lasso_optimizer;
 pub mod linear_regression;
