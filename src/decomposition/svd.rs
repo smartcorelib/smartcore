@@ -2,7 +2,7 @@
 //!
 //! Similar to [`PCA`](../pca/index.html), SVD is a technique that can be used to reduce the number of input variables _p_ to a smaller number _k_, while preserving
 //! the most important structure or relationships between the variables observed in the data.
-//! 
+//!
 //! Contrary to PCA, SVD does not center the data before computing the singular value decomposition.
 //!
 //! Example:
