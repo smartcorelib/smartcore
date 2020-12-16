@@ -47,7 +47,7 @@ use std::ops::Range;
 use std::ops::SubAssign;
 
 use ndarray::ScalarOperand;
-use ndarray::{s, stack, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
+use ndarray::{concatenate, s, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
@@ -246,11 +246,11 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn h_stack(&self, other: &Self) -> Self {
-        stack(Axis(1), &[self.view(), other.view()]).unwrap()
+        concatenate(Axis(1), &[self.view(), other.view()]).unwrap()
     }
 
     fn v_stack(&self, other: &Self) -> Self {
-        stack(Axis(0), &[self.view(), other.view()]).unwrap()
+        concatenate(Axis(0), &[self.view(), other.view()]).unwrap()
     }
 
     fn matmul(&self, other: &Self) -> Self {
