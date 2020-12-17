@@ -108,6 +108,13 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
     ) -> Result<PCA<T, M>, Failed> {
         let (m, n) = data.shape();
 
+        if n_components > n {
+            return Err(Failed::fit(&format!(
+                "Number of components, n_components should be <= number of attributes ({})",
+                n
+            )));
+        }
+
         let mu = data.column_mean();
 
         let mut x = data.clone();
@@ -224,6 +231,11 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
         }
         Ok(x_transformed)
     }
+
+    /// Get a projection matrix
+    pub fn components(&self) -> &M {
+        &self.projection
+    }
 }
 
 #[cfg(test)]
@@ -284,6 +296,22 @@ mod tests {
             &[2.6, 53.0, 66.0, 10.8],
             &[6.8, 161.0, 60.0, 15.6],
         ])
+    }
+
+    #[test]
+    fn pca_components() {
+        let us_arrests = us_arrests_data();
+
+        let expected = DenseMatrix::from_2d_array(&[
+            &[0.0417, 0.0448],
+            &[0.9952, 0.0588],
+            &[0.0463, 0.9769],
+            &[0.0752, 0.2007],
+        ]);
+
+        let pca = PCA::fit(&us_arrests, 2, Default::default()).unwrap();
+
+        assert!(expected.approximate_eq(&pca.components().abs(), 0.4));
     }
 
     #[test]
