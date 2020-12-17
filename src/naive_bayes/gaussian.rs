@@ -74,7 +74,7 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for GaussianNBDistributio
 }
 
 /// `GaussianNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct GaussianNBParameters<T: RealNumber> {
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<T>>,
