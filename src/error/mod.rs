@@ -12,6 +12,7 @@ pub struct Failed {
 }
 
 /// Type of error
+#[non_exhaustive]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum FailedError {
     /// Can't fit algorithm to data
