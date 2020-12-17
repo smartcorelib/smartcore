@@ -181,6 +181,10 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
         result.dedup();
         result
     }
+
+    fn copy_from(&mut self, other: &Self) {
+        Matrix::copy_from(self, other);
+    }
 }
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
@@ -574,6 +578,16 @@ mod tests {
     use super::*;
     use crate::linear::linear_regression::*;
     use nalgebra::{DMatrix, Matrix2x3, RowDVector};
+
+    #[test]
+    fn vec_copy_from() {
+        let mut v1 = RowDVector::from_vec(vec![1., 2., 3.]);
+        let mut v2 = RowDVector::from_vec(vec![4., 5., 6.]);
+        v1.copy_from(&v2);
+        assert_eq!(v2, v1);
+        v2[0] = 10.0;
+        assert_ne!(v2, v1);
+    }
 
     #[test]
     fn vec_len() {

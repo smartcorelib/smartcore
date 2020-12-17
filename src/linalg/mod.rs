@@ -271,6 +271,9 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
     fn std(&self) -> T {
         self.var().sqrt()
     }
+
+    /// Copies content of `other` vector.
+    fn copy_from(&mut self, other: &Self);
 }
 
 /// Generic matrix type.
