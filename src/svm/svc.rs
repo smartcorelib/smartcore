@@ -28,7 +28,6 @@
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::linear::linear_regression::*;
 //! use smartcore::svm::Kernels;
 //! use smartcore::svm::svc::{SVC, SVCParameters};
 //!

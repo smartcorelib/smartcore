@@ -1,3 +1,40 @@
+//! # Naive Bayes
+//!
+//! Naive Bayes (NB) is a simple but powerful machine learning algorithm.
+//! Naive Bayes classifier is based on Bayes’ Theorem with an ssumption of conditional independence
+//! between every pair of features given the value of the class variable.
+//!
+//! Bayes’ theorem can be written as
+//!
+//! \\[ P(y | X) = \frac{P(y)P(X| y)}{P(X)} \\]
+//!
+//! where
+//!
+//! * \\(X = (x_1,...x_n)\\) represents the predictors.
+//! * \\(P(y | X)\\) is the probability of class _y_ given the data X
+//! * \\(P(X| y)\\) is the probability of data X given the class _y_.
+//! * \\(P(y)\\) is the probability of class y. This is called the prior probability of y.
+//! * \\(P(y | X)\\) is the probability of the data (regardless of the class value).
+//!
+//! The naive conditional independence assumption let us rewrite this equation as
+//!
+//! \\[ P(y | x_1,...x_n) = \frac{P(y)\prod_{i=1}^nP(x_i|y)}{P(x_1,...x_n)} \\]
+//!
+//!
+//! The denominator can be removed since \\(P(x_1,...x_n)\\) is constrant for all the entries in the dataset.
+//!
+//! \\[ P(y | x_1,...x_n) \propto P(y)\prod_{i=1}^nP(x_i|y) \\]
+//!
+//! To find class y from predictors X we use this equation
+//!
+//! \\[ y = \underset{y}{argmax} P(y)\prod_{i=1}^nP(x_i|y) \\]
+//!
+//! ## References:
+//!
+//! * ["Machine Learning: A Probabilistic Perspective", Kevin P. Murphy, 2012, Chapter 3 ](https://mitpress.mit.edu/books/machine-learning-1)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -64,12 +101,7 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
         Ok(y_hat)
     }
 }
-mod bernoulli;
-mod categorical;
-mod gaussian;
-mod multinomial;
-
-pub use bernoulli::{BernoulliNB, BernoulliNBParameters};
-pub use categorical::{CategoricalNB, CategoricalNBParameters};
-pub use gaussian::{GaussianNB, GaussianNBParameters};
-pub use multinomial::{MultinomialNB, MultinomialNBParameters};
+pub mod bernoulli;
+pub mod categorical;
+pub mod gaussian;
+pub mod multinomial;

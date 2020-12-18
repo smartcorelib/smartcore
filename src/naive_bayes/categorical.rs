@@ -1,3 +1,35 @@
+//! # Categorical Naive Bayes
+//!
+//! Categorical Naive Bayes is a variant of [Naive Bayes](../index.html) for the categorically distributed data.
+//! It assumes that each feature has its own categorical distribution.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::naive_bayes::categorical::CategoricalNB;
+//!
+//! let x = DenseMatrix::from_2d_array(&[
+//!              &[3., 4., 0., 1.],
+//!              &[3., 0., 0., 1.],
+//!              &[4., 4., 1., 2.],
+//!              &[4., 2., 4., 3.],
+//!              &[4., 2., 4., 2.],
+//!              &[4., 1., 1., 0.],
+//!              &[1., 1., 1., 1.],
+//!              &[0., 4., 1., 0.],
+//!              &[0., 3., 2., 1.],
+//!              &[0., 3., 1., 1.],
+//!              &[3., 4., 0., 1.],
+//!              &[3., 4., 2., 4.],
+//!              &[0., 3., 1., 2.],
+//!              &[0., 4., 1., 2.],
+//!          ]);
+//! let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
+//!
+//! let nb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
+//! let y_hat = nb.predict(&x).unwrap();
+//! ```
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;

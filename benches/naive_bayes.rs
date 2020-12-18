@@ -6,7 +6,7 @@ use ndarray::Array2;
 use smartcore::linalg::naive::dense_matrix::DenseMatrix;
 use smartcore::linalg::BaseMatrix;
 use smartcore::linalg::BaseVector;
-use smartcore::naive_bayes::GaussianNB;
+use smartcore::naive_bayes::gaussian::GaussianNB;
 
 pub fn gaussian_naive_bayes_fit_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("GaussianNB::fit");

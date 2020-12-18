@@ -1,3 +1,38 @@
+//! # Bernoulli Naive Bayes
+//!
+//! Bernoulli Naive Bayes classifier is a variant of [Naive Bayes](../index.html) for the data that is distributed according to multivariate Bernoulli distribution.
+//! It is used for discrete data with binary features. One example of a binary feature is a word that occurs in the text or not.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::naive_bayes::bernoulli::BernoulliNB;
+//!
+//! // Training data points are:
+//! // Chinese Beijing Chinese (class: China)
+//! // Chinese Chinese Shanghai (class: China)
+//! // Chinese Macao (class: China)
+//! // Tokyo Japan Chinese (class: Japan)
+//! let x = DenseMatrix::<f64>::from_2d_array(&[
+//!           &[1., 1., 0., 0., 0., 0.],
+//!           &[0., 1., 0., 0., 1., 0.],
+//!           &[0., 1., 0., 1., 0., 0.],
+//!           &[0., 1., 1., 0., 0., 1.],
+//! ]);
+//! let y = vec![0., 0., 0., 1.];
+//!
+//! let nb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
+//!
+//! // Testing data point is:
+//! // Chinese Chinese Chinese Tokyo Japan
+//! let x_test = DenseMatrix::<f64>::from_2d_array(&[&[0., 1., 1., 0., 0., 1.]]);
+//! let y_hat = nb.predict(&x_test).unwrap();
+//! ```
+//!
+//! ## References:
+//!
+//! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
