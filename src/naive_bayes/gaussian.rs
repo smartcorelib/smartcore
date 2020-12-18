@@ -1,3 +1,27 @@
+//! # Gaussian Naive Bayes
+//!
+//! Gaussian Naive Bayes is a variant of [Naive Bayes](../index.html) for the data that follows Gaussian distribution and
+//! it supports continuous valued features conforming to a normal distribution.
+//!
+//! Example:
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::naive_bayes::gaussian::GaussianNB;
+//!
+//! let x = DenseMatrix::from_2d_array(&[
+//!              &[-1., -1.],
+//!              &[-2., -1.],
+//!              &[-3., -2.],
+//!              &[ 1.,  1.],
+//!              &[ 2.,  1.],
+//!              &[ 3.,  2.],
+//!          ]);
+//! let y = vec![1., 1., 1., 2., 2., 2.];
+//!
+//! let nb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
+//! let y_hat = nb.predict(&x).unwrap();
+//! ```
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
