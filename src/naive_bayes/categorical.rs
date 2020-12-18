@@ -215,7 +215,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
 }
 
 /// `CategoricalNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CategoricalNBParameters<T: RealNumber> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,

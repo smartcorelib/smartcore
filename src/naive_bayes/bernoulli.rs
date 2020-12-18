@@ -76,7 +76,7 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
 }
 
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BernoulliNBParameters<T: RealNumber> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
