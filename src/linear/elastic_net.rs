@@ -58,6 +58,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -66,7 +67,7 @@ use crate::math::num::RealNumber;
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 
 /// Elastic net parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElasticNetParameters<T: RealNumber> {
     /// Regularization parameter.
     pub alpha: T,
@@ -105,6 +106,12 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for ElasticNet<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for ElasticNet<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

@@ -49,6 +49,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -103,6 +104,12 @@ impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
             }
             true
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestRegressor<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

@@ -52,7 +52,7 @@ use super::Distance;
 use crate::linalg::Matrix;
 
 /// Mahalanobis distance.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
     /// covariance matrix of the dataset
     pub sigma: M,

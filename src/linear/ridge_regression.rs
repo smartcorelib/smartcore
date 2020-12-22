@@ -63,12 +63,13 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
@@ -78,7 +79,7 @@ pub enum RidgeRegressionSolverName {
 }
 
 /// Ridge Regression parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RidgeRegressionParameters<T: RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
@@ -111,6 +112,12 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for RidgeRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RidgeRegression<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

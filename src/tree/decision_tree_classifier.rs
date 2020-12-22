@@ -71,11 +71,12 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
     /// Split criteria to use when building a tree.
@@ -267,6 +268,12 @@ pub(in crate) fn which_max(x: &[usize]) -> usize {
     }
 
     which
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for DecisionTreeClassifier<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
 }
 
 impl<T: RealNumber> DecisionTreeClassifier<T> {

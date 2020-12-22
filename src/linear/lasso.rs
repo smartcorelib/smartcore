@@ -26,6 +26,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -33,7 +34,7 @@ use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 use crate::math::num::RealNumber;
 
 /// Lasso regression parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LassoParameters<T: RealNumber> {
     /// Controls the strength of the penalty to the loss function.
     pub alpha: T,
@@ -68,6 +69,12 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for Lasso<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for Lasso<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

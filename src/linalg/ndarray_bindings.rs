@@ -36,7 +36,7 @@
 //!             1., 1., 1., 1., 1., 1., 1., 1., 1., 1.
 //!         ]);
 //!
-//! let lr = LogisticRegression::fit(&x, &y).unwrap();
+//! let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = lr.predict(&x).unwrap();
 //! ```
 use std::iter::Sum;
@@ -917,7 +917,7 @@ mod tests {
             0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
         ]);
 
-        let lr = LogisticRegression::fit(&x, &y).unwrap();
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 
         let y_hat = lr.predict(&x).unwrap();
 

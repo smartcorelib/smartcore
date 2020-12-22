@@ -63,7 +63,7 @@
 //! let y = vec![2., 2., 2., 3., 3.];
 //!
 //! // Train classifier
-//! let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default()).unwrap();
+//! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Predict classes
 //! let y_hat = knn.predict(&x).unwrap();
@@ -71,6 +71,7 @@
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
+pub(crate) mod base;
 /// Algorithms for clustering of unlabeled data
 pub mod cluster;
 /// Various datasets

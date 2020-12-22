@@ -9,7 +9,7 @@
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::ensemble::random_forest_classifier::*;
+//! use smartcore::ensemble::random_forest_classifier::RandomForestClassifier;
 //!
 //! // Iris dataset
 //! let x = DenseMatrix::from_2d_array(&[
@@ -51,6 +51,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -114,6 +115,12 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestClassifier<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

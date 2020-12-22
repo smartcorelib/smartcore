@@ -93,16 +93,18 @@ impl Kernels {
 }
 
 /// Linear Kernel
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LinearKernel {}
 
 /// Radial basis function (Gaussian) kernel
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RBFKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,
 }
 
 /// Polynomial kernel
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PolynomialKernel<T: RealNumber> {
     /// degree of the polynomial
     pub degree: T,
@@ -113,6 +115,7 @@ pub struct PolynomialKernel<T: RealNumber> {
 }
 
 /// Sigmoid (hyperbolic tangent) kernel
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SigmoidKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,

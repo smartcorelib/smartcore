@@ -22,6 +22,7 @@
 //! let nb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
@@ -179,6 +180,12 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct GaussianNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, GaussianNBDistribution<T>>,
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for GaussianNB<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> GaussianNB<T, M> {
