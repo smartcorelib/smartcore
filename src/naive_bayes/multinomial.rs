@@ -86,6 +86,16 @@ impl<T: RealNumber> MultinomialNBParameters<T> {
     pub fn new(alpha: T, priors: Option<Vec<T>>) -> Self {
         Self { alpha, priors }
     }
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+        self.priors = Some(priors);
+        self
+    }
 }
 
 impl<T: RealNumber> Default for MultinomialNBParameters<T> {

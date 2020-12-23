@@ -88,6 +88,15 @@ pub struct PCAParameters {
     pub use_correlation_matrix: bool,
 }
 
+impl PCAParameters {
+    /// By default, covariance matrix is used to compute principal components.
+    /// Enable this flag if you want to use correlation matrix instead.
+    pub fn with_use_correlation_matrix(mut self, use_correlation_matrix: bool) -> Self {
+        self.use_correlation_matrix = use_correlation_matrix;
+        self
+    }
+}
+
 impl Default for PCAParameters {
     fn default() -> Self {
         PCAParameters {

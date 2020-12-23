@@ -90,6 +90,36 @@ pub struct ElasticNet<T: RealNumber, M: Matrix<T>> {
     intercept: T,
 }
 
+impl<T: RealNumber> ElasticNetParameters<T> {
+    /// Regularization parameter.
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
+    /// For l1_ratio = 0 the penalty is an L2 penalty.
+    /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
+    pub fn with_l1_ratio(mut self, l1_ratio: T) -> Self {
+        self.l1_ratio = l1_ratio;
+        self
+    }
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+    /// The tolerance for the optimization
+    pub fn with_tol(mut self, tol: T) -> Self {
+        self.tol = tol;
+        self
+    }
+    /// The maximum number of iterations
+    pub fn with_max_iter(mut self, max_iter: usize) -> Self {
+        self.max_iter = max_iter;
+        self
+    }
+}
+
 impl<T: RealNumber> Default for ElasticNetParameters<T> {
     fn default() -> Self {
         ElasticNetParameters {

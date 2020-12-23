@@ -54,6 +54,29 @@ pub struct Lasso<T: RealNumber, M: Matrix<T>> {
     intercept: T,
 }
 
+impl<T: RealNumber> LassoParameters<T> {
+    /// Regularization parameter.
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+    /// The tolerance for the optimization
+    pub fn with_tol(mut self, tol: T) -> Self {
+        self.tol = tol;
+        self
+    }
+    /// The maximum number of iterations
+    pub fn with_max_iter(mut self, max_iter: usize) -> Self {
+        self.max_iter = max_iter;
+        self
+    }
+}
+
 impl<T: RealNumber> Default for LassoParameters<T> {
     fn default() -> Self {
         LassoParameters {

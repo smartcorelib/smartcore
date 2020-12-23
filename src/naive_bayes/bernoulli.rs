@@ -96,6 +96,21 @@ impl<T: RealNumber> BernoulliNBParameters<T> {
             binarize,
         }
     }
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+        self.priors = Some(priors);
+        self
+    }
+    /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
+    pub fn with_binarize(mut self, binarize: T) -> Self {
+        self.binarize = Some(binarize);
+        self
+    }
 }
 
 impl<T: RealNumber> Default for BernoulliNBParameters<T> {

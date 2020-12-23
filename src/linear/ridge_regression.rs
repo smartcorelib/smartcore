@@ -98,6 +98,24 @@ pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
     solver: RidgeRegressionSolverName,
 }
 
+impl<T: RealNumber> RidgeRegressionParameters<T> {
+    /// Regularization parameter.
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Solver to use for estimation of regression coefficients.
+    pub fn with_solver(mut self, solver: RidgeRegressionSolverName) -> Self {
+        self.solver = solver;
+        self
+    }
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+}
+
 impl<T: RealNumber> Default for RidgeRegressionParameters<T> {
     fn default() -> Self {
         RidgeRegressionParameters {

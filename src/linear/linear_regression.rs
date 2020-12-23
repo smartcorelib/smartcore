@@ -93,6 +93,14 @@ pub struct LinearRegression<T: RealNumber, M: Matrix<T>> {
     solver: LinearRegressionSolverName,
 }
 
+impl LinearRegressionParameters {
+    /// Solver to use for estimation of regression coefficients.
+    pub fn with_solver(mut self, solver: LinearRegressionSolverName) -> Self {
+        self.solver = solver;
+        self
+    }
+}
+
 impl Default for LinearRegressionParameters {
     fn default() -> Self {
         LinearRegressionParameters {

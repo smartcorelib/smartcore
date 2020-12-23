@@ -234,7 +234,13 @@ impl<T: RealNumber> CategoricalNBParameters<T> {
             )))
         }
     }
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
 }
+
 impl<T: RealNumber> Default for CategoricalNBParameters<T> {
     fn default() -> Self {
         Self { alpha: T::one() }

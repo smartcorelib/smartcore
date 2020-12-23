@@ -105,6 +105,14 @@ pub struct KMeansParameters {
     pub max_iter: usize,
 }
 
+impl KMeansParameters {
+    /// Maximum number of iterations of the k-means algorithm for a single run.
+    pub fn with_max_iter(mut self, max_iter: usize) -> Self {
+        self.max_iter = max_iter;
+        self
+    }
+}
+
 impl Default for KMeansParameters {
     fn default() -> Self {
         KMeansParameters { max_iter: 100 }

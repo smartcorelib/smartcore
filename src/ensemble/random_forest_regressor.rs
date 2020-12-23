@@ -80,6 +80,34 @@ pub struct RandomForestRegressor<T: RealNumber> {
     trees: Vec<DecisionTreeRegressor<T>>,
 }
 
+impl RandomForestRegressorParameters {
+    /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+    /// The number of trees in the forest.
+    pub fn with_n_trees(mut self, n_trees: usize) -> Self {
+        self.n_trees = n_trees;
+        self
+    }
+    /// Number of random sample of predictors to use as split candidates.
+    pub fn with_m(mut self, m: usize) -> Self {
+        self.m = Some(m);
+        self
+    }
+}
+
 impl Default for RandomForestRegressorParameters {
     fn default() -> Self {
         RandomForestRegressorParameters {

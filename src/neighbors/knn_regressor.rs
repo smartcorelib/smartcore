@@ -82,9 +82,17 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressorParameters<T, D> {
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
-    pub fn with_distance(mut self, distance: D) -> Self {
-        self.distance = distance;
-        self
+    pub fn with_distance<DD: Distance<Vec<T>, T>>(
+        self,
+        distance: DD,
+    ) -> KNNRegressorParameters<T, DD> {
+        KNNRegressorParameters {
+            distance,
+            algorithm: self.algorithm,
+            weight: self.weight,
+            k: self.k,
+            t: PhantomData,
+        }
     }
     /// backend search algorithm. See [`knn search algorithms`](../../algorithm/neighbour/index.html). `CoverTree` is default.
     pub fn with_algorithm(mut self, algorithm: KNNAlgorithmName) -> Self {

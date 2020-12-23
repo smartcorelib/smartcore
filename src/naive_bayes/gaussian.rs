@@ -86,6 +86,11 @@ impl<T: RealNumber> GaussianNBParameters<T> {
     pub fn new(priors: Option<Vec<T>>) -> Self {
         Self { priors }
     }
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+        self.priors = Some(priors);
+        self
+    }
 }
 
 impl<T: RealNumber> GaussianNBDistribution<T> {

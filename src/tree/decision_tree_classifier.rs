@@ -161,6 +161,29 @@ impl<T: RealNumber> PartialEq for Node<T> {
     }
 }
 
+impl DecisionTreeClassifierParameters {
+    /// Split criteria to use when building a tree.
+    pub fn with_criterion(mut self, criterion: SplitCriterion) -> Self {
+        self.criterion = criterion;
+        self
+    }
+    /// The maximum depth of the tree.
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node.
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node.
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+}
+
 impl Default for DecisionTreeClassifierParameters {
     fn default() -> Self {
         DecisionTreeClassifierParameters {
