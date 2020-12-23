@@ -188,7 +188,7 @@ pub struct MultinomialNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, MultinomialNBDistribution<T>>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for MultinomialNB  <T, M> {
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for MultinomialNB<T, M> {
     fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.predict(x)
     }

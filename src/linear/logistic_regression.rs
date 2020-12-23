@@ -69,8 +69,7 @@ use crate::optimization::FunctionOrder;
 
 /// Logistic Regression parameters
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LogisticRegressionParameters {
-}
+pub struct LogisticRegressionParameters {}
 
 /// Logistic Regression
 #[derive(Serialize, Deserialize, Debug)]
@@ -105,8 +104,7 @@ struct BinaryObjectiveFunction<'a, T: RealNumber, M: Matrix<T>> {
 
 impl Default for LogisticRegressionParameters {
     fn default() -> Self {
-        LogisticRegressionParameters {            
-        }
+        LogisticRegressionParameters {}
     }
 }
 
@@ -231,7 +229,11 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target class values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.    
-    pub fn fit(x: &M, y: &M::RowVector, _parameters: LogisticRegressionParameters) -> Result<LogisticRegression<T, M>, Failed> {
+    pub fn fit(
+        x: &M,
+        y: &M::RowVector,
+        _parameters: LogisticRegressionParameters,
+    ) -> Result<LogisticRegression<T, M>, Failed> {
         let y_m = M::from_row_vector(y.clone());
         let (x_nrows, num_attributes) = x.shape();
         let (_, y_nrows) = y_m.shape();

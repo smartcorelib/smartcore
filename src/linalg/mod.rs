@@ -281,8 +281,8 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
 
         let mut result = Self::zeros(n);
 
-        for i in 0..n {
-            result.set(i, self.get(index[i]));
+        for (i, idx) in index.iter().enumerate() {
+            result.set(i, self.get(*idx));
         }
 
         result
@@ -639,11 +639,11 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
             _ => Self::zeros(n, index.len()),
         };
 
-        for i in 0..index.len() {
+        for (i, idx) in index.iter().enumerate() {
             for j in 0..k {
                 match axis {
-                    0 => result.set(i, j, self.get(index[i], j)),
-                    _ => result.set(j, i, self.get(j, index[i])),
+                    0 => result.set(i, j, self.get(*idx, j)),
+                    _ => result.set(j, i, self.get(j, *idx)),
                 };
             }
         }

@@ -167,8 +167,8 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M
             epoch: self.epoch,
             c: self.c,
             tol: self.tol,
-            kernel: kernel,
-            m: PhantomData
+            kernel,
+            m: PhantomData,
         }
     }
 }
@@ -180,12 +180,14 @@ impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, LinearKernel> 
             c: T::one(),
             tol: T::from_f64(1e-3).unwrap(),
             kernel: Kernels::linear(),
-            m: PhantomData
+            m: PhantomData,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Predictor<M, M::RowVector> for SVC<T, M, K> {
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Predictor<M, M::RowVector>
+    for SVC<T, M, K>
+{
     fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.predict(x)
     }
@@ -743,10 +745,12 @@ mod tests {
         let y_hat = SVC::fit(
             &x,
             &y,
-            SVCParameters::default().with_c(200.0).with_kernel(Kernels::linear()),
+            SVCParameters::default()
+                .with_c(200.0)
+                .with_kernel(Kernels::linear()),
         )
         .and_then(|lr| lr.predict(&x))
-        .unwrap();        
+        .unwrap();
 
         assert!(accuracy(&y_hat, &y) >= 0.9);
     }
@@ -784,7 +788,9 @@ mod tests {
         let y_hat = SVC::fit(
             &x,
             &y,
-            SVCParameters::default().with_c(1.0).with_kernel(Kernels::rbf(0.7)),
+            SVCParameters::default()
+                .with_c(1.0)
+                .with_kernel(Kernels::rbf(0.7)),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();

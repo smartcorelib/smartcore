@@ -1,29 +1,12 @@
 //! # KFold
 //!
-//! In statistics and machine learning we usually split our data into multiple subsets: training data and testing data (and sometimes to validate),
-//! and fit our model on the train data, in order to make predictions on the test data. We do that to avoid overfitting or underfitting model to our data.
-//! Overfitting is bad because the model we trained fits trained data too well and can’t make any inferences on new data.
-//! Underfitted is bad because the model is undetrained and does not fit the training data well.
-//! Splitting data into multiple subsets helps to find the right combination of hyperparameters, estimate model performance and choose the right model for
-//! your data.
-//!
-//! In SmartCore you can split your data into training and test datasets using `train_test_split` function.
+//! Defines k-fold cross validator.
 
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+use crate::model_selection::BaseKFold;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-
-/// An interface for the K-Folds cross-validator
-pub trait BaseKFold {
-    /// An iterator over indices that split data into training and test set.
-    type Output: Iterator<Item = (Vec<usize>, Vec<usize>)>;
-    /// Return a tuple containing the the training set indices for that split and
-    /// the testing set indices for that split.
-    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Self::Output;
-    /// Returns the number of splits
-    fn n_splits(&self) -> usize;
-}
 
 /// K-Folds cross-validator
 pub struct KFold {
@@ -101,12 +84,12 @@ impl KFold {
 }
 
 /// An iterator over indices that split data into training and test set.
-pub struct BaseKFoldIter {
+pub struct KFoldIter {
     indices: Vec<usize>,
     test_indices: Vec<Vec<bool>>,
 }
 
-impl Iterator for BaseKFoldIter {
+impl Iterator for KFoldIter {
     type Item = (Vec<usize>, Vec<usize>);
 
     fn next(&mut self) -> Option<(Vec<usize>, Vec<usize>)> {
@@ -133,7 +116,7 @@ impl Iterator for BaseKFoldIter {
 
 /// Abstract class for all KFold functionalities
 impl BaseKFold for KFold {
-    type Output = BaseKFoldIter;
+    type Output = KFoldIter;
 
     fn n_splits(&self) -> usize {
         self.n_splits
@@ -148,7 +131,7 @@ impl BaseKFold for KFold {
         let mut test_indices = self.test_masks(x);
         test_indices.reverse();
 
-        BaseKFoldIter {
+        KFoldIter {
             indices,
             test_indices,
         }
