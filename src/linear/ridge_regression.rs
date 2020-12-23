@@ -45,11 +45,8 @@
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
-//! let y_hat = RidgeRegression::fit(&x, &y, RidgeRegressionParameters {
-//!                        solver: RidgeRegressionSolverName::Cholesky,
-//!                        alpha: 0.1,
-//!                        normalize: true
-//! }).and_then(|lr| lr.predict(&x)).unwrap();
+//! let y_hat = RidgeRegression::fit(&x, &y, RidgeRegressionParameters::default().with_alpha(0.1)).
+//!                 and_then(|lr| lr.predict(&x)).unwrap();
 //! ```
 //!
 //! ## References:

@@ -15,11 +15,9 @@
 //! let blobs = generator::make_blobs(100, 2, 3);
 //! let x = DenseMatrix::from_vec(blobs.num_samples, blobs.num_features, &blobs.data);
 //! // Fit the algorithm and predict cluster labels
-//! let labels = DBSCAN::fit(&x, Distances::euclidian(), DBSCANParameters{
-//!     min_samples: 5,
-//!     eps: 3.0,
-//!     algorithm: KNNAlgorithmName::CoverTree
-//! }).and_then(|dbscan| dbscan.predict(&x));
+//! let labels = DBSCAN::fit(&x, Distances::euclidian(),
+//!     DBSCANParameters::default().with_eps(3.0)).
+//!     and_then(|dbscan| dbscan.predict(&x));
 //!
 //! println!("{:?}", labels);
 //! ```
