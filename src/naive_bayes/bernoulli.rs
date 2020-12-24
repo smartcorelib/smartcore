@@ -88,14 +88,6 @@ pub struct BernoulliNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> BernoulliNBParameters<T> {
-    /// Create BernoulliNBParameters with specific paramaters.
-    pub fn new(alpha: T, priors: Option<Vec<T>>, binarize: Option<T>) -> Self {
-        Self {
-            alpha,
-            priors,
-            binarize,
-        }
-    }
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;

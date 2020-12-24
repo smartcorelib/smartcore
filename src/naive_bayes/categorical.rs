@@ -223,17 +223,6 @@ pub struct CategoricalNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> CategoricalNBParameters<T> {
-    /// Create CategoricalNBParameters with specific paramaters.
-    pub fn new(alpha: T) -> Result<Self, Failed> {
-        if alpha > T::zero() {
-            Ok(Self { alpha })
-        } else {
-            Err(Failed::fit(&format!(
-                "alpha should be >= 0, alpha=[{}]",
-                alpha
-            )))
-        }
-    }
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;

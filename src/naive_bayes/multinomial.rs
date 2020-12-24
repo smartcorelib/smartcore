@@ -82,10 +82,6 @@ pub struct MultinomialNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> MultinomialNBParameters<T> {
-    /// Create MultinomialNBParameters with specific paramaters.
-    pub fn new(alpha: T, priors: Option<Vec<T>>) -> Self {
-        Self { alpha, priors }
-    }
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;

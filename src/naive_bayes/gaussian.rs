@@ -82,10 +82,6 @@ pub struct GaussianNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> GaussianNBParameters<T> {
-    /// Create GaussianNBParameters with specific paramaters.
-    pub fn new(priors: Option<Vec<T>>) -> Self {
-        Self { priors }
-    }
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub fn with_priors(mut self, priors: Vec<T>) -> Self {
         self.priors = Some(priors);
@@ -266,7 +262,7 @@ mod tests {
         let y = vec![1., 1., 1., 2., 2., 2.];
 
         let priors = vec![0.3, 0.7];
-        let parameters = GaussianNBParameters::new(Some(priors.clone()));
+        let parameters = GaussianNBParameters::default().with_priors(priors.clone());
         let gnb = GaussianNB::fit(&x, &y, parameters).unwrap();
 
         assert_eq!(gnb.inner.distribution.class_priors, priors);
