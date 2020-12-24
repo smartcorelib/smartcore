@@ -48,7 +48,7 @@ pub mod knn_regressor;
 pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
 
 /// Weight function that is used to determine estimated value.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum KNNWeightFunction {
     /// All k nearest points are weighted equally
     Uniform,

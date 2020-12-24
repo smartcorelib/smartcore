@@ -6,6 +6,7 @@
 //! use smartcore::algorithm::neighbour::cover_tree::*;
 //! use smartcore::math::distance::Distance;
 //!
+//! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
 //!
 //! impl Distance<i32, f64> for SimpleDistance {
@@ -453,7 +454,7 @@ mod tests {
     use super::*;
     use crate::math::distance::Distances;
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     struct SimpleDistance {}
 
     impl Distance<i32, f64> for SimpleDistance {

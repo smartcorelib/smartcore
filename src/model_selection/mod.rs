@@ -9,21 +9,39 @@
 //!
 //! In SmartCore you can split your data into training and test datasets using `train_test_split` function.
 
+use crate::base::Predictor;
+use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use rand::Rng;
+
+pub(crate) mod kfold;
+
+pub use kfold::{KFold, KFoldIter};
+
+/// An interface for the K-Folds cross-validator
+pub trait BaseKFold {
+    /// An iterator over indices that split data into training and test set.
+    type Output: Iterator<Item = (Vec<usize>, Vec<usize>)>;
+    /// Return a tuple containing the the training set indices for that split and
+    /// the testing set indices for that split.
+    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Self::Output;
+    /// Returns the number of splits
+    fn n_splits(&self) -> usize;
+}
 
 /// Splits data into 2 disjoint datasets.
 /// * `x` - features, matrix of size _NxM_ where _N_ is number of samples and _M_ is number of attributes.
-/// * `y` - target values, should be of size _M_
+/// * `y` - target values, should be of size _N_
 /// * `test_size`, (0, 1] - the proportion of the dataset to include in the test split.
+/// * `shuffle`, - whether or not to shuffle the data before splitting
 pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
     x: &M,
     y: &M::RowVector,
     test_size: f32,
+    shuffle: bool,
 ) -> (M, M, M::RowVector, M::RowVector) {
     if x.shape().0 != y.len() {
         panic!(
@@ -38,155 +56,131 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
     }
 
     let n = y.len();
-    let m = x.shape().1;
 
-    let mut rng = rand::thread_rng();
-    let mut n_test = 0;
-    let mut index = vec![false; n];
+    let n_test = ((n as f32) * test_size) as usize;
 
-    for index_i in index.iter_mut().take(n) {
-        let p_test: f32 = rng.gen();
-        if p_test <= test_size {
-            *index_i = true;
-            n_test += 1;
-        }
+    if n_test < 1 {
+        panic!("number of sample is too small {}", n);
     }
 
-    let n_train = n - n_test;
+    let mut indices: Vec<usize> = (0..n).collect();
 
-    let mut x_train = M::zeros(n_train, m);
-    let mut x_test = M::zeros(n_test, m);
-    let mut y_train = M::RowVector::zeros(n_train);
-    let mut y_test = M::RowVector::zeros(n_test);
-
-    let mut r_train = 0;
-    let mut r_test = 0;
-
-    for (r, index_r) in index.iter().enumerate().take(n) {
-        if *index_r {
-            //sample belongs to test
-            for c in 0..m {
-                x_test.set(r_test, c, x.get(r, c));
-                y_test.set(r_test, y.get(r));
-            }
-            r_test += 1;
-        } else {
-            for c in 0..m {
-                x_train.set(r_train, c, x.get(r, c));
-                y_train.set(r_train, y.get(r));
-            }
-            r_train += 1;
-        }
+    if shuffle {
+        indices.shuffle(&mut thread_rng());
     }
+
+    let x_train = x.take(&indices[n_test..n], 0);
+    let x_test = x.take(&indices[0..n_test], 0);
+    let y_train = y.take(&indices[n_test..n]);
+    let y_test = y.take(&indices[0..n_test]);
 
     (x_train, x_test, y_train, y_test)
 }
 
-///
-/// KFold Cross-Validation
-///
-pub trait BaseKFold {
-    /// Returns integer indices corresponding to test sets
-    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>>;
-
-    /// Returns masksk corresponding to test sets
-    fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>>;
-
-    /// Return a tuple containing the the training set indices for that split and
-    /// the testing set indices for that split.
-    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)>;
+/// Cross validation results.
+#[derive(Clone, Debug)]
+pub struct CrossValidationResult<T: RealNumber> {
+    /// Vector with test scores on each cv split
+    pub test_score: Vec<T>,
+    /// Vector with training scores on each cv split
+    pub train_score: Vec<T>,
 }
 
-///
-/// An implementation of KFold
-///
-pub struct KFold {
-    n_splits: usize, // cannot exceed std::usize::MAX
-    shuffle: bool,
-    // TODO: to be implemented later
-    // random_state: i32,
-}
-
-impl Default for KFold {
-    fn default() -> KFold {
-        KFold {
-            n_splits: 3_usize,
-            shuffle: true,
-        }
+impl<T: RealNumber> CrossValidationResult<T> {
+    /// Average test score
+    pub fn mean_test_score(&self) -> T {
+        self.test_score.sum() / T::from_usize(self.test_score.len()).unwrap()
+    }
+    /// Average training score
+    pub fn mean_train_score(&self) -> T {
+        self.train_score.sum() / T::from_usize(self.train_score.len()).unwrap()
     }
 }
 
-///
-/// Abstract class for all KFold functionalities
-///
-impl BaseKFold for KFold {
-    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>> {
-        // number of samples (rows) in the matrix
-        let n_samples: usize = x.shape().0;
+/// Evaluate an estimator by cross-validation using given metric.
+/// * `fit_estimator` - a `fit` function of an estimator
+/// * `x` - features, matrix of size _NxM_ where _N_ is number of samples and _M_ is number of attributes.
+/// * `y` - target values, should be of size _N_
+/// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
+/// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
+/// * `score` - a metric to use for evaluation, see [metrics](../metrics/index.html)
+pub fn cross_validate<T, M, H, E, K, F, S>(
+    fit_estimator: F,
+    x: &M,
+    y: &M::RowVector,
+    parameters: H,
+    cv: K,
+    score: S,
+) -> Result<CrossValidationResult<T>, Failed>
+where
+    T: RealNumber,
+    M: Matrix<T>,
+    H: Clone,
+    E: Predictor<M, M::RowVector>,
+    K: BaseKFold,
+    F: Fn(&M, &M::RowVector, H) -> Result<E, Failed>,
+    S: Fn(&M::RowVector, &M::RowVector) -> T,
+{
+    let k = cv.n_splits();
+    let mut test_score = Vec::with_capacity(k);
+    let mut train_score = Vec::with_capacity(k);
 
-        // initialise indices
-        let mut indices: Vec<usize> = (0..n_samples).collect();
-        if self.shuffle {
-            indices.shuffle(&mut thread_rng());
-        }
-        //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
-        let mut fold_sizes = vec![n_samples / self.n_splits; self.n_splits];
+    for (train_idx, test_idx) in cv.split(x) {
+        let train_x = x.take(&train_idx, 0);
+        let train_y = y.take(&train_idx);
+        let test_x = x.take(&test_idx, 0);
+        let test_y = y.take(&test_idx);
 
-        // increment by one if odd
-        for fold_size in fold_sizes.iter_mut().take(n_samples % self.n_splits) {
-            *fold_size += 1;
-        }
+        let estimator = fit_estimator(&train_x, &train_y, parameters.clone())?;
 
-        // generate the right array of arrays for test indices
-        let mut return_values: Vec<Vec<usize>> = Vec::with_capacity(self.n_splits);
-        let mut current: usize = 0;
-        for fold_size in fold_sizes.drain(..) {
-            let stop = current + fold_size;
-            return_values.push(indices[current..stop].to_vec());
-            current = stop
-        }
-
-        return_values
+        train_score.push(score(&train_y, &estimator.predict(&train_x)?));
+        test_score.push(score(&test_y, &estimator.predict(&test_x)?));
     }
 
-    fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>> {
-        let mut return_values: Vec<Vec<bool>> = Vec::with_capacity(self.n_splits);
-        for test_index in self.test_indices(x).drain(..) {
-            // init mask
-            let mut test_mask = vec![false; x.shape().0];
-            // set mask's indices to true according to test indices
-            for i in test_index {
-                test_mask[i] = true; // can be implemented with map()
-            }
-            return_values.push(test_mask);
+    Ok(CrossValidationResult {
+        test_score,
+        train_score,
+    })
+}
+
+/// Generate cross-validated estimates for each input data point.
+/// The data is split according to the cv parameter. Each sample belongs to exactly one test set, and its prediction is computed with an estimator fitted on the corresponding training set.
+/// * `fit_estimator` - a `fit` function of an estimator
+/// * `x` - features, matrix of size _NxM_ where _N_ is number of samples and _M_ is number of attributes.
+/// * `y` - target values, should be of size _N_
+/// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
+/// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
+pub fn cross_val_predict<T, M, H, E, K, F>(
+    fit_estimator: F,
+    x: &M,
+    y: &M::RowVector,
+    parameters: H,
+    cv: K,
+) -> Result<M::RowVector, Failed>
+where
+    T: RealNumber,
+    M: Matrix<T>,
+    H: Clone,
+    E: Predictor<M, M::RowVector>,
+    K: BaseKFold,
+    F: Fn(&M, &M::RowVector, H) -> Result<E, Failed>,
+{
+    let mut y_hat = M::RowVector::zeros(y.len());
+
+    for (train_idx, test_idx) in cv.split(x) {
+        let train_x = x.take(&train_idx, 0);
+        let train_y = y.take(&train_idx);
+        let test_x = x.take(&test_idx, 0);
+
+        let estimator = fit_estimator(&train_x, &train_y, parameters.clone())?;
+
+        let y_test_hat = estimator.predict(&test_x)?;
+        for (i, &idx) in test_idx.iter().enumerate() {
+            y_hat.set(idx, y_test_hat.get(i));
         }
-        return_values
     }
 
-    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<(Vec<usize>, Vec<usize>)> {
-        let n_samples: usize = x.shape().0;
-        let indices: Vec<usize> = (0..n_samples).collect();
-
-        let mut return_values: Vec<(Vec<usize>, Vec<usize>)> = Vec::with_capacity(self.n_splits); // TODO: init nested vecs with capacities by getting the length of test_index vecs
-
-        for test_index in self.test_masks(x).drain(..) {
-            let train_index = indices
-                .clone()
-                .iter()
-                .enumerate()
-                .filter(|&(idx, _)| !test_index[idx])
-                .map(|(idx, _)| idx)
-                .collect::<Vec<usize>>(); // filter train indices out according to mask
-            let test_index = indices
-                .iter()
-                .enumerate()
-                .filter(|&(idx, _)| test_index[idx])
-                .map(|(idx, _)| idx)
-                .collect::<Vec<usize>>(); // filter tests indices out according to mask
-            return_values.push((train_index, test_index))
-        }
-        return_values
-    }
+    Ok(y_hat)
 }
 
 #[cfg(test)]
@@ -194,14 +188,17 @@ mod tests {
 
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
+    use crate::metrics::{accuracy, mean_absolute_error};
+    use crate::model_selection::kfold::KFold;
+    use crate::neighbors::knn_regressor::KNNRegressor;
 
     #[test]
     fn run_train_test_split() {
-        let n = 100;
-        let x: DenseMatrix<f64> = DenseMatrix::rand(100, 3);
-        let y = vec![0f64; 100];
+        let n = 123;
+        let x: DenseMatrix<f64> = DenseMatrix::rand(n, 3);
+        let y = vec![0f64; n];
 
-        let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2);
+        let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
 
         assert!(
             x_train.shape().0 > (n as f64 * 0.65) as usize
@@ -215,126 +212,144 @@ mod tests {
         assert_eq!(x_test.shape().0, y_test.len());
     }
 
-    #[test]
-    fn run_kfold_return_test_indices_simple() {
-        let k = KFold {
-            n_splits: 3,
-            shuffle: false,
-        };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(33, 100);
-        let test_indices = k.test_indices(&x);
+    #[derive(Clone)]
+    struct NoParameters {}
 
-        assert_eq!(test_indices[0], (0..11).collect::<Vec<usize>>());
-        assert_eq!(test_indices[1], (11..22).collect::<Vec<usize>>());
-        assert_eq!(test_indices[2], (22..33).collect::<Vec<usize>>());
+    #[test]
+    fn test_cross_validate_biased() {
+        struct BiasedEstimator {}
+
+        impl BiasedEstimator {
+            fn fit<M: Matrix<f32>>(
+                _: &M,
+                _: &M::RowVector,
+                _: NoParameters,
+            ) -> Result<BiasedEstimator, Failed> {
+                Ok(BiasedEstimator {})
+            }
+        }
+
+        impl<M: Matrix<f32>> Predictor<M, M::RowVector> for BiasedEstimator {
+            fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+                let (n, _) = x.shape();
+                Ok(M::RowVector::zeros(n))
+            }
+        }
+
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
+        let y = vec![
+            0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+        ];
+
+        let cv = KFold {
+            n_splits: 5,
+            ..KFold::default()
+        };
+
+        let results =
+            cross_validate(BiasedEstimator::fit, &x, &y, NoParameters {}, cv, &accuracy).unwrap();
+
+        assert_eq!(0.4, results.mean_test_score());
+        assert_eq!(0.4, results.mean_train_score());
     }
 
     #[test]
-    fn run_kfold_return_test_indices_odd() {
-        let k = KFold {
-            n_splits: 3,
-            shuffle: false,
-        };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(34, 100);
-        let test_indices = k.test_indices(&x);
+    fn test_cross_validate_knn() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159., 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165., 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.27, 1952., 63.639],
+            &[365.385, 187., 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335., 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.18, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.95, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ]);
+        let y = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
 
-        assert_eq!(test_indices[0], (0..12).collect::<Vec<usize>>());
-        assert_eq!(test_indices[1], (12..23).collect::<Vec<usize>>());
-        assert_eq!(test_indices[2], (23..34).collect::<Vec<usize>>());
+        let cv = KFold {
+            n_splits: 5,
+            ..KFold::default()
+        };
+
+        let results = cross_validate(
+            KNNRegressor::fit,
+            &x,
+            &y,
+            Default::default(),
+            cv,
+            &mean_absolute_error,
+        )
+        .unwrap();
+
+        assert!(results.mean_test_score() < 15.0);
+        assert!(results.mean_train_score() < results.mean_test_score());
     }
 
     #[test]
-    fn run_kfold_return_test_mask_simple() {
-        let k = KFold {
-            n_splits: 2,
-            shuffle: false,
-        };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
-        let test_masks = k.test_masks(&x);
+    fn test_cross_val_predict_knn() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159., 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165., 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.27, 1952., 63.639],
+            &[365.385, 187., 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335., 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.18, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.95, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ]);
+        let y = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
 
-        for t in &test_masks[0][0..11] {
-            // TODO: this can be prob done better
-            assert_eq!(*t, true)
-        }
-        for t in &test_masks[0][11..22] {
-            assert_eq!(*t, false)
-        }
-
-        for t in &test_masks[1][0..11] {
-            assert_eq!(*t, false)
-        }
-        for t in &test_masks[1][11..22] {
-            assert_eq!(*t, true)
-        }
-    }
-
-    #[test]
-    fn run_kfold_return_split_simple() {
-        let k = KFold {
-            n_splits: 2,
-            shuffle: false,
-        };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
-        let train_test_splits = k.split(&x);
-
-        assert_eq!(train_test_splits[0].1, (0..11).collect::<Vec<usize>>());
-        assert_eq!(train_test_splits[0].0, (11..22).collect::<Vec<usize>>());
-        assert_eq!(train_test_splits[1].0, (0..11).collect::<Vec<usize>>());
-        assert_eq!(train_test_splits[1].1, (11..22).collect::<Vec<usize>>());
-    }
-
-    #[test]
-    fn run_kfold_return_split_simple_shuffle() {
-        let k = KFold {
+        let cv = KFold {
             n_splits: 2,
             ..KFold::default()
         };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(23, 100);
-        let train_test_splits = k.split(&x);
 
-        assert_eq!(train_test_splits[0].1.len(), 12_usize);
-        assert_eq!(train_test_splits[0].0.len(), 11_usize);
-        assert_eq!(train_test_splits[1].0.len(), 12_usize);
-        assert_eq!(train_test_splits[1].1.len(), 11_usize);
-    }
+        let y_hat = cross_val_predict(KNNRegressor::fit, &x, &y, Default::default(), cv).unwrap();
 
-    #[test]
-    fn numpy_parity_test() {
-        let k = KFold {
-            n_splits: 3,
-            shuffle: false,
-        };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
-        let expected: Vec<(Vec<usize>, Vec<usize>)> = vec![
-            (vec![4, 5, 6, 7, 8, 9], vec![0, 1, 2, 3]),
-            (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
-            (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
-        ];
-        for ((train, test), (expected_train, expected_test)) in
-            k.split(&x).into_iter().zip(expected)
-        {
-            assert_eq!(test, expected_test);
-            assert_eq!(train, expected_train);
-        }
-    }
-
-    #[test]
-    fn numpy_parity_test_shuffle() {
-        let k = KFold {
-            n_splits: 3,
-            ..KFold::default()
-        };
-        let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
-        let expected: Vec<(Vec<usize>, Vec<usize>)> = vec![
-            (vec![4, 5, 6, 7, 8, 9], vec![0, 1, 2, 3]),
-            (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
-            (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
-        ];
-        for ((train, test), (expected_train, expected_test)) in
-            k.split(&x).into_iter().zip(expected)
-        {
-            assert_eq!(test.len(), expected_test.len());
-            assert_eq!(train.len(), expected_train.len());
-        }
+        assert!(mean_absolute_error(&y, &y_hat) < 10.0);
     }
 }

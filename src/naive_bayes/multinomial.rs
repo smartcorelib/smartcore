@@ -33,6 +33,7 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
@@ -81,9 +82,15 @@ pub struct MultinomialNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> MultinomialNBParameters<T> {
-    /// Create MultinomialNBParameters with specific paramaters.
-    pub fn new(alpha: T, priors: Option<Vec<T>>) -> Self {
-        Self { alpha, priors }
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+        self.priors = Some(priors);
+        self
     }
 }
 
@@ -185,6 +192,12 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct MultinomialNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, MultinomialNBDistribution<T>>,
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for MultinomialNB<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {

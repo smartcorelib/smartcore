@@ -45,11 +45,8 @@
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
-//! let y_hat = RidgeRegression::fit(&x, &y, RidgeRegressionParameters {
-//!                        solver: RidgeRegressionSolverName::Cholesky,
-//!                        alpha: 0.1,
-//!                        normalize: true
-//! }).and_then(|lr| lr.predict(&x)).unwrap();
+//! let y_hat = RidgeRegression::fit(&x, &y, RidgeRegressionParameters::default().with_alpha(0.1)).
+//!                 and_then(|lr| lr.predict(&x)).unwrap();
 //! ```
 //!
 //! ## References:
@@ -63,12 +60,13 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
@@ -78,7 +76,7 @@ pub enum RidgeRegressionSolverName {
 }
 
 /// Ridge Regression parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RidgeRegressionParameters<T: RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
@@ -97,6 +95,24 @@ pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
     solver: RidgeRegressionSolverName,
 }
 
+impl<T: RealNumber> RidgeRegressionParameters<T> {
+    /// Regularization parameter.
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Solver to use for estimation of regression coefficients.
+    pub fn with_solver(mut self, solver: RidgeRegressionSolverName) -> Self {
+        self.solver = solver;
+        self
+    }
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+}
+
 impl<T: RealNumber> Default for RidgeRegressionParameters<T> {
     fn default() -> Self {
         RidgeRegressionParameters {
@@ -111,6 +127,12 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for RidgeRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RidgeRegression<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

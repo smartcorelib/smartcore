@@ -9,7 +9,7 @@
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::ensemble::random_forest_classifier::*;
+//! use smartcore::ensemble::random_forest_classifier::RandomForestClassifier;
 //!
 //! // Iris dataset
 //! let x = DenseMatrix::from_2d_array(&[
@@ -51,6 +51,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -84,6 +85,39 @@ pub struct RandomForestClassifier<T: RealNumber> {
     classes: Vec<T>,
 }
 
+impl RandomForestClassifierParameters {
+    /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_criterion(mut self, criterion: SplitCriterion) -> Self {
+        self.criterion = criterion;
+        self
+    }
+    /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+    /// The number of trees in the forest.
+    pub fn with_n_trees(mut self, n_trees: u16) -> Self {
+        self.n_trees = n_trees;
+        self
+    }
+    /// Number of random sample of predictors to use as split candidates.
+    pub fn with_m(mut self, m: usize) -> Self {
+        self.m = Some(m);
+        self
+    }
+}
+
 impl<T: RealNumber> PartialEq for RandomForestClassifier<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.classes.len() != other.classes.len() || self.trees.len() != other.trees.len() {
@@ -114,6 +148,12 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestClassifier<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

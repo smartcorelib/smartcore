@@ -66,11 +66,12 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
     /// The maximum depth of the tree.
@@ -98,6 +99,24 @@ struct Node<T: RealNumber> {
     split_score: Option<T>,
     true_child: Option<usize>,
     false_child: Option<usize>,
+}
+
+impl DecisionTreeRegressorParameters {
+    /// The maximum depth of the tree.
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node.
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node.
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
 }
 
 impl Default for DecisionTreeRegressorParameters {
@@ -186,6 +205,12 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
             false_child_output: T::zero(),
             level,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for DecisionTreeRegressor<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

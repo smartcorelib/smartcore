@@ -28,7 +28,7 @@ use crate::math::num::RealNumber;
 use super::Distance;
 
 /// Defines the Minkowski distance of order `p`
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Minkowski {
     /// order, integer
     pub p: u16,

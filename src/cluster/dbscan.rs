@@ -15,11 +15,9 @@
 //! let blobs = generator::make_blobs(100, 2, 3);
 //! let x = DenseMatrix::from_vec(blobs.num_samples, blobs.num_features, &blobs.data);
 //! // Fit the algorithm and predict cluster labels
-//! let labels = DBSCAN::fit(&x, Distances::euclidian(), DBSCANParameters{
-//!     min_samples: 5,
-//!     eps: 3.0,
-//!     algorithm: KNNAlgorithmName::CoverTree
-//! }).and_then(|dbscan| dbscan.predict(&x));
+//! let labels = DBSCAN::fit(&x, Distances::euclidian(),
+//!     DBSCANParameters::default().with_eps(3.0)).
+//!     and_then(|dbscan| dbscan.predict(&x));
 //!
 //! println!("{:?}", labels);
 //! ```
@@ -53,12 +51,30 @@ pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
 #[derive(Debug, Clone)]
 /// DBSCAN clustering algorithm parameters
 pub struct DBSCANParameters<T: RealNumber> {
-    /// Maximum number of iterations of the k-means algorithm for a single run.
+    /// The number of samples (or total weight) in a neighborhood for a point to be considered as a core point.
     pub min_samples: usize,
-    /// The number of samples in a neighborhood for a point to be considered as a core point.
+    /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
     pub eps: T,
     /// KNN algorithm to use.
     pub algorithm: KNNAlgorithmName,
+}
+
+impl<T: RealNumber> DBSCANParameters<T> {
+    /// The number of samples (or total weight) in a neighborhood for a point to be considered as a core point.
+    pub fn with_min_samples(mut self, min_samples: usize) -> Self {
+        self.min_samples = min_samples;
+        self
+    }
+    /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+    pub fn with_eps(mut self, eps: T) -> Self {
+        self.eps = eps;
+        self
+    }
+    /// KNN algorithm to use.
+    pub fn with_algorithm(mut self, algorithm: KNNAlgorithmName) -> Self {
+        self.algorithm = algorithm;
+        self
+    }
 }
 
 impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for DBSCAN<T, D> {

@@ -58,6 +58,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -66,7 +67,7 @@ use crate::math::num::RealNumber;
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 
 /// Elastic net parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElasticNetParameters<T: RealNumber> {
     /// Regularization parameter.
     pub alpha: T,
@@ -89,6 +90,36 @@ pub struct ElasticNet<T: RealNumber, M: Matrix<T>> {
     intercept: T,
 }
 
+impl<T: RealNumber> ElasticNetParameters<T> {
+    /// Regularization parameter.
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
+    /// For l1_ratio = 0 the penalty is an L2 penalty.
+    /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
+    pub fn with_l1_ratio(mut self, l1_ratio: T) -> Self {
+        self.l1_ratio = l1_ratio;
+        self
+    }
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
+    /// The tolerance for the optimization
+    pub fn with_tol(mut self, tol: T) -> Self {
+        self.tol = tol;
+        self
+    }
+    /// The maximum number of iterations
+    pub fn with_max_iter(mut self, max_iter: usize) -> Self {
+        self.max_iter = max_iter;
+        self
+    }
+}
+
 impl<T: RealNumber> Default for ElasticNetParameters<T> {
     fn default() -> Self {
         ElasticNetParameters {
@@ -105,6 +136,12 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for ElasticNet<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for ElasticNet<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 

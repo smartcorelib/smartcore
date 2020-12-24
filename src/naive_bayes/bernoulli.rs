@@ -33,6 +33,7 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
@@ -87,13 +88,20 @@ pub struct BernoulliNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> BernoulliNBParameters<T> {
-    /// Create BernoulliNBParameters with specific paramaters.
-    pub fn new(alpha: T, priors: Option<Vec<T>>, binarize: Option<T>) -> Self {
-        Self {
-            alpha,
-            priors,
-            binarize,
-        }
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+        self.priors = Some(priors);
+        self
+    }
+    /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
+    pub fn with_binarize(mut self, binarize: T) -> Self {
+        self.binarize = Some(binarize);
+        self
     }
 }
 
@@ -198,6 +206,12 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
 pub struct BernoulliNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, BernoulliNBDistribution<T>>,
     binarize: Option<T>,
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for BernoulliNB<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {

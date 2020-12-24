@@ -22,6 +22,7 @@
 //! let nb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
@@ -81,9 +82,10 @@ pub struct GaussianNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> GaussianNBParameters<T> {
-    /// Create GaussianNBParameters with specific paramaters.
-    pub fn new(priors: Option<Vec<T>>) -> Self {
-        Self { priors }
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+        self.priors = Some(priors);
+        self
     }
 }
 
@@ -181,6 +183,12 @@ pub struct GaussianNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, GaussianNBDistribution<T>>,
 }
 
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for GaussianNB<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
+}
+
 impl<T: RealNumber, M: Matrix<T>> GaussianNB<T, M> {
     /// Fits GaussianNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
@@ -254,7 +262,7 @@ mod tests {
         let y = vec![1., 1., 1., 2., 2., 2.];
 
         let priors = vec![0.3, 0.7];
-        let parameters = GaussianNBParameters::new(Some(priors.clone()));
+        let parameters = GaussianNBParameters::default().with_priors(priors.clone());
         let gnb = GaussianNB::fit(&x, &y, parameters).unwrap();
 
         assert_eq!(gnb.inner.distribution.class_priors, priors);

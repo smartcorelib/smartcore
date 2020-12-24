@@ -30,6 +30,7 @@
 //! let nb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
+use crate::base::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -222,18 +223,13 @@ pub struct CategoricalNBParameters<T: RealNumber> {
 }
 
 impl<T: RealNumber> CategoricalNBParameters<T> {
-    /// Create CategoricalNBParameters with specific paramaters.
-    pub fn new(alpha: T) -> Result<Self, Failed> {
-        if alpha > T::zero() {
-            Ok(Self { alpha })
-        } else {
-            Err(Failed::fit(&format!(
-                "alpha should be >= 0, alpha=[{}]",
-                alpha
-            )))
-        }
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
     }
 }
+
 impl<T: RealNumber> Default for CategoricalNBParameters<T> {
     fn default() -> Self {
         Self { alpha: T::one() }
@@ -244,6 +240,12 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CategoricalNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T>>,
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for CategoricalNB<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
