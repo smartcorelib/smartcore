@@ -33,7 +33,7 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::row_iter;
 use crate::linalg::BaseVector;
@@ -206,6 +206,14 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
 pub struct BernoulliNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, BernoulliNBDistribution<T>>,
     binarize: Option<T>,
+}
+
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, BernoulliNBParameters<T>>
+    for BernoulliNB<T, M>
+{
+    fn fit(x: &M, y: &M::RowVector, parameters: BernoulliNBParameters<T>) -> Result<Self, Failed> {
+        BernoulliNB::fit(x, y, parameters)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for BernoulliNB<T, M> {

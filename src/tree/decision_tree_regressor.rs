@@ -66,7 +66,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -205,6 +205,19 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
             false_child_output: T::zero(),
             level,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, DecisionTreeRegressorParameters>
+    for DecisionTreeRegressor<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: DecisionTreeRegressorParameters,
+    ) -> Result<Self, Failed> {
+        DecisionTreeRegressor::fit(x, y, parameters)
     }
 }
 

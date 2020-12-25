@@ -58,7 +58,7 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -215,6 +215,18 @@ impl<'a, T: RealNumber, M: Matrix<T>> ObjectiveFunction<T, M>
                 g.set(0, j * (p + 1) + p, g.get(0, j * (p + 1) + p) - yi);
             }
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LogisticRegressionParameters>
+    for LogisticRegression<T, M>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: LogisticRegressionParameters,
+    ) -> Result<Self, Failed> {
+        LogisticRegression::fit(x, y, parameters)
     }
 }
 

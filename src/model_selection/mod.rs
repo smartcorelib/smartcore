@@ -9,7 +9,7 @@
 //!
 //! In SmartCore you can split your data into training and test datasets using `train_test_split` function.
 
-use crate::base::Predictor;
+use crate::api::Predictor;
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;

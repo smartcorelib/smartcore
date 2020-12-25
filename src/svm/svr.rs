@@ -70,7 +70,7 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -171,6 +171,14 @@ impl<T: RealNumber, M: Matrix<T>> Default for SVRParameters<T, M, LinearKernel> 
             kernel: Kernels::linear(),
             m: PhantomData,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>>
+    SupervisedEstimator<M, M::RowVector, SVRParameters<T, M, K>> for SVR<T, M, K>
+{
+    fn fit(x: &M, y: &M::RowVector, parameters: SVRParameters<T, M, K>) -> Result<Self, Failed> {
+        SVR::fit(x, y, parameters)
     }
 }
 
