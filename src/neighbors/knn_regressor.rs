@@ -39,7 +39,7 @@ use std::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::{row_iter, BaseVector, Matrix};
 use crate::math::distance::euclidian::Euclidian;
@@ -130,6 +130,18 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
             }
             true
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>>
+    SupervisedEstimator<M, M::RowVector, KNNRegressorParameters<T, D>> for KNNRegressor<T, D>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: KNNRegressorParameters<T, D>,
+    ) -> Result<Self, Failed> {
+        KNNRegressor::fit(x, y, parameters)
     }
 }
 

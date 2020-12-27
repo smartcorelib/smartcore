@@ -30,7 +30,7 @@
 //! let nb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
@@ -240,6 +240,18 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CategoricalNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T>>,
+}
+
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, CategoricalNBParameters<T>>
+    for CategoricalNB<T, M>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: CategoricalNBParameters<T>,
+    ) -> Result<Self, Failed> {
+        CategoricalNB::fit(x, y, parameters)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for CategoricalNB<T, M> {

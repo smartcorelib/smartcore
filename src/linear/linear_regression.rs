@@ -64,7 +64,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -113,6 +113,18 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LinearRegressionParameters>
+    for LinearRegression<T, M>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: LinearRegressionParameters,
+    ) -> Result<Self, Failed> {
+        LinearRegression::fit(x, y, parameters)
     }
 }
 

@@ -71,7 +71,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -291,6 +291,19 @@ pub(in crate) fn which_max(x: &[usize]) -> usize {
     }
 
     which
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, DecisionTreeClassifierParameters>
+    for DecisionTreeClassifier<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: DecisionTreeClassifierParameters,
+    ) -> Result<Self, Failed> {
+        DecisionTreeClassifier::fit(x, y, parameters)
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for DecisionTreeClassifier<T> {

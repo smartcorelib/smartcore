@@ -49,7 +49,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::base::Predictor;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -132,6 +132,19 @@ impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
             }
             true
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, RandomForestRegressorParameters>
+    for RandomForestRegressor<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: RandomForestRegressorParameters,
+    ) -> Result<Self, Failed> {
+        RandomForestRegressor::fit(x, y, parameters)
     }
 }
 
