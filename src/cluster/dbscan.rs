@@ -1,6 +1,20 @@
 //! # DBSCAN Clustering
 //!
-//! DBSCAN - Density-Based Spatial Clustering of Applications with Noise.
+//! DBSCAN stands for density-based spatial clustering of applications with noise. This algorithms is good for arbitrary shaped clusters and clusters with noise.
+//! The main idea behind DBSCAN is that a point belongs to a cluster if it is close to many points from that cluster. There are two key parameters of DBSCAN:
+//!
+//! * `eps`, the maximum distance that specifies a neighborhood. Two points are considered to be neighbors if the distance between them are less than or equal to `eps`.
+//! * `min_samples`, minimum number of data points that defines a cluster.
+//!
+//! Based on these two parameters, points are classified as core point, border point, or outlier:
+//!
+//! * A point is a core point if there are at least `min_samples` number of points, including the point itself in its vicinity.
+//! * A point is a border point if it is reachable from a core point and there are less than `min_samples` number of points within its surrounding area.
+//! * All points not reachable from any other point are outliers or noise points.
+//!
+//! The algorithm starts from picking up an arbitrarily point in the dataset.
+//! If there are at least `min_samples` points within a radius of `eps` to the point then we consider all these points to be part of the same cluster.
+//! The clusters are then expanded by recursively repeating the neighborhood calculation for each neighboring point.
 //!
 //! Example:
 //!
