@@ -1,13 +1,106 @@
 //! # Model Selection methods
 //!
-//! In statistics and machine learning we usually split our data into multiple subsets: training data and testing data (and sometimes to validate),
-//! and fit our model on the train data, in order to make predictions on the test data. We do that to avoid overfitting or underfitting model to our data.
+//! In statistics and machine learning we usually split our data into two sets: one for training and the other one for testing.
+//! We fit our model to the training data, in order to make predictions on the test data. We do that to avoid overfitting or underfitting model to our data.
 //! Overfitting is bad because the model we trained fits trained data too well and can’t make any inferences on new data.
 //! Underfitted is bad because the model is undetrained and does not fit the training data well.
-//! Splitting data into multiple subsets helps to find the right combination of hyperparameters, estimate model performance and choose the right model for
-//! your data.
+//! Splitting data into multiple subsets helps us to find the right combination of hyperparameters, estimate model performance and choose the right model for
+//! the data.
 //!
-//! In SmartCore you can split your data into training and test datasets using `train_test_split` function.
+//! In SmartCore a random split into training and test sets can be quickly computed with the [train_test_split](./fn.train_test_split.html) helper function.
+//!
+//! ```
+//! use crate::smartcore::linalg::BaseMatrix;
+//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::model_selection::train_test_split;
+//!
+//! //Iris data
+//! let x = DenseMatrix::from_2d_array(&[
+//!           &[5.1, 3.5, 1.4, 0.2],
+//!           &[4.9, 3.0, 1.4, 0.2],
+//!           &[4.7, 3.2, 1.3, 0.2],
+//!           &[4.6, 3.1, 1.5, 0.2],
+//!           &[5.0, 3.6, 1.4, 0.2],
+//!           &[5.4, 3.9, 1.7, 0.4],
+//!           &[4.6, 3.4, 1.4, 0.3],
+//!           &[5.0, 3.4, 1.5, 0.2],
+//!           &[4.4, 2.9, 1.4, 0.2],
+//!           &[4.9, 3.1, 1.5, 0.1],
+//!           &[7.0, 3.2, 4.7, 1.4],
+//!           &[6.4, 3.2, 4.5, 1.5],
+//!           &[6.9, 3.1, 4.9, 1.5],
+//!           &[5.5, 2.3, 4.0, 1.3],
+//!           &[6.5, 2.8, 4.6, 1.5],
+//!           &[5.7, 2.8, 4.5, 1.3],
+//!           &[6.3, 3.3, 4.7, 1.6],
+//!           &[4.9, 2.4, 3.3, 1.0],
+//!           &[6.6, 2.9, 4.6, 1.3],
+//!           &[5.2, 2.7, 3.9, 1.4],
+//!           ]);
+//! let y: Vec<f64> = vec![
+//!           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+//! ];
+//!
+//! let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
+//!
+//! println!("X train: {:?}, y train: {}, X test: {:?}, y test: {}",
+//!             x_train.shape(), y_train.len(), x_test.shape(), y_test.len());
+//! ```
+//!
+//! When we partition the available data into two disjoint sets, we drastically reduce the number of samples that can be used for training.
+//!
+//! One way to solve this problem is to use k-fold cross-validation. With k-fold validation, the dataset is split into k disjoint sets.
+//! A model is trained using k - 1 of the folds, and the resulting model is validated on the remaining portion of the data.
+//!
+//! The simplest way to run cross-validation is to use the [cross_val_score](./fn.cross_validate.html) helper function on your estimator and the dataset.
+//!
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::model_selection::{KFold, cross_validate};
+//! use smartcore::metrics::accuracy;
+//! use smartcore::linear::logistic_regression::LogisticRegression;
+//!
+//! //Iris data
+//! let x = DenseMatrix::from_2d_array(&[
+//!           &[5.1, 3.5, 1.4, 0.2],
+//!           &[4.9, 3.0, 1.4, 0.2],
+//!           &[4.7, 3.2, 1.3, 0.2],
+//!           &[4.6, 3.1, 1.5, 0.2],
+//!           &[5.0, 3.6, 1.4, 0.2],
+//!           &[5.4, 3.9, 1.7, 0.4],
+//!           &[4.6, 3.4, 1.4, 0.3],
+//!           &[5.0, 3.4, 1.5, 0.2],
+//!           &[4.4, 2.9, 1.4, 0.2],
+//!           &[4.9, 3.1, 1.5, 0.1],
+//!           &[7.0, 3.2, 4.7, 1.4],
+//!           &[6.4, 3.2, 4.5, 1.5],
+//!           &[6.9, 3.1, 4.9, 1.5],
+//!           &[5.5, 2.3, 4.0, 1.3],
+//!           &[6.5, 2.8, 4.6, 1.5],
+//!           &[5.7, 2.8, 4.5, 1.3],
+//!           &[6.3, 3.3, 4.7, 1.6],
+//!           &[4.9, 2.4, 3.3, 1.0],
+//!           &[6.6, 2.9, 4.6, 1.3],
+//!           &[5.2, 2.7, 3.9, 1.4],
+//!           ]);
+//! let y: Vec<f64> = vec![
+//!           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+//! ];
+//!
+//! let cv = KFold::default().with_n_splits(3);
+//!
+//! let results = cross_validate(LogisticRegression::fit,   //estimator
+//!                                 &x, &y,                 //data
+//!                                 Default::default(),     //hyperparameters
+//!                                 cv,                     //cross validation split
+//!                                 &accuracy).unwrap();    //metric
+//!
+//! println!("Training accuracy: {}, test accuracy: {}",
+//!     results.mean_test_score(), results.mean_train_score());
+//! ```
+//!
+//! The function [cross_val_predict](./fn.cross_val_predict.html) has a similar interface to `cross_val_score`,
+//! but instead of test error it calculates predictions for all samples in the test set.
 
 use crate::api::Predictor;
 use crate::error::Failed;
