@@ -24,7 +24,7 @@ use crate::math::num::RealNumber;
 use super::Distance;
 
 /// Manhattan distance
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Manhattan {}
 
 impl<T: RealNumber> Distance<Vec<T>, T> for Manhattan {
@@ -35,7 +35,7 @@ impl<T: RealNumber> Distance<Vec<T>, T> for Manhattan {
 
         let mut dist = T::zero();
         for i in 0..x.len() {
-            dist = dist + (x[i] - y[i]).abs();
+            dist += (x[i] - y[i]).abs();
         }
 
         dist

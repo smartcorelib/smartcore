@@ -42,9 +42,9 @@ impl AUC {
 
         for i in 0..n {
             if y_true.get(i) == T::zero() {
-                neg = neg + T::one();
+                neg += T::one();
             } else if y_true.get(i) == T::one() {
-                pos = pos + T::one();
+                pos += T::one();
             } else {
                 panic!(
                     "AUC is only for binary classification. Invalid label: {}",
@@ -68,8 +68,8 @@ impl AUC {
                     j += 1;
                 }
                 let r = T::from_usize(i + 1 + j).unwrap() / T::two();
-                for k in i..j {
-                    rank[k] = r;
+                for rank_k in rank.iter_mut().take(j).skip(i) {
+                    *rank_k = r;
                 }
                 i = j - 1;
             }
@@ -79,7 +79,7 @@ impl AUC {
         let mut auc = T::zero();
         for i in 0..n {
             if y_true.get(label_idx[i]) == T::one() {
-                auc = auc + rank[i];
+                auc += rank[i];
             }
         }
 

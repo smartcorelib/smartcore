@@ -42,7 +42,6 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-extern crate rand;
 
 use std::default::Default;
 use std::fmt::Debug;
@@ -50,6 +49,7 @@ use std::fmt::Debug;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -80,6 +80,34 @@ pub struct RandomForestRegressor<T: RealNumber> {
     trees: Vec<DecisionTreeRegressor<T>>,
 }
 
+impl RandomForestRegressorParameters {
+    /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+    /// The number of trees in the forest.
+    pub fn with_n_trees(mut self, n_trees: usize) -> Self {
+        self.n_trees = n_trees;
+        self
+    }
+    /// Number of random sample of predictors to use as split candidates.
+    pub fn with_m(mut self, m: usize) -> Self {
+        self.m = Some(m);
+        self
+    }
+}
+
 impl Default for RandomForestRegressorParameters {
     fn default() -> Self {
         RandomForestRegressorParameters {
@@ -95,7 +123,7 @@ impl Default for RandomForestRegressorParameters {
 impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.trees.len() != other.trees.len() {
-            return false;
+            false
         } else {
             for i in 0..self.trees.len() {
                 if self.trees[i] != other.trees[i] {
@@ -104,6 +132,25 @@ impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
             }
             true
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, RandomForestRegressorParameters>
+    for RandomForestRegressor<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: RandomForestRegressorParameters,
+    ) -> Result<Self, Failed> {
+        RandomForestRegressor::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestRegressor<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -135,10 +182,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             trees.push(tree);
         }
 
-        Ok(RandomForestRegressor {
-            parameters: parameters,
-            trees: trees,
-        })
+        Ok(RandomForestRegressor { parameters, trees })
     }
 
     /// Predict class for `x`
@@ -161,7 +205,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         let mut result = T::zero();
 
         for tree in self.trees.iter() {
-            result = result + tree.predict_for_row(x, row);
+            result += tree.predict_for_row(x, row);
         }
 
         result / T::from(n_trees).unwrap()

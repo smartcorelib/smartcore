@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 //! # Nearest Neighbors Search Algorithms and Data Structures
 //!
 //! Nearest neighbor search is a basic computational tool that is particularly relevant to machine learning,
@@ -29,8 +30,68 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+use crate::algorithm::neighbour::cover_tree::CoverTree;
+use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
+use crate::error::Failed;
+use crate::math::distance::Distance;
+use crate::math::num::RealNumber;
+use serde::{Deserialize, Serialize};
+
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
+
+/// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
+/// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum KNNAlgorithmName {
+    /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
+    LinearSearch,
+    /// Cover Tree Search algorithm, see [`CoverTree`](../algorithm/neighbour/cover_tree/index.html)
+    CoverTree,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
+    LinearSearch(LinearKNNSearch<Vec<T>, T, D>),
+    CoverTree(CoverTree<Vec<T>, T, D>),
+}
+
+impl KNNAlgorithmName {
+    pub(crate) fn fit<T: RealNumber, D: Distance<Vec<T>, T>>(
+        &self,
+        data: Vec<Vec<T>>,
+        distance: D,
+    ) -> Result<KNNAlgorithm<T, D>, Failed> {
+        match *self {
+            KNNAlgorithmName::LinearSearch => {
+                LinearKNNSearch::new(data, distance).map(KNNAlgorithm::LinearSearch)
+            }
+            KNNAlgorithmName::CoverTree => {
+                CoverTree::new(data, distance).map(KNNAlgorithm::CoverTree)
+            }
+        }
+    }
+}
+
+impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
+    pub fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, T, &Vec<T>)>, Failed> {
+        match *self {
+            KNNAlgorithm::LinearSearch(ref linear) => linear.find(from, k),
+            KNNAlgorithm::CoverTree(ref cover) => cover.find(from, k),
+        }
+    }
+
+    pub fn find_radius(
+        &self,
+        from: &Vec<T>,
+        radius: T,
+    ) -> Result<Vec<(usize, T, &Vec<T>)>, Failed> {
+        match *self {
+            KNNAlgorithm::LinearSearch(ref linear) => linear.find_radius(from, radius),
+            KNNAlgorithm::CoverTree(ref cover) => cover.find_radius(from, radius),
+        }
+    }
+}

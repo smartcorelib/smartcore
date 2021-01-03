@@ -45,10 +45,10 @@ impl R2 {
         let mut mean = T::zero();
 
         for i in 0..n {
-            mean = mean + y_true.get(i);
+            mean += y_true.get(i);
         }
 
-        mean = mean / T::from_usize(n).unwrap();
+        mean /= T::from_usize(n).unwrap();
 
         let mut ss_tot = T::zero();
         let mut ss_res = T::zero();
@@ -56,8 +56,8 @@ impl R2 {
         for i in 0..n {
             let y_i = y_true.get(i);
             let f_i = y_pred.get(i);
-            ss_tot = ss_tot + (y_i - mean).square();
-            ss_res = ss_res + (y_i - f_i).square();
+            ss_tot += (y_i - mean).square();
+            ss_res += (y_i - f_i).square();
         }
 
         T::one() - (ss_res / ss_tot)

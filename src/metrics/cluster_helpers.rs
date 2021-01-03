@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 use std::collections::HashMap;
 
 use crate::math::num::RealNumber;
@@ -7,8 +8,8 @@ pub fn contingency_matrix<T: RealNumber>(
     labels_true: &Vec<T>,
     labels_pred: &Vec<T>,
 ) -> Vec<Vec<usize>> {
-    let (classes, class_idx) = labels_true.unique();
-    let (clusters, cluster_idx) = labels_pred.unique();
+    let (classes, class_idx) = labels_true.unique_with_indices();
+    let (clusters, cluster_idx) = labels_pred.unique_with_indices();
 
     let mut contingency_matrix = Vec::with_capacity(classes.len());
 
@@ -23,7 +24,7 @@ pub fn contingency_matrix<T: RealNumber>(
     contingency_matrix
 }
 
-pub fn entropy<T: RealNumber>(data: &Vec<T>) -> Option<T> {
+pub fn entropy<T: RealNumber>(data: &[T]) -> Option<T> {
     let mut bincounts = HashMap::with_capacity(data.len());
 
     for e in data.iter() {
@@ -37,24 +38,24 @@ pub fn entropy<T: RealNumber>(data: &Vec<T>) -> Option<T> {
     for &c in bincounts.values() {
         if c > 0 {
             let pi = T::from_usize(c).unwrap();
-            entropy = entropy - (pi / sum) * (pi.ln() - sum.ln());
+            entropy -= (pi / sum) * (pi.ln() - sum.ln());
         }
     }
 
     Some(entropy)
 }
 
-pub fn mutual_info_score<T: RealNumber>(contingency: &Vec<Vec<usize>>) -> T {
+pub fn mutual_info_score<T: RealNumber>(contingency: &[Vec<usize>]) -> T {
     let mut contingency_sum = 0;
     let mut pi = vec![0; contingency.len()];
     let mut pj = vec![0; contingency[0].len()];
     let (mut nzx, mut nzy, mut nz_val) = (Vec::new(), Vec::new(), Vec::new());
 
     for r in 0..contingency.len() {
-        for c in 0..contingency[0].len() {
+        for (c, pj_c) in pj.iter_mut().enumerate().take(contingency[0].len()) {
             contingency_sum += contingency[r][c];
             pi[r] += contingency[r][c];
-            pj[c] += contingency[r][c];
+            *pj_c += contingency[r][c];
             if contingency[r][c] > 0 {
                 nzx.push(r);
                 nzy.push(c);
@@ -89,9 +90,8 @@ pub fn mutual_info_score<T: RealNumber>(contingency: &Vec<Vec<usize>>) -> T {
     let mut result = T::zero();
 
     for i in 0..log_outer.len() {
-        result = result
-            + ((contingency_nm[i] * (log_contingency_nm[i] - contingency_sum_ln))
-                + contingency_nm[i] * log_outer[i])
+        result += (contingency_nm[i] * (log_contingency_nm[i] - contingency_sum_ln))
+            + contingency_nm[i] * log_outer[i]
     }
 
     result.max(T::zero())

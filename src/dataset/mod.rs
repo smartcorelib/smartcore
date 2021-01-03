@@ -5,6 +5,7 @@ pub mod boston;
 pub mod breast_cancer;
 pub mod diabetes;
 pub mod digits;
+pub mod generator;
 pub mod iris;
 
 use crate::math::num::RealNumber;
@@ -55,19 +56,19 @@ pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
 ) -> Result<(), io::Error> {
     match File::create(filename) {
         Ok(mut file) => {
-            file.write(&dataset.num_features.to_le_bytes())?;
-            file.write(&dataset.num_samples.to_le_bytes())?;
+            file.write_all(&dataset.num_features.to_le_bytes())?;
+            file.write_all(&dataset.num_samples.to_le_bytes())?;
             let x: Vec<u8> = dataset
                 .data
                 .iter()
-                .map(|v| *v)
+                .copied()
                 .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
                 .collect();
             file.write_all(&x)?;
             let y: Vec<u8> = dataset
                 .target
                 .iter()
-                .map(|v| *v)
+                .copied()
                 .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
                 .collect();
             file.write_all(&y)?;

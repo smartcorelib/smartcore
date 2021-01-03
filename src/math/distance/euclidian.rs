@@ -25,12 +25,12 @@ use crate::math::num::RealNumber;
 use super::Distance;
 
 /// Euclidean distance is a measure of the true straight line distance between two points in Euclidean n-space.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Euclidian {}
 
 impl Euclidian {
     #[inline]
-    pub(crate) fn squared_distance<T: RealNumber>(x: &Vec<T>, y: &Vec<T>) -> T {
+    pub(crate) fn squared_distance<T: RealNumber>(x: &[T], y: &[T]) -> T {
         if x.len() != y.len() {
             panic!("Input vector sizes are different.");
         }
@@ -38,7 +38,7 @@ impl Euclidian {
         let mut sum = T::zero();
         for i in 0..x.len() {
             let d = x[i] - y[i];
-            sum = sum + d * d;
+            sum += d * d;
         }
 
         sum

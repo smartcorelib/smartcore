@@ -36,7 +36,7 @@
 //!             1., 1., 1., 1., 1., 1., 1., 1., 1., 1.
 //!         ]);
 //!
-//! let lr = LogisticRegression::fit(&x, &y).unwrap();
+//! let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = lr.predict(&x).unwrap();
 //! ```
 use std::iter::Sum;
@@ -47,17 +47,20 @@ use std::ops::Range;
 use std::ops::SubAssign;
 
 use ndarray::ScalarOperand;
-use ndarray::{s, stack, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
+use ndarray::{concatenate, s, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
+use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
+use crate::linalg::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
 
-impl<T: RealNumber> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
+impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn get(&self, i: usize) -> T {
         self[i]
     }
@@ -84,6 +87,99 @@ impl<T: RealNumber> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn fill(len: usize, value: T) -> Self {
         Array::from_elem(len, value)
     }
+
+    fn dot(&self, other: &Self) -> T {
+        self.dot(other)
+    }
+
+    fn norm2(&self) -> T {
+        self.iter().map(|x| *x * *x).sum::<T>().sqrt()
+    }
+
+    fn norm(&self, p: T) -> T {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iter().fold(T::neg_infinity(), |f, &val| {
+                let v = val.abs();
+                if f > v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iter().fold(T::infinity(), |f, &val| {
+                let v = val.abs();
+                if f < v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else {
+            let mut norm = T::zero();
+
+            for xi in self.iter() {
+                norm += xi.abs().powf(p);
+            }
+
+            norm.powf(T::one() / p)
+        }
+    }
+
+    fn div_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] /= x;
+    }
+
+    fn mul_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] *= x;
+    }
+
+    fn add_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] += x;
+    }
+
+    fn sub_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] -= x;
+    }
+
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
+        (self - other).iter().all(|v| v.abs() <= error)
+    }
+
+    fn add_mut(&mut self, other: &Self) -> &Self {
+        *self += other;
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        *self -= other;
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        *self *= other;
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        *self /= other;
+        self
+    }
+
+    fn sum(&self) -> T {
+        self.sum()
+    }
+
+    fn unique(&self) -> Vec<T> {
+        let mut result = self.clone().into_raw_vec();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
+    }
+
+    fn copy_from(&mut self, other: &Self) {
+        self.assign(&other);
+    }
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
@@ -109,11 +205,13 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
         self.row(row).to_vec()
     }
 
+    fn get_row(&self, row: usize) -> Self::RowVector {
+        self.row(row).to_owned()
+    }
+
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.row(row).iter() {
+        for (r, e) in self.row(row).iter().enumerate() {
             result[r] = *e;
-            r += 1;
         }
     }
 
@@ -122,10 +220,8 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.column(col).iter() {
-            result[r] = *e;
-            r += 1;
+        for (c, e) in self.column(col).iter().enumerate() {
+            result[c] = *e;
         }
     }
 
@@ -154,11 +250,11 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn h_stack(&self, other: &Self) -> Self {
-        stack(Axis(1), &[self.view(), other.view()]).unwrap()
+        concatenate(Axis(1), &[self.view(), other.view()]).unwrap()
     }
 
     fn v_stack(&self, other: &Self) -> Self {
-        stack(Axis(0), &[self.view(), other.view()]).unwrap()
+        concatenate(Axis(0), &[self.view(), other.view()]).unwrap()
     }
 
     fn matmul(&self, other: &Self) -> Self {
@@ -253,7 +349,7 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -265,19 +361,19 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn div_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] / x;
+        self[[row, col]] /= x;
     }
 
     fn mul_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] * x;
+        self[[row, col]] *= x;
     }
 
     fn add_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] + x;
+        self[[row, col]] += x;
     }
 
     fn sub_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self[[row, col]] = self[[row, col]] - x;
+        self[[row, col]] -= x;
     }
 
     fn negative_mut(&mut self) {
@@ -331,7 +427,7 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
             for c in 0..self.ncols() {
                 let p = (self[(r, c)] - max).exp();
                 self.set(r, c, p);
-                z = z + p;
+                z += p;
             }
         }
         for r in 0..self.nrows() {
@@ -401,6 +497,26 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 {
 }
 
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    CholeskyDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    MatrixStats<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    MatrixPreprocessing<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    HighOrderOperations<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> Matrix<T>
     for ArrayBase<OwnedRepr<T>, Ix2>
 {
@@ -426,6 +542,16 @@ mod tests {
     }
 
     #[test]
+    fn vec_copy_from() {
+        let mut v1 = arr1(&[1., 2., 3.]);
+        let mut v2 = arr1(&[4., 5., 6.]);
+        v1.copy_from(&v2);
+        assert_eq!(v1, v2);
+        v2[0] = 10.0;
+        assert_ne!(v1, v2);
+    }
+
+    #[test]
     fn vec_len() {
         let v = arr1(&[1., 2., 3.]);
         assert_eq!(3, v.len());
@@ -438,6 +564,21 @@ mod tests {
     }
 
     #[test]
+    fn vec_dot() {
+        let v1 = arr1(&[1., 2., 3.]);
+        let v2 = arr1(&[4., 5., 6.]);
+        assert_eq!(32.0, BaseVector::dot(&v1, &v2));
+    }
+
+    #[test]
+    fn vec_approximate_eq() {
+        let a = arr1(&[1., 2., 3.]);
+        let noise = arr1(&[1e-5, 2e-5, 3e-5]);
+        assert!(a.approximate_eq(&(&noise + &a), 1e-4));
+        assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
+    }
+
+    #[test]
     fn from_to_row_vec() {
         let vec = arr1(&[1., 2., 3.]);
         assert_eq!(Array2::from_row_vector(vec.clone()), arr2(&[[1., 2., 3.]]));
@@ -445,6 +586,12 @@ mod tests {
             Array2::from_row_vector(vec.clone()).to_row_vector(),
             arr1(&[1., 2., 3.])
         );
+    }
+
+    #[test]
+    fn col_matrix_to_row_vector() {
+        let m: Array2<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
     }
 
     #[test]
@@ -679,6 +826,12 @@ mod tests {
     }
 
     #[test]
+    fn get_row() {
+        let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        assert_eq!(arr1(&[4., 5., 6.]), a.get_row(1));
+    }
+
+    #[test]
     fn get_col_as_vector() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         let res = a.get_col_as_vec(1);
@@ -764,7 +917,7 @@ mod tests {
             0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
         ]);
 
-        let lr = LogisticRegression::fit(&x, &y).unwrap();
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 
         let y_hat = lr.predict(&x).unwrap();
 

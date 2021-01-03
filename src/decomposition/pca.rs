@@ -37,7 +37,7 @@
 //!                     &[5.2, 2.7, 3.9, 1.4],
 //!                     ]);
 //!
-//! let pca = PCA::fit(&iris, 2, Default::default()).unwrap(); // Reduce number of features to 2
+//! let pca = PCA::fit(&iris, PCAParameters::default().with_n_components(2)).unwrap(); // Reduce number of features to 2
 //!
 //! let iris_reduced = pca.transform(&iris).unwrap();
 //!
@@ -49,6 +49,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Transformer, UnsupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -68,14 +69,14 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
         if self.eigenvectors != other.eigenvectors
             || self.eigenvalues.len() != other.eigenvalues.len()
         {
-            return false;
+            false
         } else {
             for i in 0..self.eigenvalues.len() {
                 if (self.eigenvalues[i] - other.eigenvalues[i]).abs() > T::epsilon() {
                     return false;
                 }
             }
-            return true;
+            true
         }
     }
 }
@@ -83,16 +84,45 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
 #[derive(Debug, Clone)]
 /// PCA parameters
 pub struct PCAParameters {
+    /// Number of components to keep.
+    pub n_components: usize,
     /// By default, covariance matrix is used to compute principal components.
     /// Enable this flag if you want to use correlation matrix instead.
     pub use_correlation_matrix: bool,
 }
 
+impl PCAParameters {
+    /// Number of components to keep.
+    pub fn with_n_components(mut self, n_components: usize) -> Self {
+        self.n_components = n_components;
+        self
+    }
+    /// By default, covariance matrix is used to compute principal components.
+    /// Enable this flag if you want to use correlation matrix instead.
+    pub fn with_use_correlation_matrix(mut self, use_correlation_matrix: bool) -> Self {
+        self.use_correlation_matrix = use_correlation_matrix;
+        self
+    }
+}
+
 impl Default for PCAParameters {
     fn default() -> Self {
         PCAParameters {
+            n_components: 2,
             use_correlation_matrix: false,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> UnsupervisedEstimator<M, PCAParameters> for PCA<T, M> {
+    fn fit(x: &M, parameters: PCAParameters) -> Result<Self, Failed> {
+        PCA::fit(x, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Transformer<M> for PCA<T, M> {
+    fn transform(&self, x: &M) -> Result<M, Failed> {
+        self.transform(x)
     }
 }
 
@@ -101,20 +131,23 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
     /// * `data` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `n_components` - number of components to keep.
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
-    pub fn fit(
-        data: &M,
-        n_components: usize,
-        parameters: PCAParameters,
-    ) -> Result<PCA<T, M>, Failed> {
+    pub fn fit(data: &M, parameters: PCAParameters) -> Result<PCA<T, M>, Failed> {
         let (m, n) = data.shape();
+
+        if parameters.n_components > n {
+            return Err(Failed::fit(&format!(
+                "Number of components, n_components should be <= number of attributes ({})",
+                n
+            )));
+        }
 
         let mu = data.column_mean();
 
         let mut x = data.clone();
 
-        for c in 0..n {
+        for (c, mu_c) in mu.iter().enumerate().take(n) {
             for r in 0..m {
-                x.sub_element_mut(r, c, mu[c]);
+                x.sub_element_mut(r, c, *mu_c);
             }
         }
 
@@ -124,8 +157,8 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
         if m > n && !parameters.use_correlation_matrix {
             let svd = x.svd()?;
             eigenvalues = svd.s;
-            for i in 0..eigenvalues.len() {
-                eigenvalues[i] = eigenvalues[i] * eigenvalues[i];
+            for eigenvalue in &mut eigenvalues {
+                *eigenvalue = *eigenvalue * (*eigenvalue);
             }
 
             eigenvectors = svd.V;
@@ -149,8 +182,8 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
 
             if parameters.use_correlation_matrix {
                 let mut sd = vec![T::zero(); n];
-                for i in 0..n {
-                    sd[i] = cov.get(i, i).sqrt();
+                for (i, sd_i) in sd.iter_mut().enumerate().take(n) {
+                    *sd_i = cov.get(i, i).sqrt();
                 }
 
                 for i in 0..n {
@@ -166,9 +199,9 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
 
                 eigenvectors = evd.V;
 
-                for i in 0..n {
+                for (i, sd_i) in sd.iter().enumerate().take(n) {
                     for j in 0..n {
-                        eigenvectors.div_element_mut(i, j, sd[i]);
+                        eigenvectors.div_element_mut(i, j, *sd_i);
                     }
                 }
             } else {
@@ -180,26 +213,26 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
             }
         }
 
-        let mut projection = M::zeros(n_components, n);
+        let mut projection = M::zeros(parameters.n_components, n);
         for i in 0..n {
-            for j in 0..n_components {
+            for j in 0..parameters.n_components {
                 projection.set(j, i, eigenvectors.get(i, j));
             }
         }
 
-        let mut pmu = vec![T::zero(); n_components];
-        for k in 0..n {
-            for i in 0..n_components {
-                pmu[i] = pmu[i] + projection.get(i, k) * mu[k];
+        let mut pmu = vec![T::zero(); parameters.n_components];
+        for (k, mu_k) in mu.iter().enumerate().take(n) {
+            for (i, pmu_i) in pmu.iter_mut().enumerate().take(parameters.n_components) {
+                *pmu_i += projection.get(i, k) * (*mu_k);
             }
         }
 
         Ok(PCA {
-            eigenvectors: eigenvectors,
-            eigenvalues: eigenvalues,
+            eigenvectors,
+            eigenvalues,
             projection: projection.transpose(),
-            mu: mu,
-            pmu: pmu,
+            mu,
+            pmu,
         })
     }
 
@@ -223,6 +256,11 @@ impl<T: RealNumber, M: Matrix<T>> PCA<T, M> {
             }
         }
         Ok(x_transformed)
+    }
+
+    /// Get a projection matrix
+    pub fn components(&self) -> &M {
+        &self.projection
     }
 }
 
@@ -284,6 +322,22 @@ mod tests {
             &[2.6, 53.0, 66.0, 10.8],
             &[6.8, 161.0, 60.0, 15.6],
         ])
+    }
+
+    #[test]
+    fn pca_components() {
+        let us_arrests = us_arrests_data();
+
+        let expected = DenseMatrix::from_2d_array(&[
+            &[0.0417, 0.0448],
+            &[0.9952, 0.0588],
+            &[0.0463, 0.9769],
+            &[0.0752, 0.2007],
+        ]);
+
+        let pca = PCA::fit(&us_arrests, Default::default()).unwrap();
+
+        assert!(expected.approximate_eq(&pca.components().abs(), 0.4));
     }
 
     #[test]
@@ -377,7 +431,7 @@ mod tests {
             302.04806302399646,
         ];
 
-        let pca = PCA::fit(&us_arrests, 4, Default::default()).unwrap();
+        let pca = PCA::fit(&us_arrests, PCAParameters::default().with_n_components(4)).unwrap();
 
         assert!(pca
             .eigenvectors
@@ -488,10 +542,9 @@ mod tests {
 
         let pca = PCA::fit(
             &us_arrests,
-            4,
-            PCAParameters {
-                use_correlation_matrix: true,
-            },
+            PCAParameters::default()
+                .with_n_components(4)
+                .with_use_correlation_matrix(true),
         )
         .unwrap();
 
@@ -536,7 +589,7 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let pca = PCA::fit(&iris, 4, Default::default()).unwrap();
+        let pca = PCA::fit(&iris, Default::default()).unwrap();
 
         let deserialized_pca: PCA<f64, DenseMatrix<f64>> =
             serde_json::from_str(&serde_json::to_string(&pca).unwrap()).unwrap();

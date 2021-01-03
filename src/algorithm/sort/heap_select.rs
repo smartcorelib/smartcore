@@ -15,7 +15,7 @@ pub struct HeapSelection<T: PartialOrd + Debug> {
 impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
     pub fn with_capacity(k: usize) -> HeapSelection<T> {
         HeapSelection {
-            k: k,
+            k,
             n: 0,
             sorted: false,
             heap: Vec::new(),
@@ -41,6 +41,9 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
 
     pub fn heapify(&mut self) {
         let n = self.heap.len();
+        if n <= 1 {
+            return;
+        }
         for i in (0..=(n / 2 - 1)).rev() {
             self.sift_down(i, n - 1);
         }
@@ -48,7 +51,7 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
 
     pub fn peek(&self) -> &T {
         if self.sorted {
-            return &self.heap[0];
+            &self.heap[0]
         } else {
             &self
                 .heap
@@ -59,11 +62,11 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
     }
 
     pub fn peek_mut(&mut self) -> &mut T {
-        return &mut self.heap[0];
+        &mut self.heap[0]
     }
 
     pub fn get(self) -> Vec<T> {
-        return self.heap;
+        self.heap
     }
 
     fn sift_down(&mut self, k: usize, n: usize) {

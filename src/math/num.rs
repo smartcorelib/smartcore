@@ -6,10 +6,23 @@ use num_traits::{Float, FromPrimitive};
 use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
-pub trait RealNumber: Float + FromPrimitive + Debug + Display + Copy + Sum + Product {
+pub trait RealNumber:
+    Float
+    + FromPrimitive
+    + Debug
+    + Display
+    + Copy
+    + Sum
+    + Product
+    + AddAssign
+    + SubAssign
+    + MulAssign
+    + DivAssign
+{
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
 
@@ -44,19 +57,19 @@ impl RealNumber for f64 {
 
     fn ln_1pe(self) -> f64 {
         if self > 15. {
-            return self;
+            self
         } else {
-            return self.exp().ln_1p();
+            self.exp().ln_1p()
         }
     }
 
     fn sigmoid(self) -> f64 {
         if self < -40. {
-            return 0.;
+            0.
         } else if self > 40. {
-            return 1.;
+            1.
         } else {
-            return 1. / (1. + f64::exp(-self));
+            1. / (1. + f64::exp(-self))
         }
     }
 
@@ -85,19 +98,19 @@ impl RealNumber for f32 {
 
     fn ln_1pe(self) -> f32 {
         if self > 15. {
-            return self;
+            self
         } else {
-            return self.exp().ln_1p();
+            self.exp().ln_1p()
         }
     }
 
     fn sigmoid(self) -> f32 {
         if self < -40. {
-            return 0.;
+            0.
         } else if self > 40. {
-            return 1.;
+            1.
         } else {
-            return 1. / (1. + f32::exp(-self));
+            1. / (1. + f32::exp(-self))
         }
     }
 

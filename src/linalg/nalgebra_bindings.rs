@@ -42,9 +42,12 @@ use std::ops::{AddAssign, DivAssign, MulAssign, Range, SubAssign};
 
 use nalgebra::{DMatrix, Dynamic, Matrix, MatrixMN, RowDVector, Scalar, VecStorage, U1};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
+use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
+use crate::linalg::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix as SmartCoreMatrix;
 use crate::linalg::{BaseMatrix, BaseVector};
@@ -63,7 +66,7 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
     }
 
     fn to_vec(&self) -> Vec<T> {
-        self.row(0).iter().map(|v| *v).collect()
+        self.row(0).iter().copied().collect()
     }
 
     fn zeros(len: usize) -> Self {
@@ -79,19 +82,123 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
         m.fill(value);
         m
     }
+
+    fn dot(&self, other: &Self) -> T {
+        self.dot(other)
+    }
+
+    fn norm2(&self) -> T {
+        self.iter().map(|x| *x * *x).sum::<T>().sqrt()
+    }
+
+    fn norm(&self, p: T) -> T {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iter().fold(T::neg_infinity(), |f, &val| {
+                let v = val.abs();
+                if f > v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iter().fold(T::infinity(), |f, &val| {
+                let v = val.abs();
+                if f < v {
+                    f
+                } else {
+                    v
+                }
+            })
+        } else {
+            let mut norm = T::zero();
+
+            for xi in self.iter() {
+                norm += xi.abs().powf(p);
+            }
+
+            norm.powf(T::one() / p)
+        }
+    }
+
+    fn div_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() / x;
+    }
+
+    fn mul_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() * x;
+    }
+
+    fn add_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() + x;
+    }
+
+    fn sub_element_mut(&mut self, pos: usize, x: T) {
+        *self.get_mut(pos).unwrap() = *self.get(pos).unwrap() - x;
+    }
+
+    fn add_mut(&mut self, other: &Self) -> &Self {
+        *self += other;
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        *self -= other;
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        self.component_mul_assign(other);
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        self.component_div_assign(other);
+        self
+    }
+
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
+        if self.shape() != other.shape() {
+            false
+        } else {
+            self.iter()
+                .zip(other.iter())
+                .all(|(a, b)| (*a - *b).abs() <= error)
+        }
+    }
+
+    fn sum(&self) -> T {
+        let mut sum = T::zero();
+        for v in self.iter() {
+            sum += *v;
+        }
+        sum
+    }
+
+    fn unique(&self) -> Vec<T> {
+        let mut result: Vec<T> = self.iter().copied().collect();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
+    }
+
+    fn copy_from(&mut self, other: &Self) {
+        Matrix::copy_from(self, other);
+    }
 }
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
     BaseMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
-    type RowVector = MatrixMN<T, U1, Dynamic>;
+    type RowVector = RowDVector<T>;
 
     fn from_row_vector(vec: Self::RowVector) -> Self {
         Matrix::from_rows(&[vec])
     }
 
     fn to_row_vector(self) -> Self::RowVector {
-        self.row(0).into_owned()
+        let (nrows, ncols) = self.shape();
+        self.reshape_generic(U1, Dynamic::new(nrows * ncols))
     }
 
     fn get(&self, row: usize, col: usize) -> T {
@@ -99,26 +206,26 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
     }
 
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
-        self.row(row).iter().map(|v| *v).collect()
+        self.row(row).iter().copied().collect()
+    }
+
+    fn get_row(&self, row: usize) -> Self::RowVector {
+        self.row(row).into_owned()
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.row(row).iter() {
+        for (r, e) in self.row(row).iter().enumerate() {
             result[r] = *e;
-            r += 1;
         }
     }
 
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
-        self.column(col).iter().map(|v| *v).collect()
+        self.column(col).iter().copied().collect()
     }
 
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
-        let mut r = 0;
-        for e in self.column(col).iter() {
-            result[r] = *e;
-            r += 1;
+        for (c, e) in self.column(col).iter().enumerate() {
+            result[c] = *e;
         }
     }
 
@@ -264,7 +371,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
             let mut norm = T::zero();
 
             for xi in self.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -373,7 +480,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
             for c in 0..self.ncols() {
                 let p = (self[(r, c)] - max).exp();
                 self.set(r, c, p);
-                z = z + p;
+                z += p;
             }
         }
         for r in 0..self.nrows() {
@@ -410,7 +517,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
     }
 
     fn unique(&self) -> Vec<T> {
-        let mut result: Vec<T> = self.iter().map(|v| *v).collect();
+        let mut result: Vec<T> = self.iter().copied().collect();
         result.sort_by(|a, b| a.partial_cmp(b).unwrap());
         result.dedup();
         result
@@ -442,6 +549,26 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
 }
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    CholeskyDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    MatrixStats<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    MatrixPreprocessing<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    HighOrderOperations<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
     SmartCoreMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
 }
@@ -451,6 +578,16 @@ mod tests {
     use super::*;
     use crate::linear::linear_regression::*;
     use nalgebra::{DMatrix, Matrix2x3, RowDVector};
+
+    #[test]
+    fn vec_copy_from() {
+        let mut v1 = RowDVector::from_vec(vec![1., 2., 3.]);
+        let mut v2 = RowDVector::from_vec(vec![4., 5., 6.]);
+        v1.copy_from(&v2);
+        assert_eq!(v2, v1);
+        v2[0] = 10.0;
+        assert_ne!(v2, v1);
+    }
 
     #[test]
     fn vec_len() {
@@ -484,6 +621,21 @@ mod tests {
         assert_eq!(zeros, RowDVector::from_vec(vec![0., 0., 0.]));
         assert_eq!(ones, RowDVector::from_vec(vec![1., 1., 1.]));
         assert_eq!(twos, RowDVector::from_vec(vec![2., 2., 2.]));
+    }
+
+    #[test]
+    fn vec_dot() {
+        let v1 = RowDVector::from_vec(vec![1., 2., 3.]);
+        let v2 = RowDVector::from_vec(vec![4., 5., 6.]);
+        assert_eq!(32.0, BaseVector::dot(&v1, &v2));
+    }
+
+    #[test]
+    fn vec_approximate_eq() {
+        let a = RowDVector::from_vec(vec![1., 2., 3.]);
+        let noise = RowDVector::from_vec(vec![1e-5, 2e-5, 3e-5]);
+        assert!(a.approximate_eq(&(&noise + &a), 1e-4));
+        assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
     }
 
     #[test]
@@ -572,11 +724,23 @@ mod tests {
     }
 
     #[test]
+    fn col_matrix_to_row_vector() {
+        let m: DMatrix<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
+    }
+
+    #[test]
     fn get_row_col_as_vec() {
         let m = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
 
         assert_eq!(m.get_row_as_vec(1), vec!(4., 5., 6.));
         assert_eq!(m.get_col_as_vec(1), vec!(2., 5., 8.));
+    }
+
+    #[test]
+    fn get_row() {
+        let a = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+        assert_eq!(RowDVector::from_vec(vec![4., 5., 6.]), a.get_row(1));
     }
 
     #[test]

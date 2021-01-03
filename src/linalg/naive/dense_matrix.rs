@@ -1,4 +1,4 @@
-extern crate num;
+#![allow(clippy::ptr_arg)]
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -8,9 +8,12 @@ use serde::de::{Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 
+use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
+use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
+use crate::linalg::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 pub use crate::linalg::{BaseMatrix, BaseVector};
@@ -29,8 +32,7 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
     }
 
     fn to_vec(&self) -> Vec<T> {
-        let v = self.clone();
-        v
+        self.clone()
     }
 
     fn zeros(len: usize) -> Self {
@@ -43,6 +45,149 @@ impl<T: RealNumber> BaseVector<T> for Vec<T> {
 
     fn fill(len: usize, value: T) -> Self {
         vec![value; len]
+    }
+
+    fn dot(&self, other: &Self) -> T {
+        if self.len() != other.len() {
+            panic!("A and B should have the same size");
+        }
+
+        let mut result = T::zero();
+        for i in 0..self.len() {
+            result += self[i] * other[i];
+        }
+
+        result
+    }
+
+    fn norm2(&self) -> T {
+        let mut norm = T::zero();
+
+        for xi in self.iter() {
+            norm += *xi * *xi;
+        }
+
+        norm.sqrt()
+    }
+
+    fn norm(&self, p: T) -> T {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iter()
+                .map(|x| x.abs())
+                .fold(T::neg_infinity(), |a, b| a.max(b))
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iter()
+                .map(|x| x.abs())
+                .fold(T::infinity(), |a, b| a.min(b))
+        } else {
+            let mut norm = T::zero();
+
+            for xi in self.iter() {
+                norm += xi.abs().powf(p);
+            }
+
+            norm.powf(T::one() / p)
+        }
+    }
+
+    fn div_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] /= x;
+    }
+
+    fn mul_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] *= x;
+    }
+
+    fn add_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] += x
+    }
+
+    fn sub_element_mut(&mut self, pos: usize, x: T) {
+        self[pos] -= x;
+    }
+
+    fn add_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.add_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn sub_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.sub_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn mul_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.mul_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn div_mut(&mut self, other: &Self) -> &Self {
+        if self.len() != other.len() {
+            panic!("A and B should have the same shape");
+        }
+        for i in 0..self.len() {
+            self.div_element_mut(i, other.get(i));
+        }
+
+        self
+    }
+
+    fn approximate_eq(&self, other: &Self, error: T) -> bool {
+        if self.len() != other.len() {
+            false
+        } else {
+            for i in 0..other.len() {
+                if (self[i] - other[i]).abs() > error {
+                    return false;
+                }
+            }
+            true
+        }
+    }
+
+    fn sum(&self) -> T {
+        let mut sum = T::zero();
+        for self_i in self.iter() {
+            sum += *self_i;
+        }
+        sum
+    }
+
+    fn unique(&self) -> Vec<T> {
+        let mut result = self.clone();
+        result.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        result.dedup();
+        result
+    }
+
+    fn copy_from(&mut self, other: &Self) {
+        if self.len() != other.len() {
+            panic!(
+                "Can't copy vector of length {} into a vector of length {}.",
+                self.len(),
+                other.len()
+            );
+        }
+
+        self[..].clone_from_slice(&other[..]);
     }
 }
 
@@ -65,7 +210,7 @@ pub struct DenseMatrixIterator<'a, T: RealNumber> {
 }
 
 impl<T: RealNumber> fmt::Display for DenseMatrix<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut rows: Vec<Vec<f64>> = Vec::new();
         for r in 0..self.nrows {
             rows.push(
@@ -84,15 +229,15 @@ impl<T: RealNumber> DenseMatrix<T> {
     /// `values` should be in column-major order.
     pub fn new(nrows: usize, ncols: usize, values: Vec<T>) -> Self {
         DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
-            values: values,
+            ncols,
+            nrows,
+            values,
         }
     }
 
     /// New instance of `DenseMatrix` from 2d array.
     pub fn from_2d_array(values: &[&[T]]) -> Self {
-        DenseMatrix::from_2d_vec(&values.into_iter().map(|row| Vec::from(*row)).collect())
+        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect())
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
@@ -103,13 +248,13 @@ impl<T: RealNumber> DenseMatrix<T> {
             .unwrap_or_else(|| panic!("Cannot create 2d matrix from an empty vector"))
             .len();
         let mut m = DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
+            ncols,
+            nrows,
             values: vec![T::zero(); ncols * nrows],
         };
-        for row in 0..nrows {
-            for col in 0..ncols {
-                m.set(row, col, values[row][col]);
+        for (row_index, row) in values.iter().enumerate().take(nrows) {
+            for (col_index, value) in row.iter().enumerate().take(ncols) {
+                m.set(row_index, col_index, *value);
             }
         }
         m
@@ -127,10 +272,10 @@ impl<T: RealNumber> DenseMatrix<T> {
     /// * `nrows` - number of rows in new matrix.
     /// * `ncols` - number of columns in new matrix.
     /// * `values` - values to initialize the matrix.
-    pub fn from_vec(nrows: usize, ncols: usize, values: &Vec<T>) -> DenseMatrix<T> {
+    pub fn from_vec(nrows: usize, ncols: usize, values: &[T]) -> DenseMatrix<T> {
         let mut m = DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
+            ncols,
+            nrows,
             values: vec![T::zero(); ncols * nrows],
         };
         for row in 0..nrows {
@@ -153,7 +298,7 @@ impl<T: RealNumber> DenseMatrix<T> {
         DenseMatrix {
             ncols: values.len(),
             nrows: 1,
-            values: values,
+            values,
         }
     }
 
@@ -169,13 +314,13 @@ impl<T: RealNumber> DenseMatrix<T> {
         DenseMatrix {
             ncols: 1,
             nrows: values.len(),
-            values: values,
+            values,
         }
     }
 
     /// Creates new column vector (_1xN_ matrix) from a vector.     
     /// * `values` - values to initialize the matrix.
-    pub fn iter<'a>(&'a self) -> DenseMatrixIterator<'a, T> {
+    pub fn iter(&self) -> DenseMatrixIterator<'_, T> {
         DenseMatrixIterator {
             cur_c: 0,
             cur_r: 0,
@@ -224,7 +369,7 @@ impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for De
         impl<'a, T: RealNumber + fmt::Debug + Deserialize<'a>> Visitor<'a> for DenseMatrixVisitor<T> {
             type Value = DenseMatrix<T>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct DenseMatrix")
             }
 
@@ -280,7 +425,7 @@ impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for De
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["nrows", "ncols", "values"];
+        const FIELDS: &[&str] = &["nrows", "ncols", "values"];
         deserializer.deserialize_struct(
             "DenseMatrix",
             FIELDS,
@@ -310,6 +455,43 @@ impl<T: RealNumber> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
 impl<T: RealNumber> QRDecomposableMatrix<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> LUDecomposableMatrix<T> for DenseMatrix<T> {}
+
+impl<T: RealNumber> CholeskyDecomposableMatrix<T> for DenseMatrix<T> {}
+
+impl<T: RealNumber> HighOrderOperations<T> for DenseMatrix<T> {
+    fn ab(&self, a_transpose: bool, b: &Self, b_transpose: bool) -> Self {
+        if !a_transpose && !b_transpose {
+            self.matmul(b)
+        } else {
+            let (d1, d2, d3, d4) = match (a_transpose, b_transpose) {
+                (true, false) => (self.nrows, self.ncols, b.ncols, b.nrows),
+                (false, true) => (self.ncols, self.nrows, b.nrows, b.ncols),
+                _ => (self.nrows, self.ncols, b.nrows, b.ncols),
+            };
+            if d1 != d4 {
+                panic!("Can not multiply {}x{} by {}x{} matrices", d2, d1, d4, d3);
+            }
+            let mut result = Self::zeros(d2, d3);
+            for r in 0..d2 {
+                for c in 0..d3 {
+                    let mut s = T::zero();
+                    for i in 0..d1 {
+                        match (a_transpose, b_transpose) {
+                            (true, false) => s += self.get(i, r) * b.get(i, c),
+                            (false, true) => s += self.get(r, i) * b.get(c, i),
+                            _ => s += self.get(i, r) * b.get(c, i),
+                        }
+                    }
+                    result.set(r, c, s);
+                }
+            }
+            result
+        }
+    }
+}
+
+impl<T: RealNumber> MatrixStats<T> for DenseMatrix<T> {}
+impl<T: RealNumber> MatrixPreprocessing<T> for DenseMatrix<T> {}
 
 impl<T: RealNumber> Matrix<T> for DenseMatrix<T> {}
 
@@ -371,31 +553,41 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         self.values[col * self.nrows + row]
     }
 
+    fn get_row(&self, row: usize) -> Self::RowVector {
+        let mut v = vec![T::zero(); self.ncols];
+
+        for (c, v_c) in v.iter_mut().enumerate().take(self.ncols) {
+            *v_c = self.get(row, c);
+        }
+
+        v
+    }
+
     fn get_row_as_vec(&self, row: usize) -> Vec<T> {
         let mut result = vec![T::zero(); self.ncols];
-        for c in 0..self.ncols {
-            result[c] = self.get(row, c);
+        for (c, result_c) in result.iter_mut().enumerate().take(self.ncols) {
+            *result_c = self.get(row, c);
         }
         result
     }
 
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>) {
-        for c in 0..self.ncols {
-            result[c] = self.get(row, c);
+        for (c, result_c) in result.iter_mut().enumerate().take(self.ncols) {
+            *result_c = self.get(row, c);
         }
     }
 
     fn get_col_as_vec(&self, col: usize) -> Vec<T> {
         let mut result = vec![T::zero(); self.nrows];
-        for r in 0..self.nrows {
-            result[r] = self.get(r, col);
+        for (r, result_r) in result.iter_mut().enumerate().take(self.nrows) {
+            *result_r = self.get(r, col);
         }
         result
     }
 
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
-        for r in 0..self.nrows {
-            result[r] = self.get(r, col);
+        for (r, result_r) in result.iter_mut().enumerate().take(self.nrows) {
+            *result_r = self.get(r, col);
         }
     }
 
@@ -418,7 +610,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             matrix.set(i, i, T::one());
         }
 
-        return matrix;
+        matrix
     }
 
     fn shape(&self) -> (usize, usize) {
@@ -470,7 +662,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             for c in 0..other.ncols {
                 let mut s = T::zero();
                 for i in 0..inner_d {
-                    s = s + self.get(r, i) * other.get(i, c);
+                    s += self.get(r, i) * other.get(i, c);
                 }
                 result.set(r, c, s);
             }
@@ -480,8 +672,8 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     }
 
     fn dot(&self, other: &Self) -> T {
-        if self.nrows != 1 && other.nrows != 1 {
-            panic!("A and B should both be 1-dimentional vectors.");
+        if (self.nrows != 1 && other.nrows != 1) && (self.ncols != 1 && other.ncols != 1) {
+            panic!("A and B should both be either a row or a column vector.");
         }
         if self.nrows * self.ncols != other.nrows * other.ncols {
             panic!("A and B should have the same size");
@@ -489,7 +681,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 
         let mut result = T::zero();
         for i in 0..(self.nrows * self.ncols) {
-            result = result + self.values[i] * other.values[i];
+            result += self.values[i] * other.values[i];
         }
 
         result
@@ -583,19 +775,19 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     }
 
     fn div_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] / x;
+        self.values[col * self.nrows + row] /= x;
     }
 
     fn mul_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] * x;
+        self.values[col * self.nrows + row] *= x;
     }
 
     fn add_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] + x
+        self.values[col * self.nrows + row] += x
     }
 
     fn sub_element_mut(&mut self, row: usize, col: usize, x: T) {
-        self.values[col * self.nrows + row] = self.values[col * self.nrows + row] - x;
+        self.values[col * self.nrows + row] -= x;
     }
 
     fn transpose(&self) -> Self {
@@ -615,9 +807,9 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn rand(nrows: usize, ncols: usize) -> Self {
         let values: Vec<T> = (0..nrows * ncols).map(|_| T::rand()).collect();
         DenseMatrix {
-            ncols: ncols,
-            nrows: nrows,
-            values: values,
+            ncols,
+            nrows,
+            values,
         }
     }
 
@@ -625,7 +817,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         let mut norm = T::zero();
 
         for xi in self.values.iter() {
-            norm = norm + *xi * *xi;
+            norm += *xi * *xi;
         }
 
         norm.sqrt()
@@ -646,7 +838,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             let mut norm = T::zero();
 
             for xi in self.values.iter() {
-                norm = norm + xi.abs().powf(p);
+                norm += xi.abs().powf(p);
             }
 
             norm.powf(T::one() / p)
@@ -657,13 +849,13 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
         let mut mean = vec![T::zero(); self.ncols];
 
         for r in 0..self.nrows {
-            for c in 0..self.ncols {
-                mean[c] = mean[c] + self.get(r, c);
+            for (c, mean_c) in mean.iter_mut().enumerate().take(self.ncols) {
+                *mean_c += self.get(r, c);
             }
         }
 
-        for i in 0..mean.len() {
-            mean[i] = mean[i] / T::from(self.nrows).unwrap();
+        for mean_i in mean.iter_mut() {
+            *mean_i /= T::from(self.nrows).unwrap();
         }
 
         mean
@@ -671,28 +863,28 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 
     fn add_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] + scalar;
+            self.values[i] += scalar;
         }
         self
     }
 
     fn sub_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] - scalar;
+            self.values[i] -= scalar;
         }
         self
     }
 
     fn mul_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] * scalar;
+            self.values[i] *= scalar;
         }
         self
     }
 
     fn div_scalar_mut(&mut self, scalar: T) -> &Self {
         for i in 0..self.values.len() {
-            self.values[i] = self.values[i] / scalar;
+            self.values[i] /= scalar;
         }
         self
     }
@@ -735,9 +927,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             );
         }
 
-        for i in 0..self.values.len() {
-            self.values[i] = other.values[i];
-        }
+        self.values[..].clone_from_slice(&other.values[..]);
     }
 
     fn abs_mut(&mut self) -> &Self {
@@ -758,7 +948,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn sum(&self) -> T {
         let mut sum = T::zero();
         for i in 0..self.values.len() {
-            sum = sum + self.values[i];
+            sum += self.values[i];
         }
         sum
     }
@@ -790,7 +980,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
             for c in 0..self.ncols {
                 let p = (self.get(r, c) - max).exp();
                 self.set(r, c, p);
-                z = z + p;
+                z += p;
             }
         }
         for r in 0..self.nrows {
@@ -810,7 +1000,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
     fn argmax(&self) -> Vec<usize> {
         let mut res = vec![0usize; self.nrows];
 
-        for r in 0..self.nrows {
+        for (r, res_r) in res.iter_mut().enumerate().take(self.nrows) {
             let mut max = T::neg_infinity();
             let mut max_pos = 0usize;
             for c in 0..self.ncols {
@@ -820,7 +1010,7 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
                     max_pos = c;
                 }
             }
-            res[r] = max_pos;
+            *res_r = max_pos;
         }
 
         res
@@ -866,6 +1056,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn vec_dot() {
+        let v1 = vec![1., 2., 3.];
+        let v2 = vec![4., 5., 6.];
+        assert_eq!(32.0, BaseVector::dot(&v1, &v2));
+    }
+
+    #[test]
+    fn vec_copy_from() {
+        let mut v1 = vec![1., 2., 3.];
+        let v2 = vec![4., 5., 6.];
+        v1.copy_from(&v2);
+        assert_eq!(v1, v2);
+    }
+
+    #[test]
+    fn vec_approximate_eq() {
+        let a = vec![1., 2., 3.];
+        let b = vec![1. + 1e-5, 2. + 2e-5, 3. + 3e-5];
+        assert!(a.approximate_eq(&b, 1e-4));
+        assert!(!a.approximate_eq(&b, 1e-5));
+    }
+
+    #[test]
     fn from_array() {
         let vec = [1., 2., 3., 4., 5., 6.];
         assert_eq!(
@@ -899,9 +1112,15 @@ mod tests {
             DenseMatrix::new(1, 3, vec![1., 2., 3.])
         );
         assert_eq!(
-            DenseMatrix::from_row_vector(vec.clone()).to_row_vector(),
+            DenseMatrix::from_row_vector(vec).to_row_vector(),
             vec![1., 2., 3.]
         );
+    }
+
+    #[test]
+    fn col_matrix_to_row_vector() {
+        let m: DenseMatrix<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
     }
 
     #[test]
@@ -940,6 +1159,12 @@ mod tests {
     }
 
     #[test]
+    fn get_row() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        assert_eq!(vec![4., 5., 6.], a.get_row(1));
+    }
+
+    #[test]
     fn matmul() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
         let b = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
@@ -949,10 +1174,41 @@ mod tests {
     }
 
     #[test]
+    fn ab() {
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        let b = DenseMatrix::from_2d_array(&[&[5., 6.], &[7., 8.], &[9., 10.]]);
+        let c = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
+        assert_eq!(
+            a.ab(false, &b, false),
+            DenseMatrix::from_2d_array(&[&[46., 52.], &[109., 124.]])
+        );
+        assert_eq!(
+            c.ab(true, &b, false),
+            DenseMatrix::from_2d_array(&[&[71., 80.], &[92., 104.]])
+        );
+        assert_eq!(
+            b.ab(false, &c, true),
+            DenseMatrix::from_2d_array(&[&[17., 39., 61.], &[23., 53., 83.,], &[29., 67., 105.]])
+        );
+        assert_eq!(
+            a.ab(true, &b, true),
+            DenseMatrix::from_2d_array(&[&[29., 39., 49.], &[40., 54., 68.,], &[51., 69., 87.]])
+        );
+    }
+
+    #[test]
     fn dot() {
         let a = DenseMatrix::from_array(1, 3, &[1., 2., 3.]);
         let b = DenseMatrix::from_array(1, 3, &[4., 5., 6.]);
         assert_eq!(a.dot(&b), 32.);
+    }
+
+    #[test]
+    fn copy_from() {
+        let mut a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
+        let b = DenseMatrix::from_2d_array(&[&[7., 8.], &[9., 10.], &[11., 12.]]);
+        a.copy_from(&b);
+        assert_eq!(a, b);
     }
 
     #[test]

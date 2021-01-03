@@ -12,6 +12,7 @@ pub struct Failed {
 }
 
 /// Type of error
+#[non_exhaustive]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum FailedError {
     /// Can't fit algorithm to data
@@ -24,6 +25,8 @@ pub enum FailedError {
     FindFailed,
     /// Can't decompose a matrix
     DecompositionFailed,
+    /// Can't solve for x
+    SolutionFailed,
 }
 
 impl Failed {
@@ -59,7 +62,7 @@ impl Failed {
     /// new instance of `err`
     pub fn because(err: FailedError, msg: &str) -> Self {
         Failed {
-            err: err,
+            err,
             msg: msg.to_string(),
         }
     }
@@ -80,20 +83,21 @@ impl PartialEq for Failed {
 }
 
 impl fmt::Display for FailedError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let failed_err_str = match self {
             FailedError::FitFailed => "Fit failed",
             FailedError::PredictFailed => "Predict failed",
             FailedError::TransformFailed => "Transform failed",
             FailedError::FindFailed => "Find failed",
             FailedError::DecompositionFailed => "Decomposition failed",
+            FailedError::SolutionFailed => "Can't find solution",
         };
         write!(f, "{}", failed_err_str)
     }
 }
 
 impl fmt::Display for Failed {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.err, self.msg)
     }
 }

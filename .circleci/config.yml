@@ -1,5 +1,11 @@
 version: 2.1
 
+workflows:
+  version: 2.1
+  build:
+    jobs:
+      - build
+      - clippy
 jobs:
   build:
     docker:
@@ -24,3 +30,14 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
+  clippy:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run:
+          name: Install cargo clippy
+          command: rustup component add clippy
+      - run:
+          name: Run cargo clippy
+          command: cargo clippy --all-features -- -Drust-2018-idioms -Dwarnings

@@ -6,6 +6,7 @@
 //! use smartcore::algorithm::neighbour::cover_tree::*;
 //! use smartcore::math::distance::Distance;
 //!
+//! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
 //!
 //! impl Distance<i32, f64> for SimpleDistance {
@@ -51,7 +52,7 @@ impl<T, F: RealNumber, D: Distance<T, F>> PartialEq for CoverTree<T, F, D> {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
@@ -84,11 +85,11 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             scale: 0,
         };
         let mut tree = CoverTree {
-            base: base,
+            base,
             inv_log_base: F::one() / base.ln(),
-            distance: distance,
-            root: root,
-            data: data,
+            distance,
+            root,
+            data,
             identical_excluded: false,
         };
 
@@ -100,8 +101,8 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
     /// Find k nearest neighbors of `p`
     /// * `p` - look for k nearest points to `p`
     /// * `k` - the number of nearest neighbors to return
-    pub fn find(&self, p: &T, k: usize) -> Result<Vec<(usize, F)>, Failed> {
-        if k <= 0 {
+    pub fn find(&self, p: &T, k: usize) -> Result<Vec<(usize, F, &T)>, Failed> {
+        if k == 0 {
             return Err(Failed::because(FailedError::FindFailed, "k should be > 0"));
         }
 
@@ -147,10 +148,11 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                         *heap.peek()
                     };
                     if d <= (upper_bound + child.max_dist) {
-                        if c > 0 && d < upper_bound {
-                            if !self.identical_excluded || self.get_data_value(child.idx) != p {
-                                heap.add(d);
-                            }
+                        if c > 0
+                            && d < upper_bound
+                            && (!self.identical_excluded || self.get_data_value(child.idx) != p)
+                        {
+                            heap.add(d);
                         }
 
                         if !child.children.is_empty() {
@@ -164,13 +166,13 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             current_cover_set = next_cover_set;
         }
 
-        let mut neighbors: Vec<(usize, F)> = Vec::new();
+        let mut neighbors: Vec<(usize, F, &T)> = Vec::new();
         let upper_bound = *heap.peek();
         for ds in zero_set {
             if ds.0 <= upper_bound {
                 let v = self.get_data_value(ds.1.idx);
                 if !self.identical_excluded || v != p {
-                    neighbors.push((ds.1.idx, ds.0));
+                    neighbors.push((ds.1.idx, ds.0, &v));
                 }
             }
         }
@@ -178,9 +180,63 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         Ok(neighbors.into_iter().take(k).collect())
     }
 
+    /// Find all nearest neighbors within radius `radius` from `p`
+    /// * `p` - look for k nearest points to `p`
+    /// * `radius` - radius of the search
+    pub fn find_radius(&self, p: &T, radius: F) -> Result<Vec<(usize, F, &T)>, Failed> {
+        if radius <= F::zero() {
+            return Err(Failed::because(
+                FailedError::FindFailed,
+                "radius should be > 0",
+            ));
+        }
+
+        let mut neighbors: Vec<(usize, F, &T)> = Vec::new();
+
+        let mut current_cover_set: Vec<(F, &Node<F>)> = Vec::new();
+        let mut zero_set: Vec<(F, &Node<F>)> = Vec::new();
+
+        let e = self.get_data_value(self.root.idx);
+        let mut d = self.distance.distance(&e, p);
+        current_cover_set.push((d, &self.root));
+
+        while !current_cover_set.is_empty() {
+            let mut next_cover_set: Vec<(F, &Node<F>)> = Vec::new();
+            for par in current_cover_set {
+                let parent = par.1;
+                for c in 0..parent.children.len() {
+                    let child = &parent.children[c];
+                    if c == 0 {
+                        d = par.0;
+                    } else {
+                        d = self.distance.distance(self.get_data_value(child.idx), p);
+                    }
+
+                    if d <= radius + child.max_dist {
+                        if !child.children.is_empty() {
+                            next_cover_set.push((d, child));
+                        } else if d <= radius {
+                            zero_set.push((d, child));
+                        }
+                    }
+                }
+            }
+            current_cover_set = next_cover_set;
+        }
+
+        for ds in zero_set {
+            let v = self.get_data_value(ds.1.idx);
+            if !self.identical_excluded || v != p {
+                neighbors.push((ds.1.idx, ds.0, &v));
+            }
+        }
+
+        Ok(neighbors)
+    }
+
     fn new_leaf(&self, idx: usize) -> Node<F> {
         Node {
-            idx: idx,
+            idx,
             max_dist: F::zero(),
             parent_dist: F::zero(),
             children: Vec::new(),
@@ -244,7 +300,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                     idx: p,
                     max_dist: F::zero(),
                     parent_dist: F::zero(),
-                    children: children,
+                    children,
                     scale: 100,
                 }
             } else {
@@ -314,7 +370,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                         idx: p,
                         max_dist: self.max(consumed_set),
                         parent_dist: F::zero(),
-                        children: children,
+                        children,
                         scale: (top_scale - max_scale),
                     }
                 }
@@ -381,14 +437,14 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         }
     }
 
-    fn max(&self, distance_set: &Vec<DistanceSet<F>>) -> F {
+    fn max(&self, distance_set: &[DistanceSet<F>]) -> F {
         let mut max = F::zero();
         for n in distance_set {
             if max < n.dist[n.dist.len() - 1] {
                 max = n.dist[n.dist.len() - 1];
             }
         }
-        return max;
+        max
     }
 }
 
@@ -398,7 +454,7 @@ mod tests {
     use super::*;
     use crate::math::distance::Distances;
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     struct SimpleDistance {}
 
     impl Distance<i32, f64> for SimpleDistance {
@@ -417,6 +473,11 @@ mod tests {
         knn.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         let knn: Vec<usize> = knn.iter().map(|v| v.0).collect();
         assert_eq!(vec!(3, 4, 5), knn);
+
+        let mut knn = tree.find_radius(&5, 2.0).unwrap();
+        knn.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let knn: Vec<i32> = knn.iter().map(|v| *v.2).collect();
+        assert_eq!(vec!(3, 4, 5, 6, 7), knn);
     }
 
     #[test]
