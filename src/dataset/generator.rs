@@ -59,8 +59,6 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
     let linspace_out = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_out);
     let linspace_in = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_in);
 
-    println!("{:?}", linspace_out);
-    println!("{:?}", linspace_in);
     let noise = Normal::new(0.0, noise).unwrap();
     let mut rng = rand::thread_rng();
 
@@ -117,7 +115,6 @@ mod tests {
     #[test]
     fn test_make_circles() {
         let dataset = make_circles(10, 0.5, 0.05);
-        println!("{:?}", dataset.as_matrix());
         assert_eq!(
             dataset.data.len(),
             dataset.num_features * dataset.num_samples

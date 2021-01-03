@@ -34,7 +34,8 @@
 //!                     &[5.2, 2.7, 3.9, 1.4],
 //!                     ]);
 //!
-//! let svd = SVD::fit(&iris, SVDParameters::default().with_n_components(2)).unwrap(); // Reduce number of features to 2
+//! let svd = SVD::fit(&iris, SVDParameters::default().
+//!         with_n_components(2)).unwrap(); // Reduce number of features to 2
 //!
 //! let iris_reduced = svd.transform(&iris).unwrap();
 //!
