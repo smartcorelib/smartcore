@@ -28,7 +28,7 @@
 //!
 //! All machine learning algorithms in SmartCore are grouped into these broad categories:
 //! * [Clustering](cluster/index.html), unsupervised clustering of unlabeled data.
-//! * [Martix Decomposition](decomposition/index.html), various methods for matrix decomposition.
+//! * [Matrix Decomposition](decomposition/index.html), various methods for matrix decomposition.
 //! * [Linear Models](linear/index.html), regression and classification methods where output is assumed to have linear relation to explanatory variables
 //! * [Ensemble Models](ensemble/index.html), variety of regression and classification ensemble models
 //! * [Tree-based Models](tree/index.html), classification and regression trees
