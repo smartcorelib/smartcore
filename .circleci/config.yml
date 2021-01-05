@@ -53,7 +53,7 @@ jobs:
           command: >
             docker run --security-opt seccomp=unconfined -v $PWD:/volume
             xd009642/tarpaulin:latest-nightly cargo tarpaulin -v --ciserver circle-ci
-            --out Xml --all-features -- --test-threads 1
+            --out Lcov --all-features -- --test-threads 1
       - run:
           name: Upload
           command: bash <(curl -s https://codecov.io/bash) -Z -f
