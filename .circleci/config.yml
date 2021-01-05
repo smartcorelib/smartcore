@@ -6,6 +6,8 @@ workflows:
     jobs:
       - build
       - clippy
+      - coverage
+
 jobs:
   build:
     docker:
@@ -41,3 +43,17 @@ jobs:
       - run:
           name: Run cargo clippy
           command: cargo clippy --all-features -- -Drust-2018-idioms -Dwarnings
+
+  coverage:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Generate report
+          command: >
+            docker run --security-opt seccomp=unconfined -v $PWD:/volume
+            xd009642/tarpaulin:latest-nightly cargo tarpaulin -v --ciserver circle-ci
+            --out Lcov --all-features -- --test-threads 1
+      - run:
+          name: Upload
+          command: bash <(curl -s https://codecov.io/bash) -Z -f
