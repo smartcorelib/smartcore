@@ -22,7 +22,8 @@
 //!
 //! ```
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
 use std::marker::PhantomData;
 

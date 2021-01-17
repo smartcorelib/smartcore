@@ -42,7 +42,8 @@ use crate::math::num::RealNumber;
 use crate::math::vector::RealNumberVector;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Multinomial features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -36,7 +36,8 @@
 //!
 use std::marker::PhantomData;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, SupervisedEstimator};

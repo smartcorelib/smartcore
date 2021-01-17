@@ -36,7 +36,8 @@ use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -24,7 +24,8 @@
 //! ```
 use std::fmt::Debug;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::heap_select::HeapSelection;
 use crate::error::{Failed, FailedError};

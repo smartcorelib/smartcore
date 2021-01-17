@@ -63,7 +63,8 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::seq::SliceRandom;
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
 use crate::api::{Predictor, SupervisedEstimator};

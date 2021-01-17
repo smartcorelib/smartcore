@@ -68,7 +68,8 @@ use std::cell::{Ref, RefCell};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -95,10 +96,13 @@ pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", serde(bound(
-    serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-)))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+    ))
+)]
 
 /// Epsilon-Support Vector Regression
 pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {

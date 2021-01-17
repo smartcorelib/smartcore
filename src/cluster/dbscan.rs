@@ -43,7 +43,8 @@
 use std::fmt::Debug;
 use std::iter::Sum;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, UnsupervisedEstimator};

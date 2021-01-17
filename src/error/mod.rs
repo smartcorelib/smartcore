@@ -2,7 +2,8 @@
 use std::error::Error;
 use std::fmt;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// Generic error to be raised when something goes wrong.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

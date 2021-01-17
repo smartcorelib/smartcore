@@ -44,7 +44,8 @@
 
 use std::marker::PhantomData;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
 

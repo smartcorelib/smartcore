@@ -56,7 +56,8 @@ use rand::Rng;
 use std::fmt::Debug;
 use std::iter::Sum;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
 use crate::api::{Predictor, UnsupervisedEstimator};

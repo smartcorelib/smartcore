@@ -1,7 +1,8 @@
 #![allow(clippy::ptr_arg)]
 use std::fmt;
 use std::fmt::Debug;
-#[cfg(feature = "serde")] use std::marker::PhantomData;
+#[cfg(feature = "serde")]
+use std::marker::PhantomData;
 use std::ops::Range;
 
 #[cfg(feature = "serde")]

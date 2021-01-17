@@ -76,7 +76,8 @@ use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
 
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -103,10 +104,13 @@ pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", serde(bound(
-    serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-)))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+    ))
+)]
 /// Support Vector Classifier
 pub struct SVC<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     classes: Vec<T>,

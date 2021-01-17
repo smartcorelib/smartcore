@@ -35,7 +35,8 @@ use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::error::Failed;
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
-#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
