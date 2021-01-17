@@ -21,14 +21,15 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
 
 use super::Distance;
 
 /// Defines the Minkowski distance of order `p`
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Minkowski {
     /// order, integer
     pub p: u16,

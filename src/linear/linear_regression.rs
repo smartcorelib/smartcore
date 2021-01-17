@@ -62,14 +62,15 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Approach to use for estimation of regression coefficients. QR is more efficient but SVD is more stable.
 pub enum LinearRegressionSolverName {
     /// QR decomposition, see [QR](../../linalg/qr/index.html)
@@ -79,14 +80,16 @@ pub enum LinearRegressionSolverName {
 }
 
 /// Linear Regression parameters
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LinearRegressionParameters {
     /// Solver to use for estimation of regression coefficients.
     pub solver: LinearRegressionSolverName,
 }
 
 /// Linear Regression
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct LinearRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,

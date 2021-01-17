@@ -20,14 +20,15 @@
 //! * ["The ROC-AUC and the Mann-Whitney U-test", Haupt, J.](https://johaupt.github.io/roc-auc/model%20evaluation/Area_under_ROC_curve.html)
 #![allow(non_snake_case)]
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
 /// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct AUC {}
 
 impl AUC {

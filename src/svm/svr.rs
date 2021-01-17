@@ -68,7 +68,7 @@ use std::cell::{Ref, RefCell};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -77,7 +77,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::svm::{Kernel, Kernels, LinearKernel};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// SVR Parameters
 pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     /// Epsilon in the epsilon-SVR model.
@@ -92,11 +93,12 @@ pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
     m: PhantomData<M>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(bound(
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", serde(bound(
     serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
     deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-))]
+)))]
 
 /// Epsilon-Support Vector Regression
 pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
@@ -106,7 +108,8 @@ pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     b: T,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct SupportVector<T: RealNumber, V: BaseVector<T>> {
     index: usize,
     x: V,

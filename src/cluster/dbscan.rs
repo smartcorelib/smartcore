@@ -43,7 +43,7 @@
 use std::fmt::Debug;
 use std::iter::Sum;
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, UnsupervisedEstimator};
@@ -55,7 +55,8 @@ use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::which_max;
 
 /// DBSCAN clustering algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
     cluster_labels: Vec<i16>,
     num_classes: usize,

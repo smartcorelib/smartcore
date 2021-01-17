@@ -36,10 +36,11 @@ use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct CategoricalNBDistribution<T: RealNumber> {
     class_labels: Vec<T>,
     class_priors: Vec<T>,
@@ -216,7 +217,8 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
 }
 
 /// `CategoricalNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct CategoricalNBParameters<T: RealNumber> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
@@ -237,7 +239,8 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 }
 
 /// CategoricalNB implements the categorical naive Bayes algorithm for categorically distributed data.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub struct CategoricalNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, CategoricalNBDistribution<T>>,
 }

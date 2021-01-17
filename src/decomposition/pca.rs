@@ -47,7 +47,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::api::{Transformer, UnsupervisedEstimator};
 use crate::error::Failed;
@@ -55,7 +55,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// Principal components analysis algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct PCA<T: RealNumber, M: Matrix<T>> {
     eigenvectors: M,
     eigenvalues: Vec<T>,

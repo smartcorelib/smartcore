@@ -42,10 +42,11 @@ use crate::math::num::RealNumber;
 use crate::math::vector::RealNumberVector;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Multinomial features
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 struct MultinomialNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -73,7 +74,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribu
 }
 
 /// `MultinomialNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct MultinomialNBParameters<T: RealNumber> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
@@ -189,7 +191,8 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
 }
 
 /// MultinomialNB implements the categorical naive Bayes algorithm for categorically distributed data.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub struct MultinomialNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, MultinomialNBDistribution<T>>,
 }

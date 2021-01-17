@@ -22,7 +22,7 @@
 //!
 //! ```
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
 use std::marker::PhantomData;
 
@@ -32,7 +32,8 @@ use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 
 /// Implements Linear Search algorithm, see [KNN algorithms](../index.html)
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct LinearKNNSearch<T, F: RealNumber, D: Distance<T, F>> {
     distance: D,
     data: Vec<T>,

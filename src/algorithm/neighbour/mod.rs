@@ -35,7 +35,7 @@ use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::error::Failed;
 use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
@@ -45,7 +45,8 @@ pub mod linear_search;
 
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub enum KNNAlgorithmName {
     /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
     LinearSearch,
@@ -53,7 +54,8 @@ pub enum KNNAlgorithmName {
     CoverTree,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub(crate) enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
     LinearSearch(LinearKNNSearch<Vec<T>, T, D>),
     CoverTree(CoverTree<Vec<T>, T, D>),

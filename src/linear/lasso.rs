@@ -24,7 +24,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -34,7 +34,8 @@ use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 use crate::math::num::RealNumber;
 
 /// Lasso regression parameters
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LassoParameters<T: RealNumber> {
     /// Controls the strength of the penalty to the loss function.
     pub alpha: T,
@@ -47,7 +48,8 @@ pub struct LassoParameters<T: RealNumber> {
     pub max_iter: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 /// Lasso regressor
 pub struct Lasso<T: RealNumber, M: Matrix<T>> {
     coefficients: M,

@@ -63,7 +63,7 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::seq::SliceRandom;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
 use crate::api::{Predictor, SupervisedEstimator};
@@ -71,7 +71,8 @@ use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
     /// The maximum depth of the tree.
@@ -83,14 +84,16 @@ pub struct DecisionTreeRegressorParameters {
 }
 
 /// Regression Tree
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DecisionTreeRegressor<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeRegressorParameters,
     depth: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<T: RealNumber> {
     index: usize,
     output: T,

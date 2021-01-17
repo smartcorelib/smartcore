@@ -46,7 +46,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")] use serde::{Deserialize, Serialize};
 
 use crate::api::{Transformer, UnsupervisedEstimator};
 use crate::error::Failed;
@@ -54,7 +54,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// SVD
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct SVD<T: RealNumber, M: Matrix<T>> {
     components: M,
     phantom: PhantomData<T>,
