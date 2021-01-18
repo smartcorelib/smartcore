@@ -68,6 +68,7 @@ use std::cell::{Ref, RefCell};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -77,7 +78,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::svm::{Kernel, Kernels, LinearKernel};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// SVR Parameters
 pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     /// Epsilon in the epsilon-SVR model.
@@ -92,11 +94,15 @@ pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
     m: PhantomData<M>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(bound(
-    serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+    ))
+)]
 
 /// Epsilon-Support Vector Regression
 pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
@@ -106,7 +112,8 @@ pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     b: T,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct SupportVector<T: RealNumber, V: BaseVector<T>> {
     index: usize,
     x: V,
@@ -526,6 +533,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_squared_error;
+    #[cfg(feature = "serde")]
     use crate::svm::*;
 
     #[test]
@@ -562,6 +570,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn svr_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

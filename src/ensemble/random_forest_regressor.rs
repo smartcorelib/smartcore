@@ -47,6 +47,7 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::Rng;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -57,7 +58,8 @@ use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of the Random Forest Regressor
 /// Some parameters here are passed directly into base estimator.
 pub struct RandomForestRegressorParameters {
@@ -74,7 +76,8 @@ pub struct RandomForestRegressorParameters {
 }
 
 /// Random Forest Regressor
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct RandomForestRegressor<T: RealNumber> {
     parameters: RandomForestRegressorParameters,
     trees: Vec<DecisionTreeRegressor<T>>,
@@ -271,6 +274,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],

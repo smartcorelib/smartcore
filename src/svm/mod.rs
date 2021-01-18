@@ -26,6 +26,7 @@
 pub mod svc;
 pub mod svr;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
@@ -93,18 +94,21 @@ impl Kernels {
 }
 
 /// Linear Kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LinearKernel {}
 
 /// Radial basis function (Gaussian) kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct RBFKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,
 }
 
 /// Polynomial kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct PolynomialKernel<T: RealNumber> {
     /// degree of the polynomial
     pub degree: T,
@@ -115,7 +119,8 @@ pub struct PolynomialKernel<T: RealNumber> {
 }
 
 /// Sigmoid (hyperbolic tangent) kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct SigmoidKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,

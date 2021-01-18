@@ -1,11 +1,15 @@
 #![allow(clippy::ptr_arg)]
 use std::fmt;
 use std::fmt::Debug;
+#[cfg(feature = "serde")]
 use std::marker::PhantomData;
 use std::ops::Range;
 
+#[cfg(feature = "serde")]
 use serde::de::{Deserializer, MapAccess, SeqAccess, Visitor};
+#[cfg(feature = "serde")]
 use serde::ser::{SerializeStruct, Serializer};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
@@ -349,6 +353,7 @@ impl<'a, T: RealNumber> Iterator for DenseMatrixIterator<'a, T> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for DenseMatrix<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -434,6 +439,7 @@ impl<'de, T: RealNumber + fmt::Debug + Deserialize<'de>> Deserialize<'de> for De
     }
 }
 
+#[cfg(feature = "serde")]
 impl<T: RealNumber + fmt::Debug + Serialize> Serialize for DenseMatrix<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1306,6 +1312,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn to_from_json() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         let deserialized_a: DenseMatrix<f64> =
@@ -1314,6 +1321,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn to_from_bincode() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         let deserialized_a: DenseMatrix<f64> =

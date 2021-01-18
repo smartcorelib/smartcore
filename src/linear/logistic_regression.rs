@@ -56,6 +56,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -68,11 +69,13 @@ use crate::optimization::line_search::Backtracking;
 use crate::optimization::FunctionOrder;
 
 /// Logistic Regression parameters
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LogisticRegressionParameters {}
 
 /// Logistic Regression
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct LogisticRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: M,
@@ -540,6 +543,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[1., -5.],

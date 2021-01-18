@@ -46,6 +46,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Transformer, UnsupervisedEstimator};
@@ -54,7 +55,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// SVD
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct SVD<T: RealNumber, M: Matrix<T>> {
     components: M,
     phantom: PhantomData<T>,
@@ -226,6 +228,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let iris = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

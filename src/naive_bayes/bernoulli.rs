@@ -42,10 +42,12 @@ use crate::math::num::RealNumber;
 use crate::math::vector::RealNumberVector;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Bearnoulli features
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 struct BernoulliNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -77,7 +79,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
 }
 
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct BernoulliNBParameters<T: RealNumber> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
@@ -202,7 +205,8 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
 }
 
 /// BernoulliNB implements the categorical naive Bayes algorithm for categorically distributed data.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub struct BernoulliNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, BernoulliNBDistribution<T>>,
     binarize: Option<T>,
@@ -347,6 +351,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[1., 1., 0., 0., 0., 0.],

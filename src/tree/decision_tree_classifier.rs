@@ -68,6 +68,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
@@ -76,7 +77,8 @@ use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
     /// Split criteria to use when building a tree.
@@ -90,7 +92,8 @@ pub struct DecisionTreeClassifierParameters {
 }
 
 /// Decision Tree
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DecisionTreeClassifier<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeClassifierParameters,
@@ -100,7 +103,8 @@ pub struct DecisionTreeClassifier<T: RealNumber> {
 }
 
 /// The function to measure the quality of a split.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
     Gini,
@@ -110,7 +114,8 @@ pub enum SplitCriterion {
     ClassificationError,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<T: RealNumber> {
     index: usize,
     output: usize,
@@ -740,6 +745,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[1., 1., 1., 0.],

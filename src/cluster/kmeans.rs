@@ -56,6 +56,7 @@ use rand::Rng;
 use std::fmt::Debug;
 use std::iter::Sum;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
@@ -66,7 +67,8 @@ use crate::math::distance::euclidian::*;
 use crate::math::num::RealNumber;
 
 /// K-Means clustering algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct KMeans<T: RealNumber> {
     k: usize,
     y: Vec<usize>,
@@ -345,6 +347,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

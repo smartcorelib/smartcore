@@ -43,6 +43,7 @@
 use std::fmt::Debug;
 use std::iter::Sum;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
@@ -55,7 +56,8 @@ use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::which_max;
 
 /// DBSCAN clustering algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
     cluster_labels: Vec<i16>,
     num_classes: usize,
@@ -263,6 +265,7 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
+    #[cfg(feature = "serde")]
     use crate::math::distance::euclidian::Euclidian;
 
     #[test]
@@ -297,6 +300,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

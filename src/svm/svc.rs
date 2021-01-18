@@ -76,6 +76,7 @@ use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -85,7 +86,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::svm::{Kernel, Kernels, LinearKernel};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// SVC Parameters
 pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     /// Number of epochs.
@@ -100,11 +102,15 @@ pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
     m: PhantomData<M>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(bound(
-    serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+    ))
+)]
 /// Support Vector Classifier
 pub struct SVC<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     classes: Vec<T>,
@@ -114,7 +120,8 @@ pub struct SVC<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     b: T,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct SupportVector<T: RealNumber, V: BaseVector<T>> {
     index: usize,
     x: V,
@@ -719,6 +726,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::accuracy;
+    #[cfg(feature = "serde")]
     use crate::svm::*;
 
     #[test]
@@ -807,6 +815,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn svc_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

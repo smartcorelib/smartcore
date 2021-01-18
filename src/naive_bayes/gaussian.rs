@@ -30,10 +30,12 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::math::vector::RealNumberVector;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 struct GaussianNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -75,7 +77,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for GaussianNBDistributio
 }
 
 /// `GaussianNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Default, Clone)]
 pub struct GaussianNBParameters<T: RealNumber> {
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<T>>,
@@ -178,7 +181,8 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
 }
 
 /// GaussianNB implements the categorical naive Bayes algorithm for categorically distributed data.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub struct GaussianNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, GaussianNBDistribution<T>>,
 }
@@ -277,6 +281,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[-1., -1.],

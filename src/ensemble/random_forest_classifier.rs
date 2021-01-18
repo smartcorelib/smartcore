@@ -49,6 +49,7 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::Rng;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -61,7 +62,8 @@ use crate::tree::decision_tree_classifier::{
 
 /// Parameters of the Random Forest algorithm.
 /// Some parameters here are passed directly into base estimator.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct RandomForestClassifierParameters {
     /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub criterion: SplitCriterion,
@@ -78,7 +80,8 @@ pub struct RandomForestClassifierParameters {
 }
 
 /// Random Forest Classifier
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct RandomForestClassifier<T: RealNumber> {
     parameters: RandomForestClassifierParameters,
     trees: Vec<DecisionTreeClassifier<T>>,
@@ -322,6 +325,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

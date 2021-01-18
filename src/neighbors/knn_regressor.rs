@@ -36,6 +36,7 @@
 //!
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
@@ -48,7 +49,8 @@ use crate::math::num::RealNumber;
 use crate::neighbors::KNNWeightFunction;
 
 /// `KNNRegressor` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct KNNRegressorParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
@@ -65,7 +67,8 @@ pub struct KNNRegressorParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
 }
 
 /// K Nearest Neighbors Regressor
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct KNNRegressor<T: RealNumber, D: Distance<Vec<T>, T>> {
     y: Vec<T>,
     knn_algorithm: KNNAlgorithm<T, D>,
@@ -266,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);

@@ -33,6 +33,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 use crate::math::num::RealNumber;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// K Nearest Neighbors Classifier
@@ -48,7 +49,8 @@ pub mod knn_regressor;
 pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
 
 /// Weight function that is used to determine estimated value.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub enum KNNWeightFunction {
     /// All k nearest points are weighted equally
     Uniform,
