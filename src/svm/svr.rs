@@ -533,6 +533,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_squared_error;
+    #[cfg(feature = "serde")]
     use crate::svm::*;
 
     #[test]
@@ -569,6 +570,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn svr_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

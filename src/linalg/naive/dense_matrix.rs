@@ -1312,6 +1312,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn to_from_json() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         let deserialized_a: DenseMatrix<f64> =
@@ -1320,6 +1321,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn to_from_bincode() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
         let deserialized_a: DenseMatrix<f64> =

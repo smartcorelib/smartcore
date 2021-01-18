@@ -567,6 +567,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let iris = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

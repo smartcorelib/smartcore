@@ -349,6 +349,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[3., 4., 0., 1.],

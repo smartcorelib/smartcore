@@ -140,7 +140,8 @@ mod tests {
     use super::*;
     use crate::math::distance::Distances;
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(Debug, Clone)]
     struct SimpleDistance {}
 
     impl Distance<i32, f64> for SimpleDistance {
