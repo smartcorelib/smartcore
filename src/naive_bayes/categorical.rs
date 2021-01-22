@@ -287,6 +287,12 @@ impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.inner.predict(x)
     }
+
+    /// Class labels known to the classifier.
+    /// Returns a vector of size n_classes.
+    pub fn classes(&self) -> &Vec<T> {
+        &self.inner.distribution.class_labels
+    }
 }
 
 #[cfg(test)]
@@ -315,6 +321,9 @@ mod tests {
         let y = vec![0., 0., 1., 1., 1., 0., 1., 0., 1., 1., 1., 1., 1., 0.];
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
+
+        assert_eq!(cnb.classes(), &[0., 1.]);
+
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = cnb.predict(&x_test).unwrap();
         assert_eq!(y_hat, vec![0., 1.]);

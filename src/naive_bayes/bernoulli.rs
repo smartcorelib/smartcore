@@ -266,6 +266,12 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
             self.inner.predict(x)
         }
     }
+
+    /// Class labels known to the classifier.
+    /// Returns a vector of size n_classes.
+    pub fn classes(&self) -> &Vec<T> {
+        &self.inner.distribution.class_labels
+    }
 }
 
 #[cfg(test)]
@@ -334,6 +340,8 @@ mod tests {
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 
         let y_hat = bnb.predict(&x).unwrap();
+
+        assert_eq!(bnb.classes(), &[0., 1., 2.]);
 
         assert!(bnb
             .inner

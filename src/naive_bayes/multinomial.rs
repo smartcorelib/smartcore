@@ -240,6 +240,12 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.inner.predict(x)
     }
+
+    /// Class labels known to the classifier.
+    /// Returns a vector of size n_classes.
+    pub fn classes(&self) -> &Vec<T> {
+        &self.inner.distribution.class_labels
+    }
 }
 
 #[cfg(test)]
@@ -267,6 +273,8 @@ mod tests {
         ]);
         let y = vec![0., 0., 0., 1.];
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
+
+        assert_eq!(mnb.classes(), &[0., 1.]);
 
         assert_eq!(mnb.inner.distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
