@@ -52,7 +52,8 @@ struct MultinomialNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
     class_priors: Vec<T>,
-    feature_prob: Vec<Vec<T>>,
+    /// Empirical log probability of features given a class
+    feature_log_prob: Vec<Vec<T>>,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribution<T> {
@@ -64,7 +65,7 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribu
         let mut likelihood = T::zero();
         for feature in 0..j.len() {
             let value = j.get(feature);
-            likelihood += value * self.feature_prob[class_index][feature].ln();
+            likelihood += value * self.feature_log_prob[class_index][feature];
         }
         likelihood
     }
@@ -172,13 +173,15 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
             }
         }
 
-        let feature_prob = feature_in_class_counter
+        let feature_log_prob = feature_in_class_counter
             .iter()
             .map(|feature_count| {
                 let n_c = feature_count.sum();
                 feature_count
                     .iter()
-                    .map(|&count| (count + alpha) / (n_c + alpha * T::from(n_features).unwrap()))
+                    .map(|&count| {
+                        ((count + alpha) / (n_c + alpha * T::from(n_features).unwrap())).ln()
+                    })
                     .collect()
             })
             .collect();
@@ -186,7 +189,7 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         Ok(Self {
             class_labels,
             class_priors,
-            feature_prob,
+            feature_log_prob,
         })
     }
 }
@@ -246,6 +249,12 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
     pub fn classes(&self) -> &Vec<T> {
         &self.inner.distribution.class_labels
     }
+
+    /// Empirical log probability of features given a class, P(x_i|y).
+    /// Returns a 2d vector of shape (n_classes, n_features)
+    pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
+        &self.inner.distribution.feature_log_prob
+    }
 }
 
 #[cfg(test)]
@@ -278,10 +287,24 @@ mod tests {
 
         assert_eq!(mnb.inner.distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
-            mnb.inner.distribution.feature_prob,
+            mnb.feature_log_prob(),
             &[
-                &[1. / 7., 3. / 7., 1. / 14., 1. / 7., 1. / 7., 1. / 14.],
-                &[1. / 9., 2. / 9.0, 2. / 9.0, 1. / 9.0, 1. / 9.0, 2. / 9.0]
+                &[
+                    (1_f64 / 7_f64).ln(),
+                    (3_f64 / 7_f64).ln(),
+                    (1_f64 / 14_f64).ln(),
+                    (1_f64 / 7_f64).ln(),
+                    (1_f64 / 7_f64).ln(),
+                    (1_f64 / 14_f64).ln()
+                ],
+                &[
+                    (1_f64 / 9_f64).ln(),
+                    (2_f64 / 9_f64).ln(),
+                    (2_f64 / 9_f64).ln(),
+                    (1_f64 / 9_f64).ln(),
+                    (1_f64 / 9_f64).ln(),
+                    (2_f64 / 9_f64).ln()
+                ]
             ]
         );
 
@@ -322,9 +345,20 @@ mod tests {
             .distribution
             .class_priors
             .approximate_eq(&vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(nb.inner.distribution.feature_prob[1].approximate_eq(
-            &vec!(0.07, 0.12, 0.07, 0.15, 0.07, 0.09, 0.08, 0.10, 0.08, 0.11),
-            1e-1
+        assert!(nb.feature_log_prob()[1].approximate_eq(
+            &vec![
+                -2.00148,
+                -2.35815494,
+                -2.00148,
+                -2.69462718,
+                -2.22462355,
+                -2.91777073,
+                -2.10684052,
+                -2.51230562,
+                -2.69462718,
+                -2.00148
+            ],
+            1e-5
         ));
         assert!(y_hat.approximate_eq(
             &vec!(2.0, 2.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 2.0),
