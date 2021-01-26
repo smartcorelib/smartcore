@@ -24,13 +24,7 @@ enum LabelDefinition<T> {
 pub fn make_one_hot<T: RealNumber>(label_idx: usize, num_labels: usize) -> Vec<T> {
     let (pos, neg) = (T::from_f64(1f64).unwrap(), T::from_f64(0f64).unwrap());
     (0..num_labels)
-        .map(|idx| {
-            if idx == label_idx {
-                pos
-            } else {
-                neg
-            }
-        })
+        .map(|idx| if idx == label_idx { pos } else { neg })
         .collect()
 }
 
