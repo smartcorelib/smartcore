@@ -26,9 +26,9 @@ pub fn make_one_hot<T: RealNumber>(label_idx: usize, num_labels: usize) -> Vec<T
     (0..num_labels)
         .map(|idx| {
             if idx == label_idx {
-                pos.clone()
+                pos
             } else {
-                neg.clone()
+                neg
             }
         })
         .collect()
@@ -90,7 +90,7 @@ impl<'a, T: Hash + Eq + Clone> OneHotEncoder<T> {
     /// Transform a slice of label types into one-hot vectors
     /// None is returned if unknown label is encountered
     pub fn transform(&self, labels: &[T]) -> Vec<Option<Vec<f64>>> {
-        labels.into_iter().map(|l| self.transform_one(l)).collect()
+        labels.iter().map(|l| self.transform_one(l)).collect()
     }
 
     /// Transform a single label type into a one-hot vector
@@ -130,7 +130,7 @@ impl<'a, T: Hash + Eq + Clone> OneHotEncoder<T> {
         let (label_map, class_num, unique_lables) = match labels {
             LabelDefinition::LabelToClsNumMap(h) => {
                 let mut _unique_lab: Vec<(T, usize)> =
-                    h.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                    h.iter().map(|(k, v)| (k.clone(), *v)).collect();
                 _unique_lab.sort_by(|a, b| a.1.cmp(&b.1));
                 let unique_lab: Vec<T> = _unique_lab.into_iter().map(|a| a.0).collect();
                 (h, unique_lab.len(), unique_lab)
