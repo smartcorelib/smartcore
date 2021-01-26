@@ -1,6 +1,5 @@
 #![allow(clippy::ptr_arg)]
 //! # Encode categorical features as a one-hot or multi-class numeric array.
-//!
 
 use crate::error::Failed;
 use crate::math::num::RealNumber;
