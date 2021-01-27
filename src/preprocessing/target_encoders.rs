@@ -6,7 +6,13 @@ use crate::math::num::RealNumber;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-/// Turn a collection of `LabelType`s into a one-hot vectors.
+/// Make a one-hot encoded vector from a categorical variable
+pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(label_idx: usize, num_labels: usize) -> V {
+    let pos = T::from_f64(1f64).unwrap();
+    let mut z = V::zeros(num_labels);
+    z.set(label_idx, pos);
+    z
+}
 /// This struct encodes single class per exmample
 ///
 /// You can fit a label enumeration by passing a collection of labels.
