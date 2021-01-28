@@ -1,1 +1,2 @@
-pub mod target_encoders;
+pub mod categorical_encoders;
+pub mod series_encoder;
