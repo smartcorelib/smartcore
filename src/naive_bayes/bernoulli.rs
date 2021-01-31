@@ -51,7 +51,11 @@ use serde::{Deserialize, Serialize};
 struct BernoulliNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
+    /// number of training samples observed in each class
+    class_count: Vec<usize>,
+    /// probability of each class
     class_priors: Vec<T>,
+    /// probability of features per class
     feature_prob: Vec<Vec<T>>,
 }
 
@@ -157,10 +161,10 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         let y = y.to_vec();
 
         let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
-        let mut class_count = vec![T::zero(); class_labels.len()];
+        let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
-            class_count[*class_index] += T::one();
+            class_count[*class_index] += 1;
         }
 
         let class_priors = if let Some(class_priors) = priors {
@@ -173,7 +177,7 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         } else {
             class_count
                 .iter()
-                .map(|&c| c / T::from(n_samples).unwrap())
+                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
                 .collect()
         };
 
@@ -191,7 +195,10 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
             .map(|(class_index, feature_count)| {
                 feature_count
                     .iter()
-                    .map(|&count| (count + alpha) / (class_count[class_index] + alpha * T::two()))
+                    .map(|&count| {
+                        (count + alpha)
+                            / (T::from(class_count[class_index]).unwrap() + alpha * T::two())
+                    })
                     .collect()
             })
             .collect();
@@ -199,6 +206,7 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         Ok(Self {
             class_labels,
             class_priors,
+            class_count,
             feature_prob,
         })
     }
@@ -272,6 +280,12 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     pub fn classes(&self) -> &Vec<T> {
         &self.inner.distribution.class_labels
     }
+
+    /// Number of training samples observed in each class.
+    /// Returns a vector of size n_classes.
+    pub fn class_count(&self) -> &Vec<usize> {
+        &self.inner.distribution.class_count
+    }
 }
 
 #[cfg(test)]
@@ -342,6 +356,7 @@ mod tests {
         let y_hat = bnb.predict(&x).unwrap();
 
         assert_eq!(bnb.classes(), &[0., 1., 2.]);
+        assert_eq!(bnb.class_count(), &[7, 3, 5]);
 
         assert!(bnb
             .inner

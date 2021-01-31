@@ -51,6 +51,7 @@ use serde::{Deserialize, Serialize};
 struct MultinomialNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
+    class_count: Vec<usize>,
     class_priors: Vec<T>,
     /// Empirical log probability of features given a class
     feature_log_prob: Vec<Vec<T>>,
@@ -145,10 +146,10 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         let y = y.to_vec();
 
         let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
-        let mut class_count = vec![T::zero(); class_labels.len()];
+        let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
-            class_count[*class_index] += T::one();
+            class_count[*class_index] += 1;
         }
 
         let class_priors = if let Some(class_priors) = priors {
@@ -161,7 +162,7 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         } else {
             class_count
                 .iter()
-                .map(|&c| c / T::from(n_samples).unwrap())
+                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
                 .collect()
         };
 
@@ -187,6 +188,7 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
             .collect();
 
         Ok(Self {
+            class_count,
             class_labels,
             class_priors,
             feature_log_prob,
@@ -250,6 +252,12 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
         &self.inner.distribution.class_labels
     }
 
+    /// Number of training samples observed in each class.
+    /// Returns a vector of size n_classes.
+    pub fn class_count(&self) -> &Vec<usize> {
+        &self.inner.distribution.class_count
+    }
+
     /// Empirical log probability of features given a class, P(x_i|y).
     /// Returns a 2d vector of shape (n_classes, n_features)
     pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
@@ -284,6 +292,7 @@ mod tests {
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
         assert_eq!(mnb.classes(), &[0., 1.]);
+        assert_eq!(mnb.class_count(), &[3, 1]);
 
         assert_eq!(mnb.inner.distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(

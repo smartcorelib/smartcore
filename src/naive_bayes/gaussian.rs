@@ -39,6 +39,8 @@ use serde::{Deserialize, Serialize};
 struct GaussianNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
+    /// number of training samples observed in each class
+    class_count: Vec<usize>,
     /// probability of each class.
     class_priors: Vec<T>,
     /// variance of each feature per class
@@ -117,12 +119,12 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
         let y = y.to_vec();
         let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
 
-        let mut class_count = vec![T::zero(); class_labels.len()];
+        let mut class_count = vec![0_usize; class_labels.len()];
 
         let mut subdataset: Vec<Vec<Vec<T>>> = vec![vec![]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices.iter()) {
-            class_count[*class_index] += T::one();
+            class_count[*class_index] += 1;
             subdataset[*class_index].push(row);
         }
 
@@ -135,8 +137,8 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
             class_priors
         } else {
             class_count
-                .into_iter()
-                .map(|c| c / T::from(n_samples).unwrap())
+                .iter()
+                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
                 .collect()
         };
 
@@ -160,6 +162,7 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
 
         Ok(Self {
             class_labels,
+            class_count,
             class_priors,
             var,
             theta,
@@ -226,6 +229,12 @@ impl<T: RealNumber, M: Matrix<T>> GaussianNB<T, M> {
         &self.inner.distribution.class_labels
     }
 
+    /// Number of training samples observed in each class.
+    /// Returns a vector of size n_classes.
+    pub fn class_count(&self) -> &Vec<usize> {
+        &self.inner.distribution.class_count
+    }
+
     /// Probability of each class
     /// Returns a vector of size n_classes.
     pub fn class_priors(&self) -> &Vec<T> {
@@ -267,6 +276,8 @@ mod tests {
         assert_eq!(y_hat, y);
 
         assert_eq!(gnb.classes(), &[1., 2.]);
+
+        assert_eq!(gnb.class_count(), &[3, 3]);
 
         assert_eq!(
             gnb.var(),
