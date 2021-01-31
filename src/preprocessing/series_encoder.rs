@@ -1,13 +1,21 @@
 #![allow(clippy::ptr_arg)]
-//! # Encode categorical features as a one-hot numeric array.
+//! # Series Encoder
+//! Encode a series of categorical features as a one-hot numeric array.
 
 use crate::error::Failed;
-use crate::linalg::{BaseVector, Matrix};
+use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 use std::collections::HashMap;
 use std::hash::Hash;
 
 /// Make a one-hot encoded vector from a categorical variable
+///
+/// Example:
+/// ```
+/// use smartcore::preprocessing::series_encoder::make_one_hot;
+/// let one_hot: Vec<f64> = make_one_hot(2, 3);
+/// assert_eq!(one_hot, vec![0.0, 0.0, 1.0]);
+/// ```
 pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
     category_idx: usize,
     num_categories: usize,
@@ -18,7 +26,7 @@ pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
     z
 }
 
-/// Turn a collection of `CategoryType`s into a one-hot vectors.
+/// Turn a collection of Hashable objects into a one-hot vectors.
 /// This struct encodes single class per exmample
 ///
 /// You can fit_to_iter a category enumeration by passing an iterator of categories.
@@ -27,7 +35,7 @@ pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
 /// Example:
 /// ```
 /// use std::collections::HashMap;
-/// use smartcore::preprocessing::categorical_encoders::SeriesOneHotEncoder;
+/// use smartcore::preprocessing::series_encoder::SeriesOneHotEncoder;
 ///
 /// let fake_categories: Vec<usize> = vec![1, 2, 3, 4, 5, 3, 5, 3, 1, 2, 4];
 /// let it = fake_categories.iter().map(|&a| a);
@@ -42,7 +50,7 @@ pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use smartcore::preprocessing::categorical_encoders::SeriesOneHotEncoder;
+/// use smartcore::preprocessing::series_encoder::SeriesOneHotEncoder;
 ///
 /// let category_map: HashMap<&str, usize> =
 /// vec![("cat", 2), ("background",0), ("dog", 1)]
@@ -60,10 +68,11 @@ pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
 pub struct SeriesOneHotEncoder<CategoryType> {
     category_map: HashMap<CategoryType, usize>,
     categories: Vec<CategoryType>,
+    /// Number of categories for categorical variable
     pub num_categories: usize,
 }
 
-impl<CategoryType: Hash + Eq + Clone> SeriesOneHotEncoder<CategoryType> {
+impl<'a, CategoryType: 'a + Hash + Eq + Clone> SeriesOneHotEncoder<CategoryType> {
     /// Fit an encoder to a lable list
     pub fn fit_to_iter(categories: impl Iterator<Item = CategoryType>) -> Self {
         let mut category_map: HashMap<CategoryType, usize> = HashMap::new();
@@ -111,19 +120,23 @@ impl<CategoryType: Hash + Eq + Clone> SeriesOneHotEncoder<CategoryType> {
         }
     }
 
-
-    pub fn transform_iter<U: RealNumber>(&self, cat_it: impl Iterator<Item = CategoryType>)-> Vec<Option<Vec<U>>> {
-        cat_it.map(|l| self.transform_one(l)).collect()
+    /// Take an iterator as a series to transform
+    pub fn transform_iter<U: RealNumber>(
+        &self,
+        cat_it: impl Iterator<Item = CategoryType>,
+    ) -> Vec<Option<Vec<U>>> {
+        cat_it.map(|l| self.transform_one(&l)).collect()
     }
+
     /// Transform a slice of category types into one-hot vectors
     /// None is returned if unknown category is encountered
     pub fn transfrom_series<U: RealNumber>(
         &self,
-        categories: &[CategoryType],
+        categories: &'a [CategoryType],
     ) -> Vec<Option<Vec<U>>> {
-        self.transform_iter(categories.iter())
+        let v = categories.iter().map(|a| a.clone());
+        self.transform_iter(v)
     }
-
 
     /// Transform a single category type into a one-hot vector
     pub fn transform_one<U: RealNumber>(&self, category: &CategoryType) -> Option<Vec<U>> {

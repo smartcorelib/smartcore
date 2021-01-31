@@ -1,5 +1,27 @@
-#![allow(clippy::ptr_arg)]
-//! # Encode categorical features as a one-hot numeric array.
+//! # One-hot Encoding For [RealNumber](../../math/num/trait.RealNumber.html) Matricies
+//! Transform a data [Matrix](../../linalg/trait.BaseMatrix.html) by replacing all categorical variables with their one-hot equivalents
+//!
+//! ### Usage Example
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::preprocessing::categorical_encoder::{OneHotEncoder, OneHotEncoderParams};
+//! let data = DenseMatrix::from_2d_array(&[
+//!         &[1.5, 1.0, 1.5, 3.0],
+//!         &[1.5, 2.0, 1.5, 4.0],
+//!         &[1.5, 1.0, 1.5, 5.0],
+//!         &[1.5, 2.0, 1.5, 6.0],
+//!   ]);
+//! let encoder_params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
+//! // Infer number of categories from data and return a reusable encoder
+//! let encoder = OneHotEncoder::fit(&data, encoder_params).unwrap();
+//! // Transform categorical to one-hot encoded (can transform similar)
+//! let oh_data = encoder.transform(&data).unwrap();
+//! // Produces the following:
+//! //    &[1.5, 1.0, 0.0, 1.5, 1.0, 0.0, 0.0, 0.0]
+//! //    &[1.5, 0.0, 1.0, 1.5, 0.0, 1.0, 0.0, 0.0]
+//! //    &[1.5, 1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0]
+//! //    &[1.5, 0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0]
+//! ```
 
 use crate::error::Failed;
 use crate::linalg::{BaseVector, Matrix};
