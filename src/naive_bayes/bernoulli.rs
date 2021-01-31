@@ -55,6 +55,8 @@ struct BernoulliNBDistribution<T: RealNumber> {
     class_count: Vec<usize>,
     /// probability of each class
     class_priors: Vec<T>,
+    /// Number of samples encountered for each (class, feature)
+    feature_count: Vec<Vec<usize>>,
     /// probability of features per class
     feature_prob: Vec<Vec<T>>,
     /// Number of features of each sample
@@ -183,11 +185,11 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
                 .collect()
         };
 
-        let mut feature_in_class_counter = vec![vec![T::zero(); n_features]; class_labels.len()];
+        let mut feature_in_class_counter = vec![vec![0_usize; n_features]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices) {
             for (idx, row_i) in row.iter().enumerate().take(n_features) {
-                feature_in_class_counter[class_index][idx] += *row_i;
+                feature_in_class_counter[class_index][idx] += row_i.to_usize().unwrap();
             }
         }
 
@@ -198,7 +200,7 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
                 feature_count
                     .iter()
                     .map(|&count| {
-                        (count + alpha)
+                        (T::from(count).unwrap() + alpha)
                             / (T::from(class_count[class_index]).unwrap() + alpha * T::two())
                     })
                     .collect()
@@ -209,6 +211,7 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
             class_labels,
             class_priors,
             class_count,
+            feature_count: feature_in_class_counter,
             feature_prob,
             n_features,
         })
@@ -294,6 +297,12 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     pub fn n_features(&self) -> usize {
         self.inner.distribution.n_features
     }
+
+    /// Number of samples encountered for each (class, feature)
+    /// Returns a 2d vector of shape (n_classes, n_features)
+    pub fn feature_count(&self) -> &Vec<Vec<usize>> {
+        &self.inner.distribution.feature_count
+    }
 }
 
 #[cfg(test)]
@@ -366,6 +375,14 @@ mod tests {
         assert_eq!(bnb.classes(), &[0., 1., 2.]);
         assert_eq!(bnb.class_count(), &[7, 3, 5]);
         assert_eq!(bnb.n_features(), 10);
+        assert_eq!(
+            bnb.feature_count(),
+            &[
+                &[5, 6, 6, 7, 6, 4, 6, 7, 7, 7],
+                &[3, 3, 3, 1, 3, 2, 3, 2, 2, 3],
+                &[4, 4, 3, 4, 5, 2, 4, 5, 3, 4]
+            ]
+        );
 
         assert!(bnb
             .inner
