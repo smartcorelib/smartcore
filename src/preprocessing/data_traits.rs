@@ -1,11 +1,13 @@
 //! Traits to indicate that float variables can be viewed as categorical
 //! This module assumes 
 
+use crate::math::num::RealNumber;
+
 pub type CategoricalFloat = u16;
 
 // pub struct CategoricalFloat(u16);
 
-pub trait Categorizable {
+pub trait Categorizable: RealNumber {
     type A;
 
     fn to_category(self) -> CategoricalFloat;
