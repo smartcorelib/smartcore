@@ -57,6 +57,8 @@ struct BernoulliNBDistribution<T: RealNumber> {
     class_priors: Vec<T>,
     /// probability of features per class
     feature_prob: Vec<Vec<T>>,
+    /// Number of features of each sample
+    n_features: usize,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistribution<T> {
@@ -208,6 +210,7 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
             class_priors,
             class_count,
             feature_prob,
+            n_features,
         })
     }
 }
@@ -286,6 +289,11 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.distribution.class_count
     }
+
+    /// Number of features of each sample
+    pub fn n_features(&self) -> usize {
+        self.inner.distribution.n_features
+    }
 }
 
 #[cfg(test)]
@@ -357,6 +365,7 @@ mod tests {
 
         assert_eq!(bnb.classes(), &[0., 1., 2.]);
         assert_eq!(bnb.class_count(), &[7, 3, 5]);
+        assert_eq!(bnb.n_features(), 10);
 
         assert!(bnb
             .inner

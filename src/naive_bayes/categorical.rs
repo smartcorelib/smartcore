@@ -47,6 +47,8 @@ struct CategoricalNBDistribution<T: RealNumber> {
     class_labels: Vec<T>,
     class_priors: Vec<T>,
     coefficients: Vec<Vec<Vec<T>>>,
+    /// Number of features of each sample
+    n_features: usize,
 }
 
 impl<T: RealNumber> PartialEq for CategoricalNBDistribution<T> {
@@ -216,6 +218,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             class_labels,
             class_priors,
             coefficients,
+            n_features,
         })
     }
 }
@@ -302,6 +305,11 @@ impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.distribution.class_count
     }
+
+    /// Number of features of each sample
+    pub fn n_features(&self) -> usize {
+        self.inner.distribution.n_features
+    }
 }
 
 #[cfg(test)]
@@ -333,6 +341,7 @@ mod tests {
 
         assert_eq!(cnb.classes(), &[0., 1.]);
         assert_eq!(cnb.class_count(), &[5, 9]);
+        assert_eq!(cnb.n_features(), 4);
 
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = cnb.predict(&x_test).unwrap();

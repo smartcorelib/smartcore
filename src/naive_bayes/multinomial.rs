@@ -55,6 +55,8 @@ struct MultinomialNBDistribution<T: RealNumber> {
     class_priors: Vec<T>,
     /// Empirical log probability of features given a class
     feature_log_prob: Vec<Vec<T>>,
+    /// Number of features of each sample
+    n_features: usize,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribution<T> {
@@ -192,6 +194,7 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
             class_labels,
             class_priors,
             feature_log_prob,
+            n_features,
         })
     }
 }
@@ -262,6 +265,11 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
     /// Returns a 2d vector of shape (n_classes, n_features)
     pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
         &self.inner.distribution.feature_log_prob
+    }
+
+    /// Number of features of each sample
+    pub fn n_features(&self) -> usize {
+        self.inner.distribution.n_features
     }
 }
 
@@ -346,6 +354,8 @@ mod tests {
         ]);
         let y = vec![2., 2., 0., 0., 0., 2., 1., 1., 0., 1., 0., 0., 2., 0., 2.];
         let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
+
+        assert_eq!(nb.n_features(), 10);
 
         let y_hat = nb.predict(&x).unwrap();
 
