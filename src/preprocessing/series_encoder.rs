@@ -65,6 +65,7 @@ pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
 /// println!("{:?}", enc_lv.get_categories());
 /// assert_eq!(enc_lv.transform_one::<f64>(&"dog"), enc_lm.transform_one::<f64>(&"dog"))
 /// ```
+#[derive(Debug, Clone)]
 pub struct SeriesOneHotEncoder<CategoryType> {
     category_map: HashMap<CategoryType, usize>,
     categories: Vec<CategoryType>,
@@ -134,7 +135,7 @@ impl<'a, CategoryType: 'a + Hash + Eq + Clone> SeriesOneHotEncoder<CategoryType>
         &self,
         categories: &'a [CategoryType],
     ) -> Vec<Option<Vec<U>>> {
-        let v = categories.iter().map(|a| a.clone());
+        let v = categories.iter().cloned();
         self.transform_iter(v)
     }
 
