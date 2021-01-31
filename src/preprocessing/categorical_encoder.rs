@@ -277,17 +277,17 @@ mod tests {
 
     #[test]
     fn matrix_transform_test() {
-        let (x,  expected_x) = build_fake_matrix();
+        let (x, expected_x) = build_fake_matrix();
         let params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
         let oh_enc = OneHotEncoder::fit(&x, params).unwrap();
         let nm = oh_enc.transform(&x).unwrap();
-        assert_eq!(nm,  expected_x);
+        assert_eq!(nm, expected_x);
 
-        let (x,  expected_x) = build_cat_first_and_last();
+        let (x, expected_x) = build_cat_first_and_last();
         let params = OneHotEncoderParams::from_cat_idx(&[0, 2]);
         let oh_enc = OneHotEncoder::fit(&x, params).unwrap();
         let nm = oh_enc.transform(&x).unwrap();
-        assert_eq!(nm,  expected_x);
+        assert_eq!(nm, expected_x);
     }
 
     #[test]
