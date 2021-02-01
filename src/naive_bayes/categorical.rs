@@ -43,17 +43,27 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 struct CategoricalNBDistribution<T: RealNumber> {
+    /// number of training samples observed in each class
     class_count: Vec<usize>,
+    /// class labels known to the classifier
     class_labels: Vec<T>,
+    /// probability of each class
     class_priors: Vec<T>,
     coefficients: Vec<Vec<Vec<T>>>,
     /// Number of features of each sample
     n_features: usize,
+    /// Number of categories for each feature
+    n_categories: Vec<usize>,
 }
 
 impl<T: RealNumber> PartialEq for CategoricalNBDistribution<T> {
     fn eq(&self, other: &Self) -> bool {
-        if self.class_labels == other.class_labels && self.class_priors == other.class_priors {
+        if self.class_labels == other.class_labels
+            && self.class_priors == other.class_priors
+            && self.n_features == other.n_features
+            && self.n_categories == other.n_categories
+            && self.class_count == other.class_count
+        {
             if self.coefficients.len() != other.coefficients.len() {
                 return false;
             }
@@ -157,7 +167,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             class_count[*elem] += 1;
         }
 
-        let mut feature_categories: Vec<Vec<T>> = Vec::with_capacity(n_features);
+        let mut n_categories: Vec<usize> = Vec::with_capacity(n_features);
         for feature in 0..n_features {
             let feature_max = x
                 .get_col_as_vec(feature)
@@ -170,17 +180,13 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                         feature
                     ))
                 })?;
-            let feature_types = (0..feature_max + 1)
-                .map(|feat| T::from(feat).unwrap())
-                .collect();
-            feature_categories.push(feature_types);
+            n_categories.push(feature_max + 1);
         }
 
         let mut coefficients: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
         for (label, &label_count) in class_labels.iter().zip(class_count.iter()) {
             let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
-            for (feature_index, feature_options) in
-                feature_categories.iter().enumerate().take(n_features)
+            for (feature_index, &n_categories_i) in n_categories.iter().enumerate().take(n_features)
             {
                 let col = x
                     .get_col_as_vec(feature_index)
@@ -189,7 +195,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                     .filter(|(i, _j)| T::from(y[*i]).unwrap() == *label)
                     .map(|(_, j)| *j)
                     .collect::<Vec<T>>();
-                let mut feat_count: Vec<T> = vec![T::zero(); feature_options.len()];
+                let mut feat_count: Vec<T> = vec![T::zero(); n_categories_i];
                 for row in col.iter() {
                     let index = row.floor().to_usize().unwrap();
                     feat_count[index] += T::one();
@@ -199,7 +205,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                     .map(|c| {
                         ((*c + alpha)
                             / (T::from(label_count).unwrap()
-                                + T::from(feature_options.len()).unwrap() * alpha))
+                                + T::from(n_categories_i).unwrap() * alpha))
                             .ln()
                     })
                     .collect::<Vec<T>>();
@@ -218,6 +224,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             class_labels,
             class_priors,
             coefficients,
+            n_categories,
             n_features,
         })
     }
@@ -310,6 +317,11 @@ impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
     pub fn n_features(&self) -> usize {
         self.inner.distribution.n_features
     }
+
+    /// Number of features of each sample
+    pub fn n_categories(&self) -> &Vec<usize> {
+        &self.inner.distribution.n_categories
+    }
 }
 
 #[cfg(test)]
@@ -342,6 +354,7 @@ mod tests {
         assert_eq!(cnb.classes(), &[0., 1.]);
         assert_eq!(cnb.class_count(), &[5, 9]);
         assert_eq!(cnb.n_features(), 4);
+        assert_eq!(cnb.n_categories(), &[3, 3, 2, 2]);
 
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = cnb.predict(&x_test).unwrap();
