@@ -52,12 +52,12 @@ impl OneHotEncoderParams {
 }
 
 /// Calculate the offset to parameters to due introduction of one-hot encoding
-fn find_new_idxs(num_params: usize, cat_sizes: &[usize], encoded_idxs: &[usize]) -> Vec<usize> {
+fn find_new_idxs(num_params: usize, cat_sizes: &[usize], cat_idxs: &[usize]) -> Vec<usize> {
     // This functions uses iterators and returns a vector.
     // In case we get a huge amount of paramenters this might be a problem
     // todo: Change this such that it will return an iterator
 
-    let cat_idx = encoded_idxs.iter().copied().chain((num_params..).take(1));
+    let cat_idx = cat_idxs.iter().copied().chain((num_params..).take(1));
 
     // Offset is constant between two categorical values, here we calculate the number of steps
     // that remain constant
@@ -103,8 +103,8 @@ pub struct OneHotEncoder {
 }
 
 impl OneHotEncoder {
-    /// PlaceHolder
-
+ 
+   /// Create an encoder instance with categories infered from data matrix
     pub fn fit<T: Categorizable, M: Matrix<T>>(
         data: &M,
         params: OneHotEncoderParams,
