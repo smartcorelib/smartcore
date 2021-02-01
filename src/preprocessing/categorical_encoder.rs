@@ -103,8 +103,7 @@ pub struct OneHotEncoder {
 }
 
 impl OneHotEncoder {
- 
-   /// Create an encoder instance with categories infered from data matrix
+    /// Create an encoder instance with categories infered from data matrix
     pub fn fit<T: Categorizable, M: Matrix<T>>(
         data: &M,
         params: OneHotEncoderParams,
