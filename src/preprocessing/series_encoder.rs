@@ -8,7 +8,48 @@ use crate::math::num::RealNumber;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-/// Bi-directional map category <-> label num.
+/// ## Bi-directional map category <-> label num.
+/// Turn Hashable objects into a one-hot vectors or ordinal values.
+/// This struct encodes single class per exmample
+///
+/// You can fit_to_iter a category enumeration by passing an iterator of categories.
+/// category numbers will be assigned in the order they are encountered
+///
+/// Example:
+/// ```
+/// use std::collections::HashMap;
+/// use smartcore::preprocessing::series_encoder::CategoryMapper;
+///
+/// let fake_categories: Vec<usize> = vec![1, 2, 3, 4, 5, 3, 5, 3, 1, 2, 4];
+/// let it = fake_categories.iter().map(|&a| a);
+/// let enc = CategoryMapper::<usize>::fit_to_iter(it);
+/// let oh_vec: Vec<f64> = enc.get_one_hot(&1).unwrap();
+/// // notice that 1 is actually a zero-th positional category
+/// assert_eq!(oh_vec, vec![1.0, 0.0, 0.0, 0.0, 0.0]);
+/// ```
+///
+/// You can also pass a predefined category enumeration such as a hashmap `HashMap<C, usize>` or a vector `Vec<C>`
+///
+///
+/// ```
+/// use std::collections::HashMap;
+/// use smartcore::preprocessing::series_encoder::CategoryMapper;
+///
+/// let category_map: HashMap<&str, usize> =
+/// vec![("cat", 2), ("background",0), ("dog", 1)]
+/// .into_iter()
+/// .collect();
+/// let category_vec = vec!["background", "dog", "cat"];
+///
+/// let enc_lv  = CategoryMapper::<&str>::from_positional_category_vec(category_vec);
+/// let enc_lm  = CategoryMapper::<&str>::from_category_map(category_map);
+///
+/// // ["background", "dog", "cat"]
+/// println!("{:?}", enc_lv.get_categories());
+/// let lv: Vec<f64> = enc_lv.get_one_hot(&"dog").unwrap();
+/// let lm: Vec<f64> = enc_lm.get_one_hot(&"dog").unwrap();
+/// assert_eq!(lv, lm);
+/// ```
 #[derive(Debug, Clone)]
 pub struct CategoryMapper<C> {
     category_map: HashMap<C, usize>,
@@ -16,10 +57,14 @@ pub struct CategoryMapper<C> {
     num_categories: usize,
 }
 
-impl<'a, C> CategoryMapper<C> 
+impl<C> CategoryMapper<C>
 where
-    C: 'a + Hash + Eq + Clone
+    C: Hash + Eq + Clone,
 {
+    /// Get the number of categories in the mapper
+    pub fn num_categories(&self) -> usize {
+        self.num_categories
+    }
     
     /// Fit an encoder to a lable iterator
     pub fn fit_to_iter(categories: impl Iterator<Item = C>) -> Self {
@@ -82,131 +127,21 @@ where
     pub fn get_categories(&self) -> &[C] {
         &self.categories[..]
     }
-}
 
-/// Defines common behavior for series encoders(e.g. OneHot, Ordinal)
-pub trait SeriesEncoder<C>:
+    /// Get one-hot encoding of the category
+    pub fn get_one_hot<U, V>(&self, category: &C) -> Option<V>
     where 
-        C: Hash + Eq + Clone
+        U: RealNumber,
+        V: BaseVector<U>,
 {
-    /// Fit an encoder to a lable iterator
-    fn fit_to_iter(categories: impl Iterator<Item = C>) -> Self;
-    
-    /// Number of categories for categorical variable
-    fn num_categories(&self) -> usize;
-     
-    /// Transform a single category type into a one-hot vector
-    fn transform_one<U: RealNumber, V: BaseVector<U>>(&self, category: &C) -> Option<V>;
+        match self.get_num(category) {
+            None => None,
+            Some(&idx) => Some(make_one_hot::<U, V>(idx, self.num_categories)),
+    }
+}
 
     /// Invert one-hot vector, back to the category
-    fn invert_one<U: RealNumber, V: BaseVector<U>>(&self,  one_hot: V) -> Result<C, Failed>;
-
-    /// Get categories ordered by encoder's category enumeration
-    fn get_categories(&self) -> &[C];
-
-    /// Take an iterator as a series to transform
-    /// None is returned if unknown category is encountered
-    fn transform_iter<U: RealNumber, V: BaseVector<U>>(
-        &self,
-        cat_it: impl Iterator<Item = C>,
-    ) -> Vec<Option<V>> {
-        cat_it.map(|l| self.transform_one(&l)).collect()
-    }
-}
-
-/// Make a one-hot encoded vector from a categorical variable
-///
-/// Example:
-/// ```
-/// use smartcore::preprocessing::series_encoder::make_one_hot;
-/// let one_hot: Vec<f64> = make_one_hot(2, 3);
-/// assert_eq!(one_hot, vec![0.0, 0.0, 1.0]);
-/// ```
-pub fn make_one_hot<T: RealNumber, V: BaseVector<T>>(
-    category_idx: usize,
-    num_categories: usize,
-) -> V {
-    let pos = T::from_f64(1f64).unwrap();
-    let mut z = V::zeros(num_categories);
-    z.set(category_idx, pos);
-    z
-}
-
-/// Turn a collection of Hashable objects into a one-hot vectors.
-/// This struct encodes single class per exmample
-///
-/// You can fit_to_iter a category enumeration by passing an iterator of categories.
-/// category numbers will be assigned in the order they are encountered
-///
-/// Example:
-/// ```
-/// use std::collections::HashMap;
-/// use smartcore::preprocessing::series_encoder::{SeriesOneHotEncoder, SeriesEncoder};
-///
-/// let fake_categories: Vec<usize> = vec![1, 2, 3, 4, 5, 3, 5, 3, 1, 2, 4];
-/// let it = fake_categories.iter().map(|&a| a);
-/// let enc: SeriesOneHotEncoder::<usize> = SeriesEncoder::fit_to_iter(it);
-/// let oh_vec: Vec<f64> = enc.transform_one(&1).unwrap();
-/// // notice that 1 is actually a zero-th positional category
-/// assert_eq!(oh_vec, vec![1.0, 0.0, 0.0, 0.0, 0.0]);
-/// ```
-///
-/// You can also pass a predefined category enumeration such as a hashmap `HashMap<C, usize>` or a vector `Vec<C>`
-///
-///
-/// ```
-/// use std::collections::HashMap;
-/// use smartcore::preprocessing::series_encoder::{SeriesOneHotEncoder, SeriesEncoder, CategoryMapper};
-///
-/// let category_map: HashMap<&str, usize> =
-/// vec![("cat", 2), ("background",0), ("dog", 1)]
-/// .into_iter()
-/// .collect();
-/// let category_vec = vec!["background", "dog", "cat"];
-///
-/// let enc_lv  = SeriesOneHotEncoder::<&str>::new(CategoryMapper::from_positional_category_vec(category_vec));
-/// let enc_lm  = SeriesOneHotEncoder::<&str>::new(CategoryMapper::from_category_map(category_map));
-///
-/// // ["background", "dog", "cat"]
-/// println!("{:?}", enc_lv.get_categories());
-/// let lv: Vec<f64> = enc_lv.transform_one(&"dog").unwrap();
-/// let lm: Vec<f64> = enc_lm.transform_one(&"dog").unwrap();
-/// assert_eq!(lv, lm);
-/// ```
-#[derive(Debug, Clone)]
-pub struct SeriesOneHotEncoder<C> {
-    mapper: CategoryMapper<C>,
-}
-
-impl<C> SeriesOneHotEncoder<C> 
-where 
-    C: Hash + Eq + Clone
-{
-    /// Create SeriesEncoder form existing mapper
-    pub fn new(mapper: CategoryMapper<C>) -> Self {
-        Self {mapper}
-    }
-}
-
-impl<C> SeriesEncoder<C> for SeriesOneHotEncoder<C> 
-where 
-    C: Hash + Eq + Clone
-{
-    
-
-    fn fit_to_iter(categories: impl Iterator<Item = C>) -> Self {
-        Self {mapper:CategoryMapper::fit_to_iter(categories)}
-    }
-
-    fn num_categories(&self) -> usize {
-        self.mapper.num_categories
-    }
-
-    fn get_categories(&self) -> &[C] {
-        self.mapper.get_categories()
-    }
-
-    fn invert_one<U, V>(&self, one_hot: V) -> Result<C, Failed>
+    pub fn invert_one_hot<U, V>(&self, one_hot: V) -> Result<C, Failed>
     where
         U: RealNumber,
         V: BaseVector<U>
