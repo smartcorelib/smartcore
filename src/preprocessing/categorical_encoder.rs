@@ -1,12 +1,12 @@
 //! # One-hot Encoding For [RealNumber](../../math/num/trait.RealNumber.html) Matricies
 //! Transform a data [Matrix](../../linalg/trait.BaseMatrix.html) by replacing all categorical variables with their one-hot equivalents
 //!
-//! Internally OneHotEncoder treats every categorical column as a series and transforms it using [SeriesOneHotEncoder](../series_encoder/struct.SeriesOneHotEncoder.html)
+//! Internally OneHotEncoder treats every categorical column as a series and transforms it using [CategoryMapper](../series_encoder/struct.CategoryMapper.html)
 //!
 //! ### Usage Example
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
-//! use smartcore::preprocessing::categorical_encoder::{OneHotEnc, OneHotEncoderParams};
+//! use smartcore::preprocessing::categorical_encoder::{OneHotEncoder, OneHotEncoderParams};
 //! let data = DenseMatrix::from_2d_array(&[
 //!         &[1.5, 1.0, 1.5, 3.0],
 //!         &[1.5, 2.0, 1.5, 4.0],
@@ -15,7 +15,7 @@
 //!   ]);
 //! let encoder_params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
 //! // Infer number of categories from data and return a reusable encoder
-//! let encoder = OneHotEnc::fit(&data, encoder_params).unwrap();
+//! let encoder = OneHotEncoder::fit(&data, encoder_params).unwrap();
 //! // Transform categorical to one-hot encoded (can transform similar)
 //! let oh_data = encoder.transform(&data).unwrap();
 //! // Produces the following:
@@ -30,7 +30,7 @@ use crate::error::Failed;
 use crate::linalg::Matrix;
 
 use crate::preprocessing::data_traits::{CategoricalFloat, Categorizable};
-use crate::preprocessing::series_encoder::{SeriesOneHotEncoder, SeriesEncoder};
+use crate::preprocessing::series_encoder::CategoryMapper;
 
 /// OneHotEncoder Parameters
 #[derive(Debug, Clone)]
@@ -97,17 +97,18 @@ fn validate_col_is_categorical<T: Categorizable>(data: &[T]) -> bool {
 
 /// Encode Categorical variavbles of data matrix to one-hot
 #[derive(Debug, Clone)]
-pub struct OneHotEncoder<E> {
-    series_encoders: Vec<E>,
+pub struct OneHotEncoder {
+    category_mappers: Vec<CategoryMapper<CategoricalFloat>>,
     col_idx_categorical: Vec<usize>,
 }
 
-impl<E: SeriesEncoder<CategoricalFloat>> OneHotEncoder<E> {
+impl OneHotEncoder {
     /// Create an encoder instance with categories infered from data matrix
-    pub fn fit<T: Categorizable, M: Matrix<T>>(
-        data: &M,
-        params: OneHotEncoderParams,
-    ) -> Result<OneHotEncoder<E>, Failed> {
+    pub fn fit<T, M>(data: &M, params: OneHotEncoderParams) -> Result<OneHotEncoder, Failed>
+    where
+        T: Categorizable,
+        M: Matrix<T>,
+    {
         match (params.col_idx_categorical, params.infer_categorical) {
             (None, false) => Err(Failed::fit(
                 "Must pass categorical series ids or infer flag",
@@ -126,8 +127,7 @@ impl<E: SeriesEncoder<CategoricalFloat>> OneHotEncoder<E> {
                 // col buffer to avoid allocations
                 let mut col_buf: Vec<T> = iter::repeat(T::zero()).take(nrows).collect();
 
-                let mut res: Vec<E> =
-                    Vec::with_capacity(idxs.len());
+                let mut res: Vec<CategoryMapper<CategoricalFloat>> = Vec::with_capacity(idxs.len());
 
                 for &idx in &idxs {
                     data.copy_col_as_vec(idx, &mut col_buf);
@@ -139,11 +139,11 @@ impl<E: SeriesEncoder<CategoricalFloat>> OneHotEncoder<E> {
                         return Err(Failed::fit(&msg[..]));
                     }
                     let hashable_col = col_buf.iter().map(|v| v.to_category());
-                    res.push(E::fit_to_iter(hashable_col));
+                    res.push(CategoryMapper::fit_to_iter(hashable_col));
                 }
 
                 Ok(Self {
-                    series_encoders: res, //Self::build_series_encoders::<T, M>(data, &idxs[..]),
+                    category_mappers: res,
                     col_idx_categorical: idxs,
                 })
             }
@@ -155,10 +155,14 @@ impl<E: SeriesEncoder<CategoricalFloat>> OneHotEncoder<E> {
     }
 
     /// Transform categorical variables to one-hot encoded and return a new matrix
-    pub fn transform<T: Categorizable, M: Matrix<T>>(&self, x: &M) -> Result<M, Failed> {
+    pub fn transform<T, M>(&self, x: &M) -> Result<M, Failed>
+    where
+        T: Categorizable,
+        M: Matrix<T>,
+    {
         let (nrows, p) = x.shape();
         let additional_params: Vec<usize> = self
-            .series_encoders
+            .category_mappers
             .iter()
             .map(|enc| enc.num_categories())
             .collect();
@@ -172,10 +176,10 @@ impl<E: SeriesEncoder<CategoricalFloat>> OneHotEncoder<E> {
         for (pidx, &old_cidx) in self.col_idx_categorical.iter().enumerate() {
             let cidx = new_col_idx[old_cidx];
             let col_iter = (0..nrows).map(|r| x.get(r, old_cidx).to_category());
-            let sencoder = &self.series_encoders[pidx];
-            let oh_series: Vec<Option<Vec<T>>> = sencoder.transform_iter(col_iter);
+            let sencoder = &self.category_mappers[pidx];
+            let oh_series = col_iter.map(|c| sencoder.get_one_hot::<T, Vec<T>>(&c));
 
-            for (row, oh_vec) in oh_series.iter().enumerate() {
+            for (row, oh_vec) in oh_series.enumerate() {
                 match oh_vec {
                     None => {
                         // Since we support T types, bad value in a series causes in to be invalid
@@ -215,16 +219,11 @@ impl<E: SeriesEncoder<CategoricalFloat>> OneHotEncoder<E> {
     }
 }
 
-/// Convinince type for common use
-pub type OneHotEnc = OneHotEncoder<SeriesOneHotEncoder<CategoricalFloat>>;
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
-    use crate::preprocessing::series_encoder::SeriesOneHotEncoder;
-
+    use crate::preprocessing::series_encoder::CategoryMapper;
 
     #[test]
     fn adjust_idxs() {
@@ -275,8 +274,8 @@ mod tests {
         let series = vec![3.0, 1.0, 2.0, 1.0];
         let hashable_series: Vec<CategoricalFloat> =
             series.iter().map(|v| v.to_category()).collect();
-        let enc = SeriesOneHotEncoder::from_positional_category_vec(hashable_series);
-        let inv = enc.invert_one(vec![0.0, 0.0, 1.0]);
+        let enc = CategoryMapper::from_positional_category_vec(hashable_series);
+        let inv = enc.invert_one_hot(vec![0.0, 0.0, 1.0]);
         let orig_val: f64 = inv.unwrap().into();
         assert_eq!(orig_val, 2.0);
     }
@@ -284,11 +283,11 @@ mod tests {
     fn test_fit() {
         let (x, _) = build_fake_matrix();
         let params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
-        let oh_enc = OneHotEnc::fit(&x, params).unwrap();
-        assert_eq!(oh_enc.series_encoders.len(), 2);
+        let oh_enc = OneHotEncoder::fit(&x, params).unwrap();
+        assert_eq!(oh_enc.category_mappers.len(), 2);
 
         let num_cat: Vec<usize> = oh_enc
-            .series_encoders
+            .category_mappers
             .iter()
             .map(|a| a.num_categories())
             .collect();
@@ -299,13 +298,13 @@ mod tests {
     fn matrix_transform_test() {
         let (x, expected_x) = build_fake_matrix();
         let params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
-        let oh_enc = OneHotEnc::fit(&x, params).unwrap();
+        let oh_enc = OneHotEncoder::fit(&x, params).unwrap();
         let nm = oh_enc.transform(&x).unwrap();
         assert_eq!(nm, expected_x);
 
         let (x, expected_x) = build_cat_first_and_last();
         let params = OneHotEncoderParams::from_cat_idx(&[0, 2]);
-        let oh_enc = OneHotEnc::fit(&x, params).unwrap();
+        let oh_enc = OneHotEncoder::fit(&x, params).unwrap();
         let nm = oh_enc.transform(&x).unwrap();
         assert_eq!(nm, expected_x);
     }
@@ -320,7 +319,7 @@ mod tests {
         ]);
 
         let params = OneHotEncoderParams::from_cat_idx(&[1]);
-        match OneHotEnc::fit(&m, params) {
+        match OneHotEncoder::fit(&m, params) {
             Err(_) => {
                 assert!(true);
             }
