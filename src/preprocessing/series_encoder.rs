@@ -8,6 +8,7 @@ use crate::math::num::RealNumber;
 use std::collections::HashMap;
 use std::hash::Hash;
 
+/// Bi-directional map category <-> label num.
 #[derive(Debug, Clone)]
 pub struct CategoryMapper<CategoryType> {
     category_map: HashMap<CategoryType, usize>,
@@ -16,7 +17,9 @@ pub struct CategoryMapper<CategoryType> {
 }
 
 impl<'a, CategoryType: 'a + Hash + Eq + Clone> CategoryMapper<CategoryType> {
-    fn fit_to_iter(categories: impl Iterator<Item = CategoryType>) -> Self {
+    
+    /// Fit an encoder to a lable iterator
+    pub fn fit_to_iter(categories: impl Iterator<Item = CategoryType>) -> Self {
         let mut category_map: HashMap<CategoryType, usize> = HashMap::new();
         let mut category_num = 0usize;
         let mut unique_lables: Vec<CategoryType> = Vec::new();
@@ -34,8 +37,9 @@ impl<'a, CategoryType: 'a + Hash + Eq + Clone> CategoryMapper<CategoryType> {
             categories: unique_lables,
         }
     }
-
-    fn from_category_map(category_map: HashMap<CategoryType, usize>) -> Self {
+    
+    /// Build an encoder from a predefined (category -> class number) map
+    pub fn from_category_map(category_map: HashMap<CategoryType, usize>) -> Self {
         let mut _unique_cat: Vec<(CategoryType, usize)> =
             category_map.iter().map(|(k, v)| (k.clone(), *v)).collect();
         _unique_cat.sort_by(|a, b| a.1.cmp(&b.1));
@@ -46,8 +50,9 @@ impl<'a, CategoryType: 'a + Hash + Eq + Clone> CategoryMapper<CategoryType> {
             category_map,
         }
     }
-
-    fn from_positional_category_vec(categories: Vec<CategoryType>) -> Self {
+    
+    /// Build an encoder from a predefined positional category-class num vector
+    pub fn from_positional_category_vec(categories: Vec<CategoryType>) -> Self {
         let category_map: HashMap<CategoryType, usize> = categories
             .iter()
             .enumerate()
@@ -61,16 +66,17 @@ impl<'a, CategoryType: 'a + Hash + Eq + Clone> CategoryMapper<CategoryType> {
     }
 
     /// Get label num of a category
-    fn get_num(&self, category: &CategoryType) -> Option<&usize> {
+    pub fn get_num(&self, category: &CategoryType) -> Option<&usize> {
         self.category_map.get(category)
     }
 
     /// Return category corresponding to label num
-    fn get_cat(&self, num: usize) -> &CategoryType {
+    pub fn get_cat(&self, num: usize) -> &CategoryType {
         &self.categories[num]
     }
 
-    fn get_categories(&self) -> &[CategoryType] {
+    /// List all categories (position = category number)
+    pub fn get_categories(&self) -> &[CategoryType] {
         &self.categories[..]
     }
 }
@@ -80,14 +86,14 @@ pub trait SeriesEncoder<CategoryType>:
     where 
         CategoryType:Hash + Eq + Clone
 {
-    /// Fit an encoder to a lable list
+    /// Fit an encoder to a lable iterator
     fn fit_to_iter(categories: impl Iterator<Item = CategoryType>) -> Self;
     
     /// Number of categories for categorical variable
     fn num_categories(&self) -> usize;
      
     /// Build an encoder from a predefined (category -> class number) map
-     fn from_category_map(category_map: HashMap<CategoryType, usize>) -> Self;
+    fn from_category_map(category_map: HashMap<CategoryType, usize>) -> Self;
 
     /// Build an encoder from a predefined positional category-class num vector
     fn from_positional_category_vec(categories: Vec<CategoryType>) -> Self;
@@ -119,6 +125,7 @@ pub trait SeriesEncoder<CategoryType>:
         self.transform_iter(v)
     }
 }
+
 /// Make a one-hot encoded vector from a categorical variable
 ///
 /// Example:
@@ -182,20 +189,20 @@ pub struct SeriesOneHotEncoder<CategoryType> {
 }
 
 impl<CategoryType: Hash + Eq + Clone> SeriesEncoder<CategoryType> for SeriesOneHotEncoder<CategoryType> {
-
+    
     fn fit_to_iter(categories: impl Iterator<Item = CategoryType>) -> Self {
         Self {mapper:CategoryMapper::fit_to_iter(categories)}
-            }
+    }
 
     /// Build an encoder from a predefined (category -> class number) map
     fn from_category_map(category_map: HashMap<CategoryType, usize>) -> Self {
         Self {mapper: CategoryMapper::from_category_map(category_map)}
-        }
+    }
 
     /// Build an encoder from a predefined positional category-class num vector
     fn from_positional_category_vec(categories: Vec<CategoryType>) -> Self {
         Self {mapper:CategoryMapper::from_positional_category_vec(categories)}
-        }
+    }
 
     fn num_categories(&self) -> usize {
         self.mapper.num_categories
@@ -207,25 +214,25 @@ impl<CategoryType: Hash + Eq + Clone> SeriesEncoder<CategoryType> for SeriesOneH
 
     fn invert_one<U: RealNumber, V: BaseVector<U>>(&self, one_hot: V) -> Result<CategoryType, Failed> 
         {
-        let pos = U::from_f64(1f64).unwrap();
+            let pos = U::from_f64(1f64).unwrap();
     
             let oh_it = (0..one_hot.len()).map(|idx| one_hot.get(idx));
-
+    
             let s: Vec<usize> = oh_it
-            .enumerate()
-            .filter_map(|(idx, v)| if v == pos { Some(idx) } else { None })
-            .collect();
-
-        if s.len() == 1 {
-            let idx = s[0];
+                .enumerate()
+                .filter_map(|(idx, v)| if v == pos { Some(idx) } else { None })
+                .collect();
+    
+            if s.len() == 1 {
+                let idx = s[0];
                 return Ok(self.mapper.get_cat(idx).clone());
+            }
+            let pos_entries = format!(
+                "Expected a single positive entry, {} entires found",
+                s.len()
+            );
+            Err(Failed::transform(&pos_entries[..]))
         }
-        let pos_entries = format!(
-            "Expected a single positive entry, {} entires found",
-            s.len()
-        );
-        Err(Failed::transform(&pos_entries[..]))
-    }
 
     fn transform_one<U: RealNumber, V: BaseVector<U>>(&self, category: &CategoryType) -> Option<V> {
         match self.mapper.get_num(category) {
@@ -233,6 +240,7 @@ impl<CategoryType: Hash + Eq + Clone> SeriesEncoder<CategoryType> for SeriesOneH
             Some(&idx) => Some(make_one_hot(idx, self.num_categories())),
         }
     }
+    
 }
 
 #[cfg(test)]
