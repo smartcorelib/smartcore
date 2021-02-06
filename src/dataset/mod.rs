@@ -111,6 +111,69 @@ pub(crate) fn deserialize_data(
     Ok((x, y, num_samples, num_features))
 }
 
+impl<X: Copy + std::fmt::Debug, Y: Copy + std::fmt::Debug> std::fmt::Display for Dataset<X, Y> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.num_features == self.feature_names.len() {
+            struct Target<Y> {
+                name: String,
+                value: Y,
+            }
+            struct Feature<X> {
+                name: String,
+                value: X,
+            }
+            struct DataPoint<X, Y> {
+                labels: Vec<Target<Y>>,
+                features: Vec<Feature<X>>,
+            }
+            impl<X: Copy + std::fmt::Debug, Y: Copy + std::fmt::Debug> std::fmt::Display for DataPoint<X, Y> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(
+                        f,
+                        "{} : {}",
+                        self.labels
+                            .iter()
+                            .map(|target| format!("{}:{:?}, ", target.name, target.value))
+                            .collect::<String>(),
+                        self.features
+                            .iter()
+                            .map(|feature| format!("{}:{:?}, ", feature.name, feature.value))
+                            .collect::<String>()
+                    )
+                }
+            }
+            let mut datapoints = Vec::new();
+            for sample_index in 0..self.num_samples {
+                let mut features = Vec::new();
+                for feature_index in 0..self.feature_names.len() {
+                    features.push(Feature {
+                        name: self.feature_names[feature_index].to_owned(),
+                        value: self.data[sample_index * self.num_features + feature_index],
+                    });
+                }
+                let mut targets = Vec::new();
+                for target_index in 0..self.target_names.len() {
+                    targets.push(Target {
+                        name: self.target_names[target_index].to_owned(),
+                        value: self.target[sample_index * self.target_names.len() + target_index],
+                    });
+                }
+                datapoints.push(DataPoint {
+                    labels: targets,
+                    features,
+                })
+            }
+            let mut out = format!("{}\n", self.description);
+            for point in datapoints {
+                out.push_str(&format!("{}\n", point));
+            }
+            write!(f, "{}", out)
+        } else {
+            write!(f, "{:?}", self)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,5 +195,11 @@ mod tests {
         assert_eq!(m.len(), 2);
         assert_eq!(m[0].len(), 5);
         assert_eq!(*m[1][3], 9);
+    }
+
+    #[test]
+    fn display() {
+        let dataset = iris::load_dataset();
+        println!("{}", dataset);
     }
 }
