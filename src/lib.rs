@@ -91,6 +91,8 @@ pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
 pub(crate) mod optimization;
+/// Preprocessing utilities
+pub mod preprocessing;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods
