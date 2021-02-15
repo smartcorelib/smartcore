@@ -54,6 +54,10 @@ struct CategoricalNBDistribution<T: RealNumber> {
     n_features: usize,
     /// Number of categories for each feature
     n_categories: Vec<usize>,
+    /// Holds arrays of shape (n_classes, n_categories of respective feature)
+    /// for each feature. Each array provides the number of samples
+    /// encountered for each class and category of the specific feature.
+    category_count: Vec<Vec<Vec<usize>>>,
 }
 
 impl<T: RealNumber> PartialEq for CategoricalNBDistribution<T> {
@@ -103,8 +107,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for CategoricalNBDistribu
             let mut likelihood = T::zero();
             for feature in 0..j.len() {
                 let value = j.get(feature).floor().to_usize().unwrap();
-                if self.coefficients[class_index][feature].len() > value {
-                    likelihood += self.coefficients[class_index][feature][value];
+                if self.coefficients[feature][class_index].len() > value {
+                    likelihood += self.coefficients[feature][class_index][value];
                 } else {
                     return T::zero();
                 }
@@ -184,10 +188,11 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
         }
 
         let mut coefficients: Vec<Vec<Vec<T>>> = Vec::with_capacity(class_labels.len());
-        for (label, &label_count) in class_labels.iter().zip(class_count.iter()) {
+        let mut category_count: Vec<Vec<Vec<usize>>> = Vec::with_capacity(class_labels.len());
+        for (feature_index, &n_categories_i) in n_categories.iter().enumerate().take(n_features) {
             let mut coef_i: Vec<Vec<T>> = Vec::with_capacity(n_features);
-            for (feature_index, &n_categories_i) in n_categories.iter().enumerate().take(n_features)
-            {
+            let mut category_count_i: Vec<Vec<usize>> = Vec::with_capacity(n_features);
+            for (label, &label_count) in class_labels.iter().zip(class_count.iter()) {
                 let col = x
                     .get_col_as_vec(feature_index)
                     .iter()
@@ -195,22 +200,25 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
                     .filter(|(i, _j)| T::from(y[*i]).unwrap() == *label)
                     .map(|(_, j)| *j)
                     .collect::<Vec<T>>();
-                let mut feat_count: Vec<T> = vec![T::zero(); n_categories_i];
+                let mut feat_count: Vec<usize> = vec![0_usize; n_categories_i];
                 for row in col.iter() {
                     let index = row.floor().to_usize().unwrap();
-                    feat_count[index] += T::one();
+                    feat_count[index] += 1;
                 }
+
                 let coef_i_j = feat_count
                     .iter()
                     .map(|c| {
-                        ((*c + alpha)
+                        ((T::from(*c).unwrap() + alpha)
                             / (T::from(label_count).unwrap()
                                 + T::from(n_categories_i).unwrap() * alpha))
                             .ln()
                     })
                     .collect::<Vec<T>>();
+                category_count_i.push(feat_count);
                 coef_i.push(coef_i_j);
             }
+            category_count.push(category_count_i);
             coefficients.push(coef_i);
         }
 
@@ -226,6 +234,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             coefficients,
             n_categories,
             n_features,
+            category_count,
         })
     }
 }
@@ -322,6 +331,19 @@ impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
     pub fn n_categories(&self) -> &Vec<usize> {
         &self.inner.distribution.n_categories
     }
+
+    /// Holds arrays of shape (n_classes, n_categories of respective feature)
+    /// for each feature. Each array provides the number of samples
+    /// encountered for each class and category of the specific feature.
+    pub fn category_count(&self) -> &Vec<Vec<Vec<usize>>> {
+        &self.inner.distribution.category_count
+    }
+    /// Holds arrays of shape (n_classes, n_categories of respective feature)
+    /// for each feature. Each array provides the empirical log probability
+    /// of categories given the respective feature and class, ``P(x_i|y)``.
+    pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<T>>> {
+        &self.inner.distribution.coefficients
+    }
 }
 
 #[cfg(test)]
@@ -351,10 +373,58 @@ mod tests {
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
 
+        // checking parity with scikit
         assert_eq!(cnb.classes(), &[0., 1.]);
         assert_eq!(cnb.class_count(), &[5, 9]);
         assert_eq!(cnb.n_features(), 4);
         assert_eq!(cnb.n_categories(), &[3, 3, 2, 2]);
+        assert_eq!(
+            cnb.category_count(),
+            &vec![
+                vec![vec![3, 0, 2], vec![2, 4, 3]],
+                vec![vec![1, 2, 2], vec![3, 4, 2]],
+                vec![vec![1, 4], vec![6, 3]],
+                vec![vec![2, 3], vec![6, 3]]
+            ]
+        );
+
+        assert_eq!(
+            cnb.feature_log_prob(),
+            &vec![
+                vec![
+                    vec![
+                        -0.6931471805599453,
+                        -2.0794415416798357,
+                        -0.9808292530117262
+                    ],
+                    vec![
+                        -1.3862943611198906,
+                        -0.8754687373538999,
+                        -1.0986122886681098
+                    ]
+                ],
+                vec![
+                    vec![
+                        -1.3862943611198906,
+                        -0.9808292530117262,
+                        -0.9808292530117262
+                    ],
+                    vec![
+                        -1.0986122886681098,
+                        -0.8754687373538999,
+                        -1.3862943611198906
+                    ]
+                ],
+                vec![
+                    vec![-1.252762968495368, -0.3364722366212129],
+                    vec![-0.45198512374305727, -1.0116009116784799]
+                ],
+                vec![
+                    vec![-0.8472978603872037, -0.5596157879354228],
+                    vec![-0.45198512374305727, -1.0116009116784799]
+                ]
+            ]
+        );
 
         let x_test = DenseMatrix::from_2d_array(&[&[0., 2., 1., 0.], &[2., 2., 0., 0.]]);
         let y_hat = cnb.predict(&x_test).unwrap();
