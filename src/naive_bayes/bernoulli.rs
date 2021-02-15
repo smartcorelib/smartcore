@@ -47,7 +47,7 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Bearnoulli features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 struct BernoulliNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -58,9 +58,33 @@ struct BernoulliNBDistribution<T: RealNumber> {
     /// Number of samples encountered for each (class, feature)
     feature_count: Vec<Vec<usize>>,
     /// probability of features per class
-    feature_prob: Vec<Vec<T>>,
+    feature_log_prob: Vec<Vec<T>>,
     /// Number of features of each sample
     n_features: usize,
+}
+
+impl<T: RealNumber> PartialEq for BernoulliNBDistribution<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.class_labels == other.class_labels
+            && self.class_count == other.class_count
+            && self.class_priors == other.class_priors
+            && self.feature_count == other.feature_count
+            && self.n_features == other.n_features
+        {
+            for (a, b) in self
+                .feature_log_prob
+                .iter()
+                .zip(other.feature_log_prob.iter())
+            {
+                if a.approximate_eq(b, T::epsilon()) == false {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistribution<T> {
@@ -73,9 +97,9 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
         for feature in 0..j.len() {
             let value = j.get(feature);
             if value == T::one() {
-                likelihood += self.feature_prob[class_index][feature].ln();
+                likelihood += self.feature_log_prob[class_index][feature];
             } else {
-                likelihood += (T::one() - self.feature_prob[class_index][feature]).ln();
+                likelihood += (T::one() - self.feature_log_prob[class_index][feature].exp()).ln();
             }
         }
         likelihood
@@ -193,15 +217,16 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
             }
         }
 
-        let feature_prob = feature_in_class_counter
+        let feature_log_prob = feature_in_class_counter
             .iter()
             .enumerate()
             .map(|(class_index, feature_count)| {
                 feature_count
                     .iter()
                     .map(|&count| {
-                        (T::from(count).unwrap() + alpha)
-                            / (T::from(class_count[class_index]).unwrap() + alpha * T::two())
+                        ((T::from(count).unwrap() + alpha)
+                            / (T::from(class_count[class_index]).unwrap() + alpha * T::two()))
+                        .ln()
                     })
                     .collect()
             })
@@ -212,7 +237,7 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
             class_priors,
             class_count,
             feature_count: feature_in_class_counter,
-            feature_prob,
+            feature_log_prob,
             n_features,
         })
     }
@@ -303,6 +328,11 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
         &self.inner.distribution.feature_count
     }
+
+    /// Empirical log probability of features given a class
+    pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
+        &self.inner.distribution.feature_log_prob
+    }
 }
 
 #[cfg(test)]
@@ -333,10 +363,24 @@ mod tests {
 
         assert_eq!(bnb.inner.distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
-            bnb.inner.distribution.feature_prob,
+            bnb.feature_log_prob(),
             &[
-                &[0.4, 0.8, 0.2, 0.4, 0.4, 0.2],
-                &[1. / 3.0, 2. / 3.0, 2. / 3.0, 1. / 3.0, 1. / 3.0, 2. / 3.0]
+                &[
+                    -0.916290731874155,
+                    -0.2231435513142097,
+                    -1.6094379124341003,
+                    -0.916290731874155,
+                    -0.916290731874155,
+                    -1.6094379124341003
+                ],
+                &[
+                    -1.0986122886681098,
+                    -0.40546510810816444,
+                    -0.40546510810816444,
+                    -1.0986122886681098,
+                    -1.0986122886681098,
+                    -0.40546510810816444
+                ]
             ]
         );
 
@@ -389,8 +433,19 @@ mod tests {
             .distribution
             .class_priors
             .approximate_eq(&vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(bnb.inner.distribution.feature_prob[1].approximate_eq(
-            &vec!(0.8, 0.8, 0.8, 0.4, 0.8, 0.6, 0.8, 0.6, 0.6, 0.8),
+        assert!(bnb.feature_log_prob()[1].approximate_eq(
+            &vec![
+                -0.22314355,
+                -0.22314355,
+                -0.22314355,
+                -0.91629073,
+                -0.22314355,
+                -0.51082562,
+                -0.22314355,
+                -0.51082562,
+                -0.51082562,
+                -0.22314355
+            ],
             1e-1
         ));
         assert!(y_hat.approximate_eq(
