@@ -76,7 +76,7 @@ impl<T: RealNumber> PartialEq for BernoulliNBDistribution<T> {
                 .iter()
                 .zip(other.feature_log_prob.iter())
             {
-                if a.approximate_eq(b, T::epsilon()) == false {
+                if !a.approximate_eq(b, T::epsilon()) {
                     return false;
                 }
             }
