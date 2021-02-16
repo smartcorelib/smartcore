@@ -1,3 +1,4 @@
+#![allow(clippy::suspicious_operation_groupings)]
 use std::default::Default;
 use std::fmt::Debug;
 
