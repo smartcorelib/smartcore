@@ -1,3 +1,4 @@
+#![allow(clippy::wrong_self_convention)]
 //! # Linear Algebra and Matrix Decomposition
 //!
 //! Most machine learning algorithms in SmartCore depend on linear algebra and matrix decomposition methods from this module.
@@ -265,7 +266,7 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
             sum += xi * xi;
         }
         mu /= div;
-        sum / div - mu * mu
+        sum / div - mu.powi(2)
     }
     /// Computes the standard deviation.
     fn std(&self) -> T {

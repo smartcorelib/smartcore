@@ -1,7 +1,8 @@
 #![allow(
     clippy::type_complexity,
     clippy::too_many_arguments,
-    clippy::many_single_char_names
+    clippy::many_single_char_names,
+    clippy::unnecessary_wraps
 )]
 #![warn(missing_docs)]
 #![warn(missing_doc_code_examples)]

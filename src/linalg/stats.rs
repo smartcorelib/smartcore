@@ -61,7 +61,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
                 sum += a * a;
             }
             mu /= div;
-            *x_i = sum / div - mu * mu;
+            *x_i = sum / div - mu.powi(2);
         }
 
         x
