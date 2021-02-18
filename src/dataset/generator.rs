@@ -164,8 +164,7 @@ mod tests {
 
     #[test]
     fn test_make_moons() {
-        let dataset = make_moons(100, 0.05);
-        println!("{:?}", dataset.data);
+        let dataset = make_moons(10, 0.05);
         assert_eq!(
             dataset.data.len(),
             dataset.num_features * dataset.num_samples
