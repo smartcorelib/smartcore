@@ -90,7 +90,6 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
 
 /// Make two interleaving half circles in 2d
 pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, f32> {
-
     let num_samples_out = num_samples / 2;
     let num_samples_in = num_samples - num_samples_out;
 
