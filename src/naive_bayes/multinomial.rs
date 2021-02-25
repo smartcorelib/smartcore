@@ -51,8 +51,16 @@ use serde::{Deserialize, Serialize};
 struct MultinomialNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
+    /// number of training samples observed in each class
+    class_count: Vec<usize>,
+    /// probability of each class
     class_priors: Vec<T>,
-    feature_prob: Vec<Vec<T>>,
+    /// Empirical log probability of features given a class
+    feature_log_prob: Vec<Vec<T>>,
+    /// Number of samples encountered for each (class, feature)
+    feature_count: Vec<Vec<usize>>,
+    /// Number of features of each sample
+    n_features: usize,
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribution<T> {
@@ -64,7 +72,7 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribu
         let mut likelihood = T::zero();
         for feature in 0..j.len() {
             let value = j.get(feature);
-            likelihood += value * self.feature_prob[class_index][feature].ln();
+            likelihood += value * self.feature_log_prob[class_index][feature];
         }
         likelihood
     }
@@ -144,10 +152,10 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         let y = y.to_vec();
 
         let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
-        let mut class_count = vec![T::zero(); class_labels.len()];
+        let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
-            class_count[*class_index] += T::one();
+            class_count[*class_index] += 1;
         }
 
         let class_priors = if let Some(class_priors) = priors {
@@ -160,33 +168,46 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         } else {
             class_count
                 .iter()
-                .map(|&c| c / T::from(n_samples).unwrap())
+                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
                 .collect()
         };
 
-        let mut feature_in_class_counter = vec![vec![T::zero(); n_features]; class_labels.len()];
+        let mut feature_in_class_counter = vec![vec![0_usize; n_features]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices) {
             for (idx, row_i) in row.iter().enumerate().take(n_features) {
-                feature_in_class_counter[class_index][idx] += *row_i;
+                feature_in_class_counter[class_index][idx] +=
+                    row_i.to_usize().ok_or_else(|| {
+                        Failed::fit(&format!(
+                            "Elements of the matrix should be convertible to usize |found|=[{}]",
+                            row_i
+                        ))
+                    })?;
             }
         }
 
-        let feature_prob = feature_in_class_counter
+        let feature_log_prob = feature_in_class_counter
             .iter()
             .map(|feature_count| {
-                let n_c = feature_count.sum();
+                let n_c: usize = feature_count.iter().sum();
                 feature_count
                     .iter()
-                    .map(|&count| (count + alpha) / (n_c + alpha * T::from(n_features).unwrap()))
+                    .map(|&count| {
+                        ((T::from(count).unwrap() + alpha)
+                            / (T::from(n_c).unwrap() + alpha * T::from(n_features).unwrap()))
+                        .ln()
+                    })
                     .collect()
             })
             .collect();
 
         Ok(Self {
+            class_count,
             class_labels,
             class_priors,
-            feature_prob,
+            feature_log_prob,
+            feature_count: feature_in_class_counter,
+            n_features,
         })
     }
 }
@@ -240,6 +261,35 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.inner.predict(x)
     }
+
+    /// Class labels known to the classifier.
+    /// Returns a vector of size n_classes.
+    pub fn classes(&self) -> &Vec<T> {
+        &self.inner.distribution.class_labels
+    }
+
+    /// Number of training samples observed in each class.
+    /// Returns a vector of size n_classes.
+    pub fn class_count(&self) -> &Vec<usize> {
+        &self.inner.distribution.class_count
+    }
+
+    /// Empirical log probability of features given a class, P(x_i|y).
+    /// Returns a 2d vector of shape (n_classes, n_features)
+    pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
+        &self.inner.distribution.feature_log_prob
+    }
+
+    /// Number of features of each sample
+    pub fn n_features(&self) -> usize {
+        self.inner.distribution.n_features
+    }
+
+    /// Number of samples encountered for each (class, feature)
+    /// Returns a 2d vector of shape (n_classes, n_features)
+    pub fn feature_count(&self) -> &Vec<Vec<usize>> {
+        &self.inner.distribution.feature_count
+    }
 }
 
 #[cfg(test)]
@@ -268,12 +318,29 @@ mod tests {
         let y = vec![0., 0., 0., 1.];
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
+        assert_eq!(mnb.classes(), &[0., 1.]);
+        assert_eq!(mnb.class_count(), &[3, 1]);
+
         assert_eq!(mnb.inner.distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
-            mnb.inner.distribution.feature_prob,
+            mnb.feature_log_prob(),
             &[
-                &[1. / 7., 3. / 7., 1. / 14., 1. / 7., 1. / 7., 1. / 14.],
-                &[1. / 9., 2. / 9.0, 2. / 9.0, 1. / 9.0, 1. / 9.0, 2. / 9.0]
+                &[
+                    (1_f64 / 7_f64).ln(),
+                    (3_f64 / 7_f64).ln(),
+                    (1_f64 / 14_f64).ln(),
+                    (1_f64 / 7_f64).ln(),
+                    (1_f64 / 7_f64).ln(),
+                    (1_f64 / 14_f64).ln()
+                ],
+                &[
+                    (1_f64 / 9_f64).ln(),
+                    (2_f64 / 9_f64).ln(),
+                    (2_f64 / 9_f64).ln(),
+                    (1_f64 / 9_f64).ln(),
+                    (1_f64 / 9_f64).ln(),
+                    (2_f64 / 9_f64).ln()
+                ]
             ]
         );
 
@@ -307,6 +374,16 @@ mod tests {
         let y = vec![2., 2., 0., 0., 0., 2., 1., 1., 0., 1., 0., 0., 2., 0., 2.];
         let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
+        assert_eq!(nb.n_features(), 10);
+        assert_eq!(
+            nb.feature_count(),
+            &[
+                &[12, 20, 11, 24, 12, 14, 13, 17, 13, 18],
+                &[9, 6, 9, 4, 7, 3, 8, 5, 4, 9],
+                &[10, 12, 9, 9, 11, 3, 9, 18, 10, 10]
+            ]
+        );
+
         let y_hat = nb.predict(&x).unwrap();
 
         assert!(nb
@@ -314,9 +391,20 @@ mod tests {
             .distribution
             .class_priors
             .approximate_eq(&vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(nb.inner.distribution.feature_prob[1].approximate_eq(
-            &vec!(0.07, 0.12, 0.07, 0.15, 0.07, 0.09, 0.08, 0.10, 0.08, 0.11),
-            1e-1
+        assert!(nb.feature_log_prob()[1].approximate_eq(
+            &vec![
+                -2.00148,
+                -2.35815494,
+                -2.00148,
+                -2.69462718,
+                -2.22462355,
+                -2.91777073,
+                -2.10684052,
+                -2.51230562,
+                -2.69462718,
+                -2.00148
+            ],
+            1e-5
         ));
         assert!(y_hat.approximate_eq(
             &vec!(2.0, 2.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 2.0),

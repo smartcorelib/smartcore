@@ -39,10 +39,12 @@ use serde::{Deserialize, Serialize};
 struct GaussianNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
+    /// number of training samples observed in each class
+    class_count: Vec<usize>,
     /// probability of each class.
     class_priors: Vec<T>,
     /// variance of each feature per class
-    sigma: Vec<Vec<T>>,
+    var: Vec<Vec<T>>,
     /// mean of each feature per class
     theta: Vec<Vec<T>>,
 }
@@ -57,18 +59,14 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for GaussianNBDistributio
     }
 
     fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T {
-        if class_index < self.class_labels.len() {
-            let mut likelihood = T::zero();
-            for feature in 0..j.len() {
-                let value = j.get(feature);
-                let mean = self.theta[class_index][feature];
-                let variance = self.sigma[class_index][feature];
-                likelihood += self.calculate_log_probability(value, mean, variance);
-            }
-            likelihood
-        } else {
-            T::zero()
+        let mut likelihood = T::zero();
+        for feature in 0..j.len() {
+            let value = j.get(feature);
+            let mean = self.theta[class_index][feature];
+            let variance = self.var[class_index][feature];
+            likelihood += self.calculate_log_probability(value, mean, variance);
         }
+        likelihood
     }
 
     fn classes(&self) -> &Vec<T> {
@@ -121,12 +119,12 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
         let y = y.to_vec();
         let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
 
-        let mut class_count = vec![T::zero(); class_labels.len()];
+        let mut class_count = vec![0_usize; class_labels.len()];
 
         let mut subdataset: Vec<Vec<Vec<T>>> = vec![vec![]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices.iter()) {
-            class_count[*class_index] += T::one();
+            class_count[*class_index] += 1;
             subdataset[*class_index].push(row);
         }
 
@@ -139,8 +137,8 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
             class_priors
         } else {
             class_count
-                .into_iter()
-                .map(|c| c / T::from(n_samples).unwrap())
+                .iter()
+                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
                 .collect()
         };
 
@@ -157,15 +155,16 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
             })
             .collect();
 
-        let (sigma, theta): (Vec<Vec<T>>, Vec<Vec<T>>) = subdataset
+        let (var, theta): (Vec<Vec<T>>, Vec<Vec<T>>) = subdataset
             .iter()
             .map(|data| (data.var(0), data.mean(0)))
             .unzip();
 
         Ok(Self {
             class_labels,
+            class_count,
             class_priors,
-            sigma,
+            var,
             theta,
         })
     }
@@ -223,6 +222,36 @@ impl<T: RealNumber, M: Matrix<T>> GaussianNB<T, M> {
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.inner.predict(x)
     }
+
+    /// Class labels known to the classifier.
+    /// Returns a vector of size n_classes.
+    pub fn classes(&self) -> &Vec<T> {
+        &self.inner.distribution.class_labels
+    }
+
+    /// Number of training samples observed in each class.
+    /// Returns a vector of size n_classes.
+    pub fn class_count(&self) -> &Vec<usize> {
+        &self.inner.distribution.class_count
+    }
+
+    /// Probability of each class
+    /// Returns a vector of size n_classes.
+    pub fn class_priors(&self) -> &Vec<T> {
+        &self.inner.distribution.class_priors
+    }
+
+    /// Mean of each feature per class
+    /// Returns a 2d vector of shape (n_classes, n_features).
+    pub fn theta(&self) -> &Vec<Vec<T>> {
+        &self.inner.distribution.theta
+    }
+
+    /// Variance of each feature per class
+    /// Returns a 2d vector of shape (n_classes, n_features).
+    pub fn var(&self) -> &Vec<Vec<T>> {
+        &self.inner.distribution.var
+    }
 }
 
 #[cfg(test)]
@@ -245,18 +274,23 @@ mod tests {
         let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
         let y_hat = gnb.predict(&x).unwrap();
         assert_eq!(y_hat, y);
+
+        assert_eq!(gnb.classes(), &[1., 2.]);
+
+        assert_eq!(gnb.class_count(), &[3, 3]);
+
         assert_eq!(
-            gnb.inner.distribution.sigma,
+            gnb.var(),
             &[
                 &[0.666666666666667, 0.22222222222222232],
                 &[0.666666666666667, 0.22222222222222232]
             ]
         );
 
-        assert_eq!(gnb.inner.distribution.class_priors, &[0.5, 0.5]);
+        assert_eq!(gnb.class_priors(), &[0.5, 0.5]);
 
         assert_eq!(
-            gnb.inner.distribution.theta,
+            gnb.theta(),
             &[&[-2., -1.3333333333333333], &[2., 1.3333333333333333]]
         );
     }
@@ -277,7 +311,7 @@ mod tests {
         let parameters = GaussianNBParameters::default().with_priors(priors.clone());
         let gnb = GaussianNB::fit(&x, &y, parameters).unwrap();
 
-        assert_eq!(gnb.inner.distribution.class_priors, priors);
+        assert_eq!(gnb.class_priors(), &priors);
     }
 
     #[test]
