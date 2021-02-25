@@ -58,7 +58,7 @@
 //! let y = vec![ 0., 0., 0., 0., 0., 0., 0., 0.,
 //!            1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
 //!
-//! let svr = SVC::fit(&x, &y,
+//! let svc = SVC::fit(&x, &y,
 //!             Kernels::linear(),
 //!             SVCParameters {
 //!                 epoch: 2,
@@ -66,7 +66,7 @@
 //!                 tol: 1e-3,
 //!             }).unwrap();
 //!
-//! let y_hat = svr.predict(&x).unwrap();
+//! let y_hat = svc.predict(&x).unwrap();
 //! ```
 //!
 //! ## References:
@@ -802,11 +802,11 @@ mod tests {
             -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
         ];
 
-        let svr = SVC::fit(&x, &y, Kernels::linear(), Default::default()).unwrap();
+        let svc = SVC::fit(&x, &y, Kernels::linear(), Default::default()).unwrap();
 
-        let deserialized_svr: SVC<f64, DenseMatrix<f64>, LinearKernel> =
-            serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
+        let deserialized_svc: SVC<f64, DenseMatrix<f64>, LinearKernel> =
+            serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
-        assert_eq!(svr, deserialized_svr);
+        assert_eq!(svc, deserialized_svc);
     }
 }
