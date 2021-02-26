@@ -59,8 +59,6 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
     let linspace_out = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_out);
     let linspace_in = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_in);
 
-    println!("{:?}", linspace_out);
-    println!("{:?}", linspace_in);
     let noise = Normal::new(0.0, noise).unwrap();
     let mut rng = rand::thread_rng();
 
@@ -87,6 +85,43 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
         feature_names: (0..2).map(|n| n.to_string()).collect(),
         target_names: vec!["label".to_string()],
         description: "Large circle containing a smaller circle in 2d".to_string(),
+    }
+}
+
+/// Make two interleaving half circles in 2d
+pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, f32> {
+    let num_samples_out = num_samples / 2;
+    let num_samples_in = num_samples - num_samples_out;
+
+    let linspace_out = linspace(0.0, std::f32::consts::PI, num_samples_out);
+    let linspace_in = linspace(0.0, std::f32::consts::PI, num_samples_in);
+
+    let noise = Normal::new(0.0, noise).unwrap();
+    let mut rng = rand::thread_rng();
+
+    let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
+    let mut y: Vec<f32> = Vec::with_capacity(num_samples);
+
+    for v in linspace_out {
+        x.push(v.cos() + noise.sample(&mut rng));
+        x.push(v.sin() + noise.sample(&mut rng));
+        y.push(0.0);
+    }
+
+    for v in linspace_in {
+        x.push(1.0 - v.cos() + noise.sample(&mut rng));
+        x.push(1.0 - v.sin() + noise.sample(&mut rng) - 0.5);
+        y.push(1.0);
+    }
+
+    Dataset {
+        data: x,
+        target: y,
+        num_samples,
+        num_features: 2,
+        feature_names: (0..2).map(|n| n.to_string()).collect(),
+        target_names: vec!["label".to_string()],
+        description: "Two interleaving half circles in 2d".to_string(),
     }
 }
 
@@ -117,7 +152,18 @@ mod tests {
     #[test]
     fn test_make_circles() {
         let dataset = make_circles(10, 0.5, 0.05);
-        println!("{:?}", dataset.as_matrix());
+        assert_eq!(
+            dataset.data.len(),
+            dataset.num_features * dataset.num_samples
+        );
+        assert_eq!(dataset.target.len(), dataset.num_samples);
+        assert_eq!(dataset.num_features, 2);
+        assert_eq!(dataset.num_samples, 10);
+    }
+
+    #[test]
+    fn test_make_moons() {
+        let dataset = make_moons(10, 0.05);
         assert_eq!(
             dataset.data.len(),
             dataset.num_features * dataset.num_samples

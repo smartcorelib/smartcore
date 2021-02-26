@@ -44,6 +44,7 @@
 
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
@@ -52,7 +53,8 @@ use super::Distance;
 use crate::linalg::Matrix;
 
 /// Mahalanobis distance.
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
     /// covariance matrix of the dataset
     pub sigma: M,

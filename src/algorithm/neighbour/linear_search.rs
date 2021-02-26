@@ -5,6 +5,7 @@
 //! use smartcore::algorithm::neighbour::linear_search::*;
 //! use smartcore::math::distance::Distance;
 //!
+//! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
 //!
 //! impl Distance<i32, f64> for SimpleDistance {
@@ -21,6 +22,7 @@
 //!
 //! ```
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
 use std::marker::PhantomData;
@@ -31,7 +33,8 @@ use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 
 /// Implements Linear Search algorithm, see [KNN algorithms](../index.html)
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct LinearKNNSearch<T, F: RealNumber, D: Distance<T, F>> {
     distance: D,
     data: Vec<T>,
@@ -137,6 +140,8 @@ mod tests {
     use super::*;
     use crate::math::distance::Distances;
 
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(Debug, Clone)]
     struct SimpleDistance {}
 
     impl Distance<i32, f64> for SimpleDistance {

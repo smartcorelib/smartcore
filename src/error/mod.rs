@@ -2,17 +2,21 @@
 use std::error::Error;
 use std::fmt;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Generic error to be raised when something goes wrong.
-#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct Failed {
     err: FailedError,
     msg: String,
 }
 
 /// Type of error
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug)]
 pub enum FailedError {
     /// Can't fit algorithm to data
     FitFailed = 1,

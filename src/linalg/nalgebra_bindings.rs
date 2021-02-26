@@ -44,9 +44,10 @@ use nalgebra::{DMatrix, Dynamic, Matrix, MatrixMN, RowDVector, Scalar, VecStorag
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
+use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
-use crate::linalg::stats::MatrixStats;
+use crate::linalg::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix as SmartCoreMatrix;
 use crate::linalg::{BaseMatrix, BaseVector};
@@ -180,19 +181,24 @@ impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
         result.dedup();
         result
     }
+
+    fn copy_from(&mut self, other: &Self) {
+        Matrix::copy_from(self, other);
+    }
 }
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
     BaseMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
-    type RowVector = MatrixMN<T, U1, Dynamic>;
+    type RowVector = RowDVector<T>;
 
     fn from_row_vector(vec: Self::RowVector) -> Self {
         Matrix::from_rows(&[vec])
     }
 
     fn to_row_vector(self) -> Self::RowVector {
-        self.row(0).into_owned()
+        let (nrows, ncols) = self.shape();
+        self.reshape_generic(U1, Dynamic::new(nrows * ncols))
     }
 
     fn get(&self, row: usize, col: usize) -> T {
@@ -553,6 +559,16 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
 }
 
 impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    MatrixPreprocessing<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
+    HighOrderOperations<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+
+impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Sum + 'static>
     SmartCoreMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
 {
 }
@@ -562,6 +578,16 @@ mod tests {
     use super::*;
     use crate::linear::linear_regression::*;
     use nalgebra::{DMatrix, Matrix2x3, RowDVector};
+
+    #[test]
+    fn vec_copy_from() {
+        let mut v1 = RowDVector::from_vec(vec![1., 2., 3.]);
+        let mut v2 = RowDVector::from_vec(vec![4., 5., 6.]);
+        v1.copy_from(&v2);
+        assert_eq!(v2, v1);
+        v2[0] = 10.0;
+        assert_ne!(v2, v1);
+    }
 
     #[test]
     fn vec_len() {
@@ -695,6 +721,12 @@ mod tests {
         let expected = v.clone();
         let m: DMatrix<f64> = BaseMatrix::from_row_vector(v);
         assert_eq!(m.to_row_vector(), expected);
+    }
+
+    #[test]
+    fn col_matrix_to_row_vector() {
+        let m: DMatrix<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
     }
 
     #[test]

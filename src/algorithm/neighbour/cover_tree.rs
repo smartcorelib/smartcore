@@ -6,6 +6,7 @@
 //! use smartcore::algorithm::neighbour::cover_tree::*;
 //! use smartcore::math::distance::Distance;
 //!
+//! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
 //!
 //! impl Distance<i32, f64> for SimpleDistance {
@@ -23,6 +24,7 @@
 //! ```
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::heap_select::HeapSelection;
@@ -31,7 +33,8 @@ use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 
 /// Implements Cover Tree algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct CoverTree<T, F: RealNumber, D: Distance<T, F>> {
     base: F,
     inv_log_base: F,
@@ -55,7 +58,8 @@ impl<T, F: RealNumber, D: Distance<T, F>> PartialEq for CoverTree<T, F, D> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<F: RealNumber> {
     idx: usize,
     max_dist: F,
@@ -64,7 +68,7 @@ struct Node<F: RealNumber> {
     scale: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 struct DistanceSet<F: RealNumber> {
     idx: usize,
     dist: Vec<F>,
@@ -436,7 +440,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         }
     }
 
-    fn max(&self, distance_set: &Vec<DistanceSet<F>>) -> F {
+    fn max(&self, distance_set: &[DistanceSet<F>]) -> F {
         let mut max = F::zero();
         for n in distance_set {
             if max < n.dist[n.dist.len() - 1] {
@@ -453,7 +457,8 @@ mod tests {
     use super::*;
     use crate::math::distance::Distances;
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(Debug, Clone)]
     struct SimpleDistance {}
 
     impl Distance<i32, f64> for SimpleDistance {
@@ -499,6 +504,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
 

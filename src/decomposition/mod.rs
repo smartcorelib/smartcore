@@ -13,3 +13,4 @@
 
 /// PCA is a popular approach for deriving a low-dimensional set of features from a large set of variables.
 pub mod pca;
+pub mod svd;

@@ -22,14 +22,14 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
 
         let div = T::from_usize(m).unwrap();
 
-        for i in 0..n {
+        for (i, x_i) in x.iter_mut().enumerate().take(n) {
             for j in 0..m {
-                x[i] += match axis {
+                *x_i += match axis {
                     0 => self.get(j, i),
                     _ => self.get(i, j),
                 };
             }
-            x[i] /= div;
+            *x_i /= div;
         }
 
         x
@@ -49,7 +49,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
 
         let div = T::from_usize(m).unwrap();
 
-        for i in 0..n {
+        for (i, x_i) in x.iter_mut().enumerate().take(n) {
             let mut mu = T::zero();
             let mut sum = T::zero();
             for j in 0..m {
@@ -61,7 +61,7 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
                 sum += a * a;
             }
             mu /= div;
-            x[i] = sum / div - mu * mu;
+            *x_i = sum / div - mu.powi(2);
         }
 
         x
@@ -76,15 +76,15 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
             _ => self.shape().0,
         };
 
-        for i in 0..n {
-            x[i] = x[i].sqrt();
+        for x_i in x.iter_mut().take(n) {
+            *x_i = x_i.sqrt();
         }
 
         x
     }
 
     /// standardize values by removing the mean and scaling to unit variance
-    fn scale_mut(&mut self, mean: &Vec<T>, std: &Vec<T>, axis: u8) {
+    fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8) {
         let (n, m) = match axis {
             0 => {
                 let (n, m) = self.shape();
@@ -101,6 +101,47 @@ pub trait MatrixStats<T: RealNumber>: BaseMatrix<T> {
                 }
             }
         }
+    }
+}
+
+/// Defines baseline implementations for various matrix processing functions
+pub trait MatrixPreprocessing<T: RealNumber>: BaseMatrix<T> {
+    /// Each element of the matrix greater than the threshold becomes 1, while values less than or equal to the threshold become 0
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::*;
+    /// use crate::smartcore::linalg::stats::MatrixPreprocessing;
+    /// let mut a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
+    /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
+    /// a.binarize_mut(0.);
+    ///
+    /// assert_eq!(a, expected);
+    /// ```
+
+    fn binarize_mut(&mut self, threshold: T) {
+        let (nrows, ncols) = self.shape();
+        for row in 0..nrows {
+            for col in 0..ncols {
+                if self.get(row, col) > threshold {
+                    self.set(row, col, T::one());
+                } else {
+                    self.set(row, col, T::zero());
+                }
+            }
+        }
+    }
+    /// Returns new matrix where elements are binarized according to a given threshold.
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::*;
+    /// use crate::smartcore::linalg::stats::MatrixPreprocessing;
+    /// let a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
+    /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
+    ///
+    /// assert_eq!(a.binarize(0.), expected);
+    /// ```
+    fn binarize(&self, threshold: T) -> Self {
+        let mut m = self.clone();
+        m.binarize_mut(threshold);
+        m
     }
 }
 

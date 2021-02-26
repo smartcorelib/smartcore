@@ -28,7 +28,7 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// Distance metric, a function that calculates distance between two points
-pub trait Distance<T, F: RealNumber> {
+pub trait Distance<T, F: RealNumber>: Clone {
     /// Calculates distance between _a_ and _b_
     fn distance(&self, a: &T, b: &T) -> F;
 }

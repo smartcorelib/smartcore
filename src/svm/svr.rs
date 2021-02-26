@@ -49,13 +49,7 @@
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
-//! let svr = SVR::fit(&x, &y,
-//!             LinearKernel {},
-//!             SVRParameters {
-//!                 eps: 2.0,
-//!                 c: 10.0,
-//!                 tol: 1e-3,
-//!             }).unwrap();
+//! let svr = SVR::fit(&x, &y, SVRParameters::default().with_eps(2.0).with_c(10.0)).unwrap();
 //!
 //! let y_hat = svr.predict(&x).unwrap();
 //! ```
@@ -72,32 +66,43 @@
 
 use std::cell::{Ref, RefCell};
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::svm::Kernel;
+use crate::svm::{Kernel, Kernels, LinearKernel};
 
-#[derive(Serialize, Deserialize, Debug)]
-
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// SVR Parameters
-pub struct SVRParameters<T: RealNumber> {
-    /// Epsilon in the epsilon-SVR model
+pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    /// Epsilon in the epsilon-SVR model.
     pub eps: T,
     /// Regularization parameter.
     pub c: T,
-    /// Tolerance for stopping criterion
+    /// Tolerance for stopping criterion.
     pub tol: T,
+    /// The kernel function.
+    pub kernel: K,
+    /// Unused parameter.
+    m: PhantomData<M>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(bound(
-    serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+    ))
+)]
 
 /// Epsilon-Support Vector Regression
 pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
@@ -107,7 +112,8 @@ pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     b: T,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct SupportVector<T: RealNumber, V: BaseVector<T>> {
     index: usize,
     x: V,
@@ -135,13 +141,59 @@ struct Cache<T: Clone> {
     data: Vec<RefCell<Option<Vec<T>>>>,
 }
 
-impl<T: RealNumber> Default for SVRParameters<T> {
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVRParameters<T, M, K> {
+    /// Epsilon in the epsilon-SVR model.
+    pub fn with_eps(mut self, eps: T) -> Self {
+        self.eps = eps;
+        self
+    }
+    /// Regularization parameter.
+    pub fn with_c(mut self, c: T) -> Self {
+        self.c = c;
+        self
+    }
+    /// Tolerance for stopping criterion.
+    pub fn with_tol(mut self, tol: T) -> Self {
+        self.tol = tol;
+        self
+    }
+    /// The kernel function.
+    pub fn with_kernel<KK: Kernel<T, M::RowVector>>(&self, kernel: KK) -> SVRParameters<T, M, KK> {
+        SVRParameters {
+            eps: self.eps,
+            c: self.c,
+            tol: self.tol,
+            kernel,
+            m: PhantomData,
+        }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Default for SVRParameters<T, M, LinearKernel> {
     fn default() -> Self {
         SVRParameters {
             eps: T::from_f64(0.1).unwrap(),
             c: T::one(),
             tol: T::from_f64(1e-3).unwrap(),
+            kernel: Kernels::linear(),
+            m: PhantomData,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>>
+    SupervisedEstimator<M, M::RowVector, SVRParameters<T, M, K>> for SVR<T, M, K>
+{
+    fn fit(x: &M, y: &M::RowVector, parameters: SVRParameters<T, M, K>) -> Result<Self, Failed> {
+        SVR::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Predictor<M, M::RowVector>
+    for SVR<T, M, K>
+{
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -154,8 +206,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
     pub fn fit(
         x: &M,
         y: &M::RowVector,
-        kernel: K,
-        parameters: SVRParameters<T>,
+        parameters: SVRParameters<T, M, K>,
     ) -> Result<SVR<T, M, K>, Failed> {
         let (n, _) = x.shape();
 
@@ -165,12 +216,12 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
             ));
         }
 
-        let optimizer = Optimizer::new(x, y, &kernel, &parameters);
+        let optimizer = Optimizer::new(x, y, &parameters.kernel, &parameters);
 
         let (support_vectors, weight, b) = optimizer.smo();
 
         Ok(SVR {
-            kernel,
+            kernel: parameters.kernel,
             instances: support_vectors,
             w: weight,
             b,
@@ -243,7 +294,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         x: &M,
         y: &M::RowVector,
         kernel: &'a K,
-        parameters: &SVRParameters<T>,
+        parameters: &SVRParameters<T, M, K>,
     ) -> Optimizer<'a, T, M, K> {
         let (n, _) = x.shape();
 
@@ -482,6 +533,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_squared_error;
+    #[cfg(feature = "serde")]
     use crate::svm::*;
 
     #[test]
@@ -510,23 +562,15 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let y_hat = SVR::fit(
-            &x,
-            &y,
-            LinearKernel {},
-            SVRParameters {
-                eps: 2.0,
-                c: 10.0,
-                tol: 1e-3,
-            },
-        )
-        .and_then(|lr| lr.predict(&x))
-        .unwrap();
+        let y_hat = SVR::fit(&x, &y, SVRParameters::default().with_eps(2.0).with_c(10.0))
+            .and_then(|lr| lr.predict(&x))
+            .unwrap();
 
         assert!(mean_squared_error(&y_hat, &y) < 2.5);
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn svr_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
@@ -552,7 +596,7 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let svr = SVR::fit(&x, &y, LinearKernel {}, Default::default()).unwrap();
+        let svr = SVR::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_svr: SVR<f64, DenseMatrix<f64>, LinearKernel> =
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();

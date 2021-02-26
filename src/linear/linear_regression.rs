@@ -45,9 +45,9 @@
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
-//! let lr = LinearRegression::fit(&x, &y, LinearRegressionParameters {
-//!                        solver: LinearRegressionSolverName::QR, // or SVD
-//!          }).unwrap();
+//! let lr = LinearRegression::fit(&x, &y,
+//!             LinearRegressionParameters::default().
+//!             with_solver(LinearRegressionSolverName::QR)).unwrap();
 //!
 //! let y_hat = lr.predict(&x).unwrap();
 //! ```
@@ -62,13 +62,16 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Approach to use for estimation of regression coefficients. QR is more efficient but SVD is more stable.
 pub enum LinearRegressionSolverName {
     /// QR decomposition, see [QR](../../linalg/qr/index.html)
@@ -78,18 +81,28 @@ pub enum LinearRegressionSolverName {
 }
 
 /// Linear Regression parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LinearRegressionParameters {
     /// Solver to use for estimation of regression coefficients.
     pub solver: LinearRegressionSolverName,
 }
 
 /// Linear Regression
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct LinearRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
     solver: LinearRegressionSolverName,
+}
+
+impl LinearRegressionParameters {
+    /// Solver to use for estimation of regression coefficients.
+    pub fn with_solver(mut self, solver: LinearRegressionSolverName) -> Self {
+        self.solver = solver;
+        self
+    }
 }
 
 impl Default for LinearRegressionParameters {
@@ -104,6 +117,24 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LinearRegressionParameters>
+    for LinearRegression<T, M>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: LinearRegressionParameters,
+    ) -> Result<Self, Failed> {
+        LinearRegression::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for LinearRegression<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -220,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

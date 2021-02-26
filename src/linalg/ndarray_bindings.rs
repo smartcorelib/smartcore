@@ -36,7 +36,7 @@
 //!             1., 1., 1., 1., 1., 1., 1., 1., 1., 1.
 //!         ]);
 //!
-//! let lr = LogisticRegression::fit(&x, &y).unwrap();
+//! let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = lr.predict(&x).unwrap();
 //! ```
 use std::iter::Sum;
@@ -47,13 +47,14 @@ use std::ops::Range;
 use std::ops::SubAssign;
 
 use ndarray::ScalarOperand;
-use ndarray::{s, stack, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
+use ndarray::{concatenate, s, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
+use crate::linalg::high_order::HighOrderOperations;
 use crate::linalg::lu::LUDecomposableMatrix;
 use crate::linalg::qr::QRDecomposableMatrix;
-use crate::linalg::stats::MatrixStats;
+use crate::linalg::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::svd::SVDDecomposableMatrix;
 use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
@@ -175,6 +176,10 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
         result.dedup();
         result
     }
+
+    fn copy_from(&mut self, other: &Self) {
+        self.assign(&other);
+    }
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
@@ -245,11 +250,11 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn h_stack(&self, other: &Self) -> Self {
-        stack(Axis(1), &[self.view(), other.view()]).unwrap()
+        concatenate(Axis(1), &[self.view(), other.view()]).unwrap()
     }
 
     fn v_stack(&self, other: &Self) -> Self {
-        stack(Axis(0), &[self.view(), other.view()]).unwrap()
+        concatenate(Axis(0), &[self.view(), other.view()]).unwrap()
     }
 
     fn matmul(&self, other: &Self) -> Self {
@@ -502,6 +507,16 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 {
 }
 
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    MatrixPreprocessing<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
+impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
+    HighOrderOperations<T> for ArrayBase<OwnedRepr<T>, Ix2>
+{
+}
+
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> Matrix<T>
     for ArrayBase<OwnedRepr<T>, Ix2>
 {
@@ -524,6 +539,16 @@ mod tests {
 
         assert_eq!(result, expected);
         assert_eq!(5., BaseVector::get(&result, 1));
+    }
+
+    #[test]
+    fn vec_copy_from() {
+        let mut v1 = arr1(&[1., 2., 3.]);
+        let mut v2 = arr1(&[4., 5., 6.]);
+        v1.copy_from(&v2);
+        assert_eq!(v1, v2);
+        v2[0] = 10.0;
+        assert_ne!(v1, v2);
     }
 
     #[test]
@@ -561,6 +586,12 @@ mod tests {
             Array2::from_row_vector(vec.clone()).to_row_vector(),
             arr1(&[1., 2., 3.])
         );
+    }
+
+    #[test]
+    fn col_matrix_to_row_vector() {
+        let m: Array2<f64> = BaseMatrix::zeros(10, 1);
+        assert_eq!(m.to_row_vector().len(), 10)
     }
 
     #[test]
@@ -886,7 +917,7 @@ mod tests {
             0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
         ]);
 
-        let lr = LogisticRegression::fit(&x, &y).unwrap();
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 
         let y_hat = lr.predict(&x).unwrap();
 
