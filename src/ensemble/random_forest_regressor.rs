@@ -47,8 +47,10 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::Rng;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
@@ -56,7 +58,8 @@ use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of the Random Forest Regressor
 /// Some parameters here are passed directly into base estimator.
 pub struct RandomForestRegressorParameters {
@@ -73,10 +76,39 @@ pub struct RandomForestRegressorParameters {
 }
 
 /// Random Forest Regressor
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct RandomForestRegressor<T: RealNumber> {
     parameters: RandomForestRegressorParameters,
     trees: Vec<DecisionTreeRegressor<T>>,
+}
+
+impl RandomForestRegressorParameters {
+    /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+    /// The number of trees in the forest.
+    pub fn with_n_trees(mut self, n_trees: usize) -> Self {
+        self.n_trees = n_trees;
+        self
+    }
+    /// Number of random sample of predictors to use as split candidates.
+    pub fn with_m(mut self, m: usize) -> Self {
+        self.m = Some(m);
+        self
+    }
 }
 
 impl Default for RandomForestRegressorParameters {
@@ -103,6 +135,25 @@ impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
             }
             true
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, RandomForestRegressorParameters>
+    for RandomForestRegressor<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: RandomForestRegressorParameters,
+    ) -> Result<Self, Failed> {
+        RandomForestRegressor::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestRegressor<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -223,6 +274,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],

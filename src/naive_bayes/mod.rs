@@ -1,7 +1,46 @@
+//! # Naive Bayes
+//!
+//! Naive Bayes (NB) is a simple but powerful machine learning algorithm.
+//! Naive Bayes classifier is based on Bayes’ Theorem with an ssumption of conditional independence
+//! between every pair of features given the value of the class variable.
+//!
+//! Bayes’ theorem can be written as
+//!
+//! \\[ P(y | X) = \frac{P(y)P(X| y)}{P(X)} \\]
+//!
+//! where
+//!
+//! * \\(X = (x_1,...x_n)\\) represents the predictors.
+//! * \\(P(y | X)\\) is the probability of class _y_ given the data X
+//! * \\(P(X| y)\\) is the probability of data X given the class _y_.
+//! * \\(P(y)\\) is the probability of class y. This is called the prior probability of y.
+//! * \\(P(y | X)\\) is the probability of the data (regardless of the class value).
+//!
+//! The naive conditional independence assumption let us rewrite this equation as
+//!
+//! \\[ P(y | x_1,...x_n) = \frac{P(y)\prod_{i=1}^nP(x_i|y)}{P(x_1,...x_n)} \\]
+//!
+//!
+//! The denominator can be removed since \\(P(x_1,...x_n)\\) is constrant for all the entries in the dataset.
+//!
+//! \\[ P(y | x_1,...x_n) \propto P(y)\prod_{i=1}^nP(x_i|y) \\]
+//!
+//! To find class y from predictors X we use this equation
+//!
+//! \\[ y = \underset{y}{argmax} P(y)\prod_{i=1}^nP(x_i|y) \\]
+//!
+//! ## References:
+//!
+//! * ["Machine Learning: A Probabilistic Perspective", Kevin P. Murphy, 2012, Chapter 3 ](https://mitpress.mit.edu/books/machine-learning-1)
+//!
+//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+//! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
@@ -9,14 +48,16 @@ pub(crate) trait NBDistribution<T: RealNumber, M: Matrix<T>> {
     /// Prior of class at the given index.
     fn prior(&self, class_index: usize) -> T;
 
-    /// Conditional probability of sample j given class in the specified index.
-    fn conditional_probability(&self, class_index: usize, j: &M::RowVector) -> T;
+    /// Logarithm of conditional probability of sample j given class in the specified index.
+    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T;
 
     /// Possible classes of the distribution.
     fn classes(&self) -> &Vec<T>;
 }
 
 /// Base struct for the Naive Bayes classifier.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub(crate) struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
     distribution: D,
     _phantom_t: PhantomData<T>,
@@ -49,8 +90,8 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                     .map(|(class_index, class)| {
                         (
                             class,
-                            self.distribution.conditional_probability(class_index, &row)
-                                * self.distribution.prior(class_index),
+                            self.distribution.log_likelihood(class_index, &row)
+                                + self.distribution.prior(class_index).ln(),
                         )
                     })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
@@ -58,12 +99,11 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                 *prediction
             })
             .collect::<Vec<T>>();
-        let mut y_hat = M::RowVector::zeros(rows);
-        for (i, prediction) in predictions.iter().enumerate().take(rows) {
-            y_hat.set(i, *prediction);
-        }
+        let y_hat = M::RowVector::from_array(&predictions);
         Ok(y_hat)
     }
 }
-mod categorical;
-pub use categorical::{CategoricalNB, CategoricalNBParameters};
+pub mod bernoulli;
+pub mod categorical;
+pub mod gaussian;
+pub mod multinomial;

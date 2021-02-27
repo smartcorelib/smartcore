@@ -28,7 +28,6 @@
 //!
 //! ```
 //! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::linear::linear_regression::*;
 //! use smartcore::svm::Kernels;
 //! use smartcore::svm::svc::{SVC, SVCParameters};
 //!
@@ -58,15 +57,9 @@
 //! let y = vec![ 0., 0., 0., 0., 0., 0., 0., 0.,
 //!            1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
 //!
-//! let svr = SVC::fit(&x, &y,
-//!             Kernels::linear(),
-//!             SVCParameters {
-//!                 epoch: 2,
-//!                 c: 200.0,
-//!                 tol: 1e-3,
-//!             }).unwrap();
+//! let svc = SVC::fit(&x, &y, SVCParameters::default().with_c(200.0)).unwrap();
 //!
-//! let y_hat = svr.predict(&x).unwrap();
+//! let y_hat = svc.predict(&x).unwrap();
 //! ```
 //!
 //! ## References:
@@ -83,31 +76,41 @@ use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::svm::Kernel;
+use crate::svm::{Kernel, Kernels, LinearKernel};
 
-#[derive(Serialize, Deserialize, Debug)]
-
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// SVC Parameters
-pub struct SVCParameters<T: RealNumber> {
-    /// Number of epochs
+pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    /// Number of epochs.
     pub epoch: usize,
     /// Regularization parameter.
     pub c: T,
-    /// Tolerance for stopping criterion
+    /// Tolerance for stopping criterion.
     pub tol: T,
+    /// The kernel function.
+    pub kernel: K,
+    /// Unused parameter.
+    m: PhantomData<M>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(bound(
-    serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-    deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+    ))
+)]
 /// Support Vector Classifier
 pub struct SVC<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     classes: Vec<T>,
@@ -117,7 +120,8 @@ pub struct SVC<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     b: T,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct SupportVector<T: RealNumber, V: BaseVector<T>> {
     index: usize,
     x: V,
@@ -137,7 +141,7 @@ struct Cache<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
 struct Optimizer<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     x: &'a M,
     y: &'a M::RowVector,
-    parameters: &'a SVCParameters<T>,
+    parameters: &'a SVCParameters<T, M, K>,
     svmin: usize,
     svmax: usize,
     gmin: T,
@@ -148,13 +152,59 @@ struct Optimizer<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     recalculate_minmax_grad: bool,
 }
 
-impl<T: RealNumber> Default for SVCParameters<T> {
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M, K> {
+    /// Number of epochs.
+    pub fn with_epoch(mut self, epoch: usize) -> Self {
+        self.epoch = epoch;
+        self
+    }
+    /// Regularization parameter.
+    pub fn with_c(mut self, c: T) -> Self {
+        self.c = c;
+        self
+    }
+    /// Tolerance for stopping criterion.
+    pub fn with_tol(mut self, tol: T) -> Self {
+        self.tol = tol;
+        self
+    }
+    /// The kernel function.
+    pub fn with_kernel<KK: Kernel<T, M::RowVector>>(&self, kernel: KK) -> SVCParameters<T, M, KK> {
+        SVCParameters {
+            epoch: self.epoch,
+            c: self.c,
+            tol: self.tol,
+            kernel,
+            m: PhantomData,
+        }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, LinearKernel> {
     fn default() -> Self {
         SVCParameters {
             epoch: 2,
             c: T::one(),
             tol: T::from_f64(1e-3).unwrap(),
+            kernel: Kernels::linear(),
+            m: PhantomData,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>>
+    SupervisedEstimator<M, M::RowVector, SVCParameters<T, M, K>> for SVC<T, M, K>
+{
+    fn fit(x: &M, y: &M::RowVector, parameters: SVCParameters<T, M, K>) -> Result<Self, Failed> {
+        SVC::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Predictor<M, M::RowVector>
+    for SVC<T, M, K>
+{
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -162,13 +212,11 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
     /// Fits SVC to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - class labels
-    /// * `kernel` - the kernel function
     /// * `parameters` - optional parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
         x: &M,
         y: &M::RowVector,
-        kernel: K,
-        parameters: SVCParameters<T>,
+        parameters: SVCParameters<T, M, K>,
     ) -> Result<SVC<T, M, K>, Failed> {
         let (n, _) = x.shape();
 
@@ -199,13 +247,13 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
             }
         }
 
-        let optimizer = Optimizer::new(x, &y, &kernel, &parameters);
+        let optimizer = Optimizer::new(x, &y, &parameters.kernel, &parameters);
 
         let (support_vectors, weight, b) = optimizer.optimize();
 
         Ok(SVC {
             classes,
-            kernel,
+            kernel: parameters.kernel,
             instances: support_vectors,
             w: weight,
             b,
@@ -322,7 +370,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         x: &'a M,
         y: &'a M::RowVector,
         kernel: &'a K,
-        parameters: &'a SVCParameters<T>,
+        parameters: &'a SVCParameters<T, M, K>,
     ) -> Optimizer<'a, T, M, K> {
         let (n, _) = x.shape();
 
@@ -678,6 +726,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::accuracy;
+    #[cfg(feature = "serde")]
     use crate::svm::*;
 
     #[test]
@@ -712,17 +761,12 @@ mod tests {
         let y_hat = SVC::fit(
             &x,
             &y,
-            Kernels::linear(),
-            SVCParameters {
-                epoch: 2,
-                c: 200.0,
-                tol: 1e-3,
-            },
+            SVCParameters::default()
+                .with_c(200.0)
+                .with_kernel(Kernels::linear()),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
-
-        println!("{:?}", y_hat);
 
         assert!(accuracy(&y_hat, &y) >= 0.9);
     }
@@ -760,12 +804,9 @@ mod tests {
         let y_hat = SVC::fit(
             &x,
             &y,
-            Kernels::rbf(0.7),
-            SVCParameters {
-                epoch: 2,
-                c: 1.0,
-                tol: 1e-3,
-            },
+            SVCParameters::default()
+                .with_c(1.0)
+                .with_kernel(Kernels::rbf(0.7)),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
@@ -774,6 +815,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn svc_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
@@ -802,11 +844,11 @@ mod tests {
             -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
         ];
 
-        let svr = SVC::fit(&x, &y, Kernels::linear(), Default::default()).unwrap();
+        let svc = SVC::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_svr: SVC<f64, DenseMatrix<f64>, LinearKernel> =
-            serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
+        let deserialized_svc: SVC<f64, DenseMatrix<f64>, LinearKernel> =
+            serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
-        assert_eq!(svr, deserialized_svr);
+        assert_eq!(svc, deserialized_svc);
     }
 }

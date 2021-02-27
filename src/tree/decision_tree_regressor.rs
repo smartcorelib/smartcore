@@ -63,14 +63,17 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::seq::SliceRandom;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
     /// The maximum depth of the tree.
@@ -82,14 +85,16 @@ pub struct DecisionTreeRegressorParameters {
 }
 
 /// Regression Tree
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DecisionTreeRegressor<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeRegressorParameters,
     depth: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<T: RealNumber> {
     index: usize,
     output: T,
@@ -98,6 +103,24 @@ struct Node<T: RealNumber> {
     split_score: Option<T>,
     true_child: Option<usize>,
     false_child: Option<usize>,
+}
+
+impl DecisionTreeRegressorParameters {
+    /// The maximum depth of the tree.
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node.
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node.
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
 }
 
 impl Default for DecisionTreeRegressorParameters {
@@ -161,7 +184,7 @@ struct NodeVisitor<'a, T: RealNumber, M: Matrix<T>> {
     y: &'a M,
     node: usize,
     samples: Vec<usize>,
-    order: &'a Vec<Vec<usize>>,
+    order: &'a [Vec<usize>],
     true_child_output: T,
     false_child_output: T,
     level: u16,
@@ -171,7 +194,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
     fn new(
         node_id: usize,
         samples: Vec<usize>,
-        order: &'a Vec<Vec<usize>>,
+        order: &'a [Vec<usize>],
         x: &'a M,
         y: &'a M,
         level: u16,
@@ -186,6 +209,25 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
             false_child_output: T::zero(),
             level,
         }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, DecisionTreeRegressorParameters>
+    for DecisionTreeRegressor<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: DecisionTreeRegressorParameters,
+    ) -> Result<Self, Failed> {
+        DecisionTreeRegressor::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for DecisionTreeRegressor<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -219,9 +261,9 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
 
         let mut n = 0;
         let mut sum = T::zero();
-        for i in 0..y_ncols {
-            n += samples[i];
-            sum += T::from(samples[i]).unwrap() * y_m.get(0, i);
+        for (i, sample_i) in samples.iter().enumerate().take(y_ncols) {
+            n += *sample_i;
+            sum += T::from(*sample_i).unwrap() * y_m.get(0, i);
         }
 
         let root = Node::new(0, sum / T::from(n).unwrap());
@@ -312,10 +354,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
 
         let sum = self.nodes[visitor.node].output * T::from(n).unwrap();
 
-        let mut variables = vec![0; n_attr];
-        for i in 0..n_attr {
-            variables[i] = i;
-        }
+        let mut variables = (0..n_attr).collect::<Vec<_>>();
 
         if mtry < n_attr {
             variables.shuffle(&mut rand::thread_rng());
@@ -324,8 +363,8 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         let parent_gain =
             T::from(n).unwrap() * self.nodes[visitor.node].output * self.nodes[visitor.node].output;
 
-        for j in 0..mtry {
-            self.find_best_split(visitor, n, sum, parent_gain, variables[j]);
+        for variable in variables.iter().take(mtry) {
+            self.find_best_split(visitor, n, sum, parent_gain, *variable);
         }
 
         self.nodes[visitor.node].split_score != Option::None
@@ -399,13 +438,13 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         let mut fc = 0;
         let mut true_samples: Vec<usize> = vec![0; n];
 
-        for i in 0..n {
+        for (i, true_sample) in true_samples.iter_mut().enumerate().take(n) {
             if visitor.samples[i] > 0 {
                 if visitor.x.get(i, self.nodes[visitor.node].split_feature)
                     <= self.nodes[visitor.node].split_value.unwrap_or_else(T::nan)
                 {
-                    true_samples[i] = visitor.samples[i];
-                    tc += true_samples[i];
+                    *true_sample = visitor.samples[i];
+                    tc += *true_sample;
                     visitor.samples[i] = 0;
                 } else {
                     fc += visitor.samples[i];
@@ -542,6 +581,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],

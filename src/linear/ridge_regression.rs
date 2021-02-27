@@ -45,11 +45,8 @@
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
-//! let y_hat = RidgeRegression::fit(&x, &y, RidgeRegressionParameters {
-//!                        solver: RidgeRegressionSolverName::Cholesky,
-//!                        alpha: 0.1,
-//!                        normalize: true
-//! }).and_then(|lr| lr.predict(&x)).unwrap();
+//! let y_hat = RidgeRegression::fit(&x, &y, RidgeRegressionParameters::default().with_alpha(0.1)).
+//!                 and_then(|lr| lr.predict(&x)).unwrap();
 //! ```
 //!
 //! ## References:
@@ -61,14 +58,17 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
@@ -78,7 +78,8 @@ pub enum RidgeRegressionSolverName {
 }
 
 /// Ridge Regression parameters
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct RidgeRegressionParameters<T: RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
@@ -90,11 +91,30 @@ pub struct RidgeRegressionParameters<T: RealNumber> {
 }
 
 /// Ridge regression
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
     solver: RidgeRegressionSolverName,
+}
+
+impl<T: RealNumber> RidgeRegressionParameters<T> {
+    /// Regularization parameter.
+    pub fn with_alpha(mut self, alpha: T) -> Self {
+        self.alpha = alpha;
+        self
+    }
+    /// Solver to use for estimation of regression coefficients.
+    pub fn with_solver(mut self, solver: RidgeRegressionSolverName) -> Self {
+        self.solver = solver;
+        self
+    }
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub fn with_normalize(mut self, normalize: bool) -> Self {
+        self.normalize = normalize;
+        self
+    }
 }
 
 impl<T: RealNumber> Default for RidgeRegressionParameters<T> {
@@ -111,6 +131,24 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for RidgeRegression<T, M> {
     fn eq(&self, other: &Self) -> bool {
         self.coefficients == other.coefficients
             && (self.intercept - other.intercept).abs() <= T::epsilon()
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, RidgeRegressionParameters<T>>
+    for RidgeRegression<T, M>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: RidgeRegressionParameters<T>,
+    ) -> Result<Self, Failed> {
+        RidgeRegression::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RidgeRegression<T, M> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -155,14 +193,14 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
                 RidgeRegressionSolverName::SVD => x_t_x.svd_solve_mut(x_t_y)?,
             };
 
-            for i in 0..p {
-                w.set(i, 0, w.get(i, 0) / col_std[i]);
+            for (i, col_std_i) in col_std.iter().enumerate().take(p) {
+                w.set(i, 0, w.get(i, 0) / *col_std_i);
             }
 
             let mut b = T::zero();
 
-            for i in 0..p {
-                b += w.get(i, 0) * col_mean[i];
+            for (i, col_mean_i) in col_mean.iter().enumerate().take(p) {
+                b += w.get(i, 0) * *col_mean_i;
             }
 
             let b = y.mean() - b;
@@ -196,8 +234,8 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
         let col_mean = x.mean(0);
         let col_std = x.std(0);
 
-        for i in 0..col_std.len() {
-            if (col_std[i] - T::zero()).abs() < T::epsilon() {
+        for (i, col_std_i) in col_std.iter().enumerate() {
+            if (*col_std_i - T::zero()).abs() < T::epsilon() {
                 return Err(Failed::fit(&format!(
                     "Cannot rescale constant column {}",
                     i
@@ -292,6 +330,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

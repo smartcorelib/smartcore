@@ -1,9 +1,8 @@
 #![allow(
-    clippy::needless_range_loop,
-    clippy::ptr_arg,
     clippy::type_complexity,
     clippy::too_many_arguments,
-    clippy::many_single_char_names
+    clippy::many_single_char_names,
+    clippy::unnecessary_wraps
 )]
 #![warn(missing_docs)]
 #![warn(missing_doc_code_examples)]
@@ -12,16 +11,11 @@
 //!
 //! Welcome to SmartCore, the most advanced machine learning library in Rust!
 //!
-//! In SmartCore you will find implementation of these ML algorithms:
-//! * __Regression__: Linear Regression (OLS), Decision Tree Regressor, Random Forest Regressor, K Nearest Neighbors
-//! * __Classification__: Logistic Regressor, Decision Tree Classifier, Random Forest Classifier, Supervised Nearest Neighbors (KNN)
-//! * __Clustering__: K-Means
-//! * __Matrix Decomposition__: PCA, LU, QR, SVD, EVD
-//! * __Distance Metrics__: Euclidian, Minkowski, Manhattan, Hamming, Mahalanobis
-//! * __Evaluation Metrics__: Accuracy, AUC, Recall, Precision, F1, Mean Absolute Error, Mean Squared Error, R2
+//! SmartCore features various classification, regression and clustering algorithms including support vector machines, random forests, k-means and DBSCAN,
+//! as well as tools for model selection and model evaluation.
 //!
-//! Most of algorithms implemented in SmartCore operate on n-dimentional arrays. While you can use Rust vectors with all functions defined in this library
-//! we do recommend to go with one of the popular linear algebra libraries available in Rust. At this moment we support these packages:
+//! SmartCore is well integrated with a with wide variaty of libraries that provide support for large, multi-dimensional arrays and matrices. At this moment,
+//! all Smartcore's algorithms work with ordinary Rust vectors, as well as matrices and vectors defined in these packages:
 //! * [ndarray](https://docs.rs/ndarray)
 //! * [nalgebra](https://docs.rs/nalgebra/)
 //!
@@ -30,21 +24,21 @@
 //! To start using SmartCore simply add the following to your Cargo.toml file:
 //! ```ignore
 //! [dependencies]
-//! smartcore = "0.1.0"
+//! smartcore = "0.2.0"
 //! ```
 //!
-//! All ML algorithms in SmartCore are grouped into these generic categories:
+//! All machine learning algorithms in SmartCore are grouped into these broad categories:
 //! * [Clustering](cluster/index.html), unsupervised clustering of unlabeled data.
-//! * [Martix Decomposition](decomposition/index.html), various methods for matrix decomposition.
+//! * [Matrix Decomposition](decomposition/index.html), various methods for matrix decomposition.
 //! * [Linear Models](linear/index.html), regression and classification methods where output is assumed to have linear relation to explanatory variables
 //! * [Ensemble Models](ensemble/index.html), variety of regression and classification ensemble models
 //! * [Tree-based Models](tree/index.html), classification and regression trees
 //! * [Nearest Neighbors](neighbors/index.html), K Nearest Neighbors for classification and regression
+//! * [Naive Bayes](naive_bayes/index.html), statistical classification technique based on Bayes Theorem
+//! * [SVM](svm/index.html), support vector machines
 //!
-//! Each category is assigned to a separate module.
 //!
-//! For example, KNN classifier is defined in [smartcore::neighbors::knn_classifier](neighbors/knn_classifier/index.html). To train and run it using standard Rust vectors you will
-//! run this code:
+//! For example, you can use this code to fit a [K Nearest Neighbors classifier](neighbors/knn_classifier/index.html) to a dataset that is defined as standard Rust vector:
 //!
 //! ```
 //! // DenseMatrix defenition
@@ -65,7 +59,7 @@
 //! let y = vec![2., 2., 2., 3., 3.];
 //!
 //! // Train classifier
-//! let knn = KNNClassifier::fit(&x, &y, Distances::euclidian(), Default::default()).unwrap();
+//! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Predict classes
 //! let y_hat = knn.predict(&x).unwrap();
@@ -73,6 +67,7 @@
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
+pub mod api;
 /// Algorithms for clustering of unlabeled data
 pub mod cluster;
 /// Various datasets
@@ -97,6 +92,8 @@ pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
 pub(crate) mod optimization;
+/// Preprocessing utilities
+pub mod preprocessing;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods

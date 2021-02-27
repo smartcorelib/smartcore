@@ -27,35 +27,48 @@
 //!     &[5., 5.]]);
 //! let y = vec![1., 2., 3., 4., 5.]; //your target values
 //!
-//! let knn = KNNRegressor::fit(&x, &y, Distances::euclidian(), Default::default()).unwrap();
+//! let knn = KNNRegressor::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = knn.predict(&x).unwrap();
 //! ```
 //!
 //! variable `y_hat` will hold predicted value
 //!
 //!
+use std::marker::PhantomData;
+
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::{row_iter, BaseVector, Matrix};
-use crate::math::distance::Distance;
+use crate::math::distance::euclidian::Euclidian;
+use crate::math::distance::{Distance, Distances};
 use crate::math::num::RealNumber;
 use crate::neighbors::KNNWeightFunction;
 
 /// `KNNRegressor` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct KNNRegressorParameters {
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct KNNRegressorParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
+    /// a function that defines a distance between each pair of point in training data.
+    /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
+    /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
+    distance: D,
     /// backend search algorithm. See [`knn search algorithms`](../../algorithm/neighbour/index.html). `CoverTree` is default.
     pub algorithm: KNNAlgorithmName,
     /// weighting function that is used to calculate estimated class value. Default function is `KNNWeightFunction::Uniform`.
     pub weight: KNNWeightFunction,
     /// number of training samples to consider when estimating class for new point. Default value is 3.
     pub k: usize,
+    /// this parameter is not used
+    t: PhantomData<T>,
 }
 
 /// K Nearest Neighbors Regressor
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct KNNRegressor<T: RealNumber, D: Distance<Vec<T>, T>> {
     y: Vec<T>,
     knn_algorithm: KNNAlgorithm<T, D>,
@@ -63,12 +76,47 @@ pub struct KNNRegressor<T: RealNumber, D: Distance<Vec<T>, T>> {
     k: usize,
 }
 
-impl Default for KNNRegressorParameters {
+impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressorParameters<T, D> {
+    /// number of training samples to consider when estimating class for new point. Default value is 3.
+    pub fn with_k(mut self, k: usize) -> Self {
+        self.k = k;
+        self
+    }
+    /// a function that defines a distance between each pair of point in training data.
+    /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
+    /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
+    pub fn with_distance<DD: Distance<Vec<T>, T>>(
+        self,
+        distance: DD,
+    ) -> KNNRegressorParameters<T, DD> {
+        KNNRegressorParameters {
+            distance,
+            algorithm: self.algorithm,
+            weight: self.weight,
+            k: self.k,
+            t: PhantomData,
+        }
+    }
+    /// backend search algorithm. See [`knn search algorithms`](../../algorithm/neighbour/index.html). `CoverTree` is default.
+    pub fn with_algorithm(mut self, algorithm: KNNAlgorithmName) -> Self {
+        self.algorithm = algorithm;
+        self
+    }
+    /// weighting function that is used to calculate estimated class value. Default function is `KNNWeightFunction::Uniform`.
+    pub fn with_weight(mut self, weight: KNNWeightFunction) -> Self {
+        self.weight = weight;
+        self
+    }
+}
+
+impl<T: RealNumber> Default for KNNRegressorParameters<T, Euclidian> {
     fn default() -> Self {
         KNNRegressorParameters {
+            distance: Distances::euclidian(),
             algorithm: KNNAlgorithmName::CoverTree,
             weight: KNNWeightFunction::Uniform,
             k: 3,
+            t: PhantomData,
         }
     }
 }
@@ -88,19 +136,35 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
     }
 }
 
+impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>>
+    SupervisedEstimator<M, M::RowVector, KNNRegressorParameters<T, D>> for KNNRegressor<T, D>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: KNNRegressorParameters<T, D>,
+    ) -> Result<Self, Failed> {
+        KNNRegressor::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>> Predictor<M, M::RowVector>
+    for KNNRegressor<T, D>
+{
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
+}
+
 impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
     /// Fits KNN regressor to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
-    /// * `y` - vector with real values
-    /// * `distance` - a function that defines a distance between each pair of point in training data.
-    ///    This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
-    ///    See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
+    /// * `y` - vector with real values    
     /// * `parameters` - additional parameters like search algorithm and k
     pub fn fit<M: Matrix<T>>(
         x: &M,
         y: &M::RowVector,
-        distance: D,
-        parameters: KNNRegressorParameters,
+        parameters: KNNRegressorParameters<T, D>,
     ) -> Result<KNNRegressor<T, D>, Failed> {
         let y_m = M::from_row_vector(y.clone());
 
@@ -126,7 +190,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
         Ok(KNNRegressor {
             y: y.to_vec(),
             k: parameters.k,
-            knn_algorithm: parameters.algorithm.fit(data, distance)?,
+            knn_algorithm: parameters.algorithm.fit(data, parameters.distance)?,
             weight: parameters.weight,
         })
     }
@@ -176,12 +240,11 @@ mod tests {
         let knn = KNNRegressor::fit(
             &x,
             &y,
-            Distances::euclidian(),
-            KNNRegressorParameters {
-                k: 3,
-                algorithm: KNNAlgorithmName::LinearSearch,
-                weight: KNNWeightFunction::Distance,
-            },
+            KNNRegressorParameters::default()
+                .with_k(3)
+                .with_distance(Distances::euclidian())
+                .with_algorithm(KNNAlgorithmName::LinearSearch)
+                .with_weight(KNNWeightFunction::Distance),
         )
         .unwrap();
         let y_hat = knn.predict(&x).unwrap();
@@ -197,7 +260,7 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y: Vec<f64> = vec![1., 2., 3., 4., 5.];
         let y_exp = vec![2., 2., 3., 4., 4.];
-        let knn = KNNRegressor::fit(&x, &y, Distances::euclidian(), Default::default()).unwrap();
+        let knn = KNNRegressor::fit(&x, &y, Default::default()).unwrap();
         let y_hat = knn.predict(&x).unwrap();
         assert_eq!(5, Vec::len(&y_hat));
         for i in 0..y_hat.len() {
@@ -206,12 +269,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y = vec![1., 2., 3., 4., 5.];
 
-        let knn = KNNRegressor::fit(&x, &y, Distances::euclidian(), Default::default()).unwrap();
+        let knn = KNNRegressor::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_knn = bincode::deserialize(&bincode::serialize(&knn).unwrap()).unwrap();
 

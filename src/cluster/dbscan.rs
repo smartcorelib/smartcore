@@ -1,6 +1,20 @@
 //! # DBSCAN Clustering
 //!
-//! DBSCAN - Density-Based Spatial Clustering of Applications with Noise.
+//! DBSCAN stands for density-based spatial clustering of applications with noise. This algorithms is good for arbitrary shaped clusters and clusters with noise.
+//! The main idea behind DBSCAN is that a point belongs to a cluster if it is close to many points from that cluster. There are two key parameters of DBSCAN:
+//!
+//! * `eps`, the maximum distance that specifies a neighborhood. Two points are considered to be neighbors if the distance between them are less than or equal to `eps`.
+//! * `min_samples`, minimum number of data points that defines a cluster.
+//!
+//! Based on these two parameters, points are classified as core point, border point, or outlier:
+//!
+//! * A point is a core point if there are at least `min_samples` number of points, including the point itself in its vicinity.
+//! * A point is a border point if it is reachable from a core point and there are less than `min_samples` number of points within its surrounding area.
+//! * All points not reachable from any other point are outliers or noise points.
+//!
+//! The algorithm starts from picking up an arbitrarily point in the dataset.
+//! If there are at least `min_samples` points within a radius of `eps` to the point then we consider all these points to be part of the same cluster.
+//! The clusters are then expanded by recursively repeating the neighborhood calculation for each neighboring point.
 //!
 //! Example:
 //!
@@ -15,11 +29,8 @@
 //! let blobs = generator::make_blobs(100, 2, 3);
 //! let x = DenseMatrix::from_vec(blobs.num_samples, blobs.num_features, &blobs.data);
 //! // Fit the algorithm and predict cluster labels
-//! let labels = DBSCAN::fit(&x, Distances::euclidian(), DBSCANParameters{
-//!     min_samples: 5,
-//!     eps: 3.0,
-//!     algorithm: KNNAlgorithmName::CoverTree
-//! }).and_then(|dbscan| dbscan.predict(&x));
+//! let labels = DBSCAN::fit(&x, DBSCANParameters::default().with_eps(3.0)).
+//!     and_then(|dbscan| dbscan.predict(&x));
 //!
 //! println!("{:?}", labels);
 //! ```
@@ -32,17 +43,21 @@
 use std::fmt::Debug;
 use std::iter::Sum;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
+use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::{row_iter, Matrix};
-use crate::math::distance::Distance;
+use crate::math::distance::euclidian::Euclidian;
+use crate::math::distance::{Distance, Distances};
 use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::which_max;
 
 /// DBSCAN clustering algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
     cluster_labels: Vec<i16>,
     num_classes: usize,
@@ -52,13 +67,46 @@ pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
 
 #[derive(Debug, Clone)]
 /// DBSCAN clustering algorithm parameters
-pub struct DBSCANParameters<T: RealNumber> {
-    /// Maximum number of iterations of the k-means algorithm for a single run.
+pub struct DBSCANParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
+    /// a function that defines a distance between each pair of point in training data.
+    /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
+    /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
+    pub distance: D,
+    /// The number of samples (or total weight) in a neighborhood for a point to be considered as a core point.
     pub min_samples: usize,
-    /// The number of samples in a neighborhood for a point to be considered as a core point.
+    /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
     pub eps: T,
     /// KNN algorithm to use.
     pub algorithm: KNNAlgorithmName,
+}
+
+impl<T: RealNumber, D: Distance<Vec<T>, T>> DBSCANParameters<T, D> {
+    /// a function that defines a distance between each pair of point in training data.
+    /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
+    /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
+    pub fn with_distance<DD: Distance<Vec<T>, T>>(self, distance: DD) -> DBSCANParameters<T, DD> {
+        DBSCANParameters {
+            distance,
+            min_samples: self.min_samples,
+            eps: self.eps,
+            algorithm: self.algorithm,
+        }
+    }
+    /// The number of samples (or total weight) in a neighborhood for a point to be considered as a core point.
+    pub fn with_min_samples(mut self, min_samples: usize) -> Self {
+        self.min_samples = min_samples;
+        self
+    }
+    /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+    pub fn with_eps(mut self, eps: T) -> Self {
+        self.eps = eps;
+        self
+    }
+    /// KNN algorithm to use.
+    pub fn with_algorithm(mut self, algorithm: KNNAlgorithmName) -> Self {
+        self.algorithm = algorithm;
+        self
+    }
 }
 
 impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for DBSCAN<T, D> {
@@ -70,13 +118,30 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for DBSCAN<T, D> {
     }
 }
 
-impl<T: RealNumber> Default for DBSCANParameters<T> {
+impl<T: RealNumber> Default for DBSCANParameters<T, Euclidian> {
     fn default() -> Self {
         DBSCANParameters {
+            distance: Distances::euclidian(),
             min_samples: 5,
             eps: T::half(),
             algorithm: KNNAlgorithmName::CoverTree,
         }
+    }
+}
+
+impl<T: RealNumber + Sum, M: Matrix<T>, D: Distance<Vec<T>, T>>
+    UnsupervisedEstimator<M, DBSCANParameters<T, D>> for DBSCAN<T, D>
+{
+    fn fit(x: &M, parameters: DBSCANParameters<T, D>) -> Result<Self, Failed> {
+        DBSCAN::fit(x, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>> Predictor<M, M::RowVector>
+    for DBSCAN<T, D>
+{
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
     }
 }
 
@@ -87,8 +152,7 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
     /// * `parameters` - cluster parameters
     pub fn fit<M: Matrix<T>>(
         x: &M,
-        distance: D,
-        parameters: DBSCANParameters<T>,
+        parameters: DBSCANParameters<T, D>,
     ) -> Result<DBSCAN<T, D>, Failed> {
         if parameters.min_samples < 1 {
             return Err(Failed::fit(&"Invalid minPts".to_string()));
@@ -99,37 +163,60 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
         }
 
         let mut k = 0;
-        let unassigned = -2;
+        let queued = -2;
         let outlier = -1;
+        let undefined = -3;
 
         let n = x.shape().0;
-        let mut y = vec![unassigned; n];
+        let mut y = vec![undefined; n];
 
-        let algo = parameters.algorithm.fit(row_iter(x).collect(), distance)?;
+        let algo = parameters
+            .algorithm
+            .fit(row_iter(x).collect(), parameters.distance)?;
 
         for (i, e) in row_iter(x).enumerate() {
-            if y[i] == unassigned {
+            if y[i] == undefined {
                 let mut neighbors = algo.find_radius(&e, parameters.eps)?;
                 if neighbors.len() < parameters.min_samples {
                     y[i] = outlier;
                 } else {
                     y[i] = k;
+
                     for j in 0..neighbors.len() {
-                        if y[neighbors[j].0] == unassigned {
-                            y[neighbors[j].0] = k;
-
-                            let mut secondary_neighbors =
-                                algo.find_radius(neighbors[j].2, parameters.eps)?;
-
-                            if secondary_neighbors.len() >= parameters.min_samples {
-                                neighbors.append(&mut secondary_neighbors);
-                            }
-                        }
-
-                        if y[neighbors[j].0] == outlier {
-                            y[neighbors[j].0] = k;
+                        if y[neighbors[j].0] == undefined {
+                            y[neighbors[j].0] = queued;
                         }
                     }
+
+                    while !neighbors.is_empty() {
+                        let neighbor = neighbors.pop().unwrap();
+                        let index = neighbor.0;
+
+                        if y[index] == outlier {
+                            y[index] = k;
+                        }
+
+                        if y[index] == undefined || y[index] == queued {
+                            y[index] = k;
+
+                            let secondary_neighbors =
+                                algo.find_radius(neighbor.2, parameters.eps)?;
+
+                            if secondary_neighbors.len() >= parameters.min_samples {
+                                for j in 0..secondary_neighbors.len() {
+                                    let label = y[secondary_neighbors[j].0];
+                                    if label == undefined {
+                                        y[secondary_neighbors[j].0] = queued;
+                                    }
+
+                                    if label == undefined || label == outlier {
+                                        neighbors.push(secondary_neighbors[j]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     k += 1;
                 }
             }
@@ -178,8 +265,8 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
+    #[cfg(feature = "serde")]
     use crate::math::distance::euclidian::Euclidian;
-    use crate::math::distance::Distances;
 
     #[test]
     fn fit_predict_dbscan() {
@@ -187,12 +274,12 @@ mod tests {
             &[1.0, 2.0],
             &[1.1, 2.1],
             &[0.9, 1.9],
-            &[1.2, 1.2],
+            &[1.2, 2.2],
             &[0.8, 1.8],
             &[2.0, 1.0],
             &[2.1, 1.1],
-            &[2.2, 1.2],
             &[1.9, 0.9],
+            &[2.2, 1.2],
             &[1.8, 0.8],
             &[3.0, 5.0],
         ]);
@@ -201,12 +288,9 @@ mod tests {
 
         let dbscan = DBSCAN::fit(
             &x,
-            Distances::euclidian(),
-            DBSCANParameters {
-                min_samples: 5,
-                eps: 1.0,
-                algorithm: KNNAlgorithmName::CoverTree,
-            },
+            DBSCANParameters::default()
+                .with_eps(0.5)
+                .with_min_samples(2),
         )
         .unwrap();
 
@@ -216,6 +300,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
@@ -240,7 +325,7 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let dbscan = DBSCAN::fit(&x, Distances::euclidian(), Default::default()).unwrap();
+        let dbscan = DBSCAN::fit(&x, Default::default()).unwrap();
 
         let deserialized_dbscan: DBSCAN<f64, Euclidian> =
             serde_json::from_str(&serde_json::to_string(&dbscan).unwrap()).unwrap();

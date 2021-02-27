@@ -20,6 +20,10 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+pub(crate) mod bg_solver;
+pub mod elastic_net;
+pub mod lasso;
+pub(crate) mod lasso_optimizer;
 pub mod linear_regression;
 pub mod logistic_regression;
 pub mod ridge_regression;

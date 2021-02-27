@@ -68,14 +68,17 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
     /// Split criteria to use when building a tree.
@@ -89,7 +92,8 @@ pub struct DecisionTreeClassifierParameters {
 }
 
 /// Decision Tree
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DecisionTreeClassifier<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeClassifierParameters,
@@ -99,7 +103,8 @@ pub struct DecisionTreeClassifier<T: RealNumber> {
 }
 
 /// The function to measure the quality of a split.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
     Gini,
@@ -109,7 +114,8 @@ pub enum SplitCriterion {
     ClassificationError,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<T: RealNumber> {
     index: usize,
     output: usize,
@@ -160,6 +166,29 @@ impl<T: RealNumber> PartialEq for Node<T> {
     }
 }
 
+impl DecisionTreeClassifierParameters {
+    /// Split criteria to use when building a tree.
+    pub fn with_criterion(mut self, criterion: SplitCriterion) -> Self {
+        self.criterion = criterion;
+        self
+    }
+    /// The maximum depth of the tree.
+    pub fn with_max_depth(mut self, max_depth: u16) -> Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
+    /// The minimum number of samples required to be at a leaf node.
+    pub fn with_min_samples_leaf(mut self, min_samples_leaf: usize) -> Self {
+        self.min_samples_leaf = min_samples_leaf;
+        self
+    }
+    /// The minimum number of samples required to split an internal node.
+    pub fn with_min_samples_split(mut self, min_samples_split: usize) -> Self {
+        self.min_samples_split = min_samples_split;
+        self
+    }
+}
+
 impl Default for DecisionTreeClassifierParameters {
     fn default() -> Self {
         DecisionTreeClassifierParameters {
@@ -187,42 +216,42 @@ impl<T: RealNumber> Node<T> {
 
 struct NodeVisitor<'a, T: RealNumber, M: Matrix<T>> {
     x: &'a M,
-    y: &'a Vec<usize>,
+    y: &'a [usize],
     node: usize,
     samples: Vec<usize>,
-    order: &'a Vec<Vec<usize>>,
+    order: &'a [Vec<usize>],
     true_child_output: usize,
     false_child_output: usize,
     level: u16,
     phantom: PhantomData<&'a T>,
 }
 
-fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &Vec<usize>, n: usize) -> T {
+fn impurity<T: RealNumber>(criterion: &SplitCriterion, count: &[usize], n: usize) -> T {
     let mut impurity = T::zero();
 
     match criterion {
         SplitCriterion::Gini => {
             impurity = T::one();
-            for i in 0..count.len() {
-                if count[i] > 0 {
-                    let p = T::from(count[i]).unwrap() / T::from(n).unwrap();
+            for count_i in count.iter() {
+                if *count_i > 0 {
+                    let p = T::from(*count_i).unwrap() / T::from(n).unwrap();
                     impurity -= p * p;
                 }
             }
         }
 
         SplitCriterion::Entropy => {
-            for i in 0..count.len() {
-                if count[i] > 0 {
-                    let p = T::from(count[i]).unwrap() / T::from(n).unwrap();
+            for count_i in count.iter() {
+                if *count_i > 0 {
+                    let p = T::from(*count_i).unwrap() / T::from(n).unwrap();
                     impurity -= p * p.log2();
                 }
             }
         }
         SplitCriterion::ClassificationError => {
-            for i in 0..count.len() {
-                if count[i] > 0 {
-                    impurity = impurity.max(T::from(count[i]).unwrap() / T::from(n).unwrap());
+            for count_i in count.iter() {
+                if *count_i > 0 {
+                    impurity = impurity.max(T::from(*count_i).unwrap() / T::from(n).unwrap());
                 }
             }
             impurity = (T::one() - impurity).abs();
@@ -236,9 +265,9 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
     fn new(
         node_id: usize,
         samples: Vec<usize>,
-        order: &'a Vec<Vec<usize>>,
+        order: &'a [Vec<usize>],
         x: &'a M,
-        y: &'a Vec<usize>,
+        y: &'a [usize],
         level: u16,
     ) -> Self {
         NodeVisitor {
@@ -255,18 +284,37 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
     }
 }
 
-pub(in crate) fn which_max(x: &Vec<usize>) -> usize {
+pub(in crate) fn which_max(x: &[usize]) -> usize {
     let mut m = x[0];
     let mut which = 0;
 
-    for i in 1..x.len() {
-        if x[i] > m {
-            m = x[i];
+    for (i, x_i) in x.iter().enumerate().skip(1) {
+        if *x_i > m {
+            m = *x_i;
             which = i;
         }
     }
 
     which
+}
+
+impl<T: RealNumber, M: Matrix<T>>
+    SupervisedEstimator<M, M::RowVector, DecisionTreeClassifierParameters>
+    for DecisionTreeClassifier<T>
+{
+    fn fit(
+        x: &M,
+        y: &M::RowVector,
+        parameters: DecisionTreeClassifierParameters,
+    ) -> Result<Self, Failed> {
+        DecisionTreeClassifier::fit(x, y, parameters)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for DecisionTreeClassifier<T> {
+    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        self.predict(x)
+    }
 }
 
 impl<T: RealNumber> DecisionTreeClassifier<T> {
@@ -304,9 +352,9 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
 
         let mut yi: Vec<usize> = vec![0; y_ncols];
 
-        for i in 0..y_ncols {
+        for (i, yi_i) in yi.iter_mut().enumerate().take(y_ncols) {
             let yc = y_m.get(0, i);
-            yi[i] = classes.iter().position(|c| yc == *c).unwrap();
+            *yi_i = classes.iter().position(|c| yc == *c).unwrap();
         }
 
         let mut nodes: Vec<Node<T>> = Vec::new();
@@ -431,23 +479,20 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
 
         let parent_impurity = impurity(&self.parameters.criterion, &count, n);
 
-        let mut variables = vec![0; n_attr];
-        for i in 0..n_attr {
-            variables[i] = i;
-        }
+        let mut variables = (0..n_attr).collect::<Vec<_>>();
 
         if mtry < n_attr {
             variables.shuffle(&mut rand::thread_rng());
         }
 
-        for j in 0..mtry {
+        for variable in variables.iter().take(mtry) {
             self.find_best_split(
                 visitor,
                 n,
                 &count,
                 &mut false_count,
                 parent_impurity,
-                variables[j],
+                *variable,
             );
         }
 
@@ -458,7 +503,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         &mut self,
         visitor: &mut NodeVisitor<'_, T, M>,
         n: usize,
-        count: &Vec<usize>,
+        count: &[usize],
         false_count: &mut Vec<usize>,
         parent_impurity: T,
         j: usize,
@@ -527,13 +572,13 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         let mut fc = 0;
         let mut true_samples: Vec<usize> = vec![0; n];
 
-        for i in 0..n {
+        for (i, true_sample) in true_samples.iter_mut().enumerate().take(n) {
             if visitor.samples[i] > 0 {
                 if visitor.x.get(i, self.nodes[visitor.node].split_feature)
                     <= self.nodes[visitor.node].split_value.unwrap_or_else(T::nan)
                 {
-                    true_samples[i] = visitor.samples[i];
-                    tc += true_samples[i];
+                    *true_sample = visitor.samples[i];
+                    tc += *true_sample;
                     visitor.samples[i] = 0;
                 } else {
                     fc += visitor.samples[i];
@@ -700,6 +745,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[1., 1., 1., 0.],

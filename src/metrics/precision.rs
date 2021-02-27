@@ -18,13 +18,15 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
 /// Precision metric.
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct Precision {}
 
 impl Precision {

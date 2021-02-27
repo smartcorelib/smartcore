@@ -19,6 +19,7 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
@@ -26,7 +27,8 @@ use crate::math::num::RealNumber;
 use super::Distance;
 
 /// While comparing two integer-valued vectors of equal length, Hamming distance is the number of bit positions in which the two bits are different
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Hamming {}
 
 impl<T: PartialEq, F: RealNumber> Distance<Vec<T>, F> for Hamming {

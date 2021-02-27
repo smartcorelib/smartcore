@@ -18,6 +18,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
@@ -25,12 +26,13 @@ use crate::math::num::RealNumber;
 use super::Distance;
 
 /// Euclidean distance is a measure of the true straight line distance between two points in Euclidean n-space.
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Euclidian {}
 
 impl Euclidian {
     #[inline]
-    pub(crate) fn squared_distance<T: RealNumber>(x: &Vec<T>, y: &Vec<T>) -> T {
+    pub(crate) fn squared_distance<T: RealNumber>(x: &[T], y: &[T]) -> T {
         if x.len() != y.len() {
             panic!("Input vector sizes are different.");
         }
