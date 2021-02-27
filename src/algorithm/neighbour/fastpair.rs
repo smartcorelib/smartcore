@@ -211,6 +211,58 @@ mod tests {
     }
 
     #[test]
+    fn dataset_has_at_least_three_points() {
+        // Create a dataset which consists of only two points:
+        // A(0.0, 0.0) and B(1.0, 1.0).
+        let dataset = DenseMatrix::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]);
+
+        // We expect an error when we run `FastPair` on this dataset,
+        // becuase `FastPair` currently only works on a minimum of 3
+        // points.
+        if let Err(e) = FastPair(&dataset) {
+            let expected_error =
+                Failed::because(FailedError::FindFailed, "min number of rows is 3");
+            assert_eq!(e, expected_error)
+        } else {
+            assert!(false)
+        }
+    }
+
+    #[test]
+    fn one_dimensional_dataset_minimal() {
+        let dataset = DenseMatrix::from_2d_array(&[&[0.0], &[2.0], &[9.0]]);
+
+        let result = FastPair(&dataset);
+        assert!(result.is_ok());
+
+        let fastpair = result.unwrap();
+        let closest_pair = fastpair.closest_pair();
+        let expected_closest_pair = PairwiseDissimilarity {
+            node: 0,
+            neighbour: Some(1),
+            distance: Some(4.0),
+        };
+        assert_eq!(closest_pair, expected_closest_pair);
+    }
+
+    #[test]
+    fn one_dimensional_dataset_currently_fails() {
+        let dataset = DenseMatrix::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
+
+        let result = FastPair(&dataset);
+        assert!(result.is_ok());
+
+        let fastpair = result.unwrap();
+        let closest_pair = fastpair.closest_pair();
+        let expected_closest_pair = PairwiseDissimilarity {
+            node: 1,
+            neighbour: Some(3),
+            distance: Some(4.0),
+        };
+        assert_eq!(closest_pair, expected_closest_pair);
+    }
+
+    #[test]
     fn fastpair_new() {
         // compute
         let x = DenseMatrix::from_2d_array(&[
