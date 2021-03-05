@@ -82,8 +82,9 @@ pub(crate) fn deserialize_data(
     bytes: &[u8],
 ) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {
     // read the same file back into a Vec of bytes
+    const USIZE_SIZE: usize = std::mem::size_of::<usize>();
     let (num_samples, num_features) = {
-        let mut buffer = [0u8; if cfg!(target_arch = "wasm32") { 4 } else { 8 }];
+        let mut buffer = [0u8; USIZE_SIZE];
         buffer.copy_from_slice(&bytes[0..8]);
         let num_features = usize::from_le_bytes(buffer);
         buffer.copy_from_slice(&bytes[8..16]);
