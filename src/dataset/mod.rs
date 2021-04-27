@@ -85,9 +85,9 @@ pub(crate) fn deserialize_data(
     const USIZE_SIZE: usize = std::mem::size_of::<usize>();
     let (num_samples, num_features) = {
         let mut buffer = [0u8; USIZE_SIZE];
-        buffer.copy_from_slice(&bytes[0..8]);
+        buffer.copy_from_slice(&bytes[0..USIZE_SIZE]);
         let num_features = usize::from_le_bytes(buffer);
-        buffer.copy_from_slice(&bytes[8..16]);
+        buffer.copy_from_slice(&bytes[8..8 + USIZE_SIZE]);
         let num_samples = usize::from_le_bytes(buffer);
         (num_samples, num_features)
     };
