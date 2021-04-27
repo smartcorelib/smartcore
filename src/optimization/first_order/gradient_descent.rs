@@ -88,6 +88,7 @@ mod tests {
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn gradient_descent() {
         let x0 = DenseMatrix::row_vector_from_array(&[-1., 1.]);

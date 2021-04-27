@@ -150,7 +150,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::linalg::BaseVector;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn mean() {
         let m = DenseMatrix::from_2d_array(&[
@@ -164,7 +164,7 @@ mod tests {
         assert_eq!(m.mean(0), expected_0);
         assert_eq!(m.mean(1), expected_1);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn std() {
         let m = DenseMatrix::from_2d_array(&[
@@ -178,7 +178,7 @@ mod tests {
         assert!(m.std(0).approximate_eq(&expected_0, 1e-2));
         assert!(m.std(1).approximate_eq(&expected_1, 1e-2));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn var() {
         let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
@@ -188,7 +188,7 @@ mod tests {
         assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
         assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn scale() {
         let mut m = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);

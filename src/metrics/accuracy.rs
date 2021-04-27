@@ -57,6 +57,7 @@ impl Accuracy {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn accuracy() {
         let y_pred: Vec<f64> = vec![0., 2., 1., 3.];

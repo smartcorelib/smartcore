@@ -274,6 +274,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ridge_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -329,6 +330,7 @@ mod tests {
         assert!(mean_absolute_error(&y_hat_svd, &y) < 2.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

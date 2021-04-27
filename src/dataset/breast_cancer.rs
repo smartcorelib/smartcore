@@ -69,6 +69,7 @@ mod tests {
     use super::super::*;
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[ignore]
     fn refresh_cancer_dataset() {
@@ -77,6 +78,7 @@ mod tests {
         assert!(serialize_data(&dataset, "breast_cancer.xy").is_ok());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cancer_dataset() {
         let dataset = load_dataset();

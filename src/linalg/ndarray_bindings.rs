@@ -530,6 +530,7 @@ mod tests {
     use crate::metrics::mean_absolute_error;
     use ndarray::{arr1, arr2, Array1, Array2};
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_get_set() {
         let mut result = arr1(&[1., 2., 3.]);
@@ -541,6 +542,7 @@ mod tests {
         assert_eq!(5., BaseVector::get(&result, 1));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_copy_from() {
         let mut v1 = arr1(&[1., 2., 3.]);
@@ -551,18 +553,21 @@ mod tests {
         assert_ne!(v1, v2);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_len() {
         let v = arr1(&[1., 2., 3.]);
         assert_eq!(3, v.len());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_to_vec() {
         let v = arr1(&[1., 2., 3.]);
         assert_eq!(vec![1., 2., 3.], v.to_vec());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_dot() {
         let v1 = arr1(&[1., 2., 3.]);
@@ -570,6 +575,7 @@ mod tests {
         assert_eq!(32.0, BaseVector::dot(&v1, &v2));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_approximate_eq() {
         let a = arr1(&[1., 2., 3.]);
@@ -578,6 +584,7 @@ mod tests {
         assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn from_to_row_vec() {
         let vec = arr1(&[1., 2., 3.]);
@@ -588,12 +595,14 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn col_matrix_to_row_vector() {
         let m: Array2<f64> = BaseMatrix::zeros(10, 1);
         assert_eq!(m.to_row_vector().len(), 10)
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn add_mut() {
         let mut a1 = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -604,6 +613,7 @@ mod tests {
         assert_eq!(a1, a3);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn sub_mut() {
         let mut a1 = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -614,6 +624,7 @@ mod tests {
         assert_eq!(a1, a3);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn mul_mut() {
         let mut a1 = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -624,6 +635,7 @@ mod tests {
         assert_eq!(a1, a3);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn div_mut() {
         let mut a1 = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -634,6 +646,7 @@ mod tests {
         assert_eq!(a1, a3);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn div_element_mut() {
         let mut a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -642,6 +655,7 @@ mod tests {
         assert_eq!(BaseMatrix::get(&a, 1, 1), 1.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn mul_element_mut() {
         let mut a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -650,6 +664,7 @@ mod tests {
         assert_eq!(BaseMatrix::get(&a, 1, 1), 25.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn add_element_mut() {
         let mut a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -657,7 +672,7 @@ mod tests {
 
         assert_eq!(BaseMatrix::get(&a, 1, 1), 10.);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn sub_element_mut() {
         let mut a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -666,6 +681,7 @@ mod tests {
         assert_eq!(BaseMatrix::get(&a, 1, 1), 0.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vstack_hstack() {
         let a1 = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -680,6 +696,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_set() {
         let mut result = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -691,6 +708,7 @@ mod tests {
         assert_eq!(10., BaseMatrix::get(&result, 1, 1));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn matmul() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -700,6 +718,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn dot() {
         let a = arr2(&[[1., 2., 3.]]);
@@ -707,6 +726,7 @@ mod tests {
         assert_eq!(14., BaseMatrix::dot(&a, &b));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn slice() {
         let a = arr2(&[
@@ -719,6 +739,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn scalar_ops() {
         let a = arr2(&[[1., 2., 3.]]);
@@ -728,6 +749,7 @@ mod tests {
         assert_eq!(&arr2(&[[0.5, 1., 1.5]]), a.clone().div_scalar_mut(2.));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn transpose() {
         let m = arr2(&[[1.0, 3.0], [2.0, 4.0]]);
@@ -736,6 +758,7 @@ mod tests {
         assert_eq!(m_transposed, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn norm() {
         let v = arr2(&[[3., -2., 6.]]);
@@ -745,6 +768,7 @@ mod tests {
         assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn negative_mut() {
         let mut v = arr2(&[[3., -2., 6.]]);
@@ -752,6 +776,7 @@ mod tests {
         assert_eq!(v, arr2(&[[-3., 2., -6.]]));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn reshape() {
         let m_orig = arr2(&[[1., 2., 3., 4., 5., 6.]]);
@@ -763,6 +788,7 @@ mod tests {
         assert_eq!(BaseMatrix::get(&m_result, 0, 3), 4.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn copy_from() {
         let mut src = arr2(&[[1., 2., 3.]]);
@@ -771,6 +797,7 @@ mod tests {
         assert_eq!(src, dst);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn min_max_sum() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.]]);
@@ -779,6 +806,7 @@ mod tests {
         assert_eq!(6., a.max());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn max_diff() {
         let a1 = arr2(&[[1., 2., 3.], [4., -5., 6.]]);
@@ -787,6 +815,7 @@ mod tests {
         assert_eq!(a2.max_diff(&a2), 0.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn softmax_mut() {
         let mut prob: Array2<f64> = arr2(&[[1., 2., 3.]]);
@@ -796,6 +825,7 @@ mod tests {
         assert!((BaseMatrix::get(&prob, 0, 2) - 0.66).abs() < 0.01);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn pow_mut() {
         let mut a = arr2(&[[1., 2., 3.]]);
@@ -803,6 +833,7 @@ mod tests {
         assert_eq!(a, arr2(&[[1., 8., 27.]]));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn argmax() {
         let a = arr2(&[[1., 2., 3.], [-5., -6., -7.], [0.1, 0.2, 0.1]]);
@@ -810,6 +841,7 @@ mod tests {
         assert_eq!(res, vec![2, 0, 1]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn unique() {
         let a = arr2(&[[1., 2., 2.], [-2., -6., -7.], [2., 3., 4.]]);
@@ -818,6 +850,7 @@ mod tests {
         assert_eq!(res, vec![-7., -6., -2., 1., 2., 3., 4.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_row_as_vector() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
@@ -825,12 +858,14 @@ mod tests {
         assert_eq!(res, vec![4., 5., 6.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_row() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
         assert_eq!(arr1(&[4., 5., 6.]), a.get_row(1));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_col_as_vector() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
@@ -838,6 +873,7 @@ mod tests {
         assert_eq!(res, vec![2., 5., 8.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn copy_row_col_as_vec() {
         let m = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
@@ -849,6 +885,7 @@ mod tests {
         assert_eq!(v, vec!(2., 5., 8.));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn col_mean() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
@@ -856,6 +893,7 @@ mod tests {
         assert_eq!(res, vec![4., 5., 6.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn eye() {
         let a = arr2(&[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
@@ -863,6 +901,7 @@ mod tests {
         assert_eq!(res, a);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn rand() {
         let m: Array2<f64> = BaseMatrix::rand(3, 3);
@@ -873,6 +912,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn approximate_eq() {
         let a = arr2(&[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
@@ -881,6 +921,7 @@ mod tests {
         assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn abs_mut() {
         let mut a = arr2(&[[1., -2.], [3., -4.]]);
@@ -889,6 +930,7 @@ mod tests {
         assert_eq!(a, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lr_fit_predict_iris() {
         let x = arr2(&[
@@ -930,6 +972,7 @@ mod tests {
         assert!(error <= 1.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn my_fit_longley_ndarray() {
         let x = arr2(&[

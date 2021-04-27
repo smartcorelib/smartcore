@@ -61,6 +61,7 @@ impl<T: RealNumber> Distance<Vec<T>, T> for Minkowski {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn minkowski_distance() {
         let a = vec![1., 2., 3.];
@@ -75,6 +76,7 @@ mod tests {
         assert!((l3 - 4.32674871).abs() < 1e-8);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[should_panic(expected = "p must be at least 1")]
     fn minkowski_distance_negative_p() {

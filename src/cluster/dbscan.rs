@@ -268,6 +268,7 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::math::distance::euclidian::Euclidian;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_dbscan() {
         let x = DenseMatrix::from_2d_array(&[
@@ -299,6 +300,7 @@ mod tests {
         assert_eq!(expected_labels, predicted_labels);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

@@ -291,6 +291,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn elasticnet_longley() {
         let x = DenseMatrix::from_2d_array(&[
@@ -334,6 +335,7 @@ mod tests {
         assert!(mean_absolute_error(&y_hat, &y) < 30.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn elasticnet_fit_predict1() {
         let x = DenseMatrix::from_2d_array(&[
@@ -400,6 +402,7 @@ mod tests {
         assert!(l1_model.coefficients().get(0, 0) > l1_model.coefficients().get(2, 0));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

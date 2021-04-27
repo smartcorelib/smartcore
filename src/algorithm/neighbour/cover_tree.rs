@@ -467,6 +467,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cover_tree_test() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -483,7 +484,7 @@ mod tests {
         let knn: Vec<i32> = knn.iter().map(|v| *v.2).collect();
         assert_eq!(vec!(3, 4, 5, 6, 7), knn);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cover_tree_test1() {
         let data = vec![
@@ -502,7 +503,7 @@ mod tests {
 
         assert_eq!(vec!(0, 1, 2), knn);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

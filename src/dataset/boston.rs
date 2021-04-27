@@ -59,6 +59,7 @@ mod tests {
     use super::super::*;
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[ignore]
     fn refresh_boston_dataset() {
@@ -67,6 +68,8 @@ mod tests {
         assert!(serialize_data(&dataset, "boston.xy").is_ok());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn boston_dataset() {
         let dataset = load_dataset();

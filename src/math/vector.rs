@@ -30,6 +30,7 @@ impl<T: RealNumber, V: BaseVector<T>> RealNumberVector<T> for V {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn unique_with_indices() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];

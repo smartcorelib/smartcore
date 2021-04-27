@@ -816,7 +816,7 @@ fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_symmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -843,7 +843,7 @@ mod tests {
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_asymmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -870,7 +870,7 @@ mod tests {
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_complex() {
         let A = DenseMatrix::from_2d_array(&[
