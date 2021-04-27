@@ -8,9 +8,12 @@ pub mod digits;
 pub mod generator;
 pub mod iris;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::math::num::RealNumber;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 use std::io;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::prelude::*;
 
 /// Dataset
@@ -49,6 +52,8 @@ impl<X, Y> Dataset<X, Y> {
     }
 }
 
+// Running this in wasm throws: operation not supported on this platform.
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(dead_code)]
 pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
     dataset: &Dataset<X, Y>,

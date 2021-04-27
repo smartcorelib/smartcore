@@ -53,13 +53,13 @@ pub fn load_dataset() -> Dataset<f32, f32> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
 
     use super::super::*;
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[ignore]
     fn refresh_boston_dataset() {
