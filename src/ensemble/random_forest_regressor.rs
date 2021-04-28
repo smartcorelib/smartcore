@@ -218,7 +218,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         let mut rng = rand::thread_rng();
         let mut samples = vec![0; nrows];
         for _ in 0..nrows {
-            let xi = rng.gen_range(0, nrows);
+            let xi = rng.gen_range(0..nrows);
             samples[xi] += 1;
         }
         samples

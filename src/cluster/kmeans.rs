@@ -245,7 +245,7 @@ impl<T: RealNumber + Sum> KMeans<T> {
         let mut rng = rand::thread_rng();
         let (n, m) = data.shape();
         let mut y = vec![0; n];
-        let mut centroid = data.get_row_as_vec(rng.gen_range(0, n));
+        let mut centroid = data.get_row_as_vec(rng.gen_range(0..n));
 
         let mut d = vec![T::max_value(); n];
 

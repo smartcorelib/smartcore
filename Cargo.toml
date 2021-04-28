@@ -28,7 +28,7 @@ rand_distr = "0.4.0"
 serde = { version = "1.0.115", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-rand = { version = "0.7.3", features = ["wasm-bindgen"] }
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 criterion = "0.3"
