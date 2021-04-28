@@ -19,7 +19,7 @@ nalgebra-bindings = ["nalgebra"]
 datasets = []
 
 [dependencies]
-ndarray = { version = "0.14", optional = true }
+ndarray = { version = "0.15", optional = true }
 nalgebra = { version = "0.23.0", optional = true }
 num-traits = "0.2.12"
 num = "0.3.0"
