@@ -265,7 +265,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
 
             let size = ((n_samples as f64) / *class_weight_l) as usize;
             for _ in 0..size {
-                let xi: usize = rng.gen_range(0, n_samples);
+                let xi: usize = rng.gen_range(0..n_samples);
                 samples[index[xi]] += 1;
             }
         }
