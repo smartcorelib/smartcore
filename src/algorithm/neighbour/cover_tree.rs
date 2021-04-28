@@ -316,8 +316,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                     point_set.append(&mut far);
                     child
                 } else {
-                    let mut children: Vec<Node<F>> = Vec::new();
-                    children.push(child);
+                    let mut children: Vec<Node<F>> = vec![child];
                     let mut new_point_set: Vec<DistanceSet<F>> = Vec::new();
                     let mut new_consumed_set: Vec<DistanceSet<F>> = Vec::new();
 

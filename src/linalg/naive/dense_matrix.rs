@@ -524,9 +524,9 @@ impl<T: RealNumber> PartialEq for DenseMatrix<T> {
     }
 }
 
-impl<T: RealNumber> Into<Vec<T>> for DenseMatrix<T> {
-    fn into(self) -> Vec<T> {
-        self.values
+impl<T: RealNumber> From<DenseMatrix<T>> for Vec<T> {
+    fn from(dense_matrix: DenseMatrix<T>) -> Vec<T> {
+        dense_matrix.values
     }
 }
 
