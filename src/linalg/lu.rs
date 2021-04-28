@@ -260,6 +260,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
@@ -274,7 +275,7 @@ mod tests {
         assert!(lu.U().approximate_eq(&expected_U, 1e-4));
         assert!(lu.pivot().approximate_eq(&expected_pivot, 1e-4));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn inverse() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);

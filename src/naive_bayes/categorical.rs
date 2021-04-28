@@ -351,6 +351,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_categorical_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
@@ -431,6 +432,7 @@ mod tests {
         assert_eq!(y_hat, vec![0., 1.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_categorical_naive_bayes2() {
         let x = DenseMatrix::from_2d_array(&[
@@ -459,6 +461,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

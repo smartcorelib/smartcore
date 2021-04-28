@@ -112,6 +112,7 @@ impl<T: Float> LineSearchMethod<T> for Backtracking<T> {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn backtracking() {
         let f = |x: f64| -> f64 { x.powf(2.) + x };

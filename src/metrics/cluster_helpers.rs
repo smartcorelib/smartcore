@@ -101,6 +101,7 @@ pub fn mutual_info_score<T: RealNumber>(contingency: &[Vec<usize>]) -> T {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn contingency_matrix_test() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];
@@ -112,6 +113,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn entropy_test() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];
@@ -119,6 +121,7 @@ mod tests {
         assert!((1.2770f32 - entropy(&v1).unwrap()).abs() < 1e-4);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn mutual_info_score_test() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];

@@ -43,6 +43,7 @@ impl HCVScore {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn homogeneity_score() {
         let v1 = vec![0.0, 0.0, 1.0, 1.0, 2.0, 0.0, 4.0];

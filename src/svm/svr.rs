@@ -536,6 +536,7 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svr_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -569,6 +570,7 @@ mod tests {
         assert!(mean_squared_error(&y_hat, &y) < 2.5);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn svr_serde() {

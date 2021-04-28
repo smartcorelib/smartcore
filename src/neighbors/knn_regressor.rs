@@ -231,6 +231,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::math::distance::Distances;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_fit_predict_weighted() {
         let x =
@@ -254,6 +255,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_fit_predict_uniform() {
         let x =
@@ -268,6 +270,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

@@ -153,6 +153,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svd_decompose() {
         // https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/USArrests.html
@@ -227,6 +228,7 @@ mod tests {
             .approximate_eq(&expected, 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

@@ -325,7 +325,7 @@ mod tests {
             &[6.8, 161.0, 60.0, 15.6],
         ])
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn pca_components() {
         let us_arrests = us_arrests_data();
@@ -341,7 +341,7 @@ mod tests {
 
         assert!(expected.approximate_eq(&pca.components().abs(), 0.4));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_covariance() {
         let us_arrests = us_arrests_data();
@@ -451,6 +451,7 @@ mod tests {
             .approximate_eq(&expected_projection.abs(), 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_correlation() {
         let us_arrests = us_arrests_data();
@@ -566,6 +567,7 @@ mod tests {
             .approximate_eq(&expected_projection.abs(), 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

@@ -279,6 +279,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::metrics::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_iris() {
         let x = DenseMatrix::from_2d_array(&[
@@ -324,6 +325,7 @@ mod tests {
         assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

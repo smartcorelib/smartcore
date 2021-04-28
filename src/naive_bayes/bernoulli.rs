@@ -346,6 +346,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_bernoulli_naive_bayes() {
         // Tests that BernoulliNB when alpha=1.0 gives the same values as
@@ -398,6 +399,7 @@ mod tests {
         assert_eq!(y_hat, &[1.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn bernoulli_nb_scikit_parity() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
@@ -460,6 +462,7 @@ mod tests {
         ));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

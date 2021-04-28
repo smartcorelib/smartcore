@@ -482,7 +482,7 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_symmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -513,7 +513,7 @@ mod tests {
             assert!((s[i] - svd.s[i]).abs() < 1e-4);
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_asymmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -714,7 +714,7 @@ mod tests {
             assert!((s[i] - svd.s[i]).abs() < 1e-4);
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn solve() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
@@ -725,6 +725,7 @@ mod tests {
         assert!(w.approximate_eq(&expected_w, 1e-2));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_restore() {
         let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0, 4.0], &[5.0, 6.0, 7.0, 8.0]]);

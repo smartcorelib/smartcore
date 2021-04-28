@@ -59,6 +59,7 @@ impl<T: RealNumber> F1<T> {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn f1() {
         let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
