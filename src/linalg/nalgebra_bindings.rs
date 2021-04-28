@@ -955,7 +955,7 @@ mod tests {
     #[test]
     fn pow_mut() {
         let mut a = DMatrix::from_row_slice(1, 3, &[1., 2., 3.]);
-        a.pow_mut(3.);
+        BaseMatrix::pow_mut(&mut a, 3.);
         assert_eq!(a, DMatrix::from_row_slice(1, 3, &[1., 8., 27.]));
     }
 
