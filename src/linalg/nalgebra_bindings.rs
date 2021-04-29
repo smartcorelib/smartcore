@@ -40,7 +40,7 @@
 use std::iter::Sum;
 use std::ops::{AddAssign, DivAssign, MulAssign, Range, SubAssign};
 
-use nalgebra::{DMatrix, Dynamic, Matrix, MatrixMN, RowDVector, Scalar, VecStorage, U1};
+use nalgebra::{Const, DMatrix, Dynamic, Matrix, OMatrix, RowDVector, Scalar, VecStorage, U1};
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
@@ -53,7 +53,7 @@ use crate::linalg::Matrix as SmartCoreMatrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
 
-impl<T: RealNumber + 'static> BaseVector<T> for MatrixMN<T, U1, Dynamic> {
+impl<T: RealNumber + 'static> BaseVector<T> for OMatrix<T, U1, Dynamic> {
     fn get(&self, i: usize) -> T {
         *self.get((0, i)).unwrap()
     }
@@ -198,7 +198,7 @@ impl<T: RealNumber + Scalar + AddAssign + SubAssign + MulAssign + DivAssign + Su
 
     fn to_row_vector(self) -> Self::RowVector {
         let (nrows, ncols) = self.shape();
-        self.reshape_generic(U1, Dynamic::new(nrows * ncols))
+        self.reshape_generic(Const::<1>, Dynamic::new(nrows * ncols))
     }
 
     fn get(&self, row: usize, col: usize) -> T {
@@ -955,7 +955,7 @@ mod tests {
     #[test]
     fn pow_mut() {
         let mut a = DMatrix::from_row_slice(1, 3, &[1., 2., 3.]);
-        a.pow_mut(3.);
+        BaseMatrix::pow_mut(&mut a, 3.);
         assert_eq!(a, DMatrix::from_row_slice(1, 3, &[1., 8., 27.]));
     }
 
