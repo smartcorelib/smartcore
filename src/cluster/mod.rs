@@ -6,3 +6,4 @@
 pub mod dbscan;
 /// An iterative clustering algorithm that aims to find local maxima in each iteration.
 pub mod kmeans;
+pub mod optics;
