@@ -41,6 +41,10 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
+/// structure for representing pairwise dissimilatiries (Müllner, 2011)
+pub(crate) mod dissimilarities;
+/// implementation for FastPair (Eppsterin, 2000) algorithm for Closest Pairs
+pub mod fastpair;
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
 
