@@ -34,6 +34,12 @@
 //! let u: DenseMatrix<f64> = svd.U;
 //! ```
 
+pub mod base;
+pub mod dense;
+#[cfg(feature = "nalgebra-bindings")]
+pub mod nalgebra;
+#[cfg(feature = "ndarray-bindings")]
+pub mod ndarray;
 pub mod cholesky;
 /// The matrix is represented in terms of its eigenvalues and eigenvectors.
 pub mod evd;

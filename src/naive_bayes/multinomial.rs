@@ -7,7 +7,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::naive_bayes::multinomial::MultinomialNB;
 //!
 //! // Training data points are:
@@ -15,31 +15,31 @@
 //! // Chinese Chinese Shanghai (class: China)
 //! // Chinese Macao (class: China)
 //! // Tokyo Japan Chinese (class: Japan)
-//! let x = DenseMatrix::<f64>::from_2d_array(&[
-//!                   &[1., 2., 0., 0., 0., 0.],
-//!                   &[0., 2., 0., 0., 1., 0.],
-//!                   &[0., 1., 0., 1., 0., 0.],
-//!                   &[0., 1., 1., 0., 0., 1.],
+//! let x = DenseMatrix::<u32>::from_2d_array(&[
+//!                   &[1, 2, 0, 0, 0, 0],
+//!                   &[0, 2, 0, 0, 1, 0],
+//!                   &[0, 1, 0, 1, 0, 0],
+//!                   &[0, 1, 1, 0, 0, 1],
 //!         ]);
-//! let y = vec![0., 0., 0., 1.];
+//! let y: Vec<u32> = vec![0, 0, 0, 1];
 //! let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Testing data point is:
 //! //  Chinese Chinese Chinese Tokyo Japan
-//! let x_test = DenseMatrix::<f64>::from_2d_array(&[&[0., 3., 1., 0., 0., 1.]]);
+//! let x_test = DenseMatrix::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]);
 //! let y_hat = nb.predict(&x_test).unwrap();
 //! ```
 //!
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
+use std::hash::Hash;
+use num_traits::Unsigned;
+
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::row_iter;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
-use crate::math::vector::RealNumberVector;
+use crate::linalg::base::{Array2, Array1, ArrayView1};
+use crate::num::Number;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 
 #[cfg(feature = "serde")]
@@ -48,36 +48,36 @@ use serde::{Deserialize, Serialize};
 /// Naive Bayes classifier for Multinomial features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-struct MultinomialNBDistribution<T: RealNumber> {
+struct MultinomialNBDistribution<T: Number> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
     /// number of training samples observed in each class
     class_count: Vec<usize>,
     /// probability of each class
-    class_priors: Vec<T>,
+    class_priors: Vec<f64>,
     /// Empirical log probability of features given a class
-    feature_log_prob: Vec<Vec<T>>,
+    feature_log_prob: Vec<Vec<f64>>,
     /// Number of samples encountered for each (class, feature)
     feature_count: Vec<Vec<usize>>,
     /// Number of features of each sample
     n_features: usize,
 }
 
-impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribution<T> {
-    fn prior(&self, class_index: usize) -> T {
+impl<X: Number + Unsigned, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y> for MultinomialNBDistribution<Y> {
+    fn prior(&self, class_index: usize) -> f64 {
         self.class_priors[class_index]
     }
 
-    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T {
-        let mut likelihood = T::zero();
-        for feature in 0..j.len() {
-            let value = j.get(feature);
+    fn log_likelihood<'a>(&self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64 {
+        let mut likelihood = 0f64;
+        for feature in 0..j.shape() {
+            let value = X::to_f64(j.get(feature)).unwrap();
             likelihood += value * self.feature_log_prob[class_index][feature];
         }
         likelihood
     }
 
-    fn classes(&self) -> &Vec<T> {
+    fn classes(&self) -> &Vec<Y> {
         &self.class_labels
     }
 }
@@ -85,50 +85,50 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribu
 /// `MultinomialNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct MultinomialNBParameters<T: RealNumber> {
+pub struct MultinomialNBParameters {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub alpha: T,
+    pub alpha: f64,
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
-    pub priors: Option<Vec<T>>,
+    pub priors: Option<Vec<f64>>,
 }
 
-impl<T: RealNumber> MultinomialNBParameters<T> {
+impl MultinomialNBParameters {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub fn with_alpha(mut self, alpha: T) -> Self {
+    pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
-    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+    pub fn with_priors(mut self, priors: Vec<f64>) -> Self {
         self.priors = Some(priors);
         self
     }
 }
 
-impl<T: RealNumber> Default for MultinomialNBParameters<T> {
+impl Default for MultinomialNBParameters {
     fn default() -> Self {
         Self {
-            alpha: T::one(),
+            alpha: 1f64,
             priors: None,
         }
     }
 }
 
-impl<T: RealNumber> MultinomialNBDistribution<T> {
+impl<TY: Number + Ord + Eq + Unsigned + Hash> MultinomialNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
     /// priors are adjusted according to the data.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter.
-    pub fn fit<M: Matrix<T>>(
-        x: &M,
-        y: &M::RowVector,
-        alpha: T,
-        priors: Option<Vec<T>>,
+    pub fn fit<TX: Number + Unsigned, X: Array2<TX>, Y: Array1<TY>>(
+        x: &X,
+        y: &Y,
+        alpha: f64,
+        priors: Option<Vec<f64>>,
     ) -> Result<Self, Failed> {
         let (n_samples, n_features) = x.shape();
-        let y_samples = y.len();
+        let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
                 "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
@@ -142,16 +142,14 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
                 n_samples
             )));
         }
-        if alpha < T::zero() {
+        if alpha < 0f64 {
             return Err(Failed::fit(&format!(
                 "Alpha should be greater than 0; |alpha|=[{}]",
                 alpha
             )));
-        }
+        }        
 
-        let y = y.to_vec();
-
-        let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
+        let (class_labels, indices) = y.unique_with_indices();
         let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
@@ -168,14 +166,14 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
         } else {
             class_count
                 .iter()
-                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
+                .map(|&c| c as f64 / n_samples as f64)
                 .collect()
         };
 
         let mut feature_in_class_counter = vec![vec![0_usize; n_features]; class_labels.len()];
 
-        for (row, class_index) in row_iter(x).zip(indices) {
-            for (idx, row_i) in row.iter().enumerate().take(n_features) {
+        for (row, class_index) in x.row_iter().zip(indices) {
+            for (idx, row_i) in row.iterator(0).enumerate().take(n_features) {
                 feature_in_class_counter[class_index][idx] +=
                     row_i.to_usize().ok_or_else(|| {
                         Failed::fit(&format!(
@@ -193,8 +191,8 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
                 feature_count
                     .iter()
                     .map(|&count| {
-                        ((T::from(count).unwrap() + alpha)
-                            / (T::from(n_c).unwrap() + alpha * T::from(n_features).unwrap()))
+                        ((count as f64 + alpha)
+                            / (n_c as f64 + alpha * n_features as f64))
                         .ln()
                     })
                     .collect()
@@ -215,29 +213,29 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
 /// MultinomialNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct MultinomialNB<T: RealNumber, M: Matrix<T>> {
-    inner: BaseNaiveBayes<T, M, MultinomialNBDistribution<T>>,
+pub struct MultinomialNB<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> {
+    inner: BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, MultinomialNBParameters<T>>
-    for MultinomialNB<T, M>
+impl<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> SupervisedEstimator<X, Y, MultinomialNBParameters>
+    for MultinomialNB<TX, TY, X, Y>
 {
     fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: MultinomialNBParameters<T>,
+        x: &X,
+        y: &Y,
+        parameters: MultinomialNBParameters,
     ) -> Result<Self, Failed> {
         MultinomialNB::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for MultinomialNB<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y> for MultinomialNB<TX, TY, X, Y> {
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
+impl<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> MultinomialNB<TX, TY, X, Y> {
     /// Fits MultinomialNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
     /// features.
@@ -245,9 +243,9 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
     /// binarizing threshold.
     pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: MultinomialNBParameters<T>,
+        x: &X,
+        y: &Y,
+        parameters: MultinomialNBParameters,
     ) -> Result<Self, Failed> {
         let distribution =
             MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?;
@@ -258,13 +256,13 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.predict(x)
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
-    pub fn classes(&self) -> &Vec<T> {
+    pub fn classes(&self) -> &Vec<TY> {
         &self.inner.distribution.class_labels
     }
 
@@ -276,7 +274,7 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
 
     /// Empirical log probability of features given a class, P(x_i|y).
     /// Returns a 2d vector of shape (n_classes, n_features)
-    pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
+    pub fn feature_log_prob(&self) -> &Vec<Vec<f64>> {
         &self.inner.distribution.feature_log_prob
     }
 
@@ -295,7 +293,8 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::utils::vec_utils::approx_eq;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -310,16 +309,16 @@ mod tests {
         // Chinese Chinese Shanghai (class: China)
         // Chinese Macao (class: China)
         // Tokyo Japan Chinese (class: Japan)
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1., 2., 0., 0., 0., 0.],
-            &[0., 2., 0., 0., 1., 0.],
-            &[0., 1., 0., 1., 0., 0.],
-            &[0., 1., 1., 0., 0., 1.],
+        let x = DenseMatrix::from_2d_array(&[
+            &[1, 2, 0, 0, 0, 0],
+            &[0, 2, 0, 0, 1, 0],
+            &[0, 1, 0, 1, 0, 0],
+            &[0, 1, 1, 0, 0, 1],
         ]);
-        let y = vec![0., 0., 0., 1.];
+        let y: Vec<u32> = vec![0, 0, 0, 1];
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
-        assert_eq!(mnb.classes(), &[0., 1.]);
+        assert_eq!(mnb.classes(), &[0, 1]);
         assert_eq!(mnb.class_count(), &[3, 1]);
 
         assert_eq!(mnb.inner.distribution.class_priors, &[0.75, 0.25]);
@@ -347,33 +346,33 @@ mod tests {
 
         // Testing data point is:
         //  Chinese Chinese Chinese Tokyo Japan
-        let x_test = DenseMatrix::<f64>::from_2d_array(&[&[0., 3., 1., 0., 0., 1.]]);
+        let x_test = DenseMatrix::<u32>::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]);
         let y_hat = mnb.predict(&x_test).unwrap();
 
-        assert_eq!(y_hat, &[0.]);
+        assert_eq!(y_hat, &[0]);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn multinomial_nb_scikit_parity() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[2., 4., 0., 0., 2., 1., 2., 4., 2., 0.],
-            &[3., 4., 0., 2., 1., 0., 1., 4., 0., 3.],
-            &[1., 4., 2., 4., 1., 0., 1., 2., 3., 2.],
-            &[0., 3., 3., 4., 1., 0., 3., 1., 1., 1.],
-            &[0., 2., 1., 4., 3., 4., 1., 2., 3., 1.],
-            &[3., 2., 4., 1., 3., 0., 2., 4., 0., 2.],
-            &[3., 1., 3., 0., 2., 0., 4., 4., 3., 4.],
-            &[2., 2., 2., 0., 1., 1., 2., 1., 0., 1.],
-            &[3., 3., 2., 2., 0., 2., 3., 2., 2., 3.],
-            &[4., 3., 4., 4., 4., 2., 2., 0., 1., 4.],
-            &[3., 4., 2., 2., 1., 4., 4., 4., 1., 3.],
-            &[3., 0., 1., 4., 4., 0., 0., 3., 2., 4.],
-            &[2., 0., 3., 3., 1., 2., 0., 2., 4., 1.],
-            &[2., 4., 0., 4., 2., 4., 1., 3., 1., 4.],
-            &[0., 2., 2., 3., 4., 0., 4., 4., 4., 4.],
+        let x = DenseMatrix::<u32>::from_2d_array(&[
+            &[2, 4, 0, 0, 2, 1, 2, 4, 2, 0],
+            &[3, 4, 0, 2, 1, 0, 1, 4, 0, 3],
+            &[1, 4, 2, 4, 1, 0, 1, 2, 3, 2],
+            &[0, 3, 3, 4, 1, 0, 3, 1, 1, 1],
+            &[0, 2, 1, 4, 3, 4, 1, 2, 3, 1],
+            &[3, 2, 4, 1, 3, 0, 2, 4, 0, 2],
+            &[3, 1, 3, 0, 2, 0, 4, 4, 3, 4],
+            &[2, 2, 2, 0, 1, 1, 2, 1, 0, 1],
+            &[3, 3, 2, 2, 0, 2, 3, 2, 2, 3],
+            &[4, 3, 4, 4, 4, 2, 2, 0, 1, 4],
+            &[3, 4, 2, 2, 1, 4, 4, 4, 1, 3],
+            &[3, 0, 1, 4, 4, 0, 0, 3, 2, 4],
+            &[2, 0, 3, 3, 1, 2, 0, 2, 4, 1],
+            &[2, 4, 0, 4, 2, 4, 1, 3, 1, 4],
+            &[0, 2, 2, 3, 4, 0, 4, 4, 4, 4],
         ]);
-        let y = vec![2., 2., 0., 0., 0., 2., 1., 1., 0., 1., 0., 0., 2., 0., 2.];
+        let y: Vec<u32> = vec![2, 2, 0, 0, 0, 2, 1, 1, 0, 1, 0, 0, 2, 0, 2];
         let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
         assert_eq!(nb.n_features(), 10);
@@ -388,12 +387,8 @@ mod tests {
 
         let y_hat = nb.predict(&x).unwrap();
 
-        assert!(nb
-            .inner
-            .distribution
-            .class_priors
-            .approximate_eq(&vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(nb.feature_log_prob()[1].approximate_eq(
+        assert!(approx_eq(&nb.inner.distribution.class_priors, &vec!(0.46, 0.2, 0.33), 1e-2));
+        assert!(approx_eq(&nb.feature_log_prob()[1],
             &vec![
                 -2.00148,
                 -2.35815494,
@@ -408,25 +403,23 @@ mod tests {
             ],
             1e-5
         ));
-        assert!(y_hat.approximate_eq(
-            &vec!(2.0, 2.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 2.0),
-            1e-5
-        ));
+        assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 2, 1, 0, 1, 0, 2, 0, 0, 2));
     }
+
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1., 1., 0., 0., 0., 0.],
-            &[0., 1., 0., 0., 1., 0.],
-            &[0., 1., 0., 1., 0., 0.],
-            &[0., 1., 1., 0., 0., 1.],
+        let x = DenseMatrix::from_2d_array(&[
+            &[1, 1, 0, 0, 0, 0],
+            &[0, 1, 0, 0, 1, 0],
+            &[0, 1, 0, 1, 0, 0],
+            &[0, 1, 1, 0, 0, 1],
         ]);
-        let y = vec![0., 0., 0., 1.];
+        let y = vec![0, 0, 0, 1];
 
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
-        let deserialized_mnb: MultinomialNB<f64, DenseMatrix<f64>> =
+        let deserialized_mnb: MultinomialNB<u32, u32, DenseMatrix<u32>, Vec<u32>> =
             serde_json::from_str(&serde_json::to_string(&mnb).unwrap()).unwrap();
 
         assert_eq!(mnb, deserialized_mnb);

@@ -13,7 +13,7 @@ keywords = ["machine-learning", "statistical", "ai", "optimization", "linear-alg
 categories = ["science"]
 
 [features]
-default = ["datasets"]
+default = ["datasets", "serde"]
 ndarray-bindings = ["ndarray"]
 nalgebra-bindings = ["nalgebra"]
 datasets = []
@@ -25,6 +25,7 @@ num-traits = "0.2.12"
 num = "0.4.0"
 rand = "0.8.3"
 rand_distr = "0.4.0"
+approx = "0.4"
 serde = { version = "1.0.115", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

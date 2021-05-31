@@ -6,7 +6,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::naive_bayes::bernoulli::BernoulliNB;
 //!
 //! // Training data points are:
@@ -14,32 +14,32 @@
 //! // Chinese Chinese Shanghai (class: China)
 //! // Chinese Macao (class: China)
 //! // Tokyo Japan Chinese (class: Japan)
-//! let x = DenseMatrix::<f64>::from_2d_array(&[
-//!           &[1., 1., 0., 0., 0., 0.],
-//!           &[0., 1., 0., 0., 1., 0.],
-//!           &[0., 1., 0., 1., 0., 0.],
-//!           &[0., 1., 1., 0., 0., 1.],
+//! let x = DenseMatrix::from_2d_array(&[
+//!           &[1, 1, 0, 0, 0, 0],
+//!           &[0, 1, 0, 0, 1, 0],
+//!           &[0, 1, 0, 1, 0, 0],
+//!           &[0, 1, 1, 0, 0, 1],
 //! ]);
-//! let y = vec![0., 0., 0., 1.];
+//! let y: Vec<u32> = vec![0, 0, 0, 1];
 //!
 //! let nb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Testing data point is:
 //! // Chinese Chinese Chinese Tokyo Japan
-//! let x_test = DenseMatrix::<f64>::from_2d_array(&[&[0., 1., 1., 0., 0., 1.]]);
+//! let x_test = DenseMatrix::from_2d_array(&[&[0, 1, 1, 0, 0, 1]]);
 //! let y_hat = nb.predict(&x_test).unwrap();
 //! ```
 //!
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
+use std::hash::Hash;
+use num_traits::Unsigned;
+
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::row_iter;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
-use crate::math::vector::RealNumberVector;
+use crate::linalg::base::{Array2, Array1, ArrayView1};
+use crate::num::Number;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 
 #[cfg(feature = "serde")]
@@ -48,22 +48,22 @@ use serde::{Deserialize, Serialize};
 /// Naive Bayes classifier for Bearnoulli features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-struct BernoulliNBDistribution<T: RealNumber> {
+struct BernoulliNBDistribution<T: Number + Ord + Eq + Unsigned + Hash> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
     /// number of training samples observed in each class
     class_count: Vec<usize>,
     /// probability of each class
-    class_priors: Vec<T>,
+    class_priors: Vec<f64>,
     /// Number of samples encountered for each (class, feature)
     feature_count: Vec<Vec<usize>>,
     /// probability of features per class
-    feature_log_prob: Vec<Vec<T>>,
+    feature_log_prob: Vec<Vec<f64>>,
     /// Number of features of each sample
     n_features: usize,
 }
 
-impl<T: RealNumber> PartialEq for BernoulliNBDistribution<T> {
+impl<T: Number + Ord + Eq + Unsigned + Hash> PartialEq for BernoulliNBDistribution<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.class_labels == other.class_labels
             && self.class_count == other.class_count
@@ -76,7 +76,7 @@ impl<T: RealNumber> PartialEq for BernoulliNBDistribution<T> {
                 .iter()
                 .zip(other.feature_log_prob.iter())
             {
-                if !a.approximate_eq(b, T::epsilon()) {
+                if !a.iter().zip(b.iter()).all(|(a, b)| (a - b).abs() < 1e-4) {
                     return false;
                 }
             }
@@ -87,25 +87,25 @@ impl<T: RealNumber> PartialEq for BernoulliNBDistribution<T> {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistribution<T> {
-    fn prior(&self, class_index: usize) -> T {
+impl<X: Number + PartialOrd, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y> for BernoulliNBDistribution<Y> {
+    fn prior(&self, class_index: usize) -> f64 {
         self.class_priors[class_index]
     }
 
-    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T {
-        let mut likelihood = T::zero();
-        for feature in 0..j.len() {
-            let value = j.get(feature);
-            if value == T::one() {
+    fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64 {
+        let mut likelihood = 0f64;
+        for feature in 0..j.shape() {
+            let value = *j.get(feature);
+            if value == X::one() {
                 likelihood += self.feature_log_prob[class_index][feature];
-            } else {
-                likelihood += (T::one() - self.feature_log_prob[class_index][feature].exp()).ln();
+            } else {                
+                likelihood += (1f64 - self.feature_log_prob[class_index][feature].exp()).ln();
             }
         }
         likelihood
     }
 
-    fn classes(&self) -> &Vec<T> {
+    fn classes(&self) -> &Vec<Y> {
         &self.class_labels
     }
 }
@@ -113,23 +113,23 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct BernoulliNBParameters<T: RealNumber> {
+pub struct BernoulliNBParameters<T: Number> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub alpha: T,
+    pub alpha: f64,
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
-    pub priors: Option<Vec<T>>,
+    pub priors: Option<Vec<f64>>,
     /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
     pub binarize: Option<T>,
 }
 
-impl<T: RealNumber> BernoulliNBParameters<T> {
+impl<T: Number + PartialOrd> BernoulliNBParameters<T> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
-    pub fn with_alpha(mut self, alpha: T) -> Self {
+    pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
-    pub fn with_priors(mut self, priors: Vec<T>) -> Self {
+    pub fn with_priors(mut self, priors: Vec<f64>) -> Self {
         self.priors = Some(priors);
         self
     }
@@ -140,17 +140,17 @@ impl<T: RealNumber> BernoulliNBParameters<T> {
     }
 }
 
-impl<T: RealNumber> Default for BernoulliNBParameters<T> {
+impl<T: Number + PartialOrd> Default for BernoulliNBParameters<T> {
     fn default() -> Self {
         Self {
-            alpha: T::one(),
+            alpha: 1f64,
             priors: None,
             binarize: Some(T::zero()),
         }
     }
 }
 
-impl<T: RealNumber> BernoulliNBDistribution<T> {
+impl<TY: Number + Ord + Eq + Unsigned + Hash> BernoulliNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
@@ -158,14 +158,14 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
     /// priors are adjusted according to the data.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter.
     /// * `binarize` - Threshold for binarizing.
-    pub fn fit<M: Matrix<T>>(
-        x: &M,
-        y: &M::RowVector,
-        alpha: T,
-        priors: Option<Vec<T>>,
+    fn fit<TX: Number + PartialOrd, X: Array2<TX>, Y: Array1<TY>>(
+        x: &X,
+        y: &Y,
+        alpha: f64,
+        priors: Option<Vec<f64>>,
     ) -> Result<Self, Failed> {
         let (n_samples, n_features) = x.shape();
-        let y_samples = y.len();
+        let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
                 "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
@@ -179,16 +179,15 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
                 n_samples
             )));
         }
-        if alpha < T::zero() {
+        if alpha < 0f64 {
             return Err(Failed::fit(&format!(
                 "Alpha should be greater than 0; |alpha|=[{}]",
                 alpha
             )));
         }
 
-        let y = y.to_vec();
-
-        let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
+        let (class_labels, indices) = y.unique_with_indices();        
+        
         let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
@@ -205,14 +204,14 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         } else {
             class_count
                 .iter()
-                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
+                .map(|&c| c as f64 / (n_samples as f64))
                 .collect()
         };
 
         let mut feature_in_class_counter = vec![vec![0_usize; n_features]; class_labels.len()];
 
-        for (row, class_index) in row_iter(x).zip(indices) {
-            for (idx, row_i) in row.iter().enumerate().take(n_features) {
+        for (row, class_index) in x.row_iter().zip(indices) {
+            for (idx, row_i) in row.iterator(0).enumerate().take(n_features) {
                 feature_in_class_counter[class_index][idx] +=
                     row_i.to_usize().ok_or_else(|| {
                         Failed::fit(&format!(
@@ -230,8 +229,8 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
                 feature_count
                     .iter()
                     .map(|&count| {
-                        ((T::from(count).unwrap() + alpha)
-                            / (T::from(class_count[class_index]).unwrap() + alpha * T::two()))
+                        ((count as f64 + alpha)
+                            / (class_count[class_index] as f64 + alpha * 2f64))
                         .ln()
                     })
                     .collect()
@@ -252,26 +251,26 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
 /// BernoulliNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct BernoulliNB<T: RealNumber, M: Matrix<T>> {
-    inner: BaseNaiveBayes<T, M, BernoulliNBDistribution<T>>,
-    binarize: Option<T>,
+pub struct BernoulliNB<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> {
+    inner: BaseNaiveBayes<TX, TY, X, Y, BernoulliNBDistribution<TY>>,
+    binarize: Option<TX>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, BernoulliNBParameters<T>>
-    for BernoulliNB<T, M>
+impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> SupervisedEstimator<X, Y, BernoulliNBParameters<TX>>
+    for BernoulliNB<TX, TY, X, Y>
 {
-    fn fit(x: &M, y: &M::RowVector, parameters: BernoulliNBParameters<T>) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         BernoulliNB::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for BernoulliNB<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y> for BernoulliNB<TX, TY, X, Y> {
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
+impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash,X: Array2<TX>, Y: Array1<TY>> BernoulliNB<TX, TY, X, Y> {
     /// Fits BernoulliNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
     /// features.
@@ -279,13 +278,13 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
     /// binarizing threshold.
     pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: BernoulliNBParameters<T>,
+        x: &X,
+        y: &Y,
+        parameters: BernoulliNBParameters<TX>,
     ) -> Result<Self, Failed> {
         let distribution = if let Some(threshold) = parameters.binarize {
             BernoulliNBDistribution::fit(
-                &(x.binarize(threshold)),
+                &Self::binarize(x, threshold),
                 y,
                 parameters.alpha,
                 parameters.priors,
@@ -304,9 +303,9 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         if let Some(threshold) = self.binarize {
-            self.inner.predict(&(x.binarize(threshold)))
+            self.inner.predict(&Self::binarize(x, threshold))
         } else {
             self.inner.predict(x)
         }
@@ -314,7 +313,7 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
-    pub fn classes(&self) -> &Vec<T> {
+    pub fn classes(&self) -> &Vec<TY> {
         &self.inner.distribution.class_labels
     }
 
@@ -336,15 +335,35 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
     }
 
     /// Empirical log probability of features given a class
-    pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
+    pub fn feature_log_prob(&self) -> &Vec<Vec<f64>> {
         &self.inner.distribution.feature_log_prob
+    }
+
+    fn binarize_mut(x: &mut X, threshold: TX) {
+        let (nrows, ncols) = x.shape();
+        for row in 0..nrows {
+            for col in 0..ncols {
+                if *x.get((row, col)) > threshold {
+                    x.set((row, col), TX::one());
+                } else {
+                    x.set((row, col), TX::zero());
+                }
+            }
+        }
+    }
+
+    fn binarize(x: &X, threshold: TX) -> X {
+        let mut new_x = x.clone();
+        Self::binarize_mut(&mut new_x, threshold);
+        new_x
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::utils::vec_utils::approx_eq;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -359,13 +378,13 @@ mod tests {
         // Chinese Chinese Shanghai (class: China)
         // Chinese Macao (class: China)
         // Tokyo Japan Chinese (class: Japan)
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1., 1., 0., 0., 0., 0.],
-            &[0., 1., 0., 0., 1., 0.],
-            &[0., 1., 0., 1., 0., 0.],
-            &[0., 1., 1., 0., 0., 1.],
+        let x = DenseMatrix::from_2d_array(&[
+            &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            &[0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
+            &[0.0, 1.0, 0.0, 1.0, 0.0, 0.0],
+            &[0.0, 1.0, 1.0, 0.0, 0.0, 1.0],
         ]);
-        let y = vec![0., 0., 0., 1.];
+        let y: Vec<u32> = vec![0, 0, 0, 1];
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 
         assert_eq!(bnb.inner.distribution.class_priors, &[0.75, 0.25]);
@@ -393,38 +412,38 @@ mod tests {
 
         // Testing data point is:
         //  Chinese Chinese Chinese Tokyo Japan
-        let x_test = DenseMatrix::<f64>::from_2d_array(&[&[0., 1., 1., 0., 0., 1.]]);
+        let x_test = DenseMatrix::from_2d_array(&[&[0.0, 1.0, 1.0, 0.0, 0.0, 1.0]]);
         let y_hat = bnb.predict(&x_test).unwrap();
 
-        assert_eq!(y_hat, &[1.]);
+        assert_eq!(y_hat, &[1]);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn bernoulli_nb_scikit_parity() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[2., 4., 0., 0., 2., 1., 2., 4., 2., 0.],
-            &[3., 4., 0., 2., 1., 0., 1., 4., 0., 3.],
-            &[1., 4., 2., 4., 1., 0., 1., 2., 3., 2.],
-            &[0., 3., 3., 4., 1., 0., 3., 1., 1., 1.],
-            &[0., 2., 1., 4., 3., 4., 1., 2., 3., 1.],
-            &[3., 2., 4., 1., 3., 0., 2., 4., 0., 2.],
-            &[3., 1., 3., 0., 2., 0., 4., 4., 3., 4.],
-            &[2., 2., 2., 0., 1., 1., 2., 1., 0., 1.],
-            &[3., 3., 2., 2., 0., 2., 3., 2., 2., 3.],
-            &[4., 3., 4., 4., 4., 2., 2., 0., 1., 4.],
-            &[3., 4., 2., 2., 1., 4., 4., 4., 1., 3.],
-            &[3., 0., 1., 4., 4., 0., 0., 3., 2., 4.],
-            &[2., 0., 3., 3., 1., 2., 0., 2., 4., 1.],
-            &[2., 4., 0., 4., 2., 4., 1., 3., 1., 4.],
-            &[0., 2., 2., 3., 4., 0., 4., 4., 4., 4.],
+        let x = DenseMatrix::from_2d_array(&[
+            &[2, 4, 0, 0, 2, 1, 2, 4, 2, 0],
+            &[3, 4, 0, 2, 1, 0, 1, 4, 0, 3],
+            &[1, 4, 2, 4, 1, 0, 1, 2, 3, 2],
+            &[0, 3, 3, 4, 1, 0, 3, 1, 1, 1],
+            &[0, 2, 1, 4, 3, 4, 1, 2, 3, 1],
+            &[3, 2, 4, 1, 3, 0, 2, 4, 0, 2],
+            &[3, 1, 3, 0, 2, 0, 4, 4, 3, 4],
+            &[2, 2, 2, 0, 1, 1, 2, 1, 0, 1],
+            &[3, 3, 2, 2, 0, 2, 3, 2, 2, 3],
+            &[4, 3, 4, 4, 4, 2, 2, 0, 1, 4],
+            &[3, 4, 2, 2, 1, 4, 4, 4, 1, 3],
+            &[3, 0, 1, 4, 4, 0, 0, 3, 2, 4],
+            &[2, 0, 3, 3, 1, 2, 0, 2, 4, 1],
+            &[2, 4, 0, 4, 2, 4, 1, 3, 1, 4],
+            &[0, 2, 2, 3, 4, 0, 4, 4, 4, 4],
         ]);
-        let y = vec![2., 2., 0., 0., 0., 2., 1., 1., 0., 1., 0., 0., 2., 0., 2.];
-        let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
+        let y: Vec<u32> = vec![2, 2, 0, 0, 0, 2, 1, 1, 0, 1, 0, 0, 2, 0, 2];
+        let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();            
 
         let y_hat = bnb.predict(&x).unwrap();
 
-        assert_eq!(bnb.classes(), &[0., 1., 2.]);
+        assert_eq!(bnb.classes(), &[0, 1, 2]);
         assert_eq!(bnb.class_count(), &[7, 3, 5]);
         assert_eq!(bnb.n_features(), 10);
         assert_eq!(
@@ -436,12 +455,8 @@ mod tests {
             ]
         );
 
-        assert!(bnb
-            .inner
-            .distribution
-            .class_priors
-            .approximate_eq(&vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(bnb.feature_log_prob()[1].approximate_eq(
+        assert!(approx_eq(&bnb.inner.distribution.class_priors, &vec!(0.46, 0.2, 0.33), 1e-2));
+        assert!(approx_eq(&bnb.feature_log_prob()[1],
             &vec![
                 -0.22314355,
                 -0.22314355,
@@ -456,26 +471,23 @@ mod tests {
             ],
             1e-1
         ));
-        assert!(y_hat.approximate_eq(
-            &vec!(2.0, 2.0, 0.0, 0.0, 0.0, 2.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            1e-5
-        ));
+        assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1., 1., 0., 0., 0., 0.],
-            &[0., 1., 0., 0., 1., 0.],
-            &[0., 1., 0., 1., 0., 0.],
-            &[0., 1., 1., 0., 0., 1.],
+        let x = DenseMatrix::from_2d_array(&[
+            &[1, 1, 0, 0, 0, 0],
+            &[0, 1, 0, 0, 1, 0],
+            &[0, 1, 0, 1, 0, 0],
+            &[0, 1, 1, 0, 0, 1],
         ]);
-        let y = vec![0., 0., 0., 1.];
+        let y: Vec<u32> = vec![0, 0, 0, 1];
 
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
-        let deserialized_bnb: BernoulliNB<f64, DenseMatrix<f64>> =
+        let deserialized_bnb: BernoulliNB<i32, u32, DenseMatrix<i32>, Vec<u32>> =
             serde_json::from_str(&serde_json::to_string(&bnb).unwrap()).unwrap();
 
         assert_eq!(bnb, deserialized_bnb);

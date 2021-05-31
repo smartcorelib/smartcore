@@ -66,9 +66,10 @@
 //! let y_hat = knn.predict(&x).unwrap();
 //! ```
 
+pub mod num;
+pub mod api;
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
-pub mod api;
 /// Algorithms for clustering of unlabeled data
 pub mod cluster;
 /// Various datasets
@@ -99,3 +100,5 @@ pub mod preprocessing;
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
+#[cfg(test)]
+pub mod utils;
