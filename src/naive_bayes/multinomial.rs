@@ -33,14 +33,14 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
-use std::hash::Hash;
 use num_traits::Unsigned;
+use std::hash::Hash;
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array2, Array1, ArrayView1};
-use crate::num::Number;
+use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
+use crate::num::Number;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,9 @@ struct MultinomialNBDistribution<T: Number> {
     n_features: usize,
 }
 
-impl<X: Number + Unsigned, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y> for MultinomialNBDistribution<Y> {
+impl<X: Number + Unsigned, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y>
+    for MultinomialNBDistribution<Y>
+{
     fn prior(&self, class_index: usize) -> f64 {
         self.class_priors[class_index]
     }
@@ -147,7 +149,7 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> MultinomialNBDistribution<TY> {
                 "Alpha should be greater than 0; |alpha|=[{}]",
                 alpha
             )));
-        }        
+        }
 
         let (class_labels, indices) = y.unique_with_indices();
         let mut class_count = vec![0_usize; class_labels.len()];
@@ -191,9 +193,7 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> MultinomialNBDistribution<TY> {
                 feature_count
                     .iter()
                     .map(|&count| {
-                        ((count as f64 + alpha)
-                            / (n_c as f64 + alpha * n_features as f64))
-                        .ln()
+                        ((count as f64 + alpha) / (n_c as f64 + alpha * n_features as f64)).ln()
                     })
                     .collect()
             })
@@ -213,40 +213,53 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> MultinomialNBDistribution<TY> {
 /// MultinomialNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct MultinomialNB<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> {
+pub struct MultinomialNB<
+    TX: Number + Unsigned,
+    TY: Number + Ord + Eq + Unsigned + Hash,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> {
     inner: BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>,
 }
 
-impl<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> SupervisedEstimator<X, Y, MultinomialNBParameters>
-    for MultinomialNB<TX, TY, X, Y>
+impl<
+        TX: Number + Unsigned,
+        TY: Number + Ord + Eq + Unsigned + Hash,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
 {
-    fn fit(
-        x: &X,
-        y: &Y,
-        parameters: MultinomialNBParameters,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         MultinomialNB::fit(x, y, parameters)
     }
 }
 
-impl<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y> for MultinomialNB<TX, TY, X, Y> {
+impl<
+        TX: Number + Unsigned,
+        TY: Number + Ord + Eq + Unsigned + Hash,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > Predictor<X, Y> for MultinomialNB<TX, TY, X, Y>
+{
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<TX: Number + Unsigned, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> MultinomialNB<TX, TY, X, Y> {
+impl<
+        TX: Number + Unsigned,
+        TY: Number + Ord + Eq + Unsigned + Hash,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > MultinomialNB<TX, TY, X, Y>
+{
     /// Fits MultinomialNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
     /// features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
     /// binarizing threshold.
-    pub fn fit(
-        x: &X,
-        y: &Y,
-        parameters: MultinomialNBParameters,
-    ) -> Result<Self, Failed> {
+    pub fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         let distribution =
             MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
@@ -387,8 +400,13 @@ mod tests {
 
         let y_hat = nb.predict(&x).unwrap();
 
-        assert!(approx_eq(&nb.inner.distribution.class_priors, &vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(approx_eq(&nb.feature_log_prob()[1],
+        assert!(approx_eq(
+            &nb.inner.distribution.class_priors,
+            &vec!(0.46, 0.2, 0.33),
+            1e-2
+        ));
+        assert!(approx_eq(
+            &nb.feature_log_prob()[1],
             &vec![
                 -2.00148,
                 -2.35815494,

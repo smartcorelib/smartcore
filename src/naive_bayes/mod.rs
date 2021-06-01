@@ -36,7 +36,7 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use crate::error::Failed;
-use crate::linalg::base::{Array2, Array1, ArrayView1};
+use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::num::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -57,15 +57,23 @@ pub(crate) trait NBDistribution<X: Number, Y: Number> {
 /// Base struct for the Naive Bayes classifier.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub(crate) struct BaseNaiveBayes<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX, TY>> {
+pub(crate) struct BaseNaiveBayes<
+    TX: Number,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    D: NBDistribution<TX, TY>,
+> {
     distribution: D,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
-    _phantom_y: PhantomData<Y>
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX, TY>> BaseNaiveBayes<TX, TY, X, Y, D> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX, TY>>
+    BaseNaiveBayes<TX, TY, X, Y, D>
+{
     /// Fits NB classifier to a given NBdistribution.
     /// * `distribution` - NBDistribution of the training data
     pub fn fit(distribution: D) -> Result<Self, Failed> {
@@ -90,7 +98,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
                 let (prediction, _probability) = y_classes
                     .iter()
                     .enumerate()
-                    .map(|(class_index, class)| {                        
+                    .map(|(class_index, class)| {
                         (
                             class,
                             self.distribution.log_likelihood(class_index, &row)

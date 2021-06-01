@@ -35,12 +35,8 @@
 //! ```
 
 pub mod base;
-pub mod dense;
-#[cfg(feature = "nalgebra-bindings")]
-pub mod nalgebra;
-#[cfg(feature = "ndarray-bindings")]
-pub mod ndarray;
 pub mod cholesky;
+pub mod dense;
 /// The matrix is represented in terms of its eigenvalues and eigenvectors.
 pub mod evd;
 pub mod high_order;
@@ -48,9 +44,13 @@ pub mod high_order;
 pub mod lu;
 /// Dense matrix with column-major order that wraps [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html).
 pub mod naive;
+#[cfg(feature = "nalgebra-bindings")]
+pub mod nalgebra;
 /// [nalgebra](https://docs.rs/nalgebra/) bindings.
 #[cfg(feature = "nalgebra-bindings")]
 pub mod nalgebra_bindings;
+#[cfg(feature = "ndarray-bindings")]
+pub mod ndarray;
 /// [ndarray](https://docs.rs/ndarray) bindings.
 #[cfg(feature = "ndarray-bindings")]
 pub mod ndarray_bindings;

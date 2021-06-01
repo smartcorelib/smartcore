@@ -34,9 +34,9 @@ use num_traits::Unsigned;
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array2, Array1, ArrayView1};
-use crate::num::Number;
+use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
+use crate::num::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -153,10 +153,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
                 n_samples
             )));
         }
-        let y: Vec<usize> = y            
-            .iterator(0)
-            .map(|y_i| y_i.to_usize().unwrap())
-            .collect();
+        let y: Vec<usize> = y.iterator(0).map(|y_i| y_i.to_usize().unwrap()).collect();
 
         let y_max = y
             .iter()
@@ -209,8 +206,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
                 let coef_i_j = feat_count
                     .iter()
                     .map(|&c| {
-                        ((c as f64 + alpha)
-                            / (label_count as f64 + n_categories_i as f64 * alpha))
+                        ((c as f64 + alpha) / (label_count as f64 + n_categories_i as f64 * alpha))
                             .ln()
                     })
                     .collect::<Vec<f64>>();
@@ -267,14 +263,10 @@ pub struct CategoricalNB<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> {
     inner: BaseNaiveBayes<T, T, X, Y, CategoricalNBDistribution<T>>,
 }
 
-impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> SupervisedEstimator<X, Y, CategoricalNBParameters>
-    for CategoricalNB<T, X, Y>
+impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
+    SupervisedEstimator<X, Y, CategoricalNBParameters> for CategoricalNB<T, X, Y>
 {
-    fn fit(
-        x: &X,
-        y: &Y,
-        parameters: CategoricalNBParameters,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: CategoricalNBParameters) -> Result<Self, Failed> {
         CategoricalNB::fit(x, y, parameters)
     }
 }
@@ -291,11 +283,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like alpha for smoothing
-    pub fn fit(
-        x: &X,
-        y: &Y,
-        parameters: CategoricalNBParameters,
-    ) -> Result<Self, Failed> {
+    pub fn fit(x: &X, y: &Y, parameters: CategoricalNBParameters) -> Result<Self, Failed> {
         let alpha = parameters.alpha;
         let distribution = CategoricalNBDistribution::fit(x, y, alpha)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
@@ -347,7 +335,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;    
+    use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -454,10 +442,7 @@ mod tests {
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
         let y_hat = cnb.predict(&x).unwrap();
-        assert_eq!(
-            y_hat,
-            vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1]
-        );
+        assert_eq!(y_hat, vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1]);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

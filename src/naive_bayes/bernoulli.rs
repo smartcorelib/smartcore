@@ -33,14 +33,14 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
-use std::hash::Hash;
 use num_traits::Unsigned;
+use std::hash::Hash;
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array2, Array1, ArrayView1};
-use crate::num::Number;
+use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
+use crate::num::Number;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -87,7 +87,9 @@ impl<T: Number + Ord + Eq + Unsigned + Hash> PartialEq for BernoulliNBDistributi
     }
 }
 
-impl<X: Number + PartialOrd, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y> for BernoulliNBDistribution<Y> {
+impl<X: Number + PartialOrd, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y>
+    for BernoulliNBDistribution<Y>
+{
     fn prior(&self, class_index: usize) -> f64 {
         self.class_priors[class_index]
     }
@@ -98,7 +100,7 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribut
             let value = *j.get(feature);
             if value == X::one() {
                 likelihood += self.feature_log_prob[class_index][feature];
-            } else {                
+            } else {
                 likelihood += (1f64 - self.feature_log_prob[class_index][feature].exp()).ln();
             }
         }
@@ -186,8 +188,8 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> BernoulliNBDistribution<TY> {
             )));
         }
 
-        let (class_labels, indices) = y.unique_with_indices();        
-        
+        let (class_labels, indices) = y.unique_with_indices();
+
         let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
@@ -229,9 +231,8 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> BernoulliNBDistribution<TY> {
                 feature_count
                     .iter()
                     .map(|&count| {
-                        ((count as f64 + alpha)
-                            / (class_count[class_index] as f64 + alpha * 2f64))
-                        .ln()
+                        ((count as f64 + alpha) / (class_count[class_index] as f64 + alpha * 2f64))
+                            .ln()
                     })
                     .collect()
             })
@@ -251,37 +252,54 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> BernoulliNBDistribution<TY> {
 /// BernoulliNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct BernoulliNB<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> {
+pub struct BernoulliNB<
+    TX: Number + PartialOrd,
+    TY: Number + Ord + Eq + Unsigned + Hash,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> {
     inner: BaseNaiveBayes<TX, TY, X, Y, BernoulliNBDistribution<TY>>,
     binarize: Option<TX>,
 }
 
-impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> SupervisedEstimator<X, Y, BernoulliNBParameters<TX>>
-    for BernoulliNB<TX, TY, X, Y>
+impl<
+        TX: Number + PartialOrd,
+        TY: Number + Ord + Eq + Unsigned + Hash,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > SupervisedEstimator<X, Y, BernoulliNBParameters<TX>> for BernoulliNB<TX, TY, X, Y>
 {
     fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         BernoulliNB::fit(x, y, parameters)
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y> for BernoulliNB<TX, TY, X, Y> {
+impl<
+        TX: Number + PartialOrd,
+        TY: Number + Ord + Eq + Unsigned + Hash,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > Predictor<X, Y> for BernoulliNB<TX, TY, X, Y>
+{
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash,X: Array2<TX>, Y: Array1<TY>> BernoulliNB<TX, TY, X, Y> {
+impl<
+        TX: Number + PartialOrd,
+        TY: Number + Ord + Eq + Unsigned + Hash,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > BernoulliNB<TX, TY, X, Y>
+{
     /// Fits BernoulliNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
     /// features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
     /// binarizing threshold.
-    pub fn fit(
-        x: &X,
-        y: &Y,
-        parameters: BernoulliNBParameters<TX>,
-    ) -> Result<Self, Failed> {
+    pub fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         let distribution = if let Some(threshold) = parameters.binarize {
             BernoulliNBDistribution::fit(
                 &Self::binarize(x, threshold),
@@ -362,8 +380,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Eq + Unsigned + Hash,X: Array2<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::vec_utils::approx_eq;
     use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::utils::vec_utils::approx_eq;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -439,7 +457,7 @@ mod tests {
             &[0, 2, 2, 3, 4, 0, 4, 4, 4, 4],
         ]);
         let y: Vec<u32> = vec![2, 2, 0, 0, 0, 2, 1, 1, 0, 1, 0, 0, 2, 0, 2];
-        let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();            
+        let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 
         let y_hat = bnb.predict(&x).unwrap();
 
@@ -455,8 +473,13 @@ mod tests {
             ]
         );
 
-        assert!(approx_eq(&bnb.inner.distribution.class_priors, &vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(approx_eq(&bnb.feature_log_prob()[1],
+        assert!(approx_eq(
+            &bnb.inner.distribution.class_priors,
+            &vec!(0.46, 0.2, 0.33),
+            1e-2
+        ));
+        assert!(approx_eq(
+            &bnb.feature_log_prob()[1],
             &vec![
                 -0.22314355,
                 -0.22314355,
