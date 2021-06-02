@@ -23,7 +23,6 @@
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
 use num_traits::Unsigned;
-use std::hash::Hash;
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -49,9 +48,7 @@ struct GaussianNBDistribution<T: Number> {
     theta: Vec<Vec<f64>>,
 }
 
-impl<X: Number, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y>
-    for GaussianNBDistribution<Y>
-{
+impl<X: Number, Y: Number + Ord + Unsigned> NBDistribution<X, Y> for GaussianNBDistribution<Y> {
     fn prior(&self, class_index: usize) -> f64 {
         if class_index >= self.class_labels.len() {
             0f64
@@ -92,7 +89,7 @@ impl GaussianNBParameters {
     }
 }
 
-impl<TY: Number + Ord + Eq + Unsigned + Hash> GaussianNBDistribution<TY> {
+impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
@@ -178,16 +175,11 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> GaussianNBDistribution<TY> {
 /// GaussianNB implements the categorical naive Bayes algorithm for categorically distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct GaussianNB<
-    TX: Number,
-    TY: Number + Ord + Eq + Unsigned + Hash,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> {
+pub struct GaussianNB<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> {
     inner: BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>,
 }
 
-impl<TX: Number, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
@@ -195,15 +187,15 @@ impl<TX: Number, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Arra
     }
 }
 
-impl<TX: Number, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>>
-    Predictor<X, Y> for GaussianNB<TX, TY, X, Y>
+impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for GaussianNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<TX: Number, TY: Number + Ord + Eq + Unsigned + Hash, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     GaussianNB<TX, TY, X, Y>
 {
     /// Fits GaussianNB with given data

@@ -1,11 +1,9 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::hash::Hash;
 use std::ops::Neg;
 use std::ops::Range;
 
-use crate::num::{FloatNumber, Number};
+use crate::num::Number;
 use num_traits::Signed;
 
 pub trait Array<T: Debug + Display + Copy + Sized, S>: Debug {
@@ -164,18 +162,30 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
 
     fn max(&self) -> T
     where
-        T: FloatNumber,
+        T: Number + PartialOrd,
     {
+        let max_f = |max: T, v: &T| -> T {
+            match T::gt(v, &max) {
+                true => *v,
+                _ => max,
+            }
+        };
         self.iterator(0)
-            .fold(T::neg_infinity(), |max, x| T::max(max, *x))
+            .fold(T::min_value(), |max, x| max_f(max, x))
     }
 
     fn min(&self) -> T
     where
-        T: FloatNumber,
+        T: Number + PartialOrd,
     {
+        let min_f = |min: T, v: &T| -> T {
+            match T::lt(v, &min) {
+                true => *v,
+                _ => min,
+            }
+        };
         self.iterator(0)
-            .fold(T::infinity(), |max, x| T::min(max, *x))
+            .fold(T::max_value(), |max, x| min_f(max, x))
     }
 
     fn unique(&self) -> Vec<T>
@@ -190,68 +200,66 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
 
     fn unique_with_indices(&self) -> (Vec<T>, Vec<usize>)
     where
-        T: Number + Ord + Eq + Hash,
+        T: Number + Ord,
     {
         let mut unique: Vec<T> = self.iterator(0).map(|&v| v).collect();
         unique.sort();
         unique.dedup();
 
-        let mut index = HashMap::with_capacity(unique.len());
-        for (i, u) in unique.iter().enumerate() {
-            index.insert(u, i);
-        }
-
         let mut unique_index = Vec::with_capacity(self.shape());
         for idx in 0..self.shape() {
-            unique_index.push(index[&self.get(idx)]);
+            unique_index.push(unique.iter().position(|v| self.get(idx) == v).unwrap());
         }
 
         (unique, unique_index)
     }
 
-    fn norm2(&self) -> T
+    fn norm2(&self) -> f64
     where
-        T: FloatNumber,
+        T: Number,
     {
         self.iterator(0)
-            .fold(T::zero(), |norm, xi| norm + *xi * *xi)
+            .fold(0f64, |norm, xi| {
+                let xi = xi.to_f64().unwrap();
+                norm + xi * xi
+            })
             .sqrt()
     }
 
-    fn norm(&self, p: T) -> T
+    fn norm(&self, p: f64) -> f64
     where
-        T: FloatNumber,
+        T: Number,
     {
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
-                .map(|x| x.abs())
-                .fold(T::neg_infinity(), |a, b| a.max(b))
+                .map(|x| x.to_f64().unwrap().abs())
+                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
-                .map(|x| x.abs())
-                .fold(T::infinity(), |a, b| a.min(b))
+                .map(|x| x.to_f64().unwrap().abs())
+                .fold(std::f64::INFINITY, |a, b| a.min(b))
         } else {
-            let mut norm = T::zero();
+            let mut norm = 0f64;
 
             for xi in self.iterator(0) {
-                norm += xi.abs().powf(p);
+                norm += xi.to_f64().unwrap().abs().powf(p);
             }
 
-            norm.powf(T::one() / p)
+            norm.powf(1f64 / p)
         }
     }
 
-    fn var(&self) -> T
+    fn var(&self) -> f64
     where
-        T: FloatNumber,
+        T: Number,
     {
         let n = self.shape();
 
-        let mut mu = T::zero();
-        let mut sum = T::zero();
-        let div = T::from_usize(n).unwrap();
+        let mut mu = 0f64;
+        let mut sum = 0f64;
+        let div = n as f64;
         for i in 0..n {
-            let xi = *self.get(i);
+            let xi = T::to_f64(self.get(i)).unwrap();
             mu += xi;
             sum += xi * xi;
         }
@@ -259,9 +267,9 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         sum / div - mu.powi(2)
     }
 
-    fn std(&self) -> T
+    fn std(&self) -> f64
     where
-        T: FloatNumber,
+        T: Number,
     {
         self.var().sqrt()
     }
@@ -1047,7 +1055,12 @@ mod tests {
 
     #[test]
     fn test_vec_unique() {
-        assert_eq!(vec![1, 2, 2, 3, 2, 1].unique(), vec![1, 2, 3]);
+        let n = vec![1, 2, 2, 3, 4, 5, 3, 2];
+        assert_eq!(
+            n.unique_with_indices(),
+            (vec!(1, 2, 3, 4, 5), vec!(0, 1, 1, 2, 3, 4, 2, 1))
+        );
+        assert_eq!(n.unique(), vec!(1, 2, 3, 4, 5));
         assert_eq!(Vec::<i32>::zeros(100).unique(), vec![0]);
         assert_eq!(Vec::<i32>::zeros(100).slice(0..10).unique(), vec![0]);
     }
@@ -1104,6 +1117,12 @@ mod tests {
     fn test_vec_init() {
         assert_eq!(Vec::<i32>::ones(3), vec![1, 1, 1]);
         assert_eq!(Vec::<i32>::zeros(3), vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn test_vec_min_max() {
+        assert_eq!(ArrayView1::min(&vec![1, 2, 3, 4, 5, 6]), 1);
+        assert_eq!(ArrayView1::max(&vec![1, 2, 3, 4, 5, 6]), 6);
     }
 
     #[test]

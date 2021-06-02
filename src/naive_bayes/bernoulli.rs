@@ -34,7 +34,6 @@
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
 use num_traits::Unsigned;
-use std::hash::Hash;
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -48,7 +47,7 @@ use serde::{Deserialize, Serialize};
 /// Naive Bayes classifier for Bearnoulli features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-struct BernoulliNBDistribution<T: Number + Ord + Eq + Unsigned + Hash> {
+struct BernoulliNBDistribution<T: Number + Ord + Unsigned> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
     /// number of training samples observed in each class
@@ -63,7 +62,7 @@ struct BernoulliNBDistribution<T: Number + Ord + Eq + Unsigned + Hash> {
     n_features: usize,
 }
 
-impl<T: Number + Ord + Eq + Unsigned + Hash> PartialEq for BernoulliNBDistribution<T> {
+impl<T: Number + Ord + Unsigned> PartialEq for BernoulliNBDistribution<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.class_labels == other.class_labels
             && self.class_count == other.class_count
@@ -87,7 +86,7 @@ impl<T: Number + Ord + Eq + Unsigned + Hash> PartialEq for BernoulliNBDistributi
     }
 }
 
-impl<X: Number + PartialOrd, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y>
+impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
     for BernoulliNBDistribution<Y>
 {
     fn prior(&self, class_index: usize) -> f64 {
@@ -152,7 +151,7 @@ impl<T: Number + PartialOrd> Default for BernoulliNBParameters<T> {
     }
 }
 
-impl<TY: Number + Ord + Eq + Unsigned + Hash> BernoulliNBDistribution<TY> {
+impl<TY: Number + Ord + Unsigned> BernoulliNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
@@ -254,7 +253,7 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> BernoulliNBDistribution<TY> {
 #[derive(Debug, PartialEq)]
 pub struct BernoulliNB<
     TX: Number + PartialOrd,
-    TY: Number + Ord + Eq + Unsigned + Hash,
+    TY: Number + Ord + Unsigned,
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
@@ -262,36 +261,24 @@ pub struct BernoulliNB<
     binarize: Option<TX>,
 }
 
-impl<
-        TX: Number + PartialOrd,
-        TY: Number + Ord + Eq + Unsigned + Hash,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, BernoulliNBParameters<TX>> for BernoulliNB<TX, TY, X, Y>
+impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, BernoulliNBParameters<TX>> for BernoulliNB<TX, TY, X, Y>
 {
     fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         BernoulliNB::fit(x, y, parameters)
     }
 }
 
-impl<
-        TX: Number + PartialOrd,
-        TY: Number + Ord + Eq + Unsigned + Hash,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for BernoulliNB<TX, TY, X, Y>
+impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    Predictor<X, Y> for BernoulliNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<
-        TX: Number + PartialOrd,
-        TY: Number + Ord + Eq + Unsigned + Hash,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > BernoulliNB<TX, TY, X, Y>
+impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    BernoulliNB<TX, TY, X, Y>
 {
     /// Fits BernoulliNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of

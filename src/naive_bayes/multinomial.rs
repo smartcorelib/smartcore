@@ -34,7 +34,6 @@
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
 use num_traits::Unsigned;
-use std::hash::Hash;
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
@@ -63,7 +62,7 @@ struct MultinomialNBDistribution<T: Number> {
     n_features: usize,
 }
 
-impl<X: Number + Unsigned, Y: Number + Ord + Eq + Unsigned + Hash> NBDistribution<X, Y>
+impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
     for MultinomialNBDistribution<Y>
 {
     fn prior(&self, class_index: usize) -> f64 {
@@ -116,7 +115,7 @@ impl Default for MultinomialNBParameters {
     }
 }
 
-impl<TY: Number + Ord + Eq + Unsigned + Hash> MultinomialNBDistribution<TY> {
+impl<TY: Number + Ord + Unsigned> MultinomialNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
@@ -215,43 +214,31 @@ impl<TY: Number + Ord + Eq + Unsigned + Hash> MultinomialNBDistribution<TY> {
 #[derive(Debug, PartialEq)]
 pub struct MultinomialNB<
     TX: Number + Unsigned,
-    TY: Number + Ord + Eq + Unsigned + Hash,
+    TY: Number + Ord + Unsigned,
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
     inner: BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>,
 }
 
-impl<
-        TX: Number + Unsigned,
-        TY: Number + Ord + Eq + Unsigned + Hash,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
+impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
 {
     fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         MultinomialNB::fit(x, y, parameters)
     }
 }
 
-impl<
-        TX: Number + Unsigned,
-        TY: Number + Ord + Eq + Unsigned + Hash,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for MultinomialNB<TX, TY, X, Y>
+impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    Predictor<X, Y> for MultinomialNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<
-        TX: Number + Unsigned,
-        TY: Number + Ord + Eq + Unsigned + Hash,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > MultinomialNB<TX, TY, X, Y>
+impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    MultinomialNB<TX, TY, X, Y>
 {
     /// Fits MultinomialNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
