@@ -249,7 +249,8 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
     }
 }
 
-/// BernoulliNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// BernoulliNB implements the naive Bayes algorithm for data that follows the Bernoulli
+/// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct BernoulliNB<T: RealNumber, M: Matrix<T>> {

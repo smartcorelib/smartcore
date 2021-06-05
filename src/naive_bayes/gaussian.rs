@@ -33,7 +33,7 @@ use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Naive Bayes classifier for categorical features
+/// Naive Bayes classifier using Gaussian distribution
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 struct GaussianNBDistribution<T: RealNumber> {
@@ -179,7 +179,8 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
     }
 }
 
-/// GaussianNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// GaussianNB implements the naive Bayes algorithm for data that follows the Gaussian
+/// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct GaussianNB<T: RealNumber, M: Matrix<T>> {

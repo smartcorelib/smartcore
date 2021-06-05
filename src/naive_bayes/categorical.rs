@@ -232,8 +232,8 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             class_labels,
             class_priors,
             coefficients,
-            n_categories,
             n_features,
+            n_categories,
             category_count,
         })
     }

@@ -93,7 +93,7 @@ pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             sort(&mut d, &mut e, &mut V);
         }
 
-        Ok(EVD { V, d, e })
+        Ok(EVD { d, e, V })
     }
 }
 
