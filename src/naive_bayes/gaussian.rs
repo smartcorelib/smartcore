@@ -100,7 +100,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
         y: &Y,
         priors: Option<Vec<f64>>,
     ) -> Result<Self, Failed> {
-        let (n_samples, n_features) = x.shape();
+        let (n_samples, _) = x.shape();
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(

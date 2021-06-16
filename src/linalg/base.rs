@@ -21,6 +21,15 @@ pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b>;
 
+    fn swap(&mut self, a: S, b: S)
+    where
+        S: Copy,
+    {
+        let t = *self.get(a);
+        self.set(a, *self.get(b));
+        self.set(b, t);
+    }
+
     fn div_element_mut(&mut self, pos: S, x: T)
     where
         T: Number,
@@ -448,6 +457,105 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
+
+    fn argsort_mut(&mut self) -> Vec<usize>
+    where
+        T: Number + PartialOrd,
+    {
+        let stack_size = 64;
+        let mut jstack = -1;
+        let mut l = 0;
+        let mut istack = vec![0; stack_size];
+        let mut ir = self.shape() - 1;
+        let mut index: Vec<usize> = (0..self.shape()).collect();
+
+        loop {
+            if ir - l < 7 {
+                for j in l + 1..=ir {
+                    let a = *self.get(j);
+                    let b = index[j];
+                    let mut i: i32 = (j - 1) as i32;
+                    while i >= l as i32 {
+                        if *self.get(i as usize) <= a {
+                            break;
+                        }
+                        self.set((i + 1) as usize, *self.get(i as usize));
+                        index[(i + 1) as usize] = index[i as usize];
+                        i -= 1;
+                    }
+                    self.set((i + 1) as usize, a);
+                    index[(i + 1) as usize] = b;
+                }
+                if jstack < 0 {
+                    break;
+                }
+                ir = istack[jstack as usize];
+                jstack -= 1;
+                l = istack[jstack as usize];
+                jstack -= 1;
+            } else {
+                let k = (l + ir) >> 1;
+                self.swap(k, l + 1);
+                index.swap(k, l + 1);
+                if self.get(l) > self.get(ir) {
+                    self.swap(l, ir);
+                    index.swap(l, ir);
+                }
+                if self.get(l + 1) > self.get(ir) {
+                    self.swap(l + 1, ir);
+                    index.swap(l + 1, ir);
+                }
+                if self.get(l) > self.get(l + 1) {
+                    self.swap(l, l + 1);
+                    index.swap(l, l + 1);
+                }
+                let mut i = l + 1;
+                let mut j = ir;
+                let a = *self.get(l + 1);
+                let b = index[l + 1];
+                loop {
+                    loop {
+                        i += 1;
+                        if *self.get(i) >= a {
+                            break;
+                        }
+                    }
+                    loop {
+                        j -= 1;
+                        if *self.get(j) <= a {
+                            break;
+                        }
+                    }
+                    if j < i {
+                        break;
+                    }
+                    self.swap(i, j);
+                    index.swap(i, j);
+                }
+                self.set(l + 1, *self.get(j));
+                self.set(j, a);
+                index[l + 1] = index[j];
+                index[j] = b;
+                jstack += 2;
+
+                if jstack >= 64 {
+                    panic!("stack size is too small.");
+                }
+
+                if ir - i + 1 >= j - l {
+                    istack[jstack as usize] = ir;
+                    istack[jstack as usize - 1] = i;
+                    ir = j - 1;
+                } else {
+                    istack[jstack as usize] = j - 1;
+                    istack[jstack as usize - 1] = l;
+                    l = i;
+                }
+            }
+        }
+
+        index
+    }
 }
 
 pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
@@ -600,6 +708,14 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         let mut result = self.clone();
         result.neg_mut();
         result
+    }
+
+    fn argsort(&self) -> Vec<usize>
+    where
+        T: Number + PartialOrd,
+    {
+        let mut v = self.clone();
+        v.argsort_mut()
     }
 }
 
@@ -1134,6 +1250,21 @@ mod tests {
     #[should_panic]
     fn test_failed_vec_take() {
         assert_eq!(vec![1, 2, 3, 4, 5, 6].take(&[10, 4, 5]), vec![1, 5, 6]);
+    }
+
+    #[test]
+    fn vec_quicksort() {
+        let arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];
+        assert_eq!(vec![1, 2, 0, 3, 5, 7, 6, 8, 4], arr1.argsort());
+
+        let arr2 = vec![
+            0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 1.4, 1.5, 1.5, 1.3, 1.5, 1.3, 1.6,
+            1.0, 1.3, 1.4,
+        ];
+        assert_eq!(
+            vec![9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16],
+            arr2.argsort()
+        );
     }
 
     #[test]

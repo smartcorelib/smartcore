@@ -8,7 +8,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::ensemble::random_forest_regressor::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -52,8 +52,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::base::{Array1, Array2};
+use crate::num::Number;
 use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
 };
@@ -78,9 +78,10 @@ pub struct RandomForestRegressorParameters {
 /// Random Forest Regressor
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct RandomForestRegressor<T: RealNumber> {
+pub struct RandomForestRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+{
     parameters: RandomForestRegressorParameters,
-    trees: Vec<DecisionTreeRegressor<T>>,
+    trees: Vec<DecisionTreeRegressor<TX, TY, X, Y>>,
 }
 
 impl RandomForestRegressorParameters {
@@ -123,59 +124,59 @@ impl Default for RandomForestRegressorParameters {
     }
 }
 
-impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for RandomForestRegressor<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
         if self.trees.len() != other.trees.len() {
             false
         } else {
-            for i in 0..self.trees.len() {
-                if self.trees[i] != other.trees[i] {
-                    return false;
-                }
-            }
-            true
+            self.trees
+                .iter()
+                .zip(other.trees.iter())
+                .all(|(a, b)| a == b)
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>>
-    SupervisedEstimator<M, M::RowVector, RandomForestRegressorParameters>
-    for RandomForestRegressor<T>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, RandomForestRegressorParameters>
+    for RandomForestRegressor<TX, TY, X, Y>
 {
-    fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: RandomForestRegressorParameters,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: RandomForestRegressorParameters) -> Result<Self, Failed> {
         RandomForestRegressor::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestRegressor<T> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for RandomForestRegressor<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber> RandomForestRegressor<T> {
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    RandomForestRegressor<TX, TY, X, Y>
+{
     /// Build a forest of trees from the training set.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - the target class values
-    pub fn fit<M: Matrix<T>>(
-        x: &M,
-        y: &M::RowVector,
+    pub fn fit(
+        x: &X,
+        y: &Y,
         parameters: RandomForestRegressorParameters,
-    ) -> Result<RandomForestRegressor<T>, Failed> {
+    ) -> Result<RandomForestRegressor<TX, TY, X, Y>, Failed> {
         let (n_rows, num_attributes) = x.shape();
 
         let mtry = parameters
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        let mut trees: Vec<DecisionTreeRegressor<T>> = Vec::new();
+        let mut trees: Vec<DecisionTreeRegressor<TX, TY, X, Y>> = Vec::new();
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows);
+            let samples = RandomForestRegressor::<TX, TY, X, Y>::sample_with_replacement(n_rows);
             let params = DecisionTreeRegressorParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
@@ -190,28 +191,28 @@ impl<T: RealNumber> RandomForestRegressor<T> {
 
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let mut result = M::zeros(1, x.shape().0);
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let mut result = Y::zeros(x.shape().0);
 
         let (n, _) = x.shape();
 
         for i in 0..n {
-            result.set(0, i, self.predict_for_row(x, i));
+            result.set(i, self.predict_for_row(x, i));
         }
 
-        Ok(result.to_row_vector())
+        Ok(result)
     }
 
-    fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> T {
+    fn predict_for_row(&self, x: &X, row: usize) -> TY {
         let n_trees = self.trees.len();
 
-        let mut result = T::zero();
+        let mut result = TY::zero();
 
         for tree in self.trees.iter() {
             result += tree.predict_for_row(x, row);
         }
 
-        result / T::from(n_trees).unwrap()
+        result / TY::from_usize(n_trees).unwrap()
     }
 
     fn sample_with_replacement(nrows: usize) -> Vec<usize> {
@@ -228,7 +229,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -303,7 +304,7 @@ mod tests {
 
         let forest = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_forest: RandomForestRegressor<f64> =
+        let deserialized_forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
