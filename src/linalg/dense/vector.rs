@@ -75,13 +75,12 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for Vec<T> {
         vec![value; len]
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(iter: I, len: usize) -> Self
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
     where
         Self: Sized,
-        T: 'a,
     {
         let mut v: Vec<T> = Vec::with_capacity(len);
-        iter.take(len).for_each(|i| v.push(*i));
+        iter.take(len).for_each(|i| v.push(i));
         v
     }
 
@@ -258,7 +257,10 @@ mod tests {
     #[test]
     fn test_init() {
         assert_eq!(Vec::fill(3, 0), vec![0, 0, 0]);
-        assert_eq!(Vec::from_iterator([0, 1, 2, 3].iter(), 3), vec![0, 1, 2]);
+        assert_eq!(
+            Vec::from_iterator([0, 1, 2, 3].iter().cloned(), 3),
+            vec![0, 1, 2]
+        );
         assert_eq!(Vec::from_vec_slice(&[0, 1, 2]), vec![0, 1, 2]);
         assert_eq!(Vec::from_vec_slice(&[0, 1, 2, 3, 4][2..]), vec![2, 3, 4]);
         assert_eq!(Vec::from_slice(&vec![1, 2, 3, 4, 5]), vec![1, 2, 3, 4, 5]);

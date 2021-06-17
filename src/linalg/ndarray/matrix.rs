@@ -119,16 +119,8 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
         Array::from_elem([nrows, ncols], value)
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(
-        iter: I,
-        nrows: usize,
-        ncols: usize,
-        axis: u8,
-    ) -> Self
-    where
-        T: 'a,
-    {
-        let a = Array::from_iter(iter.take(nrows * ncols).map(|&v| v))
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
+        let a = Array::from_iter(iter.take(nrows * ncols))
             .into_shape((nrows, ncols))
             .unwrap();
         match axis {
@@ -276,9 +268,9 @@ mod tests {
     #[test]
     fn test_c_from_iterator() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        let a: NDArray2<i32> = Array2::from_iterator(data.iter(), 4, 3, 0);
+        let a: NDArray2<i32> = Array2::from_iterator(data.clone().into_iter(), 4, 3, 0);
         println!("{}", a);
-        let a: NDArray2<i32> = Array2::from_iterator(data.iter(), 4, 3, 1);
+        let a: NDArray2<i32> = Array2::from_iterator(data.into_iter(), 4, 3, 1);
         println!("{}", a);
     }
 }

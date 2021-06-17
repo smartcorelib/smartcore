@@ -189,15 +189,7 @@ impl<T: Debug + Display + Copy + Sized + Scalar> Array2<T>
         Self::from_element(nrows, ncols, value)
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(
-        iter: I,
-        nrows: usize,
-        ncols: usize,
-        axis: u8,
-    ) -> Self
-    where
-        T: 'a,
-    {
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
         match axis {
             0 => unsafe {
                 let mut m =
@@ -205,10 +197,10 @@ impl<T: Debug + Display + Copy + Sized + Scalar> Array2<T>
                 (0..nrows)
                     .flat_map(move |r| (0..ncols).map(move |c| (r, c)))
                     .zip(iter)
-                    .for_each(|((r, c), v)| m[(r, c)] = *v);
+                    .for_each(|((r, c), v)| m[(r, c)] = v);
                 m
             },
-            _ => Self::from_iterator(nrows, ncols, iter.take(nrows * ncols).map(|&v| v)),
+            _ => Self::from_iterator(nrows, ncols, iter.take(nrows * ncols)),
         }
     }
 
@@ -298,9 +290,9 @@ mod tests {
     #[test]
     fn test_c_from_iterator() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        let a: DMatrix<i32> = Array2::from_iterator(data.iter(), 4, 3, 0);
+        let a: DMatrix<i32> = Array2::from_iterator(data.clone().into_iter(), 4, 3, 0);
         println!("{}", a);
-        let a: DMatrix<i32> = Array2::from_iterator(data.iter(), 4, 3, 1);
+        let a: DMatrix<i32> = Array2::from_iterator(data.into_iter(), 4, 3, 1);
         println!("{}", a);
     }
 

@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use std::ops::Neg;
 use std::ops::Range;
 
-use crate::num::Number;
+use crate::num::{FloatNumber, Number};
 use num_traits::Signed;
 
 pub trait Array<T: Debug + Display + Copy + Sized, S>: Debug {
@@ -589,9 +589,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
 
     fn fill(len: usize, value: T) -> Self;
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(iter: I, len: usize) -> Self
-    where
-        T: 'a;
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self;
 
     fn from_vec_slice(slice: &[T]) -> Self;
 
@@ -608,6 +606,13 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         T: Number,
     {
         Self::fill(len, T::one())
+    }
+
+    fn rand(len: usize) -> Self
+    where
+        T: FloatNumber,
+    {
+        Self::from_iterator((0..len).map(|_| T::rand()), len)
     }
 
     fn add_scalar(&self, x: T) -> Self
@@ -689,7 +694,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
             "All indices in `take` should be < {}",
             len
         );
-        Self::from_iterator(index.iter().map(move |&i| self.get(i)), index.len())
+        Self::from_iterator(index.iter().map(move |&i| *self.get(i)), index.len())
     }
 
     fn abs(&self) -> Self
@@ -734,14 +739,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     where
         Self: Sized;
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(
-        iter: I,
-        nrows: usize,
-        ncols: usize,
-        axis: u8,
-    ) -> Self
-    where
-        T: 'a;
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self;
 
     fn get_row<'a>(&'a self, row: usize) -> Box<dyn ArrayView1<T> + 'a>
     where
@@ -765,19 +763,26 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         Self::fill(nrows, ncols, T::one())
     }
 
+    fn rand(nrows: usize, ncols: usize) -> Self
+    where
+        T: FloatNumber,
+    {
+        Self::from_iterator((0..nrows * ncols).map(|_| T::rand()), nrows, ncols, 0)
+    }
+
     fn from_slice(slice: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = slice.shape();
-        Self::from_iterator(slice.iterator(0), nrows, ncols, 0)
+        Self::from_iterator(slice.iterator(0).cloned(), nrows, ncols, 0)
     }
 
     fn from_row(slice: &dyn ArrayView1<T>) -> Self {
         let ncols = slice.shape();
-        Self::from_iterator(slice.iterator(0), 1, ncols, 0)
+        Self::from_iterator(slice.iterator(0).cloned(), 1, ncols, 0)
     }
 
     fn from_column(slice: &dyn ArrayView1<T>) -> Self {
         let nrows = slice.shape();
-        Self::from_iterator(slice.iterator(0), nrows, 1, 0)
+        Self::from_iterator(slice.iterator(0).cloned(), nrows, 1, 0)
     }
 
     fn transpose(&self) -> Self {
@@ -803,7 +808,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             ncols
         );
 
-        Self::from_iterator(self.iterator(0), nrows, ncols, axis)
+        Self::from_iterator(self.iterator(0).cloned(), nrows, ncols, axis)
     }
 
     fn matmul(&self, other: &dyn ArrayView2<T>) -> Self
@@ -847,17 +852,21 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         match axis {
             0 => Self::from_iterator(
-                tail.iter().fold(first.iterator(0), |acc, i| {
-                    Box::new(acc.chain(i.iterator(0)))
-                }),
+                tail.iter()
+                    .fold(first.iterator(0), |acc, i| {
+                        Box::new(acc.chain(i.iterator(0)))
+                    })
+                    .cloned(),
                 arrays.len(),
                 arrays[0].shape(),
                 axis,
             ),
             _ => Self::from_iterator(
-                tail.iter().fold(first.iterator(0), |acc, i| {
-                    Box::new(acc.chain(i.iterator(0)))
-                }),
+                tail.iter()
+                    .fold(first.iterator(0), |acc, i| {
+                        Box::new(acc.chain(i.iterator(0)))
+                    })
+                    .cloned(),
                 arrays[0].shape(),
                 arrays.len(),
                 axis,
@@ -893,9 +902,11 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                     arrays[0].shape().1,
                 );
                 Self::from_iterator(
-                    tail.iter().fold(first.iterator(0), |acc, i| {
-                        Box::new(acc.chain(i.iterator(0)))
-                    }),
+                    tail.iter()
+                        .fold(first.iterator(0), |acc, i| {
+                            Box::new(acc.chain(i.iterator(0)))
+                        })
+                        .cloned(),
                     nrows,
                     ncols,
                     axis,
@@ -907,9 +918,11 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                     (arrays.iter().map(|a| a.shape().1).sum()),
                 );
                 Self::from_iterator(
-                    tail.iter().fold(first.iterator(1), |acc, i| {
-                        Box::new(acc.chain(i.iterator(1)))
-                    }),
+                    tail.iter()
+                        .fold(first.iterator(1), |acc, i| {
+                            Box::new(acc.chain(i.iterator(1)))
+                        })
+                        .cloned(),
                     nrows,
                     ncols,
                     axis,
@@ -940,7 +953,8 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                     self.iterator(0)
                         .chain(tail.iter().fold(first.iterator(0), |acc, i| {
                             Box::new(acc.chain(i.iterator(0)))
-                        })),
+                        }))
+                        .cloned(),
                     nrows,
                     ncols,
                     axis,
@@ -952,7 +966,8 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                     self.iterator(1)
                         .chain(tail.iter().fold(first.iterator(0), |acc, i| {
                             Box::new(acc.chain(i.iterator(0)))
-                        })),
+                        }))
+                        .cloned(),
                     nrows,
                     ncols,
                     axis,
@@ -965,7 +980,8 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                         .fold(first.iterator(0), |acc, i| {
                             Box::new(acc.chain(i.iterator(0)))
                         })
-                        .chain(self.iterator(0)),
+                        .chain(self.iterator(0))
+                        .cloned(),
                     nrows,
                     ncols,
                     axis,
@@ -978,7 +994,8 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                         .fold(first.iterator(0), |acc, i| {
                             Box::new(acc.chain(i.iterator(0)))
                         })
-                        .chain(self.iterator(1)),
+                        .chain(self.iterator(1))
+                        .cloned(),
                     nrows,
                     ncols,
                     axis,
@@ -1008,7 +1025,8 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                 Self::from_iterator(
                     index
                         .iter()
-                        .flat_map(move |&r| (0..ncols).map(move |c| self.get((r, c)))),
+                        .flat_map(move |&r| (0..ncols).map(move |c| self.get((r, c))))
+                        .cloned(),
                     index.len(),
                     ncols,
                     0,
@@ -1021,7 +1039,9 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                     ncols
                 );
                 Self::from_iterator(
-                    (0..nrows).flat_map(move |r| index.iter().map(move |&c| self.get((r, c)))),
+                    (0..nrows)
+                        .flat_map(move |r| index.iter().map(move |&c| self.get((r, c))))
+                        .cloned(),
                     nrows,
                     index.len(),
                     0,
@@ -1244,6 +1264,14 @@ mod tests {
     #[test]
     fn test_vec_take() {
         assert_eq!(vec![1, 2, 3, 4, 5, 6].take(&[0, 4, 5]), vec![1, 5, 6]);
+    }
+
+    #[test]
+    fn test_vec_rand() {
+        let r = Vec::<f32>::rand(4);
+        assert!(r.iterator(0).all(|&e| e <= 1f32));
+        assert!(r.iterator(0).all(|&e| e >= 0f32));
+        assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
     }
 
     #[test]
@@ -1470,5 +1498,13 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).div_scalar(2),
             DenseMatrix::from_2d_array(&[&[0, 1], &[1, 2]])
         );
+    }
+
+    #[test]
+    fn test_rand() {
+        let r = DenseMatrix::<f32>::rand(2, 2);
+        assert!(r.iterator(0).all(|&e| e <= 1f32));
+        assert!(r.iterator(0).all(|&e| e >= 0f32));
+        assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
     }
 }

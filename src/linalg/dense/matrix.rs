@@ -374,19 +374,11 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
         DenseMatrix::new(nrows, ncols, vec![value; nrows * ncols], true)
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(
-        iter: I,
-        nrows: usize,
-        ncols: usize,
-        axis: u8,
-    ) -> Self
-    where
-        T: 'a,
-    {
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
         DenseMatrix::new(
             nrows,
             ncols,
-            iter.map(|&x| x).collect(),
+            iter.collect(),
             if axis == 0 { false } else { true },
         )
     }

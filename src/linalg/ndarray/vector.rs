@@ -116,12 +116,11 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix
         Array::from_elem(len, value)
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(iter: I, len: usize) -> Self
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
     where
         Self: Sized,
-        T: 'a,
     {
-        Array::from_iter(iter.take(len).map(|&v| v))
+        Array::from_iter(iter.take(len))
     }
 
     fn from_vec_slice(slice: &[T]) -> Self {

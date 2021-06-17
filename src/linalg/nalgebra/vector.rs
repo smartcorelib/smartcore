@@ -258,12 +258,11 @@ impl<T: Debug + Display + Copy + Sized + Scalar> Array1<T>
         Self::from_element(len, value)
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(iter: I, len: usize) -> Self
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
     where
         Self: Sized,
-        T: 'a,
     {
-        Self::from_iterator(len, iter.map(|&v| v))
+        Self::from_iterator(len, iter)
     }
 
     fn from_vec_slice(slice: &[T]) -> Self {
@@ -300,12 +299,11 @@ impl<T: Debug + Display + Copy + Sized + Scalar> Array1<T>
         Self::from_element(len, value)
     }
 
-    fn from_iterator<'a, I: Iterator<Item = &'a T>>(iter: I, len: usize) -> Self
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
     where
         Self: Sized,
-        T: 'a,
     {
-        Self::from_iterator(len, iter.map(|&v| v))
+        Self::from_iterator(len, iter)
     }
 
     fn from_vec_slice(slice: &[T]) -> Self {
@@ -373,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_from_iterator() {
-        let x: RowDVector<i32> = Array1::from_iterator(vec![1, 2, 3].iter(), 3);
+        let x: RowDVector<i32> = Array1::from_iterator(vec![1, 2, 3].into_iter(), 3);
         assert_eq!(x, RowDVector::from_vec(vec![1, 2, 3]));
     }
 
