@@ -36,12 +36,15 @@
 
 pub mod base;
 pub mod cholesky;
+pub mod cholesky_n;
 pub mod dense;
 /// The matrix is represented in terms of its eigenvalues and eigenvectors.
 pub mod evd;
+pub mod evd_n;
 pub mod high_order;
 /// Factors a matrix as the product of a lower triangular matrix and an upper triangular matrix.
 pub mod lu;
+pub mod lu_n;
 /// Dense matrix with column-major order that wraps [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html).
 pub mod naive;
 #[cfg(feature = "nalgebra-bindings")]
@@ -56,9 +59,11 @@ pub mod ndarray;
 pub mod ndarray_bindings;
 /// QR factorization that factors a matrix into a product of an orthogonal matrix and an upper triangular matrix.
 pub mod qr;
+pub mod qr_n;
 pub mod stats;
 /// Singular value decomposition.
 pub mod svd;
+pub mod svd_n;
 
 use std::fmt::{Debug, Display};
 use std::marker::PhantomData;

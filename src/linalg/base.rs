@@ -763,6 +763,19 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         Self::fill(nrows, ncols, T::one())
     }
 
+    fn eye(size: usize) -> Self
+    where
+        T: Number,
+    {
+        let mut matrix = Self::zeros(size, size);
+
+        for i in 0..size {
+            matrix.set((i, i), T::one());
+        }
+
+        matrix
+    }
+
     fn rand(nrows: usize, ncols: usize) -> Self
     where
         T: FloatNumber,
@@ -1359,6 +1372,10 @@ mod tests {
         assert_eq!(
             DenseMatrix::<i32>::ones(2, 2),
             DenseMatrix::from_2d_array(&[&[1, 1], &[1, 1]])
+        );
+        assert_eq!(
+            DenseMatrix::<i32>::eye(3),
+            DenseMatrix::from_2d_array(&[&[1, 0, 0], &[0, 1, 0], &[0, 0, 1]])
         );
         assert_eq!(
             DenseMatrix::from_slice(x.slice(0..2, 0..2).as_ref()),
