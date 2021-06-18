@@ -6,13 +6,13 @@ use approx::{AbsDiffEq, RelativeEq};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::num::FloatNumber;
 use crate::linalg::base::{Array, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
 use crate::linalg::cholesky_n::CholeskyDecomposableMatrix;
 use crate::linalg::evd_n::EVDDecomposableMatrix;
 use crate::linalg::lu_n::LUDecomposableMatrix;
 use crate::linalg::qr_n::QRDecomposableMatrix;
 use crate::linalg::svd_n::SVDDecomposableMatrix;
-use crate::num::FloatNumber;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DenseMatrix<T> {

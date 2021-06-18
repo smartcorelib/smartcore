@@ -6,6 +6,13 @@ use crate::linalg::base::{
     Array as BaseArray, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
 };
 
+use crate::num::FloatNumber;
+use crate::linalg::cholesky_n::CholeskyDecomposableMatrix;
+use crate::linalg::evd_n::EVDDecomposableMatrix;
+use crate::linalg::lu_n::LUDecomposableMatrix;
+use crate::linalg::qr_n::QRDecomposableMatrix;
+use crate::linalg::svd_n::SVDDecomposableMatrix;
+
 use ndarray::ScalarOperand;
 use ndarray::{
     concatenate, s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix1, Ix2, OwnedRepr,
@@ -133,6 +140,12 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
         self.t().to_owned()
     }
 }
+
+impl<T: FloatNumber> QRDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: FloatNumber> CholeskyDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: FloatNumber> EVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: FloatNumber> LUDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: FloatNumber> SVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
 impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayView<'a, T, Ix2> {}
 
