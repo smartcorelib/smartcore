@@ -114,7 +114,7 @@ impl<T: FloatNumber, M: Array2<T>> Cholesky<T, M> {
 }
 
 /// Trait that implements Cholesky decomposition routine for any matrix.
-pub trait CholeskyDecomposableMatrix<T: FloatNumber>: Array2<T> {
+pub trait CholeskyDecomposable<T: FloatNumber>: Array2<T> {
     /// Compute the Cholesky decomposition of a matrix.
     fn cholesky(&self) -> Result<Cholesky<T, Self>, Failed> {
         self.clone().cholesky_mut()

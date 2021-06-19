@@ -52,7 +52,7 @@ pub struct EVD<T: FloatNumber, M: Array2<T>> {
 }
 
 /// Trait that implements EVD decomposition routine for any matrix.
-pub trait EVDDecomposableMatrix<T: FloatNumber>: Array2<T> {
+pub trait EVDDecomposable<T: FloatNumber>: Array2<T> {
     /// Compute the eigen decomposition of a square matrix.
     /// * `symmetric` - whether the matrix is symmetric
     fn evd(&self, symmetric: bool) -> Result<EVD<T, Self>, Failed> {

@@ -40,7 +40,7 @@ use std::fmt::Debug;
 
 /// Results of SVD decomposition
 #[derive(Debug, Clone)]
-pub struct SVD<T: FloatNumber, M: SVDDecomposableMatrix<T>> {
+pub struct SVD<T: FloatNumber, M: SVDDecomposable<T>> {
     /// Left-singular vectors of _A_
     pub U: M,
     /// Right-singular vectors of _A_
@@ -53,7 +53,7 @@ pub struct SVD<T: FloatNumber, M: SVDDecomposableMatrix<T>> {
     tol: T,
 }
 
-impl<T: FloatNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
+impl<T: FloatNumber, M: SVDDecomposable<T>> SVD<T, M> {
     /// Diagonal matrix with singular values
     pub fn S(&self) -> M {
         let mut s = M::zeros(self.U.shape().1, self.V.shape().0);
@@ -67,7 +67,7 @@ impl<T: FloatNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
 }
 
 /// Trait that implements SVD decomposition routine for any matrix.
-pub trait SVDDecomposableMatrix<T: FloatNumber>: Array2<T> {
+pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
     /// Solves Ax = b. Overrides original matrix in the process.
     fn svd_solve_mut(self, b: Self) -> Result<Self, Failed> {
         self.svd_mut().and_then(|svd| svd.solve(b))
@@ -424,7 +424,7 @@ pub trait SVDDecomposableMatrix<T: FloatNumber>: Array2<T> {
     }
 }
 
-impl<T: FloatNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
+impl<T: FloatNumber, M: SVDDecomposable<T>> SVD<T, M> {
     pub(crate) fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;

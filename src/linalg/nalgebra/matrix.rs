@@ -1,13 +1,13 @@
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
-use crate::num::FloatNumber;
 use crate::linalg::base::{Array, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
-use crate::linalg::cholesky_n::CholeskyDecomposableMatrix;
-use crate::linalg::evd_n::EVDDecomposableMatrix;
-use crate::linalg::lu_n::LUDecomposableMatrix;
-use crate::linalg::qr_n::QRDecomposableMatrix;
-use crate::linalg::svd_n::SVDDecomposableMatrix;
+use crate::linalg::cholesky_n::CholeskyDecomposable;
+use crate::linalg::evd_n::EVDDecomposable;
+use crate::linalg::lu_n::LUDecomposable;
+use crate::linalg::qr_n::QRDecomposable;
+use crate::linalg::svd_n::SVDDecomposable;
+use crate::num::FloatNumber;
 
 use nalgebra::{Dim, Dynamic, Matrix, MatrixSlice, MatrixSliceMut, Scalar, VecStorage};
 
@@ -215,16 +215,31 @@ impl<T: Debug + Display + Copy + Sized + Scalar> Array2<T>
     }
 }
 
-impl<T: FloatNumber + Scalar> QRDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>> {}
-impl<T: FloatNumber + Scalar> CholeskyDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>> {}
-impl<T: FloatNumber + Scalar> EVDDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>> {}
-impl<T: FloatNumber + Scalar> LUDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>> {}
-impl<T: FloatNumber + Scalar> SVDDecomposableMatrix<T> for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>> {}
+impl<T: FloatNumber + Scalar> QRDecomposable<T>
+    for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+impl<T: FloatNumber + Scalar> CholeskyDecomposable<T>
+    for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+impl<T: FloatNumber + Scalar> EVDDecomposable<T>
+    for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+impl<T: FloatNumber + Scalar> LUDecomposable<T>
+    for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
+impl<T: FloatNumber + Scalar> SVDDecomposable<T>
+    for Matrix<T, Dynamic, Dynamic, VecStorage<T, Dynamic, Dynamic>>
+{
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::{DMatrix, Matrix2x3, RowDVector};    
+    use nalgebra::{DMatrix, Matrix2x3, RowDVector};
 
     #[test]
     fn test_get_set() {

@@ -191,7 +191,7 @@ impl<T: FloatNumber, M: Array2<T>> LU<T, M> {
 }
 
 /// Trait that implements LU decomposition routine for any matrix.
-pub trait LUDecomposableMatrix<T: FloatNumber>: Array2<T> {
+pub trait LUDecomposable<T: FloatNumber>: Array2<T> {
     /// Compute the LU decomposition of a square matrix.
     fn lu(&self) -> Result<LU<T, Self>, Failed> {
         self.clone().lu_mut()

@@ -6,13 +6,13 @@ use approx::{AbsDiffEq, RelativeEq};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::num::FloatNumber;
 use crate::linalg::base::{Array, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
-use crate::linalg::cholesky_n::CholeskyDecomposableMatrix;
-use crate::linalg::evd_n::EVDDecomposableMatrix;
-use crate::linalg::lu_n::LUDecomposableMatrix;
-use crate::linalg::qr_n::QRDecomposableMatrix;
-use crate::linalg::svd_n::SVDDecomposableMatrix;
+use crate::linalg::cholesky_n::CholeskyDecomposable;
+use crate::linalg::evd_n::EVDDecomposable;
+use crate::linalg::lu_n::LUDecomposable;
+use crate::linalg::qr_n::QRDecomposable;
+use crate::linalg::svd_n::SVDDecomposable;
+use crate::num::FloatNumber;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DenseMatrix<T> {
@@ -397,11 +397,11 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatNumber> QRDecomposableMatrix<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> CholeskyDecomposableMatrix<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> EVDDecomposableMatrix<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> LUDecomposableMatrix<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> SVDDecomposableMatrix<T> for DenseMatrix<T> {}
+impl<T: FloatNumber> QRDecomposable<T> for DenseMatrix<T> {}
+impl<T: FloatNumber> CholeskyDecomposable<T> for DenseMatrix<T> {}
+impl<T: FloatNumber> EVDDecomposable<T> for DenseMatrix<T> {}
+impl<T: FloatNumber> LUDecomposable<T> for DenseMatrix<T> {}
+impl<T: FloatNumber> SVDDecomposable<T> for DenseMatrix<T> {}
 
 impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixView<'a, T> {
     fn get(&self, pos: (usize, usize)) -> &T {

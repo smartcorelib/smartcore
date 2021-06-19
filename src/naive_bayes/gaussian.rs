@@ -143,7 +143,14 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
 
         let subdataset: Vec<X> = subdataset
             .iter()
-            .map(|v| X::cancatenate_1d(&v, 0))
+            .map(|v| {
+                X::concatenate_1d(
+                    &v.iter()
+                        .map(|v| v.as_ref())
+                        .collect::<Vec<&dyn ArrayView1<TX>>>(),
+                    0,
+                )
+            })
             .collect();
 
         println!("{:?}", subdataset);

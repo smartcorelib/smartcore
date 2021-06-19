@@ -141,7 +141,7 @@ impl<T: FloatNumber, M: Array2<T>> QR<T, M> {
 }
 
 /// Trait that implements QR decomposition routine for any matrix.
-pub trait QRDecomposableMatrix<T: FloatNumber>: Array2<T> {
+pub trait QRDecomposable<T: FloatNumber>: Array2<T> {
     /// Compute the QR decomposition of a matrix.
     fn qr(&self) -> Result<QR<T, Self>, Failed> {
         self.clone().qr_mut()

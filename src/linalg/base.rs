@@ -593,7 +593,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
 
     fn from_vec_slice(slice: &[T]) -> Self;
 
-    fn from_slice(slice: &dyn ArrayView1<T>) -> Self;
+    fn from_slice<'a>(slice: &'a dyn ArrayView1<T>) -> Self;
 
     fn zeros(len: usize) -> Self
     where
@@ -849,7 +849,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result
     }
 
-    fn cancatenate_1d<'a>(arrays: &'a [Box<dyn ArrayView1<T> + 'a>], axis: u8) -> Self {
+    fn concatenate_1d<'a>(arrays: &'a [&'a dyn ArrayView1<T>], axis: u8) -> Self {
         assert!(
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
@@ -887,7 +887,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
     }
 
-    fn cancatenate_2d<'a>(arrays: &'a [Box<dyn ArrayView2<T> + 'a>], axis: u8) -> Self {
+    fn concatenate_2d<'a>(arrays: &'a [&'a dyn ArrayView2<T>], axis: u8) -> Self {
         assert!(
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
@@ -944,12 +944,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
     }
 
-    fn merge_1d<'a>(
-        &'a self,
-        arrays: &[Box<dyn ArrayView1<T> + 'a>],
-        axis: u8,
-        append: bool,
-    ) -> Self {
+    fn merge_1d<'a>(&'a self, arrays: &'a [&'a dyn ArrayView1<T>], axis: u8, append: bool) -> Self {
         assert!(
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
@@ -1015,6 +1010,38 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                 )
             }
         }
+    }
+
+    fn v_stack(&self, other: &dyn ArrayView2<T>) -> Self {
+        let (nrows, ncols) = self.shape();
+        let (other_nrows, other_ncols) = other.shape();
+
+        assert!(
+            ncols == other_ncols,
+            "For vertical stack number of rows in both arrays should match"
+        );
+        Self::from_iterator(
+            self.iterator(0).chain(other.iterator(0)).cloned(),
+            nrows + other_nrows,
+            ncols,
+            0,
+        )
+    }
+
+    fn h_stack(&self, other: &dyn ArrayView2<T>) -> Self {
+        let (nrows, ncols) = self.shape();
+        let (other_nrows, other_ncols) = other.shape();
+
+        assert!(
+            nrows == other_nrows,
+            "For horizontal stack number of rows in both arrays should match"
+        );
+        Self::from_iterator(
+            self.iterator(1).chain(other.iterator(1)).cloned(),
+            nrows,
+            other_ncols + ncols,
+            1,
+        )
     }
 
     fn row_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
@@ -1443,19 +1470,19 @@ mod tests {
         let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]);
 
         assert_eq!(
-            DenseMatrix::cancatenate_1d(&[Box::new(vec!(1, 2, 3)), Box::new(vec!(4, 5, 6))], 0),
+            DenseMatrix::concatenate_1d(&[&vec!(1, 2, 3), &vec!(4, 5, 6)], 0),
             DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
         );
         assert_eq!(
-            DenseMatrix::cancatenate_1d(&[Box::new(vec!(1, 2)), Box::new(vec!(3, 4))], 1),
+            DenseMatrix::concatenate_1d(&[&vec!(1, 2), &vec!(3, 4)], 1),
             DenseMatrix::from_2d_array(&[&[1, 3], &[2, 4]])
         );
         assert_eq!(
-            DenseMatrix::cancatenate_2d(&[Box::new(a.clone()), Box::new(b.clone())], 0),
+            DenseMatrix::concatenate_2d(&[&a.clone(), &b.clone()], 0),
             DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]])
         );
         assert_eq!(
-            DenseMatrix::cancatenate_2d(&[Box::new(a), Box::new(b)], 1),
+            DenseMatrix::concatenate_2d(&[&a, &b], 1),
             DenseMatrix::from_2d_array(&[&[1, 2, 5, 6], &[3, 4, 7, 8]])
         );
     }
@@ -1481,19 +1508,19 @@ mod tests {
 
         assert_eq!(
             DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]),
-            a.merge_1d(&[Box::new(vec!(5, 6)), Box::new(vec!(7, 8))], 0, true)
+            a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 0, true)
         );
         assert_eq!(
             DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8], &[1, 2], &[3, 4]]),
-            a.merge_1d(&[Box::new(vec!(5, 6)), Box::new(vec!(7, 8))], 0, false)
+            a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 0, false)
         );
         assert_eq!(
             DenseMatrix::from_2d_array(&[&[1, 2, 5, 7], &[3, 4, 6, 8]]),
-            a.merge_1d(&[Box::new(vec!(5, 6)), Box::new(vec!(7, 8))], 1, true)
+            a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 1, true)
         );
         assert_eq!(
             DenseMatrix::from_2d_array(&[&[5, 7, 1, 2], &[6, 8, 3, 4]]),
-            a.merge_1d(&[Box::new(vec!(5, 6)), Box::new(vec!(7, 8))], 1, false)
+            a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 1, false)
         );
     }
 
@@ -1523,5 +1550,30 @@ mod tests {
         assert!(r.iterator(0).all(|&e| e <= 1f32));
         assert!(r.iterator(0).all(|&e| e >= 0f32));
         assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
+    }
+
+    #[test]
+    fn test_vstack() {
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
+        let b = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let expected = DenseMatrix::from_2d_array(&[
+            &[1, 2, 3],
+            &[4, 5, 6],
+            &[7, 8, 9],
+            &[1, 2, 3],
+            &[4, 5, 6],
+        ]);
+        let result = a.v_stack(&b);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_hstack() {
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let expected =
+            DenseMatrix::from_2d_array(&[&[1, 2, 3, 1, 2], &[4, 5, 6, 3, 4], &[7, 8, 9, 5, 6]]);
+        let result = a.h_stack(&b);
+        assert_eq!(result, expected);
     }
 }
