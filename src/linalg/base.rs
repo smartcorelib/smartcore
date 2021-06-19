@@ -282,6 +282,13 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     {
         self.var().sqrt()
     }
+
+    fn mean(&self) -> f64
+    where
+        T: Number,
+    {
+        self.sum().to_f64().unwrap() / self.shape() as f64
+    }
 }
 
 pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)> {
@@ -580,6 +587,28 @@ pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
+
+    fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8)
+    where
+        T: Number,
+    {
+        let (n, m) = match axis {
+            0 => {
+                let (n, m) = self.shape();
+                (m, n)
+            }
+            _ => self.shape(),
+        };
+
+        for i in 0..n {
+            for j in 0..m {
+                match axis {
+                    0 => self.set((j, i), (*self.get((j, i)) - mean[i]) / std[i]),
+                    _ => self.set((i, j), (*self.get((i, j)) - mean[i]) / std[i]),
+                }
+            }
+        }
+    }
 }
 
 pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + Clone {
@@ -721,6 +750,11 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         let mut v = self.clone();
         v.argsort_mut()
+    }
+
+    fn map<O: Debug + Display + Copy + Sized, A: Array1<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
+        let len = self.shape();
+        A::from_iterator(self.iterator(0).map(f), len)
     }
 }
 
@@ -1044,6 +1078,11 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         )
     }
 
+    fn map<O: Debug + Display + Copy + Sized, A: Array2<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
+        let (nrows, ncols) = self.shape();
+        A::from_iterator(self.iterator(0).map(f), nrows, ncols, 0)
+    }
+
     fn row_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
         Box::new((0..self.shape().0).map(move |r| self.get_row(r)))
     }
@@ -1185,6 +1224,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
+    use approx::relative_eq;
 
     #[test]
     fn test_dot() {
@@ -1321,7 +1361,7 @@ mod tests {
     }
 
     #[test]
-    fn vec_quicksort() {
+    fn test_vec_quicksort() {
         let arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];
         assert_eq!(vec![1, 2, 0, 3, 5, 7, 6, 8, 4], arr1.argsort());
 
@@ -1333,6 +1373,21 @@ mod tests {
             vec![9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16],
             arr2.argsort()
         );
+    }
+
+    #[test]
+    fn test_vec_map() {
+        let a = vec![1.0, 2.0, 3.0, 4.0];
+        let expected = vec![2, 4, 6, 8];
+        let result: Vec<i32> = a.map(|&v| v as i32 * 2);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_vec_mean() {
+        let m = vec![1, 2, 3];
+
+        assert_eq!(m.mean(), 2.0);
     }
 
     #[test]
@@ -1575,5 +1630,29 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[1, 2, 3, 1, 2], &[4, 5, 6, 3, 4], &[7, 8, 9, 5, 6]]);
         let result = a.h_stack(&b);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_map() {
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]);
+        let result: DenseMatrix<f64> = a.map(|&v| v as f64);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn scale() {
+        let mut m = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        let expected_0 = DenseMatrix::from_2d_array(&[&[-1., -1., -1.], &[1., 1., 1.]]);
+        let expected_1 = DenseMatrix::from_2d_array(&[&[-1.22, 0.0, 1.22], &[-1.22, 0.0, 1.22]]);
+
+        {
+            let mut m = m.clone();
+            m.scale_mut(&m.mean(0), &m.std(0), 0);
+            assert!(relative_eq!(m, expected_0));
+        }
+
+        m.scale_mut(&m.mean(1), &m.std(1), 1);
+        assert!(relative_eq!(m, expected_1, epsilon = 1e-2));
     }
 }

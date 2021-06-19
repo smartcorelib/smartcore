@@ -2,7 +2,7 @@
 //! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
-use num_traits::{Bounded, Float, FromPrimitive, Num, ToPrimitive};
+use num_traits::{Bounded, Float, FromPrimitive, Num, NumCast, ToPrimitive};
 use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
@@ -22,6 +22,7 @@ pub trait Number:
     + MulAssign
     + DivAssign
     + Bounded
+    + NumCast
 {
 }
 

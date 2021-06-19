@@ -71,7 +71,7 @@ use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
 use crate::linalg::qr_n::QRDecomposable;
 use crate::linalg::svd_n::SVDDecomposable;
-use crate::num::FloatNumber;
+use crate::num::{FloatNumber, Number};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -95,13 +95,15 @@ pub struct LinearRegressionParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct LinearRegression<
-    T: FloatNumber,
-    X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>,
-    Y: Array1<T>,
+    TX: FloatNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
 > {
     coefficients: X,
-    intercept: T,
+    intercept: TX,
     solver: LinearRegressionSolverName,
+    _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
 
@@ -121,37 +123,54 @@ impl Default for LinearRegressionParameters {
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: Array1<T>> PartialEq
-    for LinearRegression<T, X, Y>
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > PartialEq for LinearRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.coefficients().shape() == other.coefficients().shape()
+        self.intercept == other.intercept
+            && self.coefficients.shape() == other.coefficients.shape()
             && self
                 .coefficients
                 .iterator(0)
-                .zip(other.coefficients().iterator(0))
-                .all(|(&a, &b)| (a - b).abs() <= T::epsilon())
+                .zip(other.coefficients.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: Array1<T>>
-    SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<T, X, Y>
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
 {
     fn fit(x: &X, y: &Y, parameters: LinearRegressionParameters) -> Result<Self, Failed> {
         LinearRegression::fit(x, y, parameters)
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: Array1<T>>
-    Predictor<X, Y> for LinearRegression<T, X, Y>
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > Predictor<X, Y> for LinearRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: Array1<T>>
-    LinearRegression<T, X, Y>
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > LinearRegression<TX, TY, X, Y>
 {
     /// Fits Linear Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
@@ -161,8 +180,13 @@ impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: A
         x: &X,
         y: &Y,
         parameters: LinearRegressionParameters,
-    ) -> Result<LinearRegression<T, X, Y>, Failed> {
-        let b = X::from_column(y);
+    ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
+        let b = X::from_iterator(
+            y.iterator(0).map(|&v| TX::from(v).unwrap()),
+            y.shape(),
+            1,
+            0,
+        );
         let (x_nrows, num_attributes) = x.shape();
         let (y_nrows, _) = b.shape();
 
@@ -185,6 +209,7 @@ impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: A
             intercept: *w.get((num_attributes, 0)),
             coefficients: wights,
             solver: parameters.solver,
+            _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
     }
@@ -196,8 +221,10 @@ impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: A
         let bias = X::fill(nrows, 1, self.intercept);
         let mut y_hat = x.matmul(&self.coefficients);
         y_hat.add_mut(&bias);
-        let y_hat = y_hat.get_col(0);
-        Ok(Y::from_slice(y_hat.as_ref()))
+        Ok(Y::from_iterator(
+            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 
     /// Get estimates regression coefficients
@@ -206,7 +233,7 @@ impl<T: FloatNumber, X: Array2<T> + QRDecomposable<T> + SVDDecomposable<T>, Y: A
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> T {
+    pub fn intercept(&self) -> TX {
         self.intercept
     }
 }
@@ -297,7 +324,7 @@ mod tests {
 
         let lr = LinearRegression::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: LinearRegression<f64, DenseMatrix<f64>, Vec<f64>> =
+        let deserialized_lr: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);
