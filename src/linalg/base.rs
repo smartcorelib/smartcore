@@ -197,6 +197,18 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
             .fold(T::max_value(), |max, x| min_f(max, x))
     }
 
+    fn argmax(&self) -> usize where T: Number + PartialOrd {                
+        let mut max = T::min_value();
+        let mut max_pos = 0usize;
+        for (i, v) in self.iterator(0).enumerate() {
+            if T::gt(&v, &max) {
+                max = *v;
+                max_pos = i;
+            }
+        }
+        max_pos
+    }
+
     fn unique(&self) -> Vec<T>
     where
         T: Number + Ord,
@@ -256,6 +268,17 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
 
             norm.powf(1f64 / p)
         }
+    }
+
+    fn max_diff(&self, other: &dyn ArrayView1<T>) -> T where T: Number + Signed + PartialOrd {
+        assert!(self.shape() == other.shape(), "Both arrays should have the same shape ({})", self.shape());
+        let max_f = |max: T, v: T| -> T { 
+            match T::gt(&v, &max) {
+                true => v,
+                _ => max,
+            }
+        };
+        self.iterator(0).zip(other.iterator(0)).map(|(&a, &b)| (a - b).abs()).fold(T::min_value(), |max, x| max_f(max, x))
     }
 
     fn var(&self) -> f64
@@ -348,6 +371,20 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
             _ => (0..nrows)
                 .map(move |r| (0..ncols).fold(T::max_value(), |min, c| min_f(min, r, c)))
                 .collect(),
+        }
+    }
+
+    fn argmax(&self, axis: u8) -> Vec<usize> where T: Number + PartialOrd {        
+        let max_f = |max: (T, usize), v: (T, usize)| -> (T, usize) {             
+            match T::gt(&v.0, &max.0) {
+                true => v,
+                _ => max,
+            }
+        };
+        let (nrows, ncols) = self.shape();        
+        match axis {
+            0 => (0..ncols).map(move |c| (0..nrows).fold((T::min_value(), 0), |max, r| max_f(max, (*self.get((r, c)), r)))).map(|(_, i)| i).collect(),
+            _ => (0..nrows).map(move |r| (0..ncols).fold((T::min_value(), 0), |max, c| max_f(max, (*self.get((r, c)), c)))).map(|(_, i)| i).collect()
         }
     }
 
@@ -465,6 +502,10 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
 
+    fn pow_mut(&mut self, p: T) where T: FloatNumber {
+        self.iterator_mut(0).for_each(|v| *v = v.powf(p));
+    }
+
     fn argsort_mut(&mut self) -> Vec<usize>
     where
         T: Number + PartialOrd,
@@ -563,6 +604,16 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
 
         index
     }
+
+    fn softmax_mut(&mut self) where T: FloatNumber{        
+        let max = self.max();
+        let mut z = T::zero();
+        self.iterator_mut(0).for_each(|v| {
+            *v = (*v - max).exp();
+            z += *v;
+        });
+        self.iterator_mut(0).for_each(|v| *v = *v / z);        
+    }
 }
 
 pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
@@ -586,6 +637,10 @@ pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
         T: Number + Neg<Output = T>,
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
+    }
+
+    fn pow_mut(&mut self, p: T) where T: FloatNumber {
+        self.iterator_mut(0).for_each(|v| *v = v.powf(p));
     }
 
     fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8)
@@ -744,6 +799,15 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result
     }
 
+    fn pow(&self, p: T) -> Self
+    where
+        T: FloatNumber,
+    {
+        let mut result = self.clone();
+        result.pow_mut(p);
+        result
+    }
+
     fn argsort(&self) -> Vec<usize>
     where
         T: Number + PartialOrd,
@@ -755,6 +819,15 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn map<O: Debug + Display + Copy + Sized, A: Array1<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
         let len = self.shape();
         A::from_iterator(self.iterator(0).map(f), len)
+    }
+
+    fn softmax(&self) -> Self
+    where
+        T: FloatNumber,
+    {
+        let mut result = self.clone();
+        result.softmax_mut();
+        result
     }
 }
 
@@ -881,6 +954,15 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
 
         result
+    }
+
+    fn ab(&self, a_transpose: bool, b: &Self, b_transpose: bool) -> Self where T: Number {
+        match (a_transpose, b_transpose) {
+            (true, true) => b.matmul(self).transpose(),
+            (false, true) => self.matmul(&b.transpose()),
+            (true, false) => self.transpose().matmul(b),
+            (false, false) => self.matmul(b),
+        }
     }
 
     fn concatenate_1d<'a>(arrays: &'a [&'a dyn ArrayView1<T>], axis: u8) -> Self {
@@ -1218,6 +1300,15 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.neg_mut();
         result
     }
+
+    fn pow(&self, p: T) -> Self
+    where
+        T: FloatNumber,
+    {
+        let mut result = self.clone();
+        result.pow_mut(p);
+        result
+    }
 }
 
 #[cfg(test)]
@@ -1391,6 +1482,23 @@ mod tests {
     }
 
     #[test]
+    fn test_vec_max_diff() {
+        let a = vec![1, 2, 3, 4, -5, 6];
+        let b = vec![2, 3, 4, 1, 0, -12];
+        assert_eq!(a.max_diff(&b), 18);
+        assert_eq!(b.max_diff(&b), 0);
+    }
+
+    #[test]
+    fn test_vec_softmax() {
+        let mut prob = vec![1., 2., 3.];
+        prob.softmax_mut();
+        assert!((prob[0] - 0.09).abs() < 0.01);
+        assert!((prob[1] - 0.24).abs() < 0.01);
+        assert!((prob[2] - 0.66).abs() < 0.01);
+    }
+
+    #[test]
     fn test_min_max() {
         assert_eq!(
             DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).max(0),
@@ -1408,6 +1516,12 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).min(1),
             vec!(1., 4.)
         );
+    }
+
+    #[test]
+    fn test_argmax() {        
+        assert_eq!(DenseMatrix::from_2d_array(&[&[1, 5, 3], &[4, 2, 6]]).argmax(0), vec!(1, 0, 1));
+        assert_eq!(DenseMatrix::from_2d_array(&[&[4, 2, 3], &[1, 5, 6]]).argmax(1), vec!(0, 2));        
     }
 
     #[test]
@@ -1654,5 +1768,12 @@ mod tests {
 
         m.scale_mut(&m.mean(1), &m.std(1), 1);
         assert!(relative_eq!(m, expected_1, epsilon = 1e-2));
+    }
+
+    #[test]
+    fn test_pow_mut() {
+        let mut a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]);        
+        a.pow_mut(2.0);
+        assert_eq!(a, DenseMatrix::from_2d_array(&[&[1.0, 4.0, 9.0], &[16.0, 25.0, 36.0]]));
     }
 }

@@ -526,7 +526,7 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 mod tests {
     use super::*;
     // use crate::ensemble::random_forest_regressor::*;
-    use crate::linear::logistic_regression::*;
+    // use crate::linear::logistic_regression::*;
     use crate::metrics::mean_absolute_error;
     use ndarray::{arr1, arr2, Array1, Array2};
 
@@ -930,47 +930,47 @@ mod tests {
         assert_eq!(a, expected);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    #[test]
-    fn lr_fit_predict_iris() {
-        let x = arr2(&[
-            [5.1, 3.5, 1.4, 0.2],
-            [4.9, 3.0, 1.4, 0.2],
-            [4.7, 3.2, 1.3, 0.2],
-            [4.6, 3.1, 1.5, 0.2],
-            [5.0, 3.6, 1.4, 0.2],
-            [5.4, 3.9, 1.7, 0.4],
-            [4.6, 3.4, 1.4, 0.3],
-            [5.0, 3.4, 1.5, 0.2],
-            [4.4, 2.9, 1.4, 0.2],
-            [4.9, 3.1, 1.5, 0.1],
-            [7.0, 3.2, 4.7, 1.4],
-            [6.4, 3.2, 4.5, 1.5],
-            [6.9, 3.1, 4.9, 1.5],
-            [5.5, 2.3, 4.0, 1.3],
-            [6.5, 2.8, 4.6, 1.5],
-            [5.7, 2.8, 4.5, 1.3],
-            [6.3, 3.3, 4.7, 1.6],
-            [4.9, 2.4, 3.3, 1.0],
-            [6.6, 2.9, 4.6, 1.3],
-            [5.2, 2.7, 3.9, 1.4],
-        ]);
-        let y: Array1<f64> = arr1(&[
-            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-        ]);
+    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // fn lr_fit_predict_iris() {
+    //     let x = arr2(&[
+    //         [5.1, 3.5, 1.4, 0.2],
+    //         [4.9, 3.0, 1.4, 0.2],
+    //         [4.7, 3.2, 1.3, 0.2],
+    //         [4.6, 3.1, 1.5, 0.2],
+    //         [5.0, 3.6, 1.4, 0.2],
+    //         [5.4, 3.9, 1.7, 0.4],
+    //         [4.6, 3.4, 1.4, 0.3],
+    //         [5.0, 3.4, 1.5, 0.2],
+    //         [4.4, 2.9, 1.4, 0.2],
+    //         [4.9, 3.1, 1.5, 0.1],
+    //         [7.0, 3.2, 4.7, 1.4],
+    //         [6.4, 3.2, 4.5, 1.5],
+    //         [6.9, 3.1, 4.9, 1.5],
+    //         [5.5, 2.3, 4.0, 1.3],
+    //         [6.5, 2.8, 4.6, 1.5],
+    //         [5.7, 2.8, 4.5, 1.3],
+    //         [6.3, 3.3, 4.7, 1.6],
+    //         [4.9, 2.4, 3.3, 1.0],
+    //         [6.6, 2.9, 4.6, 1.3],
+    //         [5.2, 2.7, 3.9, 1.4],
+    //     ]);
+    //     let y: Array1<f64> = arr1(&[
+    //         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+    //     ]);
 
-        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
+    //     let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 
-        let y_hat = lr.predict(&x).unwrap();
+    //     let y_hat = lr.predict(&x).unwrap();
 
-        let error: f64 = y
-            .into_iter()
-            .zip(y_hat.into_iter())
-            .map(|(a, b)| (a - b).abs())
-            .sum();
+    //     let error: f64 = y
+    //         .into_iter()
+    //         .zip(y_hat.into_iter())
+    //         .map(|(a, b)| (a - b).abs())
+    //         .sum();
 
-        assert!(error <= 1.0);
-    }
+    //     assert!(error <= 1.0);
+    // }
 
     // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     // #[test]

@@ -2,7 +2,7 @@
 //! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
-use num_traits::{Bounded, Float, FromPrimitive, Num, NumCast, ToPrimitive};
+use num_traits::{Bounded, Float, FromPrimitive, Num, NumCast, ToPrimitive, Signed};
 use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
@@ -28,7 +28,7 @@ pub trait Number:
 
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
-pub trait FloatNumber: Number + Float {
+pub trait FloatNumber: Number + Float + Signed {
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
 

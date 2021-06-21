@@ -1,18 +1,19 @@
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::ops::Range;
+use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::num::FloatNumber;
 use crate::linalg::base::{Array, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
 use crate::linalg::cholesky_n::CholeskyDecomposable;
 use crate::linalg::evd_n::EVDDecomposable;
 use crate::linalg::lu_n::LUDecomposable;
 use crate::linalg::qr_n::QRDecomposable;
 use crate::linalg::svd_n::SVDDecomposable;
-use crate::num::FloatNumber;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DenseMatrix<T> {
@@ -193,6 +194,10 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         }
 
         DenseMatrix::new(nrows, ncols, m_values, true)
+    }
+
+    pub fn iter(&self) -> Iter<T> {
+        self.values.iter()
     }
 }
 
@@ -644,4 +649,5 @@ mod tests {
         assert!(!relative_eq!(a, d));
         assert!(relative_eq!(a, c));
     }
+
 }
