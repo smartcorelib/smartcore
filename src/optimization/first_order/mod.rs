@@ -4,8 +4,8 @@ pub mod lbfgs;
 use std::clone::Clone;
 use std::fmt::Debug;
 
-use crate::num::FloatNumber;
 use crate::linalg::base::Array1;
+use crate::num::FloatNumber;
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 

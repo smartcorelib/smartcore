@@ -95,7 +95,7 @@ pub struct LogisticRegression<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, 
     classes: Vec<TY>,
     num_attributes: usize,
     num_classes: usize,
-    _phantom_tx: PhantomData<TX>,    
+    _phantom_tx: PhantomData<TX>,
     _phantom_y: PhantomData<Y>,
 }
 
@@ -118,7 +118,7 @@ struct BinaryObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     x: &'a X,
     y: Vec<usize>,
     alpha: f64,
-    _phantom_t: PhantomData<T>, 
+    _phantom_t: PhantomData<T>,
 }
 
 impl LogisticRegressionParameters {
@@ -143,7 +143,9 @@ impl Default for LogisticRegressionParameters {
     }
 }
 
-impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq for LogisticRegression<TX, TY, X, Y> {
+impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for LogisticRegression<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
         if self.num_classes != other.num_classes
             || self.num_attributes != other.num_attributes
@@ -157,8 +159,15 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq 
                 }
             }
 
-            self.coefficients.iterator(0).zip(other.coefficients.iterator(0)).all(|(&a, &b)| (a - b).abs() <= TX::epsilon()) && 
-            self.intercept.iterator(0).zip(other.intercept.iterator(0)).all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
+            self.coefficients
+                .iterator(0)
+                .zip(other.coefficients.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
+                && self
+                    .intercept
+                    .iterator(0)
+                    .zip(other.intercept.iterator(0))
+                    .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
         }
     }
 }
@@ -216,7 +225,7 @@ struct MultiClassObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     y: Vec<usize>,
     k: usize,
     alpha: f64,
-    _phantom_t: PhantomData<T>, 
+    _phantom_t: PhantomData<T>,
 }
 
 impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
@@ -249,7 +258,7 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
     }
 
     fn df(&self, g: &mut Vec<T>, w: &Vec<T>) {
-        g.copy_from(&Vec::zeros(g.len()));        
+        g.copy_from(&Vec::zeros(g.len()));
 
         let mut prob = vec![T::zero(); self.k];
         let (n, p) = self.x.shape();
@@ -285,25 +294,24 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
 }
 
 impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    SupervisedEstimator<X, Y, LogisticRegressionParameters>
-    for LogisticRegression<TX, TY, X, Y>
+    SupervisedEstimator<X, Y, LogisticRegressionParameters> for LogisticRegression<TX, TY, X, Y>
 {
-    fn fit(
-        x: &X,
-        y: &Y,
-        parameters: LogisticRegressionParameters,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: LogisticRegressionParameters) -> Result<Self, Failed> {
         LogisticRegression::fit(x, y, parameters)
     }
 }
 
-impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y> for LogisticRegression<TX, TY, X, Y> {
+impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for LogisticRegression<TX, TY, X, Y>
+{
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> LogisticRegression<TX, TY, X, Y> {
+impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    LogisticRegression<TX, TY, X, Y>
+{
     /// Fits Logistic Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target class values
@@ -345,7 +353,7 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> LogisticRe
                     x,
                     y: yi,
                     alpha: parameters.alpha,
-                    _phantom_t: PhantomData
+                    _phantom_t: PhantomData,
                 };
 
                 let result = Self::minimize(x0, objective);
@@ -372,7 +380,7 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> LogisticRe
                     y: yi,
                     k,
                     alpha: parameters.alpha,
-                    _phantom_t: PhantomData
+                    _phantom_t: PhantomData,
                 };
 
                 let result = Self::minimize(x0, objective);
@@ -402,7 +410,7 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> LogisticRe
             let y_hat = x.ab(false, &self.coefficients, true);
             let intercept = *self.intercept.get((0, 0));
             for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
-                result.set(                    
+                result.set(
                     i,
                     self.classes[if (*y_hat_i + intercept).sigmoid() > TX::half() {
                         1
@@ -436,7 +444,10 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> LogisticRe
         &self.intercept
     }
 
-    fn minimize(x0: Vec<TX>, objective: impl ObjectiveFunction<TX, X>) -> OptimizerResult<TX, Vec<TX>> {
+    fn minimize(
+        x0: Vec<TX>,
+        objective: impl ObjectiveFunction<TX, X>,
+    ) -> OptimizerResult<TX, Vec<TX>> {
         let f = |w: &Vec<TX>| -> TX { objective.f(w) };
 
         let df = |g: &mut Vec<TX>, w: &Vec<TX>| objective.df(g, w);
@@ -487,25 +498,17 @@ mod tests {
             y: y.clone(),
             k: 3,
             alpha: 0.0,
-            _phantom_t: PhantomData
+            _phantom_t: PhantomData,
         };
 
         let mut g = vec![0f64; 9];
 
-        objective.df(
-            &mut g,
-            &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.],
-        );
-        objective.df(
-            &mut g,
-            &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.],
-        );
+        objective.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
+        objective.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
         assert!((g[0] + 33.000068218163484).abs() < std::f64::EPSILON);
 
-        let f = objective.f(&vec![
-            1., 2., 3., 4., 5., 6., 7., 8., 9.,
-        ]);
+        let f = objective.f(&vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
         assert!((f - 408.0052230582765).abs() < std::f64::EPSILON);
 
@@ -514,18 +517,13 @@ mod tests {
             y: y.clone(),
             k: 3,
             alpha: 1.0,
-            _phantom_t: PhantomData
+            _phantom_t: PhantomData,
         };
 
-        let f = objective_reg.f(&vec![
-            1., 2., 3., 4., 5., 6., 7., 8., 9.,
-        ]);
+        let f = objective_reg.f(&vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
         assert!((f - 487.5052).abs() < 1e-4);
 
-        objective_reg.df(
-            &mut g,
-            &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.],
-        );
+        objective_reg.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
         assert!((g[0].abs() - 32.0).abs() < 1e-4);
     }
 
@@ -556,7 +554,7 @@ mod tests {
             x: &x,
             y: y.clone(),
             alpha: 0.0,
-            _phantom_t: PhantomData
+            _phantom_t: PhantomData,
         };
 
         let mut g = vec![0f64; 3];
@@ -576,7 +574,7 @@ mod tests {
             x: &x,
             y: y.clone(),
             alpha: 1.0,
-            _phantom_t: PhantomData
+            _phantom_t: PhantomData,
         };
 
         let f = objective_reg.f(&vec![1., 2., 3.]);
@@ -620,10 +618,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        assert_eq!(
-            y_hat,
-            vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        );
+        assert_eq!(y_hat, vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -736,9 +731,7 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y: Vec<i32> = vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        ];
+        let y: Vec<i32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
         let lr_reg = LogisticRegression::fit(

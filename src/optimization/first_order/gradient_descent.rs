@@ -1,7 +1,7 @@
 use std::default::Default;
 
-use crate::num::FloatNumber;
 use crate::linalg::base::Array1;
+use crate::num::FloatNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
@@ -86,7 +86,7 @@ impl<T: FloatNumber> FirstOrderOptimizer<T> for GradientDescent {
 
 #[cfg(test)]
 mod tests {
-    use super::*;        
+    use super::*;
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
@@ -94,13 +94,10 @@ mod tests {
     #[test]
     fn gradient_descent() {
         let x0 = vec![-1., 1.];
-        let f = |x: &Vec<f64>| {
-            (1.0 - x[0]).powf(2.) + 100.0 * (x[1] - x[0].powf(2.)).powf(2.)
-        };
+        let f = |x: &Vec<f64>| (1.0 - x[0]).powf(2.) + 100.0 * (x[1] - x[0].powf(2.)).powf(2.);
 
         let df = |g: &mut Vec<f64>, x: &Vec<f64>| {
-            g[0] = -2. * (1. - x[0])
-                    - 400. * (x[1] - x[0].powf(2.)) * x[0];
+            g[0] = -2. * (1. - x[0]) - 400. * (x[1] - x[0].powf(2.)) * x[0];
             g[1] = 200. * (x[1] - x[0].powf(2.));
         };
 

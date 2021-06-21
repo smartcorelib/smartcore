@@ -7,13 +7,13 @@ use approx::{AbsDiffEq, RelativeEq};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::num::FloatNumber;
 use crate::linalg::base::{Array, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
 use crate::linalg::cholesky_n::CholeskyDecomposable;
 use crate::linalg::evd_n::EVDDecomposable;
 use crate::linalg::lu_n::LUDecomposable;
 use crate::linalg::qr_n::QRDecomposable;
 use crate::linalg::svd_n::SVDDecomposable;
+use crate::num::FloatNumber;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DenseMatrix<T> {
@@ -649,5 +649,4 @@ mod tests {
         assert!(!relative_eq!(a, d));
         assert!(relative_eq!(a, c));
     }
-
 }

@@ -2,8 +2,8 @@
 use std::default::Default;
 use std::fmt::Debug;
 
-use crate::num::FloatNumber;
 use crate::linalg::base::Array1;
+use crate::num::FloatNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
@@ -142,14 +142,19 @@ impl LBFGS {
         df(&mut state.x_df, &state.x);
     }
 
-    fn assess_convergence<T: FloatNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) -> bool {
+    fn assess_convergence<T: FloatNumber, X: Array1<T>>(
+        &self,
+        state: &mut LBFGSState<T, X>,
+    ) -> bool {
         let (mut x_converged, mut g_converged) = (false, false);
 
         if state.x.max_diff(&state.x_prev) <= T::from_f64(self.x_atol).unwrap() {
             x_converged = true;
         }
 
-        if state.x.max_diff(&state.x_prev) <= T::from_f64(self.x_rtol * state.x.norm(std::f64::INFINITY)).unwrap() {
+        if state.x.max_diff(&state.x_prev)
+            <= T::from_f64(self.x_rtol * state.x.norm(std::f64::INFINITY)).unwrap()
+        {
             x_converged = true;
         }
 
@@ -157,7 +162,9 @@ impl LBFGS {
             state.counter_f_tol += 1;
         }
 
-        if (state.x_f - state.x_f_prev).abs() <= T::from_f64(self.f_reltol).unwrap() * state.x_f.abs() {
+        if (state.x_f - state.x_f_prev).abs()
+            <= T::from_f64(self.f_reltol).unwrap() * state.x_f.abs()
+        {
             state.counter_f_tol += 1;
         }
 
@@ -168,7 +175,11 @@ impl LBFGS {
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    fn update_hessian<'a, T: FloatNumber, X: Array1<T>>(&self, _: &'a DF<'_, X>, state: &mut LBFGSState<T, X>) {
+    fn update_hessian<'a, T: FloatNumber, X: Array1<T>>(
+        &self,
+        _: &'a DF<'_, X>,
+        state: &mut LBFGSState<T, X>,
+    ) {
         state.dg = state.x_df.sub(&state.x_df_prev);
         let rho_iteration = T::one() / state.dx.dot(&state.dg);
         if !rho_iteration.is_infinite() {
@@ -247,14 +258,11 @@ mod tests {
     #[test]
     fn lbfgs() {
         let x0 = vec![0., 0.];
-        let f = |x: &Vec<f64>| {
-            (1.0 - x[0]).powf(2.) + 100.0 * (x[1] - x[0].powf(2.)).powf(2.)            
-        };
+        let f = |x: &Vec<f64>| (1.0 - x[0]).powf(2.) + 100.0 * (x[1] - x[0].powf(2.)).powf(2.);
 
         let df = |g: &mut Vec<f64>, x: &Vec<f64>| {
-            g[0] = -2. * (1. - x[0])
-                    - 400. * (x[1] - x[0].powf(2.)) * x[0];
-            g[1] = 200. * (x[1] - x[0].powf(2.));            
+            g[0] = -2. * (1. - x[0]) - 400. * (x[1] - x[0].powf(2.)) * x[0];
+            g[1] = 200. * (x[1] - x[0].powf(2.));
         };
         let mut ls: Backtracking<f64> = Default::default();
         ls.order = FunctionOrder::THIRD;
