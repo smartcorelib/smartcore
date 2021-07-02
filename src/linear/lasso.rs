@@ -23,28 +23,28 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
+use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
-use crate::math::num::RealNumber;
+use crate::num::{FloatNumber, Number};
 
 /// Lasso regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct LassoParameters<T: RealNumber> {
+pub struct LassoParameters {
     /// Controls the strength of the penalty to the loss function.
-    pub alpha: T,
+    pub alpha: f64,
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
     /// The tolerance for the optimization
-    pub tol: T,
+    pub tol: f64,
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -52,14 +52,16 @@ pub struct LassoParameters<T: RealNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 /// Lasso regressor
-pub struct Lasso<T: RealNumber, M: Matrix<T>> {
-    coefficients: M,
-    intercept: T,
+pub struct Lasso<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
+    coefficients: X,
+    intercept: TX,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber> LassoParameters<T> {
+impl LassoParameters {
     /// Regularization parameter.
-    pub fn with_alpha(mut self, alpha: T) -> Self {
+    pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
@@ -69,7 +71,7 @@ impl<T: RealNumber> LassoParameters<T> {
         self
     }
     /// The tolerance for the optimization
-    pub fn with_tol(mut self, tol: T) -> Self {
+    pub fn with_tol(mut self, tol: f64) -> Self {
         self.tol = tol;
         self
     }
@@ -80,48 +82,51 @@ impl<T: RealNumber> LassoParameters<T> {
     }
 }
 
-impl<T: RealNumber> Default for LassoParameters<T> {
+impl Default for LassoParameters {
     fn default() -> Self {
         LassoParameters {
-            alpha: T::one(),
+            alpha: 1f64,
             normalize: true,
-            tol: T::from_f64(1e-4).unwrap(),
+            tol: 1e-4,
             max_iter: 1000,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> PartialEq for Lasso<T, M> {
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for Lasso<TX, TY, X, Y> {
     fn eq(&self, other: &Self) -> bool {
-        self.coefficients == other.coefficients
-            && (self.intercept - other.intercept).abs() <= T::epsilon()
+        self.intercept == other.intercept
+            && self.coefficients.shape() == other.coefficients.shape()
+            && self
+                .coefficients
+                .iterator(0)
+                .zip(other.coefficients.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LassoParameters<T>>
-    for Lasso<T, M>
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, LassoParameters> for Lasso<TX, TY, X, Y>
 {
-    fn fit(x: &M, y: &M::RowVector, parameters: LassoParameters<T>) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Self, Failed> {
         Lasso::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for Lasso<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for Lasso<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X, Y> {
     /// Fits Lasso regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
-    pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: LassoParameters<T>,
-    ) -> Result<Lasso<T, M>, Failed> {
+    pub fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Lasso<TX, TY, X, Y>, Failed> {
         let (n, p) = x.shape();
 
         if n <= p {
@@ -130,11 +135,11 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
             ));
         }
 
-        if parameters.alpha < T::zero() {
+        if parameters.alpha < 0f64 {
             return Err(Failed::fit("alpha should be >= 0"));
         }
 
-        if parameters.tol <= T::zero() {
+        if parameters.tol <= 0f64 {
             return Err(Failed::fit("tol should be > 0"));
         }
 
@@ -142,71 +147,94 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
             return Err(Failed::fit("max_iter should be > 0"));
         }
 
-        if y.len() != n {
+        if y.shape() != n {
             return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
 
-        let l1_reg = parameters.alpha * T::from_usize(n).unwrap();
+        let y: Vec<TX> = y.iterator(0).map(|&v| TX::from(v).unwrap()).collect();
+
+        let l1_reg = TX::from_f64(parameters.alpha * n as f64).unwrap();
 
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
 
             let mut optimizer = InteriorPointOptimizer::new(&scaled_x, p);
 
-            let mut w =
-                optimizer.optimize(&scaled_x, y, l1_reg, parameters.max_iter, parameters.tol)?;
+            let mut w = optimizer.optimize(
+                &scaled_x,
+                &y,
+                l1_reg,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+            )?;
 
             for (j, col_std_j) in col_std.iter().enumerate().take(p) {
-                w.set(j, 0, w.get(j, 0) / *col_std_j);
+                w[j] /= *col_std_j;
             }
 
-            let mut b = T::zero();
+            let mut b = TX::zero();
 
             for (i, col_mean_i) in col_mean.iter().enumerate().take(p) {
-                b += w.get(i, 0) * *col_mean_i;
+                b += w[i] * *col_mean_i;
             }
 
-            b = y.mean() - b;
-            (w, b)
+            b = TX::from_f64(y.mean()).unwrap() - b;
+            (X::from_column(&w), b)
         } else {
             let mut optimizer = InteriorPointOptimizer::new(x, p);
 
-            let w = optimizer.optimize(x, y, l1_reg, parameters.max_iter, parameters.tol)?;
+            let w = optimizer.optimize(
+                x,
+                &y,
+                l1_reg,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+            )?;
 
-            (w, y.mean())
+            (X::from_column(&w), TX::from_f64(y.mean()).unwrap())
         };
 
         Ok(Lasso {
             intercept: b,
             coefficients: w,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
         let mut y_hat = x.matmul(&self.coefficients);
-        y_hat.add_mut(&M::fill(nrows, 1, self.intercept));
-        Ok(y_hat.transpose().to_row_vector())
+        let bias = X::fill(nrows, 1, self.intercept);
+        y_hat.add_mut(&bias);
+        Ok(Y::from_iterator(
+            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 
     /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> &M {
+    pub fn coefficients(&self) -> &X {
         &self.coefficients
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> T {
+    pub fn intercept(&self) -> TX {
         self.intercept
     }
 
-    fn rescale_x(x: &M) -> Result<(M, Vec<T>, Vec<T>), Failed> {
-        let col_mean = x.mean(0);
-        let col_std = x.std(0);
+    fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
+        let col_mean: Vec<TX> = x
+            .mean(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
+        let col_std: Vec<TX> = x.std(0).iter().map(|&v| TX::from_f64(v).unwrap()).collect();
 
         for (i, col_std_i) in col_std.iter().enumerate() {
-            if (*col_std_i - T::zero()).abs() < T::epsilon() {
+            if (*col_std_i - TX::zero()).abs() < TX::epsilon() {
                 return Err(Failed::fit(&format!(
                     "Cannot rescale constant column {}",
                     i
@@ -223,7 +251,7 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -305,7 +333,7 @@ mod tests {
 
         let lr = Lasso::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: Lasso<f64, DenseMatrix<f64>> =
+        let deserialized_lr: Lasso<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);

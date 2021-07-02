@@ -633,7 +633,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        // assert!(accuracy(&y_hat, &y) > 0.9);
+        assert!(accuracy(&y_hat, &y) > 0.9);
 
         let lr_reg = LogisticRegression::fit(
             &x,
@@ -660,7 +660,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        // assert!(accuracy(&y_hat, &y) > 0.9);
+        assert!(accuracy(&y_hat, &y) > 0.9);
 
         let lr_reg = LogisticRegression::fit(
             &x,

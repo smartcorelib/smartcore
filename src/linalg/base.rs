@@ -507,6 +507,36 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         }
         Ok(())
     }
+
+    fn norm(&self, p: f64) -> f64
+    where
+        T: Number,
+    {
+        if p.is_infinite() && p.is_sign_positive() {
+            self.iterator(0)
+                .map(|x| x.to_f64().unwrap().abs())
+                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+        } else if p.is_infinite() && p.is_sign_negative() {
+            self.iterator(0)
+                .map(|x| x.to_f64().unwrap().abs())
+                .fold(std::f64::INFINITY, |a, b| a.min(b))
+        } else {
+            let mut norm = 0f64;
+
+            for xi in self.iterator(0) {
+                norm += xi.to_f64().unwrap().abs().powf(p);
+            }
+
+            norm.powf(1f64 / p)
+        }
+    }
+
+    fn diag(&self) -> Vec<T> {
+        let (nrows, ncols) = self.shape();
+        let n = nrows.min(ncols);
+
+        (0..n).map(|i| *self.get((i, i))).collect()
+    }
 }
 
 pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
@@ -868,6 +898,37 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.softmax_mut();
         result
     }
+
+    fn xa(&self, a_transpose: bool, a: &dyn ArrayView2<T>) -> Self
+    where
+        T: Number,
+    {
+        let (nrows, ncols) = a.shape();
+        let len = self.shape();
+        let (d1, d2) = match a_transpose {
+            true => (ncols, nrows),
+            _ => (nrows, ncols),
+        };
+        assert!(
+            d1 == len,
+            "Can not multiply {}x{} matrix by {} vector",
+            nrows,
+            ncols,
+            len
+        );
+        let mut result = Self::zeros(d2);
+        for i in 0..d2 {
+            let mut s = T::zero();
+            for j in 0..d1 {
+                match a_transpose {
+                    true => s += *a.get((i, j)) * *self.get(j),
+                    _ => s += *a.get((j, i)) * *self.get(j),
+                }
+            }
+            result.set(i, s);
+        }
+        result
+    }
 }
 
 pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + Clone {
@@ -976,9 +1037,14 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     {
         let (nrows, ncols) = self.shape();
         let (o_nrows, o_ncols) = other.shape();
-        if ncols != o_nrows {
-            panic!("Number of rows of A should equal number of columns of B");
-        }
+        assert!(
+            ncols == o_nrows,
+            "Can't multiply {}x{} and {}x{} matrices",
+            nrows,
+            ncols,
+            o_nrows,
+            o_ncols
+        );
         let inner_d = ncols;
         let mut result = Self::zeros(nrows, o_ncols);
 
@@ -995,16 +1061,70 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result
     }
 
-    fn ab(&self, a_transpose: bool, b: &Self, b_transpose: bool) -> Self
+    fn ab(&self, a_transpose: bool, b: &dyn ArrayView2<T>, b_transpose: bool) -> Self
     where
         T: Number,
     {
-        match (a_transpose, b_transpose) {
-            (true, true) => b.matmul(self).transpose(),
-            (false, true) => self.matmul(&b.transpose()),
-            (true, false) => self.transpose().matmul(b),
-            (false, false) => self.matmul(b),
+        if !a_transpose && !b_transpose {
+            self.matmul(b)
+        } else {
+            let (nrows, ncols) = self.shape();
+            let (o_nrows, o_ncols) = b.shape();
+            let (d1, d2, d3, d4) = match (a_transpose, b_transpose) {
+                (true, false) => (nrows, ncols, o_ncols, o_nrows),
+                (false, true) => (ncols, nrows, o_nrows, o_ncols),
+                _ => (nrows, ncols, o_nrows, o_ncols),
+            };
+            if d1 != d4 {
+                panic!("Can not multiply {}x{} by {}x{} matrices", d2, d1, d4, d3);
+            }
+            let mut result = Self::zeros(d2, d3);
+            for r in 0..d2 {
+                for c in 0..d3 {
+                    let mut s = T::zero();
+                    for i in 0..d1 {
+                        match (a_transpose, b_transpose) {
+                            (true, false) => s += *self.get((i, r)) * *b.get((i, c)),
+                            (false, true) => s += *self.get((r, i)) * *b.get((c, i)),
+                            _ => s += *self.get((i, r)) * *b.get((c, i)),
+                        }
+                    }
+                    result.set((r, c), s);
+                }
+            }
+            result
         }
+    }
+
+    fn ax(&self, a_transpose: bool, x: &dyn ArrayView1<T>) -> Self
+    where
+        T: Number,
+    {
+        let (nrows, ncols) = self.shape();
+        let len = x.shape();
+        let (d1, d2) = match a_transpose {
+            true => (ncols, nrows),
+            _ => (nrows, ncols),
+        };
+        assert!(
+            d2 == len,
+            "Can not multiply {}x{} matrix by {} vector",
+            nrows,
+            ncols,
+            len
+        );
+        let mut result = Self::zeros(d1, 1);
+        for i in 0..d1 {
+            let mut s = T::zero();
+            for j in 0..d2 {
+                match a_transpose {
+                    true => s += *self.get((j, i)) * *x.get(j),
+                    _ => s += *self.get((i, j)) * *x.get(j),
+                }
+            }
+            result.set((i, 0), s);
+        }
+        result
     }
 
     fn concatenate_1d<'a>(arrays: &'a [&'a dyn ArrayView1<T>], axis: u8) -> Self {
@@ -1541,6 +1661,13 @@ mod tests {
     }
 
     #[test]
+    fn test_xa() {
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        assert_eq!(vec![7, 8].xa(false, &a), vec![39, 54, 69]);
+        assert_eq!(vec![7, 8, 9].xa(true, &a), vec![50, 122]);
+    }
+
+    #[test]
     fn test_min_max() {
         assert_eq!(
             DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).max(0),
@@ -1826,5 +1953,46 @@ mod tests {
             a,
             DenseMatrix::from_2d_array(&[&[1.0, 4.0, 9.0], &[16.0, 25.0, 36.0]])
         );
+    }
+
+    #[test]
+    fn test_ab() {
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
+        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]);
+        assert_eq!(
+            a.ab(false, &b, false),
+            DenseMatrix::from_2d_array(&[&[19, 22], &[43, 50]])
+        );
+        assert_eq!(
+            a.ab(true, &b, false),
+            DenseMatrix::from_2d_array(&[&[26, 30], &[38, 44]])
+        );
+        assert_eq!(
+            a.ab(false, &b, true),
+            DenseMatrix::from_2d_array(&[&[17, 23], &[39, 53]])
+        );
+        assert_eq!(
+            a.ab(true, &b, true),
+            DenseMatrix::from_2d_array(&[&[23, 31], &[34, 46]])
+        );
+    }
+
+    #[test]
+    fn test_ax() {
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        assert_eq!(
+            a.ax(false, &vec![7, 8, 9]).transpose(),
+            DenseMatrix::from_2d_array(&[&[50, 122]])
+        );
+        assert_eq!(
+            a.ax(true, &vec![7, 8]).transpose(),
+            DenseMatrix::from_2d_array(&[&[39, 54, 69]])
+        );
+    }
+
+    #[test]
+    fn diag() {
+        let x = DenseMatrix::from_2d_array(&[&[0, 1, 2], &[3, 4, 5], &[6, 7, 8]]);
+        assert_eq!(x.diag(), vec![0, 4, 8]);
     }
 }

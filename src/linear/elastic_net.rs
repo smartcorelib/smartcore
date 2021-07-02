@@ -17,7 +17,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::linear::elastic_net::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -55,32 +55,32 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::base::{Array, Array1, Array2, ArrayView1, MutArray};
+use crate::num::{FloatNumber, Number};
 
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 
 /// Elastic net parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct ElasticNetParameters<T: RealNumber> {
+pub struct ElasticNetParameters {
     /// Regularization parameter.
-    pub alpha: T,
+    pub alpha: f64,
     /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
     /// For l1_ratio = 0 the penalty is an L2 penalty.
     /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
-    pub l1_ratio: T,
+    pub l1_ratio: f64,
     /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
     /// The tolerance for the optimization
-    pub tol: T,
+    pub tol: f64,
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -88,21 +88,23 @@ pub struct ElasticNetParameters<T: RealNumber> {
 /// Elastic net
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct ElasticNet<T: RealNumber, M: Matrix<T>> {
-    coefficients: M,
-    intercept: T,
+pub struct ElasticNet<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
+    coefficients: X,
+    intercept: TX,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber> ElasticNetParameters<T> {
+impl ElasticNetParameters {
     /// Regularization parameter.
-    pub fn with_alpha(mut self, alpha: T) -> Self {
+    pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
     /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
     /// For l1_ratio = 0 the penalty is an L2 penalty.
     /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
-    pub fn with_l1_ratio(mut self, l1_ratio: T) -> Self {
+    pub fn with_l1_ratio(mut self, l1_ratio: f64) -> Self {
         self.l1_ratio = l1_ratio;
         self
     }
@@ -112,7 +114,7 @@ impl<T: RealNumber> ElasticNetParameters<T> {
         self
     }
     /// The tolerance for the optimization
-    pub fn with_tol(mut self, tol: T) -> Self {
+    pub fn with_tol(mut self, tol: f64) -> Self {
         self.tol = tol;
         self
     }
@@ -123,61 +125,71 @@ impl<T: RealNumber> ElasticNetParameters<T> {
     }
 }
 
-impl<T: RealNumber> Default for ElasticNetParameters<T> {
+impl Default for ElasticNetParameters {
     fn default() -> Self {
         ElasticNetParameters {
-            alpha: T::one(),
-            l1_ratio: T::half(),
+            alpha: 1.0,
+            l1_ratio: 0.5,
             normalize: true,
-            tol: T::from_f64(1e-4).unwrap(),
+            tol: 1e-4,
             max_iter: 1000,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> PartialEq for ElasticNet<T, M> {
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for ElasticNet<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
-        self.coefficients == other.coefficients
-            && (self.intercept - other.intercept).abs() <= T::epsilon()
+        self.intercept == other.intercept
+            && self.coefficients.shape() == other.coefficients.shape()
+            && self
+                .coefficients
+                .iterator(0)
+                .zip(other.coefficients.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, ElasticNetParameters<T>>
-    for ElasticNet<T, M>
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, ElasticNetParameters> for ElasticNet<TX, TY, X, Y>
 {
-    fn fit(x: &M, y: &M::RowVector, parameters: ElasticNetParameters<T>) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: ElasticNetParameters) -> Result<Self, Failed> {
         ElasticNet::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for ElasticNet<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for ElasticNet<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
+impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> ElasticNet<TX, TY, X, Y> {
     /// Fits elastic net regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: ElasticNetParameters<T>,
-    ) -> Result<ElasticNet<T, M>, Failed> {
+        x: &X,
+        y: &Y,
+        parameters: ElasticNetParameters,
+    ) -> Result<ElasticNet<TX, TY, X, Y>, Failed> {
         let (n, p) = x.shape();
 
-        if y.len() != n {
+        if y.shape() != n {
             return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
 
-        let n_float = T::from_usize(n).unwrap();
+        let n_float = n as f64;
 
-        let l1_reg = parameters.alpha * parameters.l1_ratio * n_float;
-        let l2_reg = parameters.alpha * (T::one() - parameters.l1_ratio) * n_float;
+        let l1_reg = TX::from_f64(parameters.alpha * parameters.l1_ratio * n_float).unwrap();
+        let l2_reg =
+            TX::from_f64(parameters.alpha * (1.0 - parameters.l1_ratio) * n_float).unwrap();
 
-        let y_mean = y.mean();
+        let y_mean = TX::from_f64(y.mean()).unwrap();
 
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
@@ -186,68 +198,88 @@ impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
 
             let mut optimizer = InteriorPointOptimizer::new(&x, p);
 
-            let mut w =
-                optimizer.optimize(&x, &y, l1_reg * gamma, parameters.max_iter, parameters.tol)?;
+            let mut w = optimizer.optimize(
+                &x,
+                &y,
+                l1_reg * gamma,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+            )?;
 
             for i in 0..p {
-                w.set(i, 0, gamma * w.get(i, 0) / col_std[i]);
+                w.set(i, gamma * *w.get(i) / col_std[i]);
             }
 
-            let mut b = T::zero();
+            let mut b = TX::zero();
 
             for i in 0..p {
-                b += w.get(i, 0) * col_mean[i];
+                b += *w.get(i) * col_mean[i];
             }
 
             b = y_mean - b;
 
-            (w, b)
+            (X::from_column(&w), b)
         } else {
             let (x, y, gamma) = Self::augment_x_and_y(x, y, l2_reg);
 
             let mut optimizer = InteriorPointOptimizer::new(&x, p);
 
-            let mut w =
-                optimizer.optimize(&x, &y, l1_reg * gamma, parameters.max_iter, parameters.tol)?;
+            let mut w = optimizer.optimize(
+                &x,
+                &y,
+                l1_reg * gamma,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+            )?;
 
             for i in 0..p {
-                w.set(i, 0, gamma * w.get(i, 0));
+                w.set(i, gamma * *w.get(i));
             }
 
-            (w, y_mean)
+            (X::from_column(&w), y_mean)
         };
 
         Ok(ElasticNet {
             intercept: b,
             coefficients: w,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
         let mut y_hat = x.matmul(&self.coefficients);
-        y_hat.add_mut(&M::fill(nrows, 1, self.intercept));
-        Ok(y_hat.transpose().to_row_vector())
+        let bias = X::fill(nrows, 1, self.intercept);
+        y_hat.add_mut(&bias);
+        Ok(Y::from_iterator(
+            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 
     /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> &M {
+    pub fn coefficients(&self) -> &X {
         &self.coefficients
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> T {
+    pub fn intercept(&self) -> TX {
         self.intercept
     }
 
-    fn rescale_x(x: &M) -> Result<(M, Vec<T>, Vec<T>), Failed> {
-        let col_mean = x.mean(0);
-        let col_std = x.std(0);
+    fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
+        let col_mean: Vec<TX> = x
+            .mean(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
+        let col_std: Vec<TX> = x.std(0).iter().map(|&v| TX::from_f64(v).unwrap()).collect();
 
-        for i in 0..col_std.len() {
-            if (col_std[i] - T::zero()).abs() < T::epsilon() {
+        for (i, col_std_i) in col_std.iter().enumerate() {
+            if (*col_std_i - TX::zero()).abs() < TX::epsilon() {
                 return Err(Failed::fit(&format!(
                     "Cannot rescale constant column {}",
                     i
@@ -260,25 +292,25 @@ impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
         Ok((scaled_x, col_mean, col_std))
     }
 
-    fn augment_x_and_y(x: &M, y: &M::RowVector, l2_reg: T) -> (M, M::RowVector, T) {
+    fn augment_x_and_y(x: &X, y: &Y, l2_reg: TX) -> (X, Vec<TX>, TX) {
         let (n, p) = x.shape();
 
-        let gamma = T::one() / (T::one() + l2_reg).sqrt();
+        let gamma = TX::one() / (TX::one() + l2_reg).sqrt();
         let padding = gamma * l2_reg.sqrt();
 
-        let mut y2 = M::RowVector::zeros(n + p);
-        for i in 0..y.len() {
-            y2.set(i, y.get(i));
+        let mut y2 = Vec::<TX>::zeros(n + p);
+        for i in 0..y.shape() {
+            y2.set(i, TX::from(*y.get(i)).unwrap());
         }
 
-        let mut x2 = M::zeros(n + p, p);
+        let mut x2 = X::zeros(n + p, p);
 
         for j in 0..p {
             for i in 0..n {
-                x2.set(i, j, gamma * x.get(i, j));
+                x2.set((i, j), gamma * *x.get((i, j)));
             }
 
-            x2.set(j + n, j, padding);
+            x2.set((j + n, j), padding);
         }
 
         (x2, y2, gamma)
@@ -288,7 +320,7 @@ impl<T: RealNumber, M: Matrix<T>> ElasticNet<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -398,8 +430,8 @@ mod tests {
         assert!(mae_l1 < 2.0);
         assert!(mae_l2 < 2.0);
 
-        assert!(l1_model.coefficients().get(0, 0) > l1_model.coefficients().get(1, 0));
-        assert!(l1_model.coefficients().get(0, 0) > l1_model.coefficients().get(2, 0));
+        assert!(l1_model.coefficients().get((0, 0)) > l1_model.coefficients().get((1, 0)));
+        assert!(l1_model.coefficients().get((0, 0)) > l1_model.coefficients().get((2, 0)));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -432,7 +464,7 @@ mod tests {
 
         let lr = ElasticNet::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: ElasticNet<f64, DenseMatrix<f64>> =
+        let deserialized_lr: ElasticNet<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);

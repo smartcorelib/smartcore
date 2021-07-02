@@ -1,9 +1,9 @@
 //! # KFold
 //!
 //! Defines k-fold cross validator.
+use std::fmt::{Debug, Display};
 
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array2;
 use crate::model_selection::BaseKFold;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -17,7 +17,10 @@ pub struct KFold {
 }
 
 impl KFold {
-    fn test_indices<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<usize>> {
+    fn test_indices<T: Debug + Display + Copy + Sized, M: Array2<T>>(
+        &self,
+        x: &M,
+    ) -> Vec<Vec<usize>> {
         // number of samples (rows) in the matrix
         let n_samples: usize = x.shape().0;
 
@@ -46,7 +49,7 @@ impl KFold {
         return_values
     }
 
-    fn test_masks<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Vec<Vec<bool>> {
+    fn test_masks<T: Debug + Display + Copy + Sized, M: Array2<T>>(&self, x: &M) -> Vec<Vec<bool>> {
         let mut return_values: Vec<Vec<bool>> = Vec::with_capacity(self.n_splits);
         for test_index in self.test_indices(x).drain(..) {
             // init mask
@@ -122,7 +125,7 @@ impl BaseKFold for KFold {
         self.n_splits
     }
 
-    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Self::Output {
+    fn split<T: Debug + Display + Copy + Sized, M: Array2<T>>(&self, x: &M) -> Self::Output {
         if self.n_splits < 2 {
             panic!("Number of splits is too small: {}", self.n_splits);
         }
@@ -142,7 +145,7 @@ impl BaseKFold for KFold {
 mod tests {
 
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

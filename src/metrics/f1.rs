@@ -21,29 +21,29 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array1;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
+use crate::num::Number;
 
 /// F-measure
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct F1<T: RealNumber> {
+pub struct F1 {
     /// a positive real factor
-    pub beta: T,
+    pub beta: f64,
 }
 
-impl<T: RealNumber> F1<T> {
+impl F1 {
     /// Computes F1 score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
-        if y_true.len() != y_pred.len() {
+    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+        if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
-                y_true.len(),
-                y_pred.len()
+                y_true.shape(),
+                y_pred.shape()
             );
         }
         let beta2 = self.beta * self.beta;
@@ -51,7 +51,7 @@ impl<T: RealNumber> F1<T> {
         let p = Precision {}.get_score(y_true, y_pred);
         let r = Recall {}.get_score(y_true, y_pred);
 
-        (T::one() + beta2) * (p * r) / (beta2 * p + r)
+        (1f64 + beta2) * (p * r) / (beta2 * p + r)
     }
 }
 

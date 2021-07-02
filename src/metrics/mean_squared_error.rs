@@ -21,8 +21,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array1;
+use crate::num::Number;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
@@ -33,22 +33,23 @@ impl MeanSquareError {
     /// Computes mean squared error
     /// * `y_true` - Ground truth (correct) target values.
     /// * `y_pred` - Estimated target values.
-    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
-        if y_true.len() != y_pred.len() {
+    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+        if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
-                y_true.len(),
-                y_pred.len()
+                y_true.shape(),
+                y_pred.shape()
             );
         }
 
-        let n = y_true.len();
+        let n = y_true.shape();
         let mut rss = T::zero();
         for i in 0..n {
-            rss += (y_true.get(i) - y_pred.get(i)).square();
+            let res = *y_true.get(i) - *y_pred.get(i);
+            rss += res * res;
         }
 
-        rss / T::from_usize(n).unwrap()
+        rss.to_f64().unwrap() / n as f64
     }
 }
 
