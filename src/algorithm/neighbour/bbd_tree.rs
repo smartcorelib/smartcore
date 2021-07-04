@@ -1,45 +1,45 @@
 use std::fmt::Debug;
 
-use crate::linalg::Matrix;
+use crate::linalg::base::Array2;
 use crate::math::distance::euclidian::*;
-use crate::math::num::RealNumber;
+use crate::num::Number;
 
 #[derive(Debug)]
-pub struct BBDTree<T: RealNumber> {
-    nodes: Vec<BBDTreeNode<T>>,
+pub struct BBDTree {
+    nodes: Vec<BBDTreeNode>,
     index: Vec<usize>,
     root: usize,
 }
 
 #[derive(Debug)]
-struct BBDTreeNode<T: RealNumber> {
+struct BBDTreeNode {
     count: usize,
     index: usize,
-    center: Vec<T>,
-    radius: Vec<T>,
-    sum: Vec<T>,
-    cost: T,
+    center: Vec<f64>,
+    radius: Vec<f64>,
+    sum: Vec<f64>,
+    cost: f64,
     lower: Option<usize>,
     upper: Option<usize>,
 }
 
-impl<T: RealNumber> BBDTreeNode<T> {
-    fn new(d: usize) -> BBDTreeNode<T> {
+impl BBDTreeNode {
+    fn new(d: usize) -> BBDTreeNode {
         BBDTreeNode {
             count: 0,
             index: 0,
-            center: vec![T::zero(); d],
-            radius: vec![T::zero(); d],
-            sum: vec![T::zero(); d],
-            cost: T::zero(),
+            center: vec![0f64; d],
+            radius: vec![0f64; d],
+            sum: vec![0f64; d],
+            cost: 0f64,
             lower: Option::None,
             upper: Option::None,
         }
     }
 }
 
-impl<T: RealNumber> BBDTree<T> {
-    pub fn new<M: Matrix<T>>(data: &M) -> BBDTree<T> {
+impl BBDTree {
+    pub fn new<T: Number, M: Array2<T>>(data: &M) -> BBDTree {
         let nodes = Vec::new();
 
         let (n, _) = data.shape();
@@ -61,18 +61,18 @@ impl<T: RealNumber> BBDTree<T> {
 
     pub(in crate) fn clustering(
         &self,
-        centroids: &[Vec<T>],
-        sums: &mut Vec<Vec<T>>,
+        centroids: &[Vec<f64>],
+        sums: &mut Vec<Vec<f64>>,
         counts: &mut Vec<usize>,
         membership: &mut Vec<usize>,
-    ) -> T {
+    ) -> f64 {
         let k = centroids.len();
 
         counts.iter_mut().for_each(|v| *v = 0);
         let mut candidates = vec![0; k];
         for i in 0..k {
             candidates[i] = i;
-            sums[i].iter_mut().for_each(|v| *v = T::zero());
+            sums[i].iter_mut().for_each(|v| *v = 0f64);
         }
 
         self.filter(
@@ -89,13 +89,13 @@ impl<T: RealNumber> BBDTree<T> {
     fn filter(
         &self,
         node: usize,
-        centroids: &[Vec<T>],
+        centroids: &[Vec<f64>],
         candidates: &[usize],
         k: usize,
-        sums: &mut Vec<Vec<T>>,
+        sums: &mut Vec<Vec<f64>>,
         counts: &mut Vec<usize>,
         membership: &mut Vec<usize>,
-    ) -> T {
+    ) -> f64 {
         let d = centroids[0].len();
 
         let mut min_dist =
@@ -163,9 +163,9 @@ impl<T: RealNumber> BBDTree<T> {
     }
 
     fn prune(
-        center: &[T],
-        radius: &[T],
-        centroids: &[Vec<T>],
+        center: &[f64],
+        radius: &[f64],
+        centroids: &[Vec<f64>],
         best_index: usize,
         test_index: usize,
     ) -> bool {
@@ -177,22 +177,22 @@ impl<T: RealNumber> BBDTree<T> {
 
         let best = &centroids[best_index];
         let test = &centroids[test_index];
-        let mut lhs = T::zero();
-        let mut rhs = T::zero();
+        let mut lhs = 0f64;
+        let mut rhs = 0f64;
         for i in 0..d {
             let diff = test[i] - best[i];
             lhs += diff * diff;
-            if diff > T::zero() {
+            if diff > 0f64 {
                 rhs += (center[i] + radius[i] - best[i]) * diff;
             } else {
                 rhs += (center[i] - radius[i] - best[i]) * diff;
             }
         }
 
-        lhs >= T::two() * rhs
+        lhs >= 2f64 * rhs
     }
 
-    fn build_node<M: Matrix<T>>(&mut self, data: &M, begin: usize, end: usize) -> usize {
+    fn build_node<T: Number, M: Array2<T>>(&mut self, data: &M, begin: usize, end: usize) -> usize {
         let (_, d) = data.shape();
 
         let mut node = BBDTreeNode::new(d);
@@ -200,17 +200,17 @@ impl<T: RealNumber> BBDTree<T> {
         node.count = end - begin;
         node.index = begin;
 
-        let mut lower_bound = vec![T::zero(); d];
-        let mut upper_bound = vec![T::zero(); d];
+        let mut lower_bound = vec![0f64; d];
+        let mut upper_bound = vec![0f64; d];
 
         for i in 0..d {
-            lower_bound[i] = data.get(self.index[begin], i);
-            upper_bound[i] = data.get(self.index[begin], i);
+            lower_bound[i] = data.get((self.index[begin], i)).to_f64().unwrap();
+            upper_bound[i] = data.get((self.index[begin], i)).to_f64().unwrap();
         }
 
         for i in begin..end {
             for j in 0..d {
-                let c = data.get(self.index[i], j);
+                let c = data.get((self.index[i], j)).to_f64().unwrap();
                 if lower_bound[j] > c {
                     lower_bound[j] = c;
                 }
@@ -220,32 +220,32 @@ impl<T: RealNumber> BBDTree<T> {
             }
         }
 
-        let mut max_radius = T::from(-1.).unwrap();
+        let mut max_radius = -1f64;
         let mut split_index = 0;
         for i in 0..d {
-            node.center[i] = (lower_bound[i] + upper_bound[i]) / T::two();
-            node.radius[i] = (upper_bound[i] - lower_bound[i]) / T::two();
+            node.center[i] = (lower_bound[i] + upper_bound[i]) / 2f64;
+            node.radius[i] = (upper_bound[i] - lower_bound[i]) / 2f64;
             if node.radius[i] > max_radius {
                 max_radius = node.radius[i];
                 split_index = i;
             }
         }
 
-        if max_radius < T::from(1E-10).unwrap() {
+        if max_radius < 1E-10 {
             node.lower = Option::None;
             node.upper = Option::None;
             for i in 0..d {
-                node.sum[i] = data.get(self.index[begin], i);
+                node.sum[i] = data.get((self.index[begin], i)).to_f64().unwrap();
             }
 
             if end > begin + 1 {
                 let len = end - begin;
                 for i in 0..d {
-                    node.sum[i] *= T::from(len).unwrap();
+                    node.sum[i] *= len as f64;
                 }
             }
 
-            node.cost = T::zero();
+            node.cost = 0f64;
             return self.add_node(node);
         }
 
@@ -254,8 +254,10 @@ impl<T: RealNumber> BBDTree<T> {
         let mut i2 = end - 1;
         let mut size = 0;
         while i1 <= i2 {
-            let mut i1_good = data.get(self.index[i1], split_index) < split_cutoff;
-            let mut i2_good = data.get(self.index[i2], split_index) >= split_cutoff;
+            let mut i1_good =
+                data.get((self.index[i1], split_index)).to_f64().unwrap() < split_cutoff;
+            let mut i2_good =
+                data.get((self.index[i2], split_index)).to_f64().unwrap() >= split_cutoff;
 
             if !i1_good && !i2_good {
                 self.index.swap(i1, i2);
@@ -281,9 +283,9 @@ impl<T: RealNumber> BBDTree<T> {
                 self.nodes[node.lower.unwrap()].sum[i] + self.nodes[node.upper.unwrap()].sum[i];
         }
 
-        let mut mean = vec![T::zero(); d];
+        let mut mean = vec![0f64; d];
         for (i, mean_i) in mean.iter_mut().enumerate().take(d) {
-            *mean_i = node.sum[i] / T::from(node.count).unwrap();
+            *mean_i = node.sum[i] / node.count as f64;
         }
 
         node.cost = BBDTree::node_cost(&self.nodes[node.lower.unwrap()], &mean)
@@ -292,17 +294,17 @@ impl<T: RealNumber> BBDTree<T> {
         self.add_node(node)
     }
 
-    fn node_cost(node: &BBDTreeNode<T>, center: &[T]) -> T {
+    fn node_cost(node: &BBDTreeNode, center: &[f64]) -> f64 {
         let d = center.len();
-        let mut scatter = T::zero();
+        let mut scatter = 0f64;
         for (i, center_i) in center.iter().enumerate().take(d) {
-            let x = (node.sum[i] / T::from(node.count).unwrap()) - *center_i;
+            let x = (node.sum[i] / node.count as f64) - *center_i;
             scatter += x * x;
         }
-        node.cost + T::from(node.count).unwrap() * scatter
+        node.cost + node.count as f64 * scatter
     }
 
-    fn add_node(&mut self, new_node: BBDTreeNode<T>) -> usize {
+    fn add_node(&mut self, new_node: BBDTreeNode) -> usize {
         let idx = self.nodes.len();
         self.nodes.push(new_node);
         idx
@@ -312,7 +314,7 @@ impl<T: RealNumber> BBDTree<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

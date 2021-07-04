@@ -499,6 +499,36 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         x
     }
 
+    fn cov(&self, cov: &mut dyn MutArrayView2<f64>)
+    where
+        T: Number,
+    {
+        let (m, n) = self.shape();
+
+        let mu = self.mean(0);
+
+        for k in 0..m {
+            for i in 0..n {
+                for j in 0..=i {
+                    cov.add_element_mut(
+                        (i, j),
+                        (self.get((k, i)).to_f64().unwrap() - mu[i])
+                            * (self.get((k, j)).to_f64().unwrap() - mu[j]),
+                    );
+                }
+            }
+        }
+
+        let m = (m - 1) as f64;
+
+        for i in 0..n {
+            for j in 0..=i {
+                cov.div_element_mut((i, j), m);
+                cov.set((j, i), *cov.get((i, j)));
+            }
+        }
+    }
+
     fn display(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (nrows, ncols) = self.shape();
         for r in 0..nrows {
@@ -1994,5 +2024,26 @@ mod tests {
     fn diag() {
         let x = DenseMatrix::from_2d_array(&[&[0, 1, 2], &[3, 4, 5], &[6, 7, 8]]);
         assert_eq!(x.diag(), vec![0, 4, 8]);
+    }
+
+    #[test]
+    fn test_cov() {
+        let a = DenseMatrix::from_2d_array(&[
+            &[64, 580, 29],
+            &[66, 570, 33],
+            &[68, 590, 37],
+            &[69, 660, 46],
+            &[73, 600, 55],
+        ]);
+        let mut result = DenseMatrix::zeros(3, 3);
+        let expected = DenseMatrix::from_2d_array(&[
+            &[11.5, 50.0, 34.75],
+            &[50.0, 1250.0, 205.0],
+            &[34.75, 205.0, 110.0],
+        ]);
+
+        a.cov(&mut result);
+
+        assert_eq!(result, expected);
     }
 }

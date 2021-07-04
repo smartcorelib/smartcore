@@ -24,7 +24,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
+use crate::num::Number;
 
 use super::Distance;
 
@@ -36,8 +36,8 @@ pub struct Minkowski {
     pub p: u16,
 }
 
-impl<T: RealNumber> Distance<Vec<T>, T> for Minkowski {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
+impl<T: Number> Distance<Vec<T>> for Minkowski {
+    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> f64 {
         if x.len() != y.len() {
             panic!("Input vector sizes are different");
         }
@@ -45,15 +45,15 @@ impl<T: RealNumber> Distance<Vec<T>, T> for Minkowski {
             panic!("p must be at least 1");
         }
 
-        let mut dist = T::zero();
-        let p_t = T::from_u16(self.p).unwrap();
+        let mut dist = 0f64;
+        let p_t = self.p as f64;
 
         for i in 0..x.len() {
-            let d = (x[i] - y[i]).abs();
+            let d = (x[i].to_f64().unwrap() - y[i].to_f64().unwrap()).abs();
             dist += d.powf(p_t);
         }
 
-        dist.powf(T::one() / p_t)
+        dist.powf(1f64 / p_t)
     }
 }
 

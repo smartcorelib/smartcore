@@ -24,13 +24,14 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array2;
+use crate::linalg::dense::matrix::DenseMatrix;
+use crate::num::Number;
 
 /// Distance metric, a function that calculates distance between two points
-pub trait Distance<T, F: RealNumber>: Clone {
+pub trait Distance<T>: Clone {
     /// Calculates distance between _a_ and _b_
-    fn distance(&self, a: &T, b: &T) -> F;
+    fn distance(&self, a: &T, b: &T) -> f64;
 }
 
 /// Multitude of distance metric functions
@@ -59,7 +60,9 @@ impl Distances {
     }
 
     /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)
-    pub fn mahalanobis<T: RealNumber, M: Matrix<T>>(data: &M) -> mahalanobis::Mahalanobis<T, M> {
+    pub fn mahalanobis<T: Number, M: Array2<T>>(
+        data: &M,
+    ) -> mahalanobis::Mahalanobis<DenseMatrix<f64>> {
         mahalanobis::Mahalanobis::new(data)
     }
 }

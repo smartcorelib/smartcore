@@ -20,7 +20,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
+use crate::num::Number;
 
 use super::Distance;
 
@@ -29,15 +29,15 @@ use super::Distance;
 #[derive(Debug, Clone)]
 pub struct Manhattan {}
 
-impl<T: RealNumber> Distance<Vec<T>, T> for Manhattan {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
+impl<T: Number> Distance<Vec<T>> for Manhattan {
+    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> f64 {
         if x.len() != y.len() {
             panic!("Input vector sizes are different");
         }
 
-        let mut dist = T::zero();
+        let mut dist = 0f64;
         for i in 0..x.len() {
-            dist += (x[i] - y[i]).abs();
+            dist += (x[i].to_f64().unwrap() - y[i].to_f64().unwrap()).abs();
         }
 
         dist

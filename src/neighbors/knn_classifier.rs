@@ -12,7 +12,7 @@
 //! To fit the model to a 4 x 2 matrix with 4 training samples, 2 features per sample:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::neighbors::knn_classifier::*;
 //! use smartcore::math::distance::*;
 //!
@@ -23,7 +23,7 @@
 //!     &[5., 6.],
 //!     &[7., 8.],
 //! &[9., 10.]]);
-//! let y = vec![2., 2., 2., 3., 3.]; //your class labels
+//! let y = vec![2, 2, 2, 3, 3]; //your class labels
 //!
 //! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = knn.predict(&x).unwrap();
@@ -39,16 +39,16 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::{row_iter, Matrix};
+use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::math::distance::euclidian::Euclidian;
 use crate::math::distance::{Distance, Distances};
-use crate::math::num::RealNumber;
 use crate::neighbors::KNNWeightFunction;
+use crate::num::Number;
 
 /// `KNNClassifier` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct KNNClassifierParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
+pub struct KNNClassifierParameters<T: Number, D: Distance<Vec<T>>> {
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
@@ -66,15 +66,24 @@ pub struct KNNClassifierParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
 /// K Nearest Neighbors Classifier
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct KNNClassifier<T: RealNumber, D: Distance<Vec<T>, T>> {
-    classes: Vec<T>,
+pub struct KNNClassifier<
+    TX: Number,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    D: Distance<Vec<TX>>,
+> {
+    classes: Vec<TY>,
     y: Vec<usize>,
-    knn_algorithm: KNNAlgorithm<T, D>,
+    knn_algorithm: KNNAlgorithm<TX, D>,
     weight: KNNWeightFunction,
     k: usize,
+    _phantom_tx: PhantomData<TX>,
+    _phantom_x: PhantomData<X>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifierParameters<T, D> {
+impl<T: Number, D: Distance<Vec<T>>> KNNClassifierParameters<T, D> {
     /// number of training samples to consider when estimating class for new point. Default value is 3.
     pub fn with_k(mut self, k: usize) -> Self {
         self.k = k;
@@ -83,7 +92,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifierParameters<T, D> {
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
-    pub fn with_distance<DD: Distance<Vec<T>, T>>(
+    pub fn with_distance<DD: Distance<Vec<T>>>(
         self,
         distance: DD,
     ) -> KNNClassifierParameters<T, DD> {
@@ -107,7 +116,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifierParameters<T, D> {
     }
 }
 
-impl<T: RealNumber> Default for KNNClassifierParameters<T, Euclidian> {
+impl<T: Number> Default for KNNClassifierParameters<T, Euclidian> {
     fn default() -> Self {
         KNNClassifierParameters {
             distance: Distances::euclidian(),
@@ -119,7 +128,9 @@ impl<T: RealNumber> Default for KNNClassifierParameters<T, Euclidian> {
     }
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
+impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>> PartialEq
+    for KNNClassifier<TX, TY, X, Y, D>
+{
     fn eq(&self, other: &Self) -> bool {
         if self.classes.len() != other.classes.len()
             || self.k != other.k
@@ -128,12 +139,12 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
             false
         } else {
             for i in 0..self.classes.len() {
-                if (self.classes[i] - other.classes[i]).abs() > T::epsilon() {
+                if self.classes[i] != other.classes[i] {
                     return false;
                 }
             }
             for i in 0..self.y.len() {
-                if self.y[i] != other.y[i] {
+                if self.y.get(i) != other.y.get(i) {
                     return false;
                 }
             }
@@ -142,48 +153,47 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNClassifier<T, D> {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>>
-    SupervisedEstimator<M, M::RowVector, KNNClassifierParameters<T, D>> for KNNClassifier<T, D>
+impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    SupervisedEstimator<X, Y, KNNClassifierParameters<TX, D>> for KNNClassifier<TX, TY, X, Y, D>
 {
-    fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: KNNClassifierParameters<T, D>,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: KNNClassifierParameters<TX, D>) -> Result<Self, Failed> {
         KNNClassifier::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>> Predictor<M, M::RowVector>
-    for KNNClassifier<T, D>
+impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    Predictor<X, Y> for KNNClassifier<TX, TY, X, Y, D>
 {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
+impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    KNNClassifier<TX, TY, X, Y, D>
+{
     /// Fits KNN classifier to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
     /// * `y` - vector with target values (classes) of length N    
     /// * `parameters` - additional parameters like search algorithm and k
-    pub fn fit<M: Matrix<T>>(
-        x: &M,
-        y: &M::RowVector,
-        parameters: KNNClassifierParameters<T, D>,
-    ) -> Result<KNNClassifier<T, D>, Failed> {
-        let y_m = M::from_row_vector(y.clone());
-
-        let (_, y_n) = y_m.shape();
+    pub fn fit(
+        x: &X,
+        y: &Y,
+        parameters: KNNClassifierParameters<TX, D>,
+    ) -> Result<KNNClassifier<TX, TY, X, Y, D>, Failed> {
+        let y_n = y.shape();
         let (x_n, _) = x.shape();
 
-        let data = row_iter(x).collect();
+        let data = x
+            .row_iter()
+            .map(|row| row.iterator(0).map(|&v| v).collect())
+            .collect();
 
         let mut yi: Vec<usize> = vec![0; y_n];
-        let classes = y_m.unique();
+        let classes = y.unique();
 
         for (i, yi_i) in yi.iter_mut().enumerate().take(y_n) {
-            let yc = y_m.get(0, i);
+            let yc = *y.get(i);
             *yi_i = classes.iter().position(|c| yc == *c).unwrap();
         }
 
@@ -207,32 +217,36 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
             k: parameters.k,
             knn_algorithm: parameters.algorithm.fit(data, parameters.distance)?,
             weight: parameters.weight,
+            _phantom_tx: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let mut result = M::zeros(1, x.shape().0);
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let mut result = Y::zeros(x.shape().0);
 
-        for (i, x) in row_iter(x).enumerate() {
-            result.set(0, i, self.classes[self.predict_for_row(x)?]);
+        for (i, row) in x.row_iter().enumerate() {
+            result.set(i, self.classes[self.predict_for_row(row.as_ref())?]);
         }
 
-        Ok(result.to_row_vector())
+        Ok(result)
     }
 
-    fn predict_for_row(&self, x: Vec<T>) -> Result<usize, Failed> {
+    fn predict_for_row(&self, row: &dyn ArrayView1<TX>) -> Result<usize, Failed> {
+        let x: Vec<TX> = row.iterator(0).map(|&v| v).collect();
         let search_result = self.knn_algorithm.find(&x, self.k)?;
 
         let weights = self
             .weight
             .calc_weights(search_result.iter().map(|v| v.1).collect());
-        let w_sum = weights.iter().copied().sum();
+        let w_sum: f64 = weights.iter().copied().sum();
 
-        let mut c = vec![T::zero(); self.classes.len()];
-        let mut max_c = T::zero();
+        let mut c = vec![0f64; self.classes.len()];
+        let mut max_c = 0f64;
         let mut max_i = 0;
         for (r, w) in search_result.iter().zip(weights.iter()) {
             c[self.y[r.0]] += *w / w_sum;
@@ -249,14 +263,14 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNClassifier<T, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_fit_predict() {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
-        let y = vec![2., 2., 2., 3., 3.];
+        let y = vec![2, 2, 2, 3, 3];
         let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
         let y_hat = knn.predict(&x).unwrap();
         assert_eq!(5, Vec::len(&y_hat));
@@ -267,7 +281,7 @@ mod tests {
     #[test]
     fn knn_fit_predict_weighted() {
         let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]);
-        let y = vec![2., 2., 2., 3., 3.];
+        let y = vec![2, 2, 2, 3, 3];
         let knn = KNNClassifier::fit(
             &x,
             &y,
@@ -278,7 +292,7 @@ mod tests {
         )
         .unwrap();
         let y_hat = knn.predict(&DenseMatrix::from_2d_array(&[&[4.1]])).unwrap();
-        assert_eq!(vec![3.0], y_hat);
+        assert_eq!(vec![3], y_hat);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -287,7 +301,7 @@ mod tests {
     fn serde() {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
-        let y = vec![2., 2., 2., 3., 3.];
+        let y = vec![2, 2, 2, 3, 3];
 
         let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
 

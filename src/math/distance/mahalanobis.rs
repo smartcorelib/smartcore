@@ -14,7 +14,8 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::base::ArrayView2;
 //! use smartcore::math::distance::Distance;
 //! use smartcore::math::distance::mahalanobis::Mahalanobis;
 //!
@@ -26,7 +27,7 @@
 //!                   &[73., 600., 55.],
 //! ]);
 //!
-//! let a = data.column_mean();
+//! let a = data.mean(0);
 //! let b = vec![66., 640., 44.];
 //!
 //! let mahalanobis = Mahalanobis::new(&data);
@@ -42,55 +43,47 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
-use std::marker::PhantomData;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
-
 use super::Distance;
-use crate::linalg::Matrix;
+use crate::linalg::base::{Array, Array2};
+use crate::linalg::dense::matrix::DenseMatrix;
+use crate::linalg::lu_n::LUDecomposable;
+use crate::num::Number;
 
 /// Mahalanobis distance.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
+pub struct Mahalanobis<M: Array2<f64>> {
     /// covariance matrix of the dataset
     pub sigma: M,
     /// inverse of the covariance matrix
     pub sigmaInv: M,
-    t: PhantomData<T>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
+impl Mahalanobis<DenseMatrix<f64>> {
     /// Constructs new instance of `Mahalanobis` from given dataset
     /// * `data` - a matrix of _NxM_ where _N_ is number of observations and _M_ is number of attributes
-    pub fn new(data: &M) -> Mahalanobis<T, M> {
-        let sigma = data.cov();
+    pub fn new<T: Number, M: Array2<T>>(data: &M) -> Mahalanobis<DenseMatrix<f64>> {
+        let (n, m) = data.shape();
+        let mut sigma = DenseMatrix::zeros(m, m);
+        data.cov(&mut sigma);
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
-        Mahalanobis {
-            sigma,
-            sigmaInv,
-            t: PhantomData,
-        }
+        Mahalanobis { sigma, sigmaInv }
     }
 
     /// Constructs new instance of `Mahalanobis` from given covariance matrix
     /// * `cov` - a covariance matrix
-    pub fn new_from_covariance(cov: &M) -> Mahalanobis<T, M> {
+    pub fn new_from_covariance<M: Array2<f64> + LUDecomposable<f64>>(cov: &M) -> Mahalanobis<M> {
         let sigma = cov.clone();
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
-        Mahalanobis {
-            sigma,
-            sigmaInv,
-            t: PhantomData,
-        }
+        Mahalanobis { sigma, sigmaInv }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
+impl<T: Number> Distance<Vec<T>> for Mahalanobis<DenseMatrix<f64>> {
+    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> f64 {
         let (nrows, ncols) = self.sigma.shape();
         if x.len() != nrows {
             panic!(
@@ -111,16 +104,16 @@ impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
         }
 
         let n = x.len();
-        let mut z = vec![T::zero(); n];
+        let mut z = vec![0f64; n];
         for i in 0..n {
-            z[i] = x[i] - y[i];
+            z[i] = x[i].to_f64().unwrap() - y[i].to_f64().unwrap();
         }
 
         // np.dot(np.dot((a-b),VI),(a-b).T)
-        let mut s = T::zero();
+        let mut s = 0f64;
         for j in 0..n {
             for i in 0..n {
-                s += self.sigmaInv.get(i, j) * z[i] * z[j];
+                s += *self.sigmaInv.get((i, j)) * z[i] * z[j];
             }
         }
 
@@ -131,7 +124,8 @@ impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::base::ArrayView2;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -144,7 +138,7 @@ mod tests {
             &[73., 600., 55.],
         ]);
 
-        let a = data.column_mean();
+        let a = data.mean(0);
         let b = vec![66., 640., 44.];
 
         let mahalanobis = Mahalanobis::new(&data);

@@ -43,7 +43,7 @@
 //!
 //! ```
 //! // DenseMatrix defenition
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! // KNNClassifier
 //! use smartcore::neighbors::knn_classifier::*;
 //! // Various distance metrics
@@ -57,7 +57,7 @@
 //!    &[7., 8.],
 //!    &[9., 10.]]);
 //! // Our classes are defined as a Vector
-//! let y = vec![2., 2., 2., 3., 3.];
+//! let y = vec![2, 2, 2, 3, 3];
 //!
 //! // Train classifier
 //! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();

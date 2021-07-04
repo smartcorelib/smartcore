@@ -22,8 +22,6 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
-
 use super::Distance;
 
 /// While comparing two integer-valued vectors of equal length, Hamming distance is the number of bit positions in which the two bits are different
@@ -31,8 +29,8 @@ use super::Distance;
 #[derive(Debug, Clone)]
 pub struct Hamming {}
 
-impl<T: PartialEq, F: RealNumber> Distance<Vec<T>, F> for Hamming {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> F {
+impl<T: PartialEq> Distance<Vec<T>> for Hamming {
+    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> f64 {
         if x.len() != y.len() {
             panic!("Input vector sizes are different");
         }
@@ -44,7 +42,7 @@ impl<T: PartialEq, F: RealNumber> Distance<Vec<T>, F> for Hamming {
             }
         }
 
-        F::from_i64(dist).unwrap() / F::from_usize(x.len()).unwrap()
+        dist as f64 / x.len() as f64
     }
 }
 

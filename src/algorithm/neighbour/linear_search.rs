@@ -8,7 +8,7 @@
 //! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
 //!
-//! impl Distance<i32, f64> for SimpleDistance {
+//! impl Distance<i32> for SimpleDistance {
 //!   fn distance(&self, a: &i32, b: &i32) -> f64 { // simple simmetrical scalar distance
 //!     (a - b).abs() as f64
 //!   }
@@ -25,38 +25,31 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
-use std::marker::PhantomData;
 
 use crate::algorithm::sort::heap_select::HeapSelection;
 use crate::error::{Failed, FailedError};
 use crate::math::distance::Distance;
-use crate::math::num::RealNumber;
 
 /// Implements Linear Search algorithm, see [KNN algorithms](../index.html)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct LinearKNNSearch<T, F: RealNumber, D: Distance<T, F>> {
+pub struct LinearKNNSearch<T, D: Distance<T>> {
     distance: D,
     data: Vec<T>,
-    f: PhantomData<F>,
 }
 
-impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
+impl<T, D: Distance<T>> LinearKNNSearch<T, D> {
     /// Initializes algorithm.
     /// * `data` - vector of data points to search for.
     /// * `distance` - distance metric to use for searching. This function should extend [`Distance`](../../../math/distance/index.html) interface.
-    pub fn new(data: Vec<T>, distance: D) -> Result<LinearKNNSearch<T, F, D>, Failed> {
-        Ok(LinearKNNSearch {
-            data,
-            distance,
-            f: PhantomData,
-        })
+    pub fn new(data: Vec<T>, distance: D) -> Result<LinearKNNSearch<T, D>, Failed> {
+        Ok(LinearKNNSearch { data, distance })
     }
 
     /// Find k nearest neighbors
     /// * `from` - look for k nearest points to `from`
     /// * `k` - the number of nearest neighbors to return
-    pub fn find(&self, from: &T, k: usize) -> Result<Vec<(usize, F, &T)>, Failed> {
+    pub fn find(&self, from: &T, k: usize) -> Result<Vec<(usize, f64, &T)>, Failed> {
         if k < 1 || k > self.data.len() {
             return Err(Failed::because(
                 FailedError::FindFailed,
@@ -64,11 +57,11 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
             ));
         }
 
-        let mut heap = HeapSelection::<KNNPoint<F>>::with_capacity(k);
+        let mut heap = HeapSelection::<KNNPoint>::with_capacity(k);
 
         for _ in 0..k {
             heap.add(KNNPoint {
-                distance: F::infinity(),
+                distance: std::f64::INFINITY,
                 index: None,
             });
         }
@@ -93,15 +86,15 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
     /// Find all nearest neighbors within radius `radius` from `p`
     /// * `p` - look for k nearest points to `p`
     /// * `radius` - radius of the search
-    pub fn find_radius(&self, from: &T, radius: F) -> Result<Vec<(usize, F, &T)>, Failed> {
-        if radius <= F::zero() {
+    pub fn find_radius(&self, from: &T, radius: f64) -> Result<Vec<(usize, f64, &T)>, Failed> {
+        if radius <= 0f64 {
             return Err(Failed::because(
                 FailedError::FindFailed,
                 "radius should be > 0",
             ));
         }
 
-        let mut neighbors: Vec<(usize, F, &T)> = Vec::new();
+        let mut neighbors: Vec<(usize, f64, &T)> = Vec::new();
 
         for i in 0..self.data.len() {
             let d = self.distance.distance(&from, &self.data[i]);
@@ -116,24 +109,24 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
 }
 
 #[derive(Debug)]
-struct KNNPoint<F: RealNumber> {
-    distance: F,
+struct KNNPoint {
+    distance: f64,
     index: Option<usize>,
 }
 
-impl<F: RealNumber> PartialOrd for KNNPoint<F> {
+impl PartialOrd for KNNPoint {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.distance.partial_cmp(&other.distance)
     }
 }
 
-impl<F: RealNumber> PartialEq for KNNPoint<F> {
+impl PartialEq for KNNPoint {
     fn eq(&self, other: &Self) -> bool {
         self.distance == other.distance
     }
 }
 
-impl<F: RealNumber> Eq for KNNPoint<F> {}
+impl Eq for KNNPoint {}
 
 #[cfg(test)]
 mod tests {
@@ -144,7 +137,7 @@ mod tests {
     #[derive(Debug, Clone)]
     struct SimpleDistance {}
 
-    impl Distance<i32, f64> for SimpleDistance {
+    impl Distance<i32> for SimpleDistance {
         fn distance(&self, a: &i32, b: &i32) -> f64 {
             (a - b).abs() as f64
         }

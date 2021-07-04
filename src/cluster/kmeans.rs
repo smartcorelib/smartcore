@@ -16,7 +16,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::cluster::kmeans::*;
 //!
 //! // Iris data
@@ -44,7 +44,7 @@
 //!            ]);
 //!
 //! let kmeans = KMeans::fit(&x, KMeansParameters::default().with_k(2)).unwrap(); // Fit to data, 2 clusters
-//! let y_hat = kmeans.predict(&x).unwrap(); // use the same points for prediction
+//! let y_hat: Vec<u8> = kmeans.predict(&x).unwrap(); // use the same points for prediction
 //! ```
 //!
 //! ## References:
@@ -54,7 +54,7 @@
 
 use rand::Rng;
 use std::fmt::Debug;
-use std::iter::Sum;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -62,22 +62,26 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
 use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::Matrix;
+use crate::linalg::base::{Array1, Array2};
 use crate::math::distance::euclidian::*;
-use crate::math::num::RealNumber;
+use crate::num::Number;
 
 /// K-Means clustering algorithm
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct KMeans<T: RealNumber> {
+pub struct KMeans<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     k: usize,
     y: Vec<usize>,
     size: Vec<usize>,
-    distortion: T,
-    centroids: Vec<Vec<T>>,
+    distortion: f64,
+    centroids: Vec<Vec<f64>>,
+    _phantom_tx: PhantomData<TX>,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_x: PhantomData<X>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber> PartialEq for KMeans<T> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for KMeans<TX, TY, X, Y> {
     fn eq(&self, other: &Self) -> bool {
         if self.k != other.k
             || self.size != other.size
@@ -91,7 +95,7 @@ impl<T: RealNumber> PartialEq for KMeans<T> {
                     return false;
                 }
                 for j in 0..self.centroids[i].len() {
-                    if (self.centroids[i][j] - other.centroids[i][j]).abs() > T::epsilon() {
+                    if (self.centroids[i][j] - other.centroids[i][j]).abs() > std::f64::EPSILON {
                         return false;
                     }
                 }
@@ -132,23 +136,27 @@ impl Default for KMeansParameters {
     }
 }
 
-impl<T: RealNumber + Sum, M: Matrix<T>> UnsupervisedEstimator<M, KMeansParameters> for KMeans<T> {
-    fn fit(x: &M, parameters: KMeansParameters) -> Result<Self, Failed> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    UnsupervisedEstimator<X, KMeansParameters> for KMeans<TX, TY, X, Y>
+{
+    fn fit(x: &X, parameters: KMeansParameters) -> Result<Self, Failed> {
         KMeans::fit(x, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for KMeans<T> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for KMeans<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber + Sum> KMeans<T> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> {
     /// Fit algorithm to _NxM_ matrix where _N_ is number of samples and _M_ is number of features.
     /// * `data` - training instances to cluster    
     /// * `parameters` - cluster parameters
-    pub fn fit<M: Matrix<T>>(data: &M, parameters: KMeansParameters) -> Result<KMeans<T>, Failed> {
+    pub fn fit(data: &X, parameters: KMeansParameters) -> Result<KMeans<TX, TY, X, Y>, Failed> {
         let bbd = BBDTree::new(data);
 
         if parameters.k < 2 {
@@ -167,10 +175,10 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         let (n, d) = data.shape();
 
-        let mut distortion = T::max_value();
-        let mut y = KMeans::kmeans_plus_plus(data, parameters.k);
+        let mut distortion = std::f64::MAX;
+        let mut y = Self::kmeans_plus_plus(data, parameters.k);
         let mut size = vec![0; parameters.k];
-        let mut centroids = vec![vec![T::zero(); d]; parameters.k];
+        let mut centroids = vec![vec![0f64; d]; parameters.k];
 
         for i in 0..n {
             size[y[i]] += 1;
@@ -178,23 +186,23 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         for i in 0..n {
             for j in 0..d {
-                centroids[y[i]][j] += data.get(i, j);
+                centroids[y[i]][j] += data.get((i, j)).to_f64().unwrap();
             }
         }
 
         for i in 0..parameters.k {
             for j in 0..d {
-                centroids[i][j] /= T::from(size[i]).unwrap();
+                centroids[i][j] /= size[i] as f64;
             }
         }
 
-        let mut sums = vec![vec![T::zero(); d]; parameters.k];
+        let mut sums = vec![vec![0f64; d]; parameters.k];
         for _ in 1..=parameters.max_iter {
             let dist = bbd.clustering(&centroids, &mut sums, &mut size, &mut y);
             for i in 0..parameters.k {
                 if size[i] > 0 {
                     for j in 0..d {
-                        centroids[i][j] = T::from(sums[i][j]).unwrap() / T::from(size[i]).unwrap();
+                        centroids[i][j] = sums[i][j] / size[i] as f64;
                     }
                 }
             }
@@ -212,48 +220,56 @@ impl<T: RealNumber + Sum> KMeans<T> {
             size,
             distortion,
             centroids,
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Predict clusters for `x`
     /// * `x` - matrix with new data to transform of size _KxM_ , where _K_ is number of new samples and _M_ is number of features.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let (n, m) = x.shape();
-        let mut result = M::zeros(1, n);
-
-        let mut row = vec![T::zero(); m];
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let (n, _) = x.shape();
+        let mut result = Y::zeros(n);
 
         for i in 0..n {
-            let mut min_dist = T::max_value();
+            let mut min_dist = std::f64::MAX;
             let mut best_cluster = 0;
 
             for j in 0..self.k {
-                x.copy_row_as_vec(i, &mut row);
+                let row: Vec<f64> = x
+                    .get_row(i)
+                    .iterator(0)
+                    .map(|x| x.to_f64().unwrap())
+                    .collect();
                 let dist = Euclidian::squared_distance(&row, &self.centroids[j]);
                 if dist < min_dist {
                     min_dist = dist;
                     best_cluster = j;
                 }
             }
-            result.set(0, i, T::from(best_cluster).unwrap());
+            result.set(i, TY::from_usize(best_cluster).unwrap());
         }
 
-        Ok(result.to_row_vector())
+        Ok(result)
     }
 
-    fn kmeans_plus_plus<M: Matrix<T>>(data: &M, k: usize) -> Vec<usize> {
+    fn kmeans_plus_plus(data: &X, k: usize) -> Vec<usize> {
         let mut rng = rand::thread_rng();
-        let (n, m) = data.shape();
+        let (n, _) = data.shape();
         let mut y = vec![0; n];
-        let mut centroid = data.get_row_as_vec(rng.gen_range(0..n));
+        let mut centroid: Vec<TX> = data
+            .get_row(rng.gen_range(0..n))
+            .iterator(0)
+            .cloned()
+            .collect();
 
-        let mut d = vec![T::max_value(); n];
-
-        let mut row = vec![T::zero(); m];
+        let mut d = vec![std::f64::MAX; n];
 
         for j in 1..k {
             for i in 0..n {
-                data.copy_row_as_vec(i, &mut row);
+                let row: Vec<TX> = data.get_row(i).iterator(0).cloned().collect();
                 let dist = Euclidian::squared_distance(&row, &centroid);
 
                 if dist < d[i] {
@@ -262,12 +278,12 @@ impl<T: RealNumber + Sum> KMeans<T> {
                 }
             }
 
-            let mut sum: T = T::zero();
+            let mut sum = 0f64;
             for i in d.iter() {
                 sum += *i;
             }
-            let cutoff = T::from(rng.gen::<f64>()).unwrap() * sum;
-            let mut cost = T::zero();
+            let cutoff = rng.gen::<f64>() * sum;
+            let mut cost = 0f64;
             let mut index = 0;
             while index < n {
                 cost += d[index];
@@ -277,11 +293,11 @@ impl<T: RealNumber + Sum> KMeans<T> {
                 index += 1;
             }
 
-            data.copy_row_as_vec(index, &mut centroid);
+            centroid = data.get_row(index).iterator(0).cloned().collect();
         }
 
         for i in 0..n {
-            data.copy_row_as_vec(i, &mut row);
+            let row: Vec<TX> = data.get_row(i).iterator(0).cloned().collect();
             let dist = Euclidian::squared_distance(&row, &centroid);
 
             if dist < d[i] {
@@ -297,19 +313,26 @@ impl<T: RealNumber + Sum> KMeans<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn invalid_k() {
-        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
 
-        assert!(KMeans::fit(&x, KMeansParameters::default().with_k(0)).is_err());
+        assert!(KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
+            &x,
+            KMeansParameters::default().with_k(0)
+        )
+        .is_err());
         assert_eq!(
             "Fit failed: invalid number of clusters: 1",
-            KMeans::fit(&x, KMeansParameters::default().with_k(1))
-                .unwrap_err()
-                .to_string()
+            KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
+                &x,
+                KMeansParameters::default().with_k(1)
+            )
+            .unwrap_err()
+            .to_string()
         );
     }
 
@@ -341,7 +364,7 @@ mod tests {
 
         let kmeans = KMeans::fit(&x, Default::default()).unwrap();
 
-        let y = kmeans.predict(&x).unwrap();
+        let y: Vec<usize> = kmeans.predict(&x).unwrap();
 
         for i in 0..y.len() {
             assert_eq!(y[i] as usize, kmeans.y[i]);
@@ -375,9 +398,10 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let kmeans = KMeans::fit(&x, Default::default()).unwrap();
+        let kmeans: KMeans<f32, f32, DenseMatrix<f32>, Vec<f32>> =
+            KMeans::fit(&x, Default::default()).unwrap();
 
-        let deserialized_kmeans: KMeans<f64> =
+        let deserialized_kmeans: KMeans<f32, f32, DenseMatrix<f32>, Vec<f32>> =
             serde_json::from_str(&serde_json::to_string(&kmeans).unwrap()).unwrap();
 
         assert_eq!(kmeans, deserialized_kmeans);

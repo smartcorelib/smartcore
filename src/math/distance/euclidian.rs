@@ -21,7 +21,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
+use crate::num::Number;
 
 use super::Distance;
 
@@ -32,7 +32,7 @@ pub struct Euclidian {}
 
 impl Euclidian {
     #[inline]
-    pub(crate) fn squared_distance<T: RealNumber>(x: &[T], y: &[T]) -> T {
+    pub(crate) fn squared_distance<T: Number>(x: &[T], y: &[T]) -> f64 {
         if x.len() != y.len() {
             panic!("Input vector sizes are different.");
         }
@@ -43,12 +43,12 @@ impl Euclidian {
             sum += d * d;
         }
 
-        sum
+        sum.to_f64().unwrap()
     }
 }
 
-impl<T: RealNumber> Distance<Vec<T>, T> for Euclidian {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
+impl<T: Number> Distance<Vec<T>> for Euclidian {
+    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> f64 {
         Euclidian::squared_distance(x, y).sqrt()
     }
 }
