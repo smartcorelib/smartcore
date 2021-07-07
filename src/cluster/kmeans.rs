@@ -233,16 +233,17 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         let (n, _) = x.shape();
         let mut result = Y::zeros(n);
 
+        let mut row = vec![0f64; x.shape().1];
+
         for i in 0..n {
             let mut min_dist = std::f64::MAX;
             let mut best_cluster = 0;
 
             for j in 0..self.k {
-                let row: Vec<f64> = x
-                    .get_row(i)
+                x.get_row(i)
                     .iterator(0)
-                    .map(|x| x.to_f64().unwrap())
-                    .collect();
+                    .zip(row.iter_mut())
+                    .for_each(|(&x, r)| *r = x.to_f64().unwrap());
                 let dist = Euclidian::squared_distance(&row, &self.centroids[j]);
                 if dist < min_dist {
                     min_dist = dist;
@@ -266,10 +267,14 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             .collect();
 
         let mut d = vec![std::f64::MAX; n];
+        let mut row = vec![TX::zero(); data.shape().1];
 
         for j in 1..k {
             for i in 0..n {
-                let row: Vec<TX> = data.get_row(i).iterator(0).cloned().collect();
+                data.get_row(i)
+                    .iterator(0)
+                    .zip(row.iter_mut())
+                    .for_each(|(&x, r)| *r = x);
                 let dist = Euclidian::squared_distance(&row, &centroid);
 
                 if dist < d[i] {
@@ -297,7 +302,10 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         }
 
         for i in 0..n {
-            let row: Vec<TX> = data.get_row(i).iterator(0).cloned().collect();
+            data.get_row(i)
+                .iterator(0)
+                .zip(row.iter_mut())
+                .for_each(|(&x, r)| *r = x);
             let dist = Euclidian::squared_distance(&row, &centroid);
 
             if dist < d[i] {

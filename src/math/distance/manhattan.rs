@@ -30,13 +30,12 @@ use super::Distance;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Manhattan<T: Number> {
-    _t: PhantomData<T>
+    _t: PhantomData<T>,
 }
 
 impl<T: Number> Manhattan<T> {
-
     pub fn new() -> Manhattan<T> {
-        Manhattan {_t: PhantomData}
+        Manhattan { _t: PhantomData }
     }
 }
 
@@ -44,9 +43,13 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Manhattan<T> {
     fn distance(&self, x: &A, y: &A) -> f64 {
         if x.shape() != y.shape() {
             panic!("Input vector sizes are different");
-        }        
+        }
 
-        let dist: f64 = x.iterator(0).zip(y.iterator(0)).map(|(&a, &b)| (a - b).to_f64().unwrap().abs()).sum();
+        let dist: f64 = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(&a, &b)| (a - b).to_f64().unwrap().abs())
+            .sum();
 
         dist
     }

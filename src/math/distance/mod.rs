@@ -30,7 +30,6 @@ use crate::linalg::base::Array2;
 use crate::linalg::dense::matrix::DenseMatrix;
 use crate::num::Number;
 
-
 /// Distance metric, a function that calculates distance between two points
 pub trait Distance<T>: Clone {
     /// Calculates distance between _a_ and _b_

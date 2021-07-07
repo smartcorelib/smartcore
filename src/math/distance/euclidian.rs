@@ -31,13 +31,12 @@ use super::Distance;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Euclidian<T> {
-    _t: PhantomData<T>
+    _t: PhantomData<T>,
 }
 
 impl<T: Number> Euclidian<T> {
-
     pub fn new() -> Euclidian<T> {
-        Euclidian {_t: PhantomData}
+        Euclidian { _t: PhantomData }
     }
 
     #[inline]
@@ -46,10 +45,14 @@ impl<T: Number> Euclidian<T> {
             panic!("Input vector sizes are different.");
         }
 
-        let sum: f64 = x.iterator(0).zip(y.iterator(0)).map(|(&a, &b)| {
-            let r = a - b;
-            (r * r).to_f64().unwrap()            
-        }).sum();
+        let sum: f64 = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(&a, &b)| {
+                let r = a - b;
+                (r * r).to_f64().unwrap()
+            })
+            .sum();
 
         sum
     }

@@ -36,13 +36,12 @@ use super::Distance;
 pub struct Minkowski<T: Number> {
     /// order, integer
     pub p: u16,
-    _t: PhantomData<T>
+    _t: PhantomData<T>,
 }
 
 impl<T: Number> Minkowski<T> {
-
     pub fn new(p: u16) -> Minkowski<T> {
-        Minkowski {p, _t: PhantomData}
+        Minkowski { p, _t: PhantomData }
     }
 }
 
@@ -58,8 +57,12 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Minkowski<T> {
         let mut dist = 0f64;
         let p_t = self.p as f64;
 
-        let dist: f64 = x.iterator(0).zip(y.iterator(0)).map(|(&a, &b)| (a - b).to_f64().unwrap().abs().powf(p_t)).sum();
-        
+        let dist: f64 = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(&a, &b)| (a - b).to_f64().unwrap().abs().powf(p_t))
+            .sum();
+
         dist.powf(1f64 / p_t)
     }
 }

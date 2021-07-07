@@ -48,7 +48,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 use super::Distance;
-use crate::linalg::base::{Array, ArrayView1, Array2};
+use crate::linalg::base::{Array, Array2, ArrayView1};
 use crate::linalg::dense::matrix::DenseMatrix;
 use crate::linalg::lu_n::LUDecomposable;
 use crate::num::Number;
@@ -72,7 +72,11 @@ impl<T: Number> Mahalanobis<T, DenseMatrix<f64>> {
         let mut sigma = DenseMatrix::zeros(m, m);
         data.cov(&mut sigma);
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
-        Mahalanobis { sigma, sigmaInv, _t: PhantomData }
+        Mahalanobis {
+            sigma,
+            sigmaInv,
+            _t: PhantomData,
+        }
     }
 
     /// Constructs new instance of `Mahalanobis` from given covariance matrix
@@ -80,7 +84,11 @@ impl<T: Number> Mahalanobis<T, DenseMatrix<f64>> {
     pub fn new_from_covariance<M: Array2<f64> + LUDecomposable<f64>>(cov: &M) -> Mahalanobis<T, M> {
         let sigma = cov.clone();
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
-        Mahalanobis { sigma, sigmaInv, _t: PhantomData }
+        Mahalanobis {
+            sigma,
+            sigmaInv,
+            _t: PhantomData,
+        }
     }
 }
 
@@ -106,9 +114,13 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Mahalanobis<T, DenseMatrix<f64
         }
 
         let n = x.shape();
-        
-        let mut z: Vec<f64> = x.iterator(0).zip(y.iterator(0)).map(|(&a, &b)| (a - b).to_f64().unwrap()).collect();
-        
+
+        let mut z: Vec<f64> = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(&a, &b)| (a - b).to_f64().unwrap())
+            .collect();
+
         // np.dot(np.dot((a-b),VI),(a-b).T)
         let mut s = 0f64;
         for j in 0..n {

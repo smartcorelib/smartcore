@@ -229,16 +229,19 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let mut result = Y::zeros(x.shape().0);
 
+        let mut row_vec = vec![TX::zero(); x.shape().1];
         for (i, row) in x.row_iter().enumerate() {
-            result.set(i, self.classes[self.predict_for_row(row.as_ref())?]);
+            row.iterator(0)
+                .zip(row_vec.iter_mut())
+                .for_each(|(&s, v)| *v = s);
+            result.set(i, self.classes[self.predict_for_row(&row_vec)?]);
         }
 
         Ok(result)
     }
 
-    fn predict_for_row(&self, row: &dyn ArrayView1<TX>) -> Result<usize, Failed> {
-        let x: Vec<TX> = row.iterator(0).map(|&v| v).collect();
-        let search_result = self.knn_algorithm.find(&x, self.k)?;
+    fn predict_for_row(&self, row: &Vec<TX>) -> Result<usize, Failed> {
+        let search_result = self.knn_algorithm.find(row, self.k)?;
 
         let weights = self
             .weight

@@ -23,21 +23,20 @@
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
+use super::Distance;
 use crate::linalg::base::ArrayView1;
 use crate::num::Number;
-use super::Distance;
 
 /// While comparing two integer-valued vectors of equal length, Hamming distance is the number of bit positions in which the two bits are different
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Hamming<T: Number> {
-    _t: PhantomData<T>
+    _t: PhantomData<T>,
 }
 
 impl<T: Number> Hamming<T> {
-
     pub fn new() -> Hamming<T> {
-        Hamming {_t: PhantomData}
+        Hamming { _t: PhantomData }
     }
 }
 
@@ -46,12 +45,15 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Hamming<T> {
         if x.shape() != y.shape() {
             panic!("Input vector sizes are different");
         }
-        
-        let dist: usize = x.iterator(0).zip(y.iterator(0)).map(|(a, b)| {
-            match a != b {
+
+        let dist: usize = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(a, b)| match a != b {
                 true => 1,
-                false => 0
-            }}).sum();        
+                false => 0,
+            })
+            .sum();
 
         dist as f64 / x.shape() as f64
     }

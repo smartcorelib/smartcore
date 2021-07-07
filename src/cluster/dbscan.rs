@@ -188,10 +188,12 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             parameters.distance,
         )?;
 
+        let mut row = vec![TX::zero(); x.shape().1];
+
         for (i, e) in x.row_iter().enumerate() {
             if y[i] == undefined {
-                let mut neighbors =
-                    algo.find_radius(&e.iterator(0).cloned().collect(), parameters.eps)?;
+                e.iterator(0).zip(row.iter_mut()).for_each(|(&x, r)| *r = x);
+                let mut neighbors = algo.find_radius(&row, parameters.eps)?;
                 if neighbors.len() < parameters.min_samples {
                     y[i] = outlier;
                 } else {
@@ -254,8 +256,13 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         let (n, _) = x.shape();
         let mut result = Y::zeros(n);
 
+        let mut row = vec![TX::zero(); x.shape().1];
+
         for i in 0..n {
-            let row = x.get_row(i).iterator(0).cloned().collect();
+            x.get_row(i)
+                .iterator(0)
+                .zip(row.iter_mut())
+                .for_each(|(&x, r)| *r = x);
             let neighbors = self.knn_algorithm.find_radius(&row, self.eps)?;
             let mut label = vec![0usize; self.num_classes + 1];
             for neighbor in neighbors {
