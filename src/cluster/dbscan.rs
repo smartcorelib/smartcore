@@ -126,7 +126,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     }
 }
 
-impl<T: Number> Default for DBSCANParameters<T, Euclidian> {
+impl<T: Number> Default for DBSCANParameters<T, Euclidian<T>> {
     fn default() -> Self {
         DBSCANParameters {
             distance: Distances::euclidian(),
@@ -346,7 +346,7 @@ mod tests {
 
         let dbscan = DBSCAN::fit(&x, Default::default()).unwrap();
 
-        let deserialized_dbscan: DBSCAN<f32, f32, DenseMatrix<f32>, Vec<f32>, Euclidian> =
+        let deserialized_dbscan: DBSCAN<f32, f32, DenseMatrix<f32>, Vec<f32>, Euclidian<f32>> =
             serde_json::from_str(&serde_json::to_string(&dbscan).unwrap()).unwrap();
 
         assert_eq!(dbscan, deserialized_dbscan);

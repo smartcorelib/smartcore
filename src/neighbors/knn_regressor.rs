@@ -113,7 +113,7 @@ impl<T: Number, D: Distance<Vec<T>>> KNNRegressorParameters<T, D> {
     }
 }
 
-impl<T: Number> Default for KNNRegressorParameters<T, Euclidian> {
+impl<T: Number> Default for KNNRegressorParameters<T, Euclidian<T>> {
     fn default() -> Self {
         KNNRegressorParameters {
             distance: Distances::euclidian(),

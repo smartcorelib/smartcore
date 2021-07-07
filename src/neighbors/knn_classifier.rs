@@ -116,7 +116,7 @@ impl<T: Number, D: Distance<Vec<T>>> KNNClassifierParameters<T, D> {
     }
 }
 
-impl<T: Number> Default for KNNClassifierParameters<T, Euclidian> {
+impl<T: Number> Default for KNNClassifierParameters<T, Euclidian<T>> {
     fn default() -> Self {
         KNNClassifierParameters {
             distance: Distances::euclidian(),

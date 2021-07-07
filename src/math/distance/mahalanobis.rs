@@ -45,9 +45,10 @@
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 use super::Distance;
-use crate::linalg::base::{Array, Array2};
+use crate::linalg::base::{Array, ArrayView1, Array2};
 use crate::linalg::dense::matrix::DenseMatrix;
 use crate::linalg::lu_n::LUDecomposable;
 use crate::num::Number;
@@ -55,60 +56,59 @@ use crate::num::Number;
 /// Mahalanobis distance.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Mahalanobis<M: Array2<f64>> {
+pub struct Mahalanobis<T: Number, M: Array2<f64>> {
     /// covariance matrix of the dataset
     pub sigma: M,
     /// inverse of the covariance matrix
     pub sigmaInv: M,
+    _t: PhantomData<T>,
 }
 
-impl Mahalanobis<DenseMatrix<f64>> {
+impl<T: Number> Mahalanobis<T, DenseMatrix<f64>> {
     /// Constructs new instance of `Mahalanobis` from given dataset
     /// * `data` - a matrix of _NxM_ where _N_ is number of observations and _M_ is number of attributes
-    pub fn new<T: Number, M: Array2<T>>(data: &M) -> Mahalanobis<DenseMatrix<f64>> {
-        let (n, m) = data.shape();
+    pub fn new<M: Array2<T>>(data: &M) -> Mahalanobis<T, DenseMatrix<f64>> {
+        let (_, m) = data.shape();
         let mut sigma = DenseMatrix::zeros(m, m);
         data.cov(&mut sigma);
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
-        Mahalanobis { sigma, sigmaInv }
+        Mahalanobis { sigma, sigmaInv, _t: PhantomData }
     }
 
     /// Constructs new instance of `Mahalanobis` from given covariance matrix
     /// * `cov` - a covariance matrix
-    pub fn new_from_covariance<M: Array2<f64> + LUDecomposable<f64>>(cov: &M) -> Mahalanobis<M> {
+    pub fn new_from_covariance<M: Array2<f64> + LUDecomposable<f64>>(cov: &M) -> Mahalanobis<T, M> {
         let sigma = cov.clone();
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
-        Mahalanobis { sigma, sigmaInv }
+        Mahalanobis { sigma, sigmaInv, _t: PhantomData }
     }
 }
 
-impl<T: Number> Distance<Vec<T>> for Mahalanobis<DenseMatrix<f64>> {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> f64 {
+impl<T: Number, A: ArrayView1<T>> Distance<A> for Mahalanobis<T, DenseMatrix<f64>> {
+    fn distance(&self, x: &A, y: &A) -> f64 {
         let (nrows, ncols) = self.sigma.shape();
-        if x.len() != nrows {
+        if x.shape() != nrows {
             panic!(
                 "Array x[{}] has different dimension with Sigma[{}][{}].",
-                x.len(),
+                x.shape(),
                 nrows,
                 ncols
             );
         }
 
-        if y.len() != nrows {
+        if y.shape() != nrows {
             panic!(
                 "Array y[{}] has different dimension with Sigma[{}][{}].",
-                y.len(),
+                y.shape(),
                 nrows,
                 ncols
             );
         }
 
-        let n = x.len();
-        let mut z = vec![0f64; n];
-        for i in 0..n {
-            z[i] = x[i].to_f64().unwrap() - y[i].to_f64().unwrap();
-        }
-
+        let n = x.shape();
+        
+        let mut z: Vec<f64> = x.iterator(0).zip(y.iterator(0)).map(|(&a, &b)| (a - b).to_f64().unwrap()).collect();
+        
         // np.dot(np.dot((a-b),VI),(a-b).T)
         let mut s = 0f64;
         for j in 0..n {

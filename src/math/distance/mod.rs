@@ -24,9 +24,12 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
+use std::marker::PhantomData;
+
 use crate::linalg::base::Array2;
 use crate::linalg::dense::matrix::DenseMatrix;
 use crate::num::Number;
+
 
 /// Distance metric, a function that calculates distance between two points
 pub trait Distance<T>: Clone {
@@ -39,30 +42,30 @@ pub struct Distances {}
 
 impl Distances {
     /// Euclidian distance, see [`Euclidian`](euclidian/index.html)
-    pub fn euclidian() -> euclidian::Euclidian {
-        euclidian::Euclidian {}
+    pub fn euclidian<T: Number>() -> euclidian::Euclidian<T> {
+        euclidian::Euclidian::new()
     }
 
     /// Minkowski distance, see [`Minkowski`](minkowski/index.html)
     /// * `p` - function order. Should be >= 1
-    pub fn minkowski(p: u16) -> minkowski::Minkowski {
-        minkowski::Minkowski { p }
+    pub fn minkowski<T: Number>(p: u16) -> minkowski::Minkowski<T> {
+        minkowski::Minkowski::new(p)
     }
 
     /// Manhattan distance, see [`Manhattan`](manhattan/index.html)
-    pub fn manhattan() -> manhattan::Manhattan {
-        manhattan::Manhattan {}
+    pub fn manhattan<T: Number>() -> manhattan::Manhattan<T> {
+        manhattan::Manhattan::new()
     }
 
     /// Hamming distance, see [`Hamming`](hamming/index.html)
-    pub fn hamming() -> hamming::Hamming {
-        hamming::Hamming {}
+    pub fn hamming<T: Number>() -> hamming::Hamming<T> {
+        hamming::Hamming::new()
     }
 
     /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)
     pub fn mahalanobis<T: Number, M: Array2<T>>(
         data: &M,
-    ) -> mahalanobis::Mahalanobis<DenseMatrix<f64>> {
+    ) -> mahalanobis::Mahalanobis<T, DenseMatrix<f64>> {
         mahalanobis::Mahalanobis::new(data)
     }
 }
