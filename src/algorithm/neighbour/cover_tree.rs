@@ -4,7 +4,7 @@
 //!
 //! ```
 //! use smartcore::algorithm::neighbour::cover_tree::*;
-//! use smartcore::math::distance::Distance;
+//! use smartcore::metrics::distance::Distance;
 //!
 //! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::heap_select::HeapSelection;
 use crate::error::{Failed, FailedError};
-use crate::math::distance::Distance;
+use crate::metrics::distance::Distance;
 
 /// Implements Cover Tree algorithm
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -453,7 +453,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
 mod tests {
 
     use super::*;
-    use crate::math::distance::Distances;
+    use crate::metrics::distance::Distances;
 
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     #[derive(Debug, Clone)]

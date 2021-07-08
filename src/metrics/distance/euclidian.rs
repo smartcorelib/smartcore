@@ -7,8 +7,8 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::math::distance::Distance;
-//! use smartcore::math::distance::euclidian::Euclidian;
+//! use smartcore::metrics::distance::Distance;
+//! use smartcore::metrics::distance::euclidian::Euclidian;
 //!
 //! let x = vec![1., 1.];
 //! let y = vec![2., 2.];
@@ -71,8 +71,8 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn squared_distance() {
-        let a = vec![1., 2., 3.];
-        let b = vec![4., 5., 6.];
+        let a = vec![1, 2, 3];
+        let b = vec![4, 5, 6];
 
         let l2: f64 = Euclidian::new().distance(&a, &b);
 

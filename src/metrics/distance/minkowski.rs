@@ -8,8 +8,8 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::math::distance::Distance;
-//! use smartcore::math::distance::minkowski::Minkowski;
+//! use smartcore::metrics::distance::Distance;
+//! use smartcore::metrics::distance::minkowski::Minkowski;
 //!
 //! let x = vec![1., 1.];
 //! let y = vec![2., 2.];

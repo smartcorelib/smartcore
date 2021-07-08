@@ -47,7 +47,7 @@
 //! // KNNClassifier
 //! use smartcore::neighbors::knn_classifier::*;
 //! // Various distance metrics
-//! use smartcore::math::distance::*;
+//! use smartcore::metrics::distance::*;
 //!
 //! // Turn Rust vectors with samples into a matrix
 //! let x = DenseMatrix::from_2d_array(&[

@@ -14,7 +14,7 @@
 //! ```
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::neighbors::knn_classifier::*;
-//! use smartcore::math::distance::*;
+//! use smartcore::metrics::distance::*;
 //!
 //! //your explanatory variables. Each row is a training sample with 2 numerical features
 //! let x = DenseMatrix::from_2d_array(&[
@@ -40,8 +40,8 @@ use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2, ArrayView1};
-use crate::math::distance::euclidian::Euclidian;
-use crate::math::distance::{Distance, Distances};
+use crate::metrics::distance::euclidian::Euclidian;
+use crate::metrics::distance::{Distance, Distances};
 use crate::neighbors::KNNWeightFunction;
 use crate::num::Number;
 

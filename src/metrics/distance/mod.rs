@@ -24,8 +24,6 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
-use std::marker::PhantomData;
-
 use crate::linalg::base::Array2;
 use crate::linalg::dense::matrix::DenseMatrix;
 use crate::num::Number;

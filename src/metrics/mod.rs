@@ -58,6 +58,8 @@ pub mod auc;
 /// Compute the homogeneity, completeness and V-Measure scores.
 pub mod cluster_hcv;
 pub(crate) mod cluster_helpers;
+/// Multitude of distance metrics are defined here
+pub mod distance;
 /// F1 score, also known as balanced F-score or F-measure.
 pub mod f1;
 /// Mean absolute error regression loss.

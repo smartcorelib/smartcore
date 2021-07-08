@@ -6,8 +6,8 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::math::distance::Distance;
-//! use smartcore::math::distance::hamming::Hamming;
+//! use smartcore::metrics::distance::Distance;
+//! use smartcore::metrics::distance::hamming::Hamming;
 //!
 //! let a = vec![1, 0, 0, 1, 0, 0, 1];
 //! let b = vec![1, 1, 0, 0, 1, 0, 1];

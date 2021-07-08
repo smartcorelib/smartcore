@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::linalg::base::Array2;
-use crate::math::distance::euclidian::*;
+use crate::metrics::distance::euclidian::*;
 use crate::num::Number;
 
 #[derive(Debug)]

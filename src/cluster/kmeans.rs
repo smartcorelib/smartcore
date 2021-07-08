@@ -63,7 +63,7 @@ use crate::algorithm::neighbour::bbd_tree::BBDTree;
 use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
-use crate::math::distance::euclidian::*;
+use crate::metrics::distance::euclidian::*;
 use crate::num::Number;
 
 /// K-Means clustering algorithm

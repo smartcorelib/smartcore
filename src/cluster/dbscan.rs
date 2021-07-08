@@ -22,7 +22,7 @@
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::linalg::base::Array2;
 //! use smartcore::cluster::dbscan::*;
-//! use smartcore::math::distance::Distances;
+//! use smartcore::metrics::distance::Distances;
 //! use smartcore::neighbors::KNNAlgorithmName;
 //! use smartcore::dataset::generator;
 //!
@@ -51,8 +51,8 @@ use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
-use crate::math::distance::euclidian::Euclidian;
-use crate::math::distance::{Distance, Distances};
+use crate::metrics::distance::euclidian::Euclidian;
+use crate::metrics::distance::{Distance, Distances};
 use crate::num::Number;
 use crate::tree::decision_tree_classifier::which_max;
 
@@ -290,7 +290,7 @@ mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
     #[cfg(feature = "serde")]
-    use crate::math::distance::euclidian::Euclidian;
+    use crate::metrics::distance::euclidian::Euclidian;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

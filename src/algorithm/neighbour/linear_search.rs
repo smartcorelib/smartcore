@@ -3,7 +3,7 @@
 //! see [KNN algorithms](../index.html)
 //! ```
 //! use smartcore::algorithm::neighbour::linear_search::*;
-//! use smartcore::math::distance::Distance;
+//! use smartcore::metrics::distance::Distance;
 //!
 //! #[derive(Clone)]
 //! struct SimpleDistance {} // Our distance function
@@ -28,7 +28,7 @@ use std::cmp::{Ordering, PartialOrd};
 
 use crate::algorithm::sort::heap_select::HeapSelection;
 use crate::error::{Failed, FailedError};
-use crate::math::distance::Distance;
+use crate::metrics::distance::Distance;
 
 /// Implements Linear Search algorithm, see [KNN algorithms](../index.html)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -131,7 +131,7 @@ impl Eq for KNNPoint {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::distance::Distances;
+    use crate::metrics::distance::Distances;
 
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     #[derive(Debug, Clone)]

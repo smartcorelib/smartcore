@@ -16,7 +16,7 @@
 //! ```
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::neighbors::knn_regressor::*;
-//! use smartcore::math::distance::*;
+//! use smartcore::metrics::distance::*;
 //!
 //! //your explanatory variables. Each row is a training sample with 2 numerical features
 //! let x = DenseMatrix::from_2d_array(&[
@@ -43,8 +43,8 @@ use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2, ArrayView1};
-use crate::math::distance::euclidian::Euclidian;
-use crate::math::distance::{Distance, Distances};
+use crate::metrics::distance::euclidian::Euclidian;
+use crate::metrics::distance::{Distance, Distances};
 use crate::neighbors::KNNWeightFunction;
 use crate::num::Number;
 
@@ -241,7 +241,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
-    use crate::math::distance::Distances;
+    use crate::metrics::distance::Distances;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

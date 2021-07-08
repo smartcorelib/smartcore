@@ -16,8 +16,8 @@
 //! ```
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::linalg::base::ArrayView2;
-//! use smartcore::math::distance::Distance;
-//! use smartcore::math::distance::mahalanobis::Mahalanobis;
+//! use smartcore::metrics::distance::Distance;
+//! use smartcore::metrics::distance::mahalanobis::Mahalanobis;
 //!
 //! let data = DenseMatrix::from_2d_array(&[
 //!                   &[64., 580., 29.],
