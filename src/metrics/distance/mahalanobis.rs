@@ -64,12 +64,12 @@ pub struct Mahalanobis<T: Number, M: Array2<f64>> {
     _t: PhantomData<T>,
 }
 
-impl<T: Number> Mahalanobis<T, DenseMatrix<f64>> {
+impl<T: Number, M: Array2<f64> + LUDecomposable<f64>> Mahalanobis<T, M> {
     /// Constructs new instance of `Mahalanobis` from given dataset
     /// * `data` - a matrix of _NxM_ where _N_ is number of observations and _M_ is number of attributes
-    pub fn new<M: Array2<T>>(data: &M) -> Mahalanobis<T, DenseMatrix<f64>> {
+    pub fn new<X: Array2<T>>(data: &X) -> Mahalanobis<T, M> {
         let (_, m) = data.shape();
-        let mut sigma = DenseMatrix::zeros(m, m);
+        let mut sigma = M::zeros(m, m);
         data.cov(&mut sigma);
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
@@ -81,7 +81,7 @@ impl<T: Number> Mahalanobis<T, DenseMatrix<f64>> {
 
     /// Constructs new instance of `Mahalanobis` from given covariance matrix
     /// * `cov` - a covariance matrix
-    pub fn new_from_covariance<M: Array2<f64> + LUDecomposable<f64>>(cov: &M) -> Mahalanobis<T, M> {
+    pub fn new_from_covariance<X: Array2<f64> + LUDecomposable<f64>>(cov: &X) -> Mahalanobis<T, X> {
         let sigma = cov.clone();
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
@@ -115,7 +115,7 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Mahalanobis<T, DenseMatrix<f64
 
         let n = x.shape();
 
-        let mut z: Vec<f64> = x
+        let z: Vec<f64> = x
             .iterator(0)
             .zip(y.iterator(0))
             .map(|(&a, &b)| (a - b).to_f64().unwrap())

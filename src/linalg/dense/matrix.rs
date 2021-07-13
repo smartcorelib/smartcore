@@ -268,9 +268,8 @@ where
         if self.ncols != other.ncols || self.nrows != other.nrows {
             false
         } else {
-            self.values
-                .iter()
-                .zip(other.values.iter())
+            self.iterator(0)
+                .zip(other.iterator(0))
                 .all(|(v1, v2)| T::relative_eq(v1, v2, epsilon, max_relative))
         }
     }

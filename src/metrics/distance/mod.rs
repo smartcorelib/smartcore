@@ -25,7 +25,7 @@ pub mod manhattan;
 pub mod minkowski;
 
 use crate::linalg::base::Array2;
-use crate::linalg::dense::matrix::DenseMatrix;
+use crate::linalg::lu_n::LUDecomposable;
 use crate::num::Number;
 
 /// Distance metric, a function that calculates distance between two points
@@ -60,9 +60,9 @@ impl Distances {
     }
 
     /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)
-    pub fn mahalanobis<T: Number, M: Array2<T>>(
+    pub fn mahalanobis<T: Number, M: Array2<T>, C: Array2<f64> + LUDecomposable<f64>>(
         data: &M,
-    ) -> mahalanobis::Mahalanobis<T, DenseMatrix<f64>> {
+    ) -> mahalanobis::Mahalanobis<T, C> {
         mahalanobis::Mahalanobis::new(data)
     }
 }
