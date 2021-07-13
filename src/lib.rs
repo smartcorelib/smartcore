@@ -43,11 +43,11 @@
 //!
 //! ```
 //! // DenseMatrix defenition
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! // KNNClassifier
 //! use smartcore::neighbors::knn_classifier::*;
 //! // Various distance metrics
-//! use smartcore::math::distance::*;
+//! use smartcore::metrics::distance::*;
 //!
 //! // Turn Rust vectors with samples into a matrix
 //! let x = DenseMatrix::from_2d_array(&[
@@ -57,7 +57,7 @@
 //!    &[7., 8.],
 //!    &[9., 10.]]);
 //! // Our classes are defined as a Vector
-//! let y = vec![2., 2., 2., 3., 3.];
+//! let y = vec![2, 2, 2, 3, 3];
 //!
 //! // Train classifier
 //! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
@@ -92,6 +92,7 @@ pub mod model_selection;
 pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
+pub mod num;
 pub(crate) mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;
@@ -99,3 +100,5 @@ pub mod preprocessing;
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
+#[cfg(test)]
+pub mod utils;

@@ -4,7 +4,7 @@ extern crate smartcore;
 
 use criterion::black_box;
 use criterion::Criterion;
-use smartcore::math::distance::*;
+use smartcore::metrics::distance::*;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let a = vec![1., 2., 3.];

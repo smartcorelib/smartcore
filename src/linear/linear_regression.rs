@@ -19,7 +19,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -61,14 +61,17 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::base::{Array1, Array2};
+use crate::linalg::qr_n::QRDecomposable;
+use crate::linalg::svd_n::SVDDecomposable;
+use crate::num::{FloatNumber, Number};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -91,10 +94,17 @@ pub struct LinearRegressionParameters {
 /// Linear Regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct LinearRegression<T: RealNumber, M: Matrix<T>> {
-    coefficients: M,
-    intercept: T,
+pub struct LinearRegression<
+    TX: FloatNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> {
+    coefficients: X,
+    intercept: TX,
     solver: LinearRegressionSolverName,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_y: PhantomData<Y>,
 }
 
 impl LinearRegressionParameters {
@@ -113,43 +123,70 @@ impl Default for LinearRegressionParameters {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> PartialEq for LinearRegression<T, M> {
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > PartialEq for LinearRegression<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
-        self.coefficients == other.coefficients
-            && (self.intercept - other.intercept).abs() <= T::epsilon()
+        self.intercept == other.intercept
+            && self.coefficients.shape() == other.coefficients.shape()
+            && self
+                .coefficients
+                .iterator(0)
+                .zip(other.coefficients.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LinearRegressionParameters>
-    for LinearRegression<T, M>
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
 {
-    fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: LinearRegressionParameters,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: LinearRegressionParameters) -> Result<Self, Failed> {
         LinearRegression::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for LinearRegression<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > Predictor<X, Y> for LinearRegression<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > LinearRegression<TX, TY, X, Y>
+{
     /// Fits Linear Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
-        x: &M,
-        y: &M::RowVector,
+        x: &X,
+        y: &Y,
         parameters: LinearRegressionParameters,
-    ) -> Result<LinearRegression<T, M>, Failed> {
-        let y_m = M::from_row_vector(y.clone());
-        let b = y_m.transpose();
+    ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
+        let b = X::from_iterator(
+            y.iterator(0).map(|&v| TX::from(v).unwrap()),
+            y.shape(),
+            1,
+            0,
+        );
         let (x_nrows, num_attributes) = x.shape();
         let (y_nrows, _) = b.shape();
 
@@ -159,38 +196,44 @@ impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
             ));
         }
 
-        let a = x.h_stack(&M::ones(x_nrows, 1));
+        let a = x.h_stack(&X::ones(x_nrows, 1));
 
         let w = match parameters.solver {
             LinearRegressionSolverName::QR => a.qr_solve_mut(b)?,
             LinearRegressionSolverName::SVD => a.svd_solve_mut(b)?,
         };
 
-        let wights = w.slice(0..num_attributes, 0..1);
+        let wights = X::from_slice(w.slice(0..num_attributes, 0..1).as_ref());
 
         Ok(LinearRegression {
-            intercept: w.get(num_attributes, 0),
+            intercept: *w.get((num_attributes, 0)),
             coefficients: wights,
             solver: parameters.solver,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
+        let bias = X::fill(nrows, 1, self.intercept);
         let mut y_hat = x.matmul(&self.coefficients);
-        y_hat.add_mut(&M::fill(nrows, 1, self.intercept));
-        Ok(y_hat.transpose().to_row_vector())
+        y_hat.add_mut(&bias);
+        Ok(Y::from_iterator(
+            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 
     /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> &M {
+    pub fn coefficients(&self) -> &X {
         &self.coefficients
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> T {
+    pub fn intercept(&self) -> TX {
         self.intercept
     }
 }
@@ -198,7 +241,7 @@ impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::dense::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -281,7 +324,7 @@ mod tests {
 
         let lr = LinearRegression::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: LinearRegression<f64, DenseMatrix<f64>> =
+        let deserialized_lr: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);

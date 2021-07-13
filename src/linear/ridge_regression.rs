@@ -19,7 +19,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::linear::ridge_regression::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -57,15 +57,17 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::base::{Array1, Array2};
+use crate::linalg::cholesky_n::CholeskyDecomposable;
+use crate::linalg::svd_n::SVDDecomposable;
+use crate::num::{FloatNumber, Number};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -80,11 +82,11 @@ pub enum RidgeRegressionSolverName {
 /// Ridge Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RidgeRegressionParameters<T: RealNumber> {
+pub struct RidgeRegressionParameters {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
     /// Controls the strength of the penalty to the loss function.
-    pub alpha: T,
+    pub alpha: f64,
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
@@ -93,15 +95,22 @@ pub struct RidgeRegressionParameters<T: RealNumber> {
 /// Ridge regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
-    coefficients: M,
-    intercept: T,
+pub struct RidgeRegression<
+    TX: FloatNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> {
+    coefficients: X,
+    intercept: TX,
     solver: RidgeRegressionSolverName,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber> RidgeRegressionParameters<T> {
+impl RidgeRegressionParameters {
     /// Regularization parameter.
-    pub fn with_alpha(mut self, alpha: T) -> Self {
+    pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
@@ -117,51 +126,74 @@ impl<T: RealNumber> RidgeRegressionParameters<T> {
     }
 }
 
-impl<T: RealNumber> Default for RidgeRegressionParameters<T> {
+impl Default for RidgeRegressionParameters {
     fn default() -> Self {
         RidgeRegressionParameters {
             solver: RidgeRegressionSolverName::Cholesky,
-            alpha: T::one(),
+            alpha: 1f64,
             normalize: true,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> PartialEq for RidgeRegression<T, M> {
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > PartialEq for RidgeRegression<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
-        self.coefficients == other.coefficients
-            && (self.intercept - other.intercept).abs() <= T::epsilon()
+        self.intercept == other.intercept
+            && self.coefficients.shape() == other.coefficients.shape()
+            && self
+                .coefficients
+                .iterator(0)
+                .zip(other.coefficients.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, RidgeRegressionParameters<T>>
-    for RidgeRegression<T, M>
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > SupervisedEstimator<X, Y, RidgeRegressionParameters> for RidgeRegression<TX, TY, X, Y>
 {
-    fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: RidgeRegressionParameters<T>,
-    ) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: RidgeRegressionParameters) -> Result<Self, Failed> {
         RidgeRegression::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RidgeRegression<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > Predictor<X, Y> for RidgeRegression<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
+impl<
+        TX: FloatNumber,
+        TY: Number,
+        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+        Y: Array1<TY>,
+    > RidgeRegression<TX, TY, X, Y>
+{
     /// Fits ridge regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: RidgeRegressionParameters<T>,
-    ) -> Result<RidgeRegression<T, M>, Failed> {
+        x: &X,
+        y: &Y,
+        parameters: RidgeRegressionParameters,
+    ) -> Result<RidgeRegression<TX, TY, X, Y>, Failed> {
         //w = inv(X^t X + alpha*Id) * X.T y
 
         let (n, p) = x.shape();
@@ -172,11 +204,16 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
             ));
         }
 
-        if y.len() != n {
+        if y.shape() != n {
             return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
 
-        let y_column = M::from_row_vector(y.clone()).transpose();
+        let y_column = X::from_iterator(
+            y.iterator(0).map(|&v| TX::from(v).unwrap()),
+            y.shape(),
+            1,
+            0,
+        );
 
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
@@ -185,7 +222,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
             let mut x_t_x = x_t.matmul(&scaled_x);
 
             for i in 0..p {
-                x_t_x.add_element_mut(i, i, parameters.alpha);
+                x_t_x.add_element_mut((i, i), TX::from_f64(parameters.alpha).unwrap());
             }
 
             let mut w = match parameters.solver {
@@ -194,16 +231,16 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
             };
 
             for (i, col_std_i) in col_std.iter().enumerate().take(p) {
-                w.set(i, 0, w.get(i, 0) / *col_std_i);
+                w.set((i, 0), *w.get((i, 0)) / *col_std_i);
             }
 
-            let mut b = T::zero();
+            let mut b = TX::zero();
 
             for (i, col_mean_i) in col_mean.iter().enumerate().take(p) {
-                b += w.get(i, 0) * *col_mean_i;
+                b += *w.get((i, 0)) * *col_mean_i;
             }
 
-            let b = y.mean() - b;
+            let b = TX::from_f64(y.mean()).unwrap() - b;
 
             (w, b)
         } else {
@@ -212,7 +249,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
             let mut x_t_x = x_t.matmul(x);
 
             for i in 0..p {
-                x_t_x.add_element_mut(i, i, parameters.alpha);
+                x_t_x.add_element_mut((i, i), TX::from_f64(parameters.alpha).unwrap());
             }
 
             let w = match parameters.solver {
@@ -220,22 +257,28 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
                 RidgeRegressionSolverName::SVD => x_t_x.svd_solve_mut(x_t_y)?,
             };
 
-            (w, T::zero())
+            (w, TX::zero())
         };
 
         Ok(RidgeRegression {
             intercept: b,
             coefficients: w,
             solver: parameters.solver,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
-    fn rescale_x(x: &M) -> Result<(M, Vec<T>, Vec<T>), Failed> {
-        let col_mean = x.mean(0);
-        let col_std = x.std(0);
+    fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
+        let col_mean: Vec<TX> = x
+            .mean(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
+        let col_std: Vec<TX> = x.std(0).iter().map(|&v| TX::from_f64(v).unwrap()).collect();
 
         for (i, col_std_i) in col_std.iter().enumerate() {
-            if (*col_std_i - T::zero()).abs() < T::epsilon() {
+            if (*col_std_i - TX::zero()).abs() < TX::epsilon() {
                 return Err(Failed::fit(&format!(
                     "Cannot rescale constant column {}",
                     i
@@ -250,20 +293,23 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
 
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
         let mut y_hat = x.matmul(&self.coefficients);
-        y_hat.add_mut(&M::fill(nrows, 1, self.intercept));
-        Ok(y_hat.transpose().to_row_vector())
+        y_hat.add_mut(&X::fill(nrows, 1, self.intercept));
+        Ok(Y::from_iterator(
+            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 
     /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> &M {
+    pub fn coefficients(&self) -> &X {
         &self.coefficients
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> T {
+    pub fn intercept(&self) -> TX {
         self.intercept
     }
 }
@@ -271,7 +317,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -360,7 +406,7 @@ mod tests {
 
         let lr = RidgeRegression::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: RidgeRegression<f64, DenseMatrix<f64>> =
+        let deserialized_lr: RidgeRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);

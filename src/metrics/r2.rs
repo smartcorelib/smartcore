@@ -21,8 +21,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array1;
+use crate::num::Number;
 
 /// Coefficient of Determination (R2)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -33,36 +33,29 @@ impl R2 {
     /// Computes R2 score
     /// * `y_true` - Ground truth (correct) target values.
     /// * `y_pred` - Estimated target values.
-    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
-        if y_true.len() != y_pred.len() {
+    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+        if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
-                y_true.len(),
-                y_pred.len()
+                y_true.shape(),
+                y_pred.shape()
             );
         }
 
-        let n = y_true.len();
+        let n = y_true.shape();
 
-        let mut mean = T::zero();
-
-        for i in 0..n {
-            mean += y_true.get(i);
-        }
-
-        mean /= T::from_usize(n).unwrap();
-
-        let mut ss_tot = T::zero();
-        let mut ss_res = T::zero();
+        let mut mean = y_true.mean();
+        let mut ss_tot = 0f64;
+        let mut ss_res = 0f64;
 
         for i in 0..n {
-            let y_i = y_true.get(i);
-            let f_i = y_pred.get(i);
-            ss_tot += (y_i - mean).square();
-            ss_res += (y_i - f_i).square();
+            let y_i = y_true.get(i).to_f64().unwrap();
+            let f_i = y_pred.get(i).to_f64().unwrap();
+            ss_tot += (y_i - mean) * (y_i - mean);
+            ss_res += (y_i - f_i) * (y_i - f_i);
         }
 
-        T::one() - (ss_res / ss_tot)
+        1f64 - (ss_res / ss_tot)
     }
 }
 

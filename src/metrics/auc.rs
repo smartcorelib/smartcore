@@ -23,9 +23,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::algorithm::sort::quick_sort::QuickArgSort;
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array1;
+use crate::num::Number;
 
 /// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -36,16 +35,20 @@ impl AUC {
     /// AUC score.
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
-    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred_prob: &V) -> T {
+    pub fn get_score<T: Number + PartialOrd, V: Array1<T>>(
+        &self,
+        y_true: &V,
+        y_pred_prob: &V,
+    ) -> f64 {
         let mut pos = T::zero();
         let mut neg = T::zero();
 
-        let n = y_true.len();
+        let n = y_true.shape();
 
         for i in 0..n {
-            if y_true.get(i) == T::zero() {
+            if y_true.get(i) == &T::zero() {
                 neg += T::one();
-            } else if y_true.get(i) == T::one() {
+            } else if y_true.get(i) == &T::one() {
                 pos += T::one();
             } else {
                 panic!(
@@ -55,21 +58,23 @@ impl AUC {
             }
         }
 
-        let mut y_pred = y_pred_prob.to_vec();
+        let mut y_pred = y_pred_prob.clone();
 
-        let label_idx = y_pred.quick_argsort_mut();
+        let label_idx = y_pred.argsort_mut();
 
-        let mut rank = vec![T::zero(); n];
+        let two = T::from(2).unwrap();
+
+        let mut rank = vec![0f64; n];
         let mut i = 0;
         while i < n {
-            if i == n - 1 || y_pred[i] != y_pred[i + 1] {
-                rank[i] = T::from_usize(i + 1).unwrap();
+            if i == n - 1 || y_pred.get(i) != y_pred.get(i + 1) {
+                rank[i] = (i + 1) as f64;
             } else {
                 let mut j = i + 1;
-                while j < n && y_pred[j] == y_pred[i] {
+                while j < n && y_pred.get(j) == y_pred.get(i) {
                     j += 1;
                 }
-                let r = T::from_usize(i + 1 + j).unwrap() / T::two();
+                let r = (i + 1 + j) as f64 / 2f64;
                 for rank_k in rank.iter_mut().take(j).skip(i) {
                     *rank_k = r;
                 }
@@ -78,14 +83,16 @@ impl AUC {
             i += 1;
         }
 
-        let mut auc = T::zero();
+        let mut auc = 0f64;
         for i in 0..n {
-            if y_true.get(label_idx[i]) == T::one() {
+            if y_true.get(label_idx[i]) == &T::one() {
                 auc += rank[i];
             }
         }
+        let pos = pos.to_f64().unwrap();
+        let neg = neg.to_f64().unwrap();
 
-        (auc - (pos * (pos + T::one()) / T::two())) / (pos * neg)
+        (auc - (pos * (pos + 1f64) / 2.0)) / (pos * neg)
     }
 }
 

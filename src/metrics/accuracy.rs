@@ -19,8 +19,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::base::Array1;
+use crate::num::Number;
 
 /// Accuracy metric.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -31,16 +31,16 @@ impl Accuracy {
     /// Function that calculated accuracy score.
     /// * `y_true` - cround truth (correct) labels
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: RealNumber, V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
-        if y_true.len() != y_pred.len() {
+    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+        if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
-                y_true.len(),
-                y_pred.len()
+                y_true.shape(),
+                y_pred.shape()
             );
         }
 
-        let n = y_true.len();
+        let n = y_true.shape();
 
         let mut positive = 0;
         for i in 0..n {
@@ -49,7 +49,7 @@ impl Accuracy {
             }
         }
 
-        T::from_i64(positive).unwrap() / T::from_usize(n).unwrap()
+        positive as f64 / n as f64
     }
 }
 
