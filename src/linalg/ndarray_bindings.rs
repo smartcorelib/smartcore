@@ -966,7 +966,7 @@ mod tests {
         let error: f64 = y
             .into_iter()
             .zip(y_hat.into_iter())
-            .map(|(&a, &b)| (a - b).abs())
+            .map(|(a, b)| (a - b).abs())
             .sum();
 
         assert!(error <= 1.0);
