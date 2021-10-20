@@ -380,7 +380,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
             depth: 0,
         };
 
-        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &yi, 1);
+        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, x, &yi, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 
@@ -541,7 +541,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
                     - T::from(tc).unwrap() / T::from(n).unwrap()
                         * impurity(&self.parameters.criterion, &true_count, tc)
                     - T::from(fc).unwrap() / T::from(n).unwrap()
-                        * impurity(&self.parameters.criterion, &false_count, fc);
+                        * impurity(&self.parameters.criterion, false_count, fc);
 
                 if self.nodes[visitor.node].split_score == Option::None
                     || gain > self.nodes[visitor.node].split_score.unwrap()

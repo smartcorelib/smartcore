@@ -377,7 +377,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         Optimizer {
             x,
             y,
-            parameters: &parameters,
+            parameters,
             svmin: 0,
             svmax: 0,
             gmin: T::max_value(),
@@ -589,7 +589,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = v.grad - gm;
-                    let k = cache.get(sv1, &v);
+                    let k = cache.get(sv1, v);
                     let mut curv = km + v.k - T::two() * k;
                     if curv <= T::zero() {
                         curv = self.tau;
