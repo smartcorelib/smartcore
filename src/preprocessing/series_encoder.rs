@@ -134,10 +134,8 @@ where
         U: RealNumber,
         V: BaseVector<U>,
     {
-        match self.get_num(category) {
-            None => None,
-            Some(&idx) => Some(make_one_hot::<U, V>(idx, self.num_categories)),
-        }
+        self.get_num(category)
+            .map(|&idx| make_one_hot::<U, V>(idx, self.num_categories))
     }
 
     /// Invert one-hot vector, back to the category
