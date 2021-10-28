@@ -330,7 +330,7 @@ impl<T: RealNumber> DenseMatrix<T> {
             cur_r: 0,
             max_c: self.ncols,
             max_r: self.nrows,
-            m: &self,
+            m: self,
         }
     }
 }

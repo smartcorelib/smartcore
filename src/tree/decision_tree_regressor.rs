@@ -280,7 +280,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
             depth: 0,
         };
 
-        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &y_m, 1);
+        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, x, &y_m, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 

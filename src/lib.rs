@@ -6,7 +6,7 @@
     clippy::upper_case_acronyms
 )]
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
+#![warn(rustdoc::missing_doc_code_examples)]
 
 //! # SmartCore
 //!

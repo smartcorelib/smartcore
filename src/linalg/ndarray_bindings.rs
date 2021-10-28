@@ -178,7 +178,7 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn copy_from(&mut self, other: &Self) {
-        self.assign(&other);
+        self.assign(other);
     }
 }
 
@@ -385,7 +385,7 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
     }
 
     fn copy_from(&mut self, other: &Self) {
-        self.assign(&other);
+        self.assign(other);
     }
 
     fn abs_mut(&mut self) -> &Self {
