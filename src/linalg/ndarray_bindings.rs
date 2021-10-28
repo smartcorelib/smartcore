@@ -1007,6 +1007,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 1000,
                 m: Option::None,
+                keep_samples: false,
             },
         )
         .unwrap()
