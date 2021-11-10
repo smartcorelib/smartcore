@@ -45,10 +45,11 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::default::Default;
 use std::fmt::Debug;
 
-use rand::Rng;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +80,8 @@ pub struct RandomForestClassifierParameters {
     pub m: Option<usize>,
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
+    /// Seed used for bootstrap sampling and feature selection for each tree.Failed
+    pub seed: u64,
 }
 
 /// Random Forest Classifier
@@ -128,6 +131,12 @@ impl RandomForestClassifierParameters {
         self.keep_samples = keep_samples;
         self
     }
+
+    /// Seed used for bootstrap sampling and feature selection for each tree.
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
 }
 
 impl<T: RealNumber> PartialEq for RandomForestClassifier<T> {
@@ -160,6 +169,7 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
             keep_samples: false,
+            seed: 42,
         }
     }
 }
@@ -211,6 +221,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
                 .unwrap()
         });
 
+        let mut rng = StdRng::seed_from_u64(parameters.seed);
         let classes = y_m.unique();
         let k = classes.len();
         let mut trees: Vec<DecisionTreeClassifier<T>> = Vec::new();
@@ -221,7 +232,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         }
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForestClassifier::<T>::sample_with_replacement(&yi, k);
+            let samples = RandomForestClassifier::<T>::sample_with_replacement(&yi, k, &mut rng);
             if let Some(ref mut all_samples) = maybe_all_samples {
                 all_samples.push(samples.iter().map(|x| *x != 0).collect())
             }
@@ -232,7 +243,8 @@ impl<T: RealNumber> RandomForestClassifier<T> {
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
+            let tree =
+                DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params, &mut rng)?;
             trees.push(tree);
         }
 
@@ -304,8 +316,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         which_max(&result)
     }
 
-    fn sample_with_replacement(y: &[usize], num_classes: usize) -> Vec<usize> {
-        let mut rng = rand::thread_rng();
+    fn sample_with_replacement(y: &[usize], num_classes: usize, rng: &mut impl Rng) -> Vec<usize> {
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();
         let mut samples = vec![0; nrows];
@@ -375,6 +386,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
+                seed: 87,
             },
         )
         .unwrap();
@@ -422,9 +434,11 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: true,
+                seed: 87,
             },
         )
         .unwrap();
+
         assert!(
             accuracy(&y, &classifier.predict_oob(&x).unwrap())
                 < accuracy(&y, &classifier.predict(&x).unwrap())
