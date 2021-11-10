@@ -169,7 +169,7 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
             keep_samples: false,
-            seed: 42,
+            seed: 0,
         }
     }
 }
