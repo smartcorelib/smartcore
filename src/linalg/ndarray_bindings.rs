@@ -1008,6 +1008,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: false,
+                seed: 0,
             },
         )
         .unwrap()
