@@ -47,7 +47,7 @@ use std::ops::Range;
 use std::ops::SubAssign;
 
 use ndarray::ScalarOperand;
-use ndarray::{concatenate, s, Array, ArrayBase, Axis, Ix1, Ix2, OwnedRepr};
+use ndarray::{concatenate, s, Array, ArrayBase, Axis, DataRaw, Ix1, Ix2};
 
 use crate::linalg::cholesky::CholeskyDecomposableMatrix;
 use crate::linalg::evd::EVDDecomposableMatrix;
@@ -60,7 +60,7 @@ use crate::linalg::Matrix;
 use crate::linalg::{BaseMatrix, BaseVector};
 use crate::math::num::RealNumber;
 
-impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix1> {
+impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<DataRaw<T>, Ix1> {
     fn get(&self, i: usize) -> T {
         self[i]
     }
@@ -183,9 +183,9 @@ impl<T: RealNumber + ScalarOperand> BaseVector<T> for ArrayBase<OwnedRepr<T>, Ix
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    BaseMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    BaseMatrix<T> for ArrayBase<DataRaw<T>, Ix2>
 {
-    type RowVector = ArrayBase<OwnedRepr<T>, Ix1>;
+    type RowVector = ArrayBase<DataRaw<T>, Ix1>;
 
     fn from_row_vector(vec: Self::RowVector) -> Self {
         let vec_size = vec.len();
@@ -478,47 +478,47 @@ impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssi
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    SVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    SVDDecomposableMatrix<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    EVDDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    EVDDecomposableMatrix<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    QRDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    QRDecomposableMatrix<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    LUDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    LUDecomposableMatrix<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    CholeskyDecomposableMatrix<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    CholeskyDecomposableMatrix<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    MatrixStats<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    MatrixStats<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    MatrixPreprocessing<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    MatrixPreprocessing<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum>
-    HighOrderOperations<T> for ArrayBase<OwnedRepr<T>, Ix2>
+    HighOrderOperations<T> for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
 impl<T: RealNumber + ScalarOperand + AddAssign + SubAssign + MulAssign + DivAssign + Sum> Matrix<T>
-    for ArrayBase<OwnedRepr<T>, Ix2>
+    for ArrayBase<DataRaw<T>, Ix2>
 {
 }
 
