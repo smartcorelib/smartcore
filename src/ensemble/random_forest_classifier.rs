@@ -80,7 +80,7 @@ pub struct RandomForestClassifierParameters {
     pub m: Option<usize>,
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
-    /// Seed used for bootstrap sampling and feature selection for each tree.Failed
+    /// Seed used for bootstrap sampling and feature selection for each tree.
     pub seed: u64,
 }
 
