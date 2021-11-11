@@ -43,10 +43,11 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::default::Default;
 use std::fmt::Debug;
 
-use rand::Rng;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +76,8 @@ pub struct RandomForestRegressorParameters {
     pub m: Option<usize>,
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
+    /// Seed used for bootstrap sampling and feature selection for each tree.
+    pub seed: u64,
 }
 
 /// Random Forest Regressor
@@ -118,8 +121,13 @@ impl RandomForestRegressorParameters {
         self.keep_samples = keep_samples;
         self
     }
-}
 
+    /// Seed used for bootstrap sampling and feature selection for each tree.
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+}
 impl Default for RandomForestRegressorParameters {
     fn default() -> Self {
         RandomForestRegressorParameters {
@@ -129,6 +137,7 @@ impl Default for RandomForestRegressorParameters {
             n_trees: 10,
             m: Option::None,
             keep_samples: false,
+            seed: 0,
         }
     }
 }
@@ -182,6 +191,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
+        let mut rng = StdRng::seed_from_u64(parameters.seed);
         let mut trees: Vec<DecisionTreeRegressor<T>> = Vec::new();
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
@@ -190,7 +200,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         }
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows);
+            let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows, &mut rng);
             if let Some(ref mut all_samples) = maybe_all_samples {
                 all_samples.push(samples.iter().map(|x| *x != 0).collect())
             }
@@ -199,7 +209,8 @@ impl<T: RealNumber> RandomForestRegressor<T> {
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree = DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params)?;
+            let tree =
+                DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params, &mut rng)?;
             trees.push(tree);
         }
 
@@ -275,8 +286,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         result / T::from(n_trees).unwrap()
     }
 
-    fn sample_with_replacement(nrows: usize) -> Vec<usize> {
-        let mut rng = rand::thread_rng();
+    fn sample_with_replacement(nrows: usize, rng: &mut impl Rng) -> Vec<usize> {
         let mut samples = vec![0; nrows];
         for _ in 0..nrows {
             let xi = rng.gen_range(0..nrows);
@@ -328,6 +338,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: false,
+                seed: 87,
             },
         )
         .and_then(|rf| rf.predict(&x))
@@ -372,6 +383,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: true,
+                seed: 87,
             },
         )
         .unwrap();
