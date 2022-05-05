@@ -471,7 +471,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                     A.set(nn, nn, x);
                     A.set(nn - 1, nn - 1, y + t);
                     if q >= T::zero() {
-                        z = p + z.copysign(p);
+                        z = p + RealNumber::copysign(z, p);
                         d[nn - 1] = x + z;
                         d[nn] = x + z;
                         if z != T::zero() {
@@ -570,7 +570,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                                 r /= x;
                             }
                         }
-                        let s = (p * p + q * q + r * r).sqrt().copysign(p);
+                        let s = RealNumber::copysign((p * p + q * q + r * r).sqrt(), p);
                         if s != T::zero() {
                             if k == m {
                                 if l != m {

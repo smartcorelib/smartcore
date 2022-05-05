@@ -46,13 +46,13 @@ use crate::math::num::RealNumber;
 pub struct LU<T: RealNumber, M: BaseMatrix<T>> {
     LU: M,
     pivot: Vec<usize>,
-    pivot_sign: i8,
+    _pivot_sign: i8,
     singular: bool,
     phantom: PhantomData<T>,
 }
 
 impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
-    pub(crate) fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
+    pub(crate) fn new(LU: M, pivot: Vec<usize>, _pivot_sign: i8) -> LU<T, M> {
         let (_, n) = LU.shape();
 
         let mut singular = false;
@@ -66,7 +66,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         LU {
             LU,
             pivot,
-            pivot_sign,
+            _pivot_sign,
             singular,
             phantom: PhantomData,
         }
