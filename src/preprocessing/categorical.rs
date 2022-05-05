@@ -78,8 +78,7 @@ fn find_new_idxs(num_params: usize, cat_sizes: &[usize], cat_idxs: &[usize]) -> 
         .zip(
             repeats
                 .zip(offset)
-                .map(|(r, o)| iter::repeat(o).take(r))
-                .flatten(),
+                .flat_map(|(r, o)| iter::repeat(o).take(r)),
         )
         .map(|(idx, ofst)| idx + ofst)
         .collect();

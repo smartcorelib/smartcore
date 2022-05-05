@@ -161,7 +161,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
         let y_max = y
             .iter()
             .max()
-            .ok_or_else(|| Failed::fit(&"Failed to get the labels of y.".to_string()))?;
+            .ok_or_else(|| Failed::fit("Failed to get the labels of y."))?;
 
         let class_labels: Vec<T> = (0..*y_max + 1)
             .map(|label| T::from(label).unwrap())

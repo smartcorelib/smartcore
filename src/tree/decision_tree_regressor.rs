@@ -97,7 +97,7 @@ pub struct DecisionTreeRegressor<T: RealNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 struct Node<T: RealNumber> {
-    index: usize,
+    _index: usize,
     output: T,
     split_feature: usize,
     split_value: Option<T>,
@@ -137,7 +137,7 @@ impl Default for DecisionTreeRegressorParameters {
 impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: T) -> Self {
         Node {
-            index,
+            _index: index,
             output,
             split_feature: 0,
             split_value: Option::None,

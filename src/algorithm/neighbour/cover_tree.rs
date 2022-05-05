@@ -65,7 +65,7 @@ struct Node<F: RealNumber> {
     max_dist: F,
     parent_dist: F,
     children: Vec<Node<F>>,
-    scale: i64,
+    _scale: i64,
 }
 
 #[derive(Debug)]
@@ -85,7 +85,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             max_dist: F::zero(),
             parent_dist: F::zero(),
             children: Vec::new(),
-            scale: 0,
+            _scale: 0,
         };
         let mut tree = CoverTree {
             base,
@@ -243,7 +243,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             max_dist: F::zero(),
             parent_dist: F::zero(),
             children: Vec::new(),
-            scale: 100,
+            _scale: 100,
         }
     }
 
@@ -304,7 +304,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                     max_dist: F::zero(),
                     parent_dist: F::zero(),
                     children,
-                    scale: 100,
+                    _scale: 100,
                 }
             } else {
                 let mut far: Vec<DistanceSet<F>> = Vec::new();
@@ -373,7 +373,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                         max_dist: self.max(consumed_set),
                         parent_dist: F::zero(),
                         children,
-                        scale: (top_scale - max_scale),
+                        _scale: (top_scale - max_scale),
                     }
                 }
             }

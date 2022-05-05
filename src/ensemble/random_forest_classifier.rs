@@ -88,7 +88,7 @@ pub struct RandomForestClassifierParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct RandomForestClassifier<T: RealNumber> {
-    parameters: RandomForestClassifierParameters,
+    _parameters: RandomForestClassifierParameters,
     trees: Vec<DecisionTreeClassifier<T>>,
     classes: Vec<T>,
     samples: Option<Vec<Vec<bool>>>,
@@ -249,7 +249,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         }
 
         Ok(RandomForestClassifier {
-            parameters,
+            _parameters: parameters,
             trees,
             classes,
             samples: maybe_all_samples,

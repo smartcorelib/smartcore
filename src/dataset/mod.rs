@@ -67,14 +67,14 @@ pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
                 .data
                 .iter()
                 .copied()
-                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
+                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec())
                 .collect();
             file.write_all(&x)?;
             let y: Vec<u8> = dataset
                 .target
                 .iter()
                 .copied()
-                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
+                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec())
                 .collect();
             file.write_all(&y)?;
         }
