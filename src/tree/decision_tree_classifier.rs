@@ -118,7 +118,7 @@ pub enum SplitCriterion {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 struct Node<T: RealNumber> {
-    index: usize,
+    _index: usize,
     output: usize,
     split_feature: usize,
     split_value: Option<T>,
@@ -204,7 +204,7 @@ impl Default for DecisionTreeClassifierParameters {
 impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: usize) -> Self {
         Node {
-            index,
+            _index: index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -514,7 +514,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         visitor: &mut NodeVisitor<'_, T, M>,
         n: usize,
         count: &[usize],
-        false_count: &mut Vec<usize>,
+        false_count: &mut [usize],
         parent_impurity: T,
         j: usize,
     ) {

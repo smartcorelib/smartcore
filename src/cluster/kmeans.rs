@@ -71,9 +71,9 @@ use crate::math::num::RealNumber;
 #[derive(Debug)]
 pub struct KMeans<T: RealNumber> {
     k: usize,
-    y: Vec<usize>,
+    _y: Vec<usize>,
     size: Vec<usize>,
-    distortion: T,
+    _distortion: T,
     centroids: Vec<Vec<T>>,
 }
 
@@ -208,9 +208,9 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         Ok(KMeans {
             k: parameters.k,
-            y,
+            _y: y,
             size,
-            distortion,
+            _distortion: distortion,
             centroids,
         })
     }
@@ -344,7 +344,7 @@ mod tests {
         let y = kmeans.predict(&x).unwrap();
 
         for i in 0..y.len() {
-            assert_eq!(y[i] as usize, kmeans.y[i]);
+            assert_eq!(y[i] as usize, kmeans._y[i]);
         }
     }
 

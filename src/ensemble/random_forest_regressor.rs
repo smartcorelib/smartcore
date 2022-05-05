@@ -84,7 +84,7 @@ pub struct RandomForestRegressorParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct RandomForestRegressor<T: RealNumber> {
-    parameters: RandomForestRegressorParameters,
+    _parameters: RandomForestRegressorParameters,
     trees: Vec<DecisionTreeRegressor<T>>,
     samples: Option<Vec<Vec<bool>>>,
 }
@@ -215,7 +215,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         }
 
         Ok(RandomForestRegressor {
-            parameters,
+            _parameters: parameters,
             trees,
             samples: maybe_all_samples,
         })

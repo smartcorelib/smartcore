@@ -96,7 +96,7 @@ pub struct RidgeRegressionParameters<T: RealNumber> {
 pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
-    solver: RidgeRegressionSolverName,
+    _solver: RidgeRegressionSolverName,
 }
 
 impl<T: RealNumber> RidgeRegressionParameters<T> {
@@ -226,7 +226,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
         Ok(RidgeRegression {
             intercept: b,
             coefficients: w,
-            solver: parameters.solver,
+            _solver: parameters.solver,
         })
     }
 

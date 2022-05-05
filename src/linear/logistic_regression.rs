@@ -321,7 +321,7 @@ impl<T: RealNumber, M: Matrix<T>> LogisticRegression<T, M> {
 
         if x_nrows != y_nrows {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 

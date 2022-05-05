@@ -8,6 +8,7 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct LBFGS<T: RealNumber> {
     pub max_iter: usize,
     pub g_rtol: T,

@@ -97,7 +97,7 @@ pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     }
 }
 
-fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = V.shape();
     for (i, d_i) in d.iter_mut().enumerate().take(n) {
         *d_i = V.get(n - 1, i);
@@ -195,7 +195,7 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
     e[0] = T::zero();
 }
 
-fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = V.shape();
     for i in 1..n {
         e[i - 1] = e[i];
@@ -419,7 +419,7 @@ fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &[usize]) {
     }
 }
 
-fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = A.shape();
     let mut z = T::zero();
     let mut s = T::zero();
@@ -594,12 +594,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                                 A.sub_element_mut(k + 1, j, p * y);
                                 A.sub_element_mut(k, j, p * x);
                             }
-                            let mmin;
-                            if nn < k + 3 {
-                                mmin = nn;
-                            } else {
-                                mmin = k + 3;
-                            }
+                            let mmin = if nn < k + 3 { nn } else { k + 3 };
                             for i in 0..mmin + 1 {
                                 p = x * A.get(i, k) + y * A.get(i, k + 1);
                                 if k + 1 != nn {
@@ -783,7 +778,7 @@ fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &[T]) {
     }
 }
 
-fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut M) {
+fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut [T], e: &mut [T], V: &mut M) {
     let n = d.len();
     let mut temp = vec![T::zero(); n];
     for j in 1..n {

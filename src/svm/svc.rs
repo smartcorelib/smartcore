@@ -222,7 +222,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
 
         if n != y.len() {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 
