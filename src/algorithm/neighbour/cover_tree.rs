@@ -179,7 +179,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                 }
             }
         }
-        
+
         if neighbors.len() > k {
             neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         }
