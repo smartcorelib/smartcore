@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "The most advanced machine learning library in rust."
 homepage = "https://smartcorelib.org"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["SmartCore Developers"]
 edition = "2018"
 license = "Apache-2.0"
