@@ -1,10 +1,12 @@
 #![allow(
     clippy::type_complexity,
     clippy::too_many_arguments,
-    clippy::many_single_char_names
+    clippy::many_single_char_names,
+    clippy::unnecessary_wraps,
+    clippy::upper_case_acronyms
 )]
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
+#![warn(rustdoc::missing_doc_code_examples)]
 
 //! # SmartCore
 //!
@@ -28,7 +30,7 @@
 //!
 //! All machine learning algorithms in SmartCore are grouped into these broad categories:
 //! * [Clustering](cluster/index.html), unsupervised clustering of unlabeled data.
-//! * [Martix Decomposition](decomposition/index.html), various methods for matrix decomposition.
+//! * [Matrix Decomposition](decomposition/index.html), various methods for matrix decomposition.
 //! * [Linear Models](linear/index.html), regression and classification methods where output is assumed to have linear relation to explanatory variables
 //! * [Ensemble Models](ensemble/index.html), variety of regression and classification ensemble models
 //! * [Tree-based Models](tree/index.html), classification and regression trees
@@ -91,6 +93,8 @@ pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
 pub(crate) mod optimization;
+/// Preprocessing utilities
+pub mod preprocessing;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods

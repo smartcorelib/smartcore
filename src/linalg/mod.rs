@@ -1,3 +1,4 @@
+#![allow(clippy::wrong_self_convention)]
 //! # Linear Algebra and Matrix Decomposition
 //!
 //! Most machine learning algorithms in SmartCore depend on linear algebra and matrix decomposition methods from this module.
@@ -265,7 +266,7 @@ pub trait BaseVector<T: RealNumber>: Clone + Debug {
             sum += xi * xi;
         }
         mu /= div;
-        sum / div - mu * mu
+        sum / div - mu.powi(2)
     }
     /// Computes the standard deviation.
     fn std(&self) -> T {
@@ -688,12 +689,11 @@ impl<'a, T: RealNumber, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
     type Item = Vec<T>;
 
     fn next(&mut self) -> Option<Vec<T>> {
-        let res;
-        if self.pos < self.max_pos {
-            res = Some(self.m.get_row_as_vec(self.pos))
+        let res = if self.pos < self.max_pos {
+            Some(self.m.get_row_as_vec(self.pos))
         } else {
-            res = None
-        }
+            None
+        };
         self.pos += 1;
         res
     }
@@ -705,6 +705,7 @@ mod tests {
     use crate::linalg::BaseMatrix;
     use crate::linalg::BaseVector;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn mean() {
         let m = vec![1., 2., 3.];
@@ -712,6 +713,7 @@ mod tests {
         assert_eq!(m.mean(), 2.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn std() {
         let m = vec![1., 2., 3.];
@@ -719,6 +721,7 @@ mod tests {
         assert!((m.std() - 0.81f64).abs() < 1e-2);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn var() {
         let m = vec![1., 2., 3., 4.];
@@ -726,6 +729,7 @@ mod tests {
         assert!((m.var() - 1.25f64).abs() < std::f64::EPSILON);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_take() {
         let m = vec![1., 2., 3., 4., 5.];
@@ -733,6 +737,7 @@ mod tests {
         assert_eq!(m.take(&vec!(0, 0, 4, 4)), vec![1., 1., 5., 5.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn take() {
         let m = DenseMatrix::from_2d_array(&[

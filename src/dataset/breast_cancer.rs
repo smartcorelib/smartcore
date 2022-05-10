@@ -66,17 +66,20 @@ pub fn load_dataset() -> Dataset<f32, f32> {
 #[cfg(test)]
 mod tests {
 
+    #[cfg(not(target_arch = "wasm32"))]
     use super::super::*;
     use super::*;
 
     #[test]
     #[ignore]
+    #[cfg(not(target_arch = "wasm32"))]
     fn refresh_cancer_dataset() {
         // run this test to generate breast_cancer.xy file.
         let dataset = load_dataset();
         assert!(serialize_data(&dataset, "breast_cancer.xy").is_ok());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cancer_dataset() {
         let dataset = load_dataset();

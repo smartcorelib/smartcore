@@ -1,3 +1,4 @@
+#![allow(clippy::suspicious_operation_groupings)]
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -7,6 +8,7 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct LBFGS<T: RealNumber> {
     pub max_iter: usize,
     pub g_rtol: T,
@@ -116,14 +118,14 @@ impl<T: RealNumber> LBFGS<T> {
         let f_alpha = |alpha: T| -> T {
             let mut dx = state.s.clone();
             dx.mul_scalar_mut(alpha);
-            f(&dx.add_mut(&state.x)) // f(x) = f(x .+ gvec .* alpha)
+            f(dx.add_mut(&state.x)) // f(x) = f(x .+ gvec .* alpha)
         };
 
         let df_alpha = |alpha: T| -> T {
             let mut dx = state.s.clone();
             let mut dg = state.x_df.clone();
             dx.mul_scalar_mut(alpha);
-            df(&mut dg, &dx.add_mut(&state.x)); //df(x) = df(x .+ gvec .* alpha)
+            df(&mut dg, dx.add_mut(&state.x)); //df(x) = df(x .+ gvec .* alpha)
             state.x_df.dot(&dg)
         };
 
@@ -205,7 +207,7 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for LBFGS<T> {
     ) -> OptimizerResult<T, X> {
         let mut state = self.init_state(x0);
 
-        df(&mut state.x_df, &x0);
+        df(&mut state.x_df, x0);
 
         let g_converged = state.x_df.norm(T::infinity()) < self.g_atol;
         let mut converged = g_converged;
@@ -238,6 +240,7 @@ mod tests {
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lbfgs() {
         let x0 = DenseMatrix::row_vector_from_array(&[0., 0.]);

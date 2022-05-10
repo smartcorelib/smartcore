@@ -24,6 +24,7 @@
 //! ```
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::heap_select::HeapSelection;
@@ -32,7 +33,8 @@ use crate::math::distance::Distance;
 use crate::math::num::RealNumber;
 
 /// Implements Cover Tree algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct CoverTree<T, F: RealNumber, D: Distance<T, F>> {
     base: F,
     inv_log_base: F,
@@ -56,16 +58,17 @@ impl<T, F: RealNumber, D: Distance<T, F>> PartialEq for CoverTree<T, F, D> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<F: RealNumber> {
     idx: usize,
     max_dist: F,
     parent_dist: F,
     children: Vec<Node<F>>,
-    scale: i64,
+    _scale: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 struct DistanceSet<F: RealNumber> {
     idx: usize,
     dist: Vec<F>,
@@ -82,7 +85,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             max_dist: F::zero(),
             parent_dist: F::zero(),
             children: Vec::new(),
-            scale: 0,
+            _scale: 0,
         };
         let mut tree = CoverTree {
             base,
@@ -114,7 +117,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         }
 
         let e = self.get_data_value(self.root.idx);
-        let mut d = self.distance.distance(&e, p);
+        let mut d = self.distance.distance(e, p);
 
         let mut current_cover_set: Vec<(F, &Node<F>)> = Vec::new();
         let mut zero_set: Vec<(F, &Node<F>)> = Vec::new();
@@ -172,11 +175,14 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             if ds.0 <= upper_bound {
                 let v = self.get_data_value(ds.1.idx);
                 if !self.identical_excluded || v != p {
-                    neighbors.push((ds.1.idx, ds.0, &v));
+                    neighbors.push((ds.1.idx, ds.0, v));
                 }
             }
         }
 
+        if neighbors.len() > k {
+            neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        }
         Ok(neighbors.into_iter().take(k).collect())
     }
 
@@ -197,7 +203,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         let mut zero_set: Vec<(F, &Node<F>)> = Vec::new();
 
         let e = self.get_data_value(self.root.idx);
-        let mut d = self.distance.distance(&e, p);
+        let mut d = self.distance.distance(e, p);
         current_cover_set.push((d, &self.root));
 
         while !current_cover_set.is_empty() {
@@ -227,7 +233,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         for ds in zero_set {
             let v = self.get_data_value(ds.1.idx);
             if !self.identical_excluded || v != p {
-                neighbors.push((ds.1.idx, ds.0, &v));
+                neighbors.push((ds.1.idx, ds.0, v));
             }
         }
 
@@ -240,7 +246,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
             max_dist: F::zero(),
             parent_dist: F::zero(),
             children: Vec::new(),
-            scale: 100,
+            _scale: 100,
         }
     }
 
@@ -284,7 +290,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
         if point_set.is_empty() {
             self.new_leaf(p)
         } else {
-            let max_dist = self.max(&point_set);
+            let max_dist = self.max(point_set);
             let next_scale = (max_scale - 1).min(self.get_scale(max_dist));
             if next_scale == std::i64::MIN {
                 let mut children: Vec<Node<F>> = Vec::new();
@@ -301,7 +307,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                     max_dist: F::zero(),
                     parent_dist: F::zero(),
                     children,
-                    scale: 100,
+                    _scale: 100,
                 }
             } else {
                 let mut far: Vec<DistanceSet<F>> = Vec::new();
@@ -313,8 +319,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                     point_set.append(&mut far);
                     child
                 } else {
-                    let mut children: Vec<Node<F>> = Vec::new();
-                    children.push(child);
+                    let mut children: Vec<Node<F>> = vec![child];
                     let mut new_point_set: Vec<DistanceSet<F>> = Vec::new();
                     let mut new_consumed_set: Vec<DistanceSet<F>> = Vec::new();
 
@@ -371,7 +376,7 @@ impl<T: Debug + PartialEq, F: RealNumber, D: Distance<T, F>> CoverTree<T, F, D> 
                         max_dist: self.max(consumed_set),
                         parent_dist: F::zero(),
                         children,
-                        scale: (top_scale - max_scale),
+                        _scale: (top_scale - max_scale),
                     }
                 }
             }
@@ -454,7 +459,8 @@ mod tests {
     use super::*;
     use crate::math::distance::Distances;
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(Debug, Clone)]
     struct SimpleDistance {}
 
     impl Distance<i32, f64> for SimpleDistance {
@@ -463,6 +469,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cover_tree_test() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -479,7 +486,7 @@ mod tests {
         let knn: Vec<i32> = knn.iter().map(|v| *v.2).collect();
         assert_eq!(vec!(3, 4, 5, 6, 7), knn);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cover_tree_test1() {
         let data = vec![
@@ -498,8 +505,9 @@ mod tests {
 
         assert_eq!(vec!(0, 1, 2), knn);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
 

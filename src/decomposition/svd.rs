@@ -46,6 +46,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Transformer, UnsupervisedEstimator};
@@ -54,7 +55,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// SVD
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct SVD<T: RealNumber, M: Matrix<T>> {
     components: M,
     phantom: PhantomData<T>,
@@ -151,6 +153,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svd_decompose() {
         // https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/USArrests.html
@@ -225,7 +228,9 @@ mod tests {
             .approximate_eq(&expected, 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let iris = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

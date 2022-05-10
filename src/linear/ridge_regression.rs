@@ -58,6 +58,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -66,7 +67,8 @@ use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
@@ -76,7 +78,8 @@ pub enum RidgeRegressionSolverName {
 }
 
 /// Ridge Regression parameters
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct RidgeRegressionParameters<T: RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
@@ -88,11 +91,12 @@ pub struct RidgeRegressionParameters<T: RealNumber> {
 }
 
 /// Ridge regression
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
-    solver: RidgeRegressionSolverName,
+    _solver: RidgeRegressionSolverName,
 }
 
 impl<T: RealNumber> RidgeRegressionParameters<T> {
@@ -222,7 +226,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
         Ok(RidgeRegression {
             intercept: b,
             coefficients: w,
-            solver: parameters.solver,
+            _solver: parameters.solver,
         })
     }
 
@@ -270,6 +274,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ridge_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -325,7 +330,9 @@ mod tests {
         assert!(mean_absolute_error(&y_hat_svd, &y) < 2.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

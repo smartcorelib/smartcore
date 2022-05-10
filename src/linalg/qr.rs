@@ -195,7 +195,7 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
@@ -214,6 +214,7 @@ mod tests {
         assert!(qr.R().abs().approximate_eq(&r.abs(), 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn qr_solve_mut() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);

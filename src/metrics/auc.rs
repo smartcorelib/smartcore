@@ -20,6 +20,7 @@
 //! * ["The ROC-AUC and the Mann-Whitney U-test", Haupt, J.](https://johaupt.github.io/roc-auc/model%20evaluation/Area_under_ROC_curve.html)
 #![allow(non_snake_case)]
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
@@ -27,7 +28,8 @@ use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
 /// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct AUC {}
 
 impl AUC {
@@ -91,6 +93,7 @@ impl AUC {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn auc() {
         let y_true: Vec<f64> = vec![0., 0., 1., 1.];

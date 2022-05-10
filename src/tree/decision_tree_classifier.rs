@@ -68,6 +68,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
+use rand::Rng;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
@@ -76,7 +78,8 @@ use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
     /// Split criteria to use when building a tree.
@@ -90,7 +93,8 @@ pub struct DecisionTreeClassifierParameters {
 }
 
 /// Decision Tree
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DecisionTreeClassifier<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeClassifierParameters,
@@ -100,7 +104,8 @@ pub struct DecisionTreeClassifier<T: RealNumber> {
 }
 
 /// The function to measure the quality of a split.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
     Gini,
@@ -110,9 +115,10 @@ pub enum SplitCriterion {
     ClassificationError,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<T: RealNumber> {
-    index: usize,
+    _index: usize,
     output: usize,
     split_feature: usize,
     split_value: Option<T>,
@@ -198,7 +204,7 @@ impl Default for DecisionTreeClassifierParameters {
 impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: usize) -> Self {
         Node {
-            index,
+            _index: index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -323,7 +329,14 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
     ) -> Result<DecisionTreeClassifier<T>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
-        DecisionTreeClassifier::fit_weak_learner(x, y, samples, num_attributes, parameters)
+        DecisionTreeClassifier::fit_weak_learner(
+            x,
+            y,
+            samples,
+            num_attributes,
+            parameters,
+            &mut rand::thread_rng(),
+        )
     }
 
     pub(crate) fn fit_weak_learner<M: Matrix<T>>(
@@ -332,6 +345,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         samples: Vec<usize>,
         mtry: usize,
         parameters: DecisionTreeClassifierParameters,
+        rng: &mut impl Rng,
     ) -> Result<DecisionTreeClassifier<T>, Failed> {
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
@@ -375,17 +389,17 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
             depth: 0,
         };
 
-        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &yi, 1);
+        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, x, &yi, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 
-        if tree.find_best_cutoff(&mut visitor, mtry) {
+        if tree.find_best_cutoff(&mut visitor, mtry, rng) {
             visitor_queue.push_back(visitor);
         }
 
         while tree.depth < tree.parameters.max_depth.unwrap_or(std::u16::MAX) {
             match visitor_queue.pop_front() {
-                Some(node) => tree.split(node, mtry, &mut visitor_queue),
+                Some(node) => tree.split(node, mtry, &mut visitor_queue, rng),
                 None => break,
             };
         }
@@ -438,6 +452,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         &mut self,
         visitor: &mut NodeVisitor<'_, T, M>,
         mtry: usize,
+        rng: &mut impl Rng,
     ) -> bool {
         let (n_rows, n_attr) = visitor.x.shape();
 
@@ -477,7 +492,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
         if mtry < n_attr {
-            variables.shuffle(&mut rand::thread_rng());
+            variables.shuffle(rng);
         }
 
         for variable in variables.iter().take(mtry) {
@@ -499,7 +514,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         visitor: &mut NodeVisitor<'_, T, M>,
         n: usize,
         count: &[usize],
-        false_count: &mut Vec<usize>,
+        false_count: &mut [usize],
         parent_impurity: T,
         j: usize,
     ) {
@@ -536,7 +551,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
                     - T::from(tc).unwrap() / T::from(n).unwrap()
                         * impurity(&self.parameters.criterion, &true_count, tc)
                     - T::from(fc).unwrap() / T::from(n).unwrap()
-                        * impurity(&self.parameters.criterion, &false_count, fc);
+                        * impurity(&self.parameters.criterion, false_count, fc);
 
                 if self.nodes[visitor.node].split_score == Option::None
                     || gain > self.nodes[visitor.node].split_score.unwrap()
@@ -561,6 +576,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         mut visitor: NodeVisitor<'a, T, M>,
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, T, M>>,
+        rng: &mut impl Rng,
     ) -> bool {
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
@@ -609,7 +625,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry) {
+        if self.find_best_cutoff(&mut true_visitor, mtry, rng) {
             visitor_queue.push_back(true_visitor);
         }
 
@@ -622,7 +638,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry) {
+        if self.find_best_cutoff(&mut false_visitor, mtry, rng) {
             visitor_queue.push_back(false_visitor);
         }
 
@@ -635,6 +651,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn gini_impurity() {
         assert!(
@@ -651,6 +668,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_iris() {
         let x = DenseMatrix::from_2d_array(&[
@@ -703,6 +721,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_baloons() {
         let x = DenseMatrix::from_2d_array(&[
@@ -739,7 +758,9 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[1., 1., 1., 0.],

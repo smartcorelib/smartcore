@@ -43,6 +43,7 @@
 use std::fmt::Debug;
 use std::iter::Sum;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
@@ -55,7 +56,8 @@ use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::which_max;
 
 /// DBSCAN clustering algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
     cluster_labels: Vec<i16>,
     num_classes: usize,
@@ -153,11 +155,11 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
         parameters: DBSCANParameters<T, D>,
     ) -> Result<DBSCAN<T, D>, Failed> {
         if parameters.min_samples < 1 {
-            return Err(Failed::fit(&"Invalid minPts".to_string()));
+            return Err(Failed::fit("Invalid minPts"));
         }
 
         if parameters.eps <= T::zero() {
-            return Err(Failed::fit(&"Invalid radius: ".to_string()));
+            return Err(Failed::fit("Invalid radius: "));
         }
 
         let mut k = 0;
@@ -263,8 +265,10 @@ impl<T: RealNumber + Sum, D: Distance<Vec<T>, T>> DBSCAN<T, D> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
+    #[cfg(feature = "serde")]
     use crate::math::distance::euclidian::Euclidian;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_dbscan() {
         let x = DenseMatrix::from_2d_array(&[
@@ -296,7 +300,9 @@ mod tests {
         assert_eq!(expected_labels, predicted_labels);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

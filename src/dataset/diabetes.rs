@@ -50,9 +50,11 @@ pub fn load_dataset() -> Dataset<f32, f32> {
 #[cfg(test)]
 mod tests {
 
+    #[cfg(not(target_arch = "wasm32"))]
     use super::super::*;
     use super::*;
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     #[ignore]
     fn refresh_diabetes_dataset() {
@@ -61,6 +63,7 @@ mod tests {
         assert!(serialize_data(&dataset, "diabetes.xy").is_ok());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn boston_dataset() {
         let dataset = load_dataset();

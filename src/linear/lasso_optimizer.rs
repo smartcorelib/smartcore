@@ -138,7 +138,7 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
 
             for i in 0..p {
                 self.prb[i] = T::two() + self.d1[i];
-                self.prs[i] = self.prb[i] * self.d1[i] - self.d2[i] * self.d2[i];
+                self.prs[i] = self.prb[i] * self.d1[i] - self.d2[i].powi(2);
             }
 
             let normg = grad.norm2();

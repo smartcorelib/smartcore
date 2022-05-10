@@ -33,6 +33,7 @@
 //!
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
@@ -45,7 +46,8 @@ use crate::math::num::RealNumber;
 use crate::neighbors::KNNWeightFunction;
 
 /// `KNNClassifier` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct KNNClassifierParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
@@ -62,7 +64,8 @@ pub struct KNNClassifierParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
 }
 
 /// K Nearest Neighbors Classifier
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct KNNClassifier<T: RealNumber, D: Distance<Vec<T>, T>> {
     classes: Vec<T>,
     y: Vec<usize>,
@@ -248,6 +251,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_fit_predict() {
         let x =
@@ -259,6 +263,7 @@ mod tests {
         assert_eq!(y.to_vec(), y_hat);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_fit_predict_weighted() {
         let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]);
@@ -276,7 +281,9 @@ mod tests {
         assert_eq!(vec![3.0], y_hat);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);

@@ -18,6 +18,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
@@ -26,7 +27,8 @@ use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
 
 /// F-measure
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct F1<T: RealNumber> {
     /// a positive real factor
     pub beta: T,
@@ -57,6 +59,7 @@ impl<T: RealNumber> F1<T> {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn f1() {
         let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];

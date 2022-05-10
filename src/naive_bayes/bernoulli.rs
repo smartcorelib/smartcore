@@ -42,15 +42,49 @@ use crate::math::num::RealNumber;
 use crate::math::vector::RealNumberVector;
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Bearnoulli features
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct BernoulliNBDistribution<T: RealNumber> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
+    /// number of training samples observed in each class
+    class_count: Vec<usize>,
+    /// probability of each class
     class_priors: Vec<T>,
-    feature_prob: Vec<Vec<T>>,
+    /// Number of samples encountered for each (class, feature)
+    feature_count: Vec<Vec<usize>>,
+    /// probability of features per class
+    feature_log_prob: Vec<Vec<T>>,
+    /// Number of features of each sample
+    n_features: usize,
+}
+
+impl<T: RealNumber> PartialEq for BernoulliNBDistribution<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.class_labels == other.class_labels
+            && self.class_count == other.class_count
+            && self.class_priors == other.class_priors
+            && self.feature_count == other.feature_count
+            && self.n_features == other.n_features
+        {
+            for (a, b) in self
+                .feature_log_prob
+                .iter()
+                .zip(other.feature_log_prob.iter())
+            {
+                if !a.approximate_eq(b, T::epsilon()) {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistribution<T> {
@@ -63,9 +97,9 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
         for feature in 0..j.len() {
             let value = j.get(feature);
             if value == T::one() {
-                likelihood += self.feature_prob[class_index][feature].ln();
+                likelihood += self.feature_log_prob[class_index][feature];
             } else {
-                likelihood += (T::one() - self.feature_prob[class_index][feature]).ln();
+                likelihood += (T::one() - self.feature_log_prob[class_index][feature].exp()).ln();
             }
         }
         likelihood
@@ -77,7 +111,8 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
 }
 
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct BernoulliNBParameters<T: RealNumber> {
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
@@ -154,10 +189,10 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         let y = y.to_vec();
 
         let (class_labels, indices) = <Vec<T> as RealNumberVector<T>>::unique_with_indices(&y);
-        let mut class_count = vec![T::zero(); class_labels.len()];
+        let mut class_count = vec![0_usize; class_labels.len()];
 
         for class_index in indices.iter() {
-            class_count[*class_index] += T::one();
+            class_count[*class_index] += 1;
         }
 
         let class_priors = if let Some(class_priors) = priors {
@@ -170,25 +205,35 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         } else {
             class_count
                 .iter()
-                .map(|&c| c / T::from(n_samples).unwrap())
+                .map(|&c| T::from(c).unwrap() / T::from(n_samples).unwrap())
                 .collect()
         };
 
-        let mut feature_in_class_counter = vec![vec![T::zero(); n_features]; class_labels.len()];
+        let mut feature_in_class_counter = vec![vec![0_usize; n_features]; class_labels.len()];
 
         for (row, class_index) in row_iter(x).zip(indices) {
             for (idx, row_i) in row.iter().enumerate().take(n_features) {
-                feature_in_class_counter[class_index][idx] += *row_i;
+                feature_in_class_counter[class_index][idx] +=
+                    row_i.to_usize().ok_or_else(|| {
+                        Failed::fit(&format!(
+                            "Elements of the matrix should be 1.0 or 0.0 |found|=[{}]",
+                            row_i
+                        ))
+                    })?;
             }
         }
 
-        let feature_prob = feature_in_class_counter
+        let feature_log_prob = feature_in_class_counter
             .iter()
             .enumerate()
             .map(|(class_index, feature_count)| {
                 feature_count
                     .iter()
-                    .map(|&count| (count + alpha) / (class_count[class_index] + alpha * T::two()))
+                    .map(|&count| {
+                        ((T::from(count).unwrap() + alpha)
+                            / (T::from(class_count[class_index]).unwrap() + alpha * T::two()))
+                        .ln()
+                    })
                     .collect()
             })
             .collect();
@@ -196,13 +241,18 @@ impl<T: RealNumber> BernoulliNBDistribution<T> {
         Ok(Self {
             class_labels,
             class_priors,
-            feature_prob,
+            class_count,
+            feature_count: feature_in_class_counter,
+            feature_log_prob,
+            n_features,
         })
     }
 }
 
-/// BernoulliNB implements the categorical naive Bayes algorithm for categorically distributed data.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+/// BernoulliNB implements the naive Bayes algorithm for data that follows the Bernoulli
+/// distribution.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub struct BernoulliNB<T: RealNumber, M: Matrix<T>> {
     inner: BaseNaiveBayes<T, M, BernoulliNBDistribution<T>>,
     binarize: Option<T>,
@@ -262,6 +312,34 @@ impl<T: RealNumber, M: Matrix<T>> BernoulliNB<T, M> {
             self.inner.predict(x)
         }
     }
+
+    /// Class labels known to the classifier.
+    /// Returns a vector of size n_classes.
+    pub fn classes(&self) -> &Vec<T> {
+        &self.inner.distribution.class_labels
+    }
+
+    /// Number of training samples observed in each class.
+    /// Returns a vector of size n_classes.
+    pub fn class_count(&self) -> &Vec<usize> {
+        &self.inner.distribution.class_count
+    }
+
+    /// Number of features of each sample
+    pub fn n_features(&self) -> usize {
+        self.inner.distribution.n_features
+    }
+
+    /// Number of samples encountered for each (class, feature)
+    /// Returns a 2d vector of shape (n_classes, n_features)
+    pub fn feature_count(&self) -> &Vec<Vec<usize>> {
+        &self.inner.distribution.feature_count
+    }
+
+    /// Empirical log probability of features given a class
+    pub fn feature_log_prob(&self) -> &Vec<Vec<T>> {
+        &self.inner.distribution.feature_log_prob
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +347,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_bernoulli_naive_bayes() {
         // Tests that BernoulliNB when alpha=1.0 gives the same values as
@@ -292,10 +371,24 @@ mod tests {
 
         assert_eq!(bnb.inner.distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
-            bnb.inner.distribution.feature_prob,
+            bnb.feature_log_prob(),
             &[
-                &[0.4, 0.8, 0.2, 0.4, 0.4, 0.2],
-                &[1. / 3.0, 2. / 3.0, 2. / 3.0, 1. / 3.0, 1. / 3.0, 2. / 3.0]
+                &[
+                    -0.916290731874155,
+                    -0.2231435513142097,
+                    -1.6094379124341003,
+                    -0.916290731874155,
+                    -0.916290731874155,
+                    -1.6094379124341003
+                ],
+                &[
+                    -1.0986122886681098,
+                    -0.40546510810816444,
+                    -0.40546510810816444,
+                    -1.0986122886681098,
+                    -1.0986122886681098,
+                    -0.40546510810816444
+                ]
             ]
         );
 
@@ -307,6 +400,7 @@ mod tests {
         assert_eq!(y_hat, &[1.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn bernoulli_nb_scikit_parity() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
@@ -331,13 +425,36 @@ mod tests {
 
         let y_hat = bnb.predict(&x).unwrap();
 
+        assert_eq!(bnb.classes(), &[0., 1., 2.]);
+        assert_eq!(bnb.class_count(), &[7, 3, 5]);
+        assert_eq!(bnb.n_features(), 10);
+        assert_eq!(
+            bnb.feature_count(),
+            &[
+                &[5, 6, 6, 7, 6, 4, 6, 7, 7, 7],
+                &[3, 3, 3, 1, 3, 2, 3, 2, 2, 3],
+                &[4, 4, 3, 4, 5, 2, 4, 5, 3, 4]
+            ]
+        );
+
         assert!(bnb
             .inner
             .distribution
             .class_priors
             .approximate_eq(&vec!(0.46, 0.2, 0.33), 1e-2));
-        assert!(bnb.inner.distribution.feature_prob[1].approximate_eq(
-            &vec!(0.8, 0.8, 0.8, 0.4, 0.8, 0.6, 0.8, 0.6, 0.6, 0.8),
+        assert!(bnb.feature_log_prob()[1].approximate_eq(
+            &vec![
+                -0.22314355,
+                -0.22314355,
+                -0.22314355,
+                -0.91629073,
+                -0.22314355,
+                -0.51082562,
+                -0.22314355,
+                -0.51082562,
+                -0.51082562,
+                -0.22314355
+            ],
             1e-1
         ));
         assert!(y_hat.approximate_eq(
@@ -346,7 +463,9 @@ mod tests {
         ));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[1., 1., 0., 0., 0., 0.],

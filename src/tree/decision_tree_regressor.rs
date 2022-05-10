@@ -63,6 +63,8 @@ use std::default::Default;
 use std::fmt::Debug;
 
 use rand::seq::SliceRandom;
+use rand::Rng;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::sort::quick_sort::QuickArgSort;
@@ -71,7 +73,8 @@ use crate::error::Failed;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
     /// The maximum depth of the tree.
@@ -83,16 +86,18 @@ pub struct DecisionTreeRegressorParameters {
 }
 
 /// Regression Tree
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct DecisionTreeRegressor<T: RealNumber> {
     nodes: Vec<Node<T>>,
     parameters: DecisionTreeRegressorParameters,
     depth: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 struct Node<T: RealNumber> {
-    index: usize,
+    _index: usize,
     output: T,
     split_feature: usize,
     split_value: Option<T>,
@@ -132,7 +137,7 @@ impl Default for DecisionTreeRegressorParameters {
 impl<T: RealNumber> Node<T> {
     fn new(index: usize, output: T) -> Self {
         Node {
-            index,
+            _index: index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -238,7 +243,14 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
     ) -> Result<DecisionTreeRegressor<T>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
-        DecisionTreeRegressor::fit_weak_learner(x, y, samples, num_attributes, parameters)
+        DecisionTreeRegressor::fit_weak_learner(
+            x,
+            y,
+            samples,
+            num_attributes,
+            parameters,
+            &mut rand::thread_rng(),
+        )
     }
 
     pub(crate) fn fit_weak_learner<M: Matrix<T>>(
@@ -247,6 +259,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         samples: Vec<usize>,
         mtry: usize,
         parameters: DecisionTreeRegressorParameters,
+        rng: &mut impl Rng,
     ) -> Result<DecisionTreeRegressor<T>, Failed> {
         let y_m = M::from_row_vector(y.clone());
 
@@ -276,17 +289,17 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
             depth: 0,
         };
 
-        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, &x, &y_m, 1);
+        let mut visitor = NodeVisitor::<T, M>::new(0, samples, &order, x, &y_m, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, T, M>> = LinkedList::new();
 
-        if tree.find_best_cutoff(&mut visitor, mtry) {
+        if tree.find_best_cutoff(&mut visitor, mtry, rng) {
             visitor_queue.push_back(visitor);
         }
 
         while tree.depth < tree.parameters.max_depth.unwrap_or(std::u16::MAX) {
             match visitor_queue.pop_front() {
-                Some(node) => tree.split(node, mtry, &mut visitor_queue),
+                Some(node) => tree.split(node, mtry, &mut visitor_queue, rng),
                 None => break,
             };
         }
@@ -339,6 +352,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         &mut self,
         visitor: &mut NodeVisitor<'_, T, M>,
         mtry: usize,
+        rng: &mut impl Rng,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
@@ -353,7 +367,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
         if mtry < n_attr {
-            variables.shuffle(&mut rand::thread_rng());
+            variables.shuffle(rng);
         }
 
         let parent_gain =
@@ -428,6 +442,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         mut visitor: NodeVisitor<'a, T, M>,
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, T, M>>,
+        rng: &mut impl Rng,
     ) -> bool {
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
@@ -476,7 +491,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry) {
+        if self.find_best_cutoff(&mut true_visitor, mtry, rng) {
             visitor_queue.push_back(true_visitor);
         }
 
@@ -489,7 +504,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry) {
+        if self.find_best_cutoff(&mut false_visitor, mtry, rng) {
             visitor_queue.push_back(false_visitor);
         }
 
@@ -502,6 +517,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_longley() {
         let x = DenseMatrix::from_2d_array(&[
@@ -576,7 +592,9 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],

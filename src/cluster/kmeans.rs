@@ -56,6 +56,7 @@ use rand::Rng;
 use std::fmt::Debug;
 use std::iter::Sum;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
@@ -66,12 +67,13 @@ use crate::math::distance::euclidian::*;
 use crate::math::num::RealNumber;
 
 /// K-Means clustering algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct KMeans<T: RealNumber> {
     k: usize,
-    y: Vec<usize>,
+    _y: Vec<usize>,
     size: Vec<usize>,
-    distortion: T,
+    _distortion: T,
     centroids: Vec<Vec<T>>,
 }
 
@@ -206,9 +208,9 @@ impl<T: RealNumber + Sum> KMeans<T> {
 
         Ok(KMeans {
             k: parameters.k,
-            y,
+            _y: y,
             size,
-            distortion,
+            _distortion: distortion,
             centroids,
         })
     }
@@ -243,7 +245,7 @@ impl<T: RealNumber + Sum> KMeans<T> {
         let mut rng = rand::thread_rng();
         let (n, m) = data.shape();
         let mut y = vec![0; n];
-        let mut centroid = data.get_row_as_vec(rng.gen_range(0, n));
+        let mut centroid = data.get_row_as_vec(rng.gen_range(0..n));
 
         let mut d = vec![T::max_value(); n];
 
@@ -297,6 +299,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn invalid_k() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
@@ -310,6 +313,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_iris() {
         let x = DenseMatrix::from_2d_array(&[
@@ -340,11 +344,13 @@ mod tests {
         let y = kmeans.predict(&x).unwrap();
 
         for i in 0..y.len() {
-            assert_eq!(y[i] as usize, kmeans.y[i]);
+            assert_eq!(y[i] as usize, kmeans._y[i]);
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

@@ -56,6 +56,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -67,7 +68,8 @@ use crate::math::num::RealNumber;
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 
 /// Elastic net parameters
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct ElasticNetParameters<T: RealNumber> {
     /// Regularization parameter.
     pub alpha: T,
@@ -84,7 +86,8 @@ pub struct ElasticNetParameters<T: RealNumber> {
 }
 
 /// Elastic net
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct ElasticNet<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
@@ -288,6 +291,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn elasticnet_longley() {
         let x = DenseMatrix::from_2d_array(&[
@@ -331,6 +335,7 @@ mod tests {
         assert!(mean_absolute_error(&y_hat, &y) < 30.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn elasticnet_fit_predict1() {
         let x = DenseMatrix::from_2d_array(&[
@@ -397,7 +402,9 @@ mod tests {
         assert!(l1_model.coefficients().get(0, 0) > l1_model.coefficients().get(2, 0));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

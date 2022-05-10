@@ -579,6 +579,7 @@ mod tests {
     use crate::linear::linear_regression::*;
     use nalgebra::{DMatrix, Matrix2x3, RowDVector};
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_copy_from() {
         let mut v1 = RowDVector::from_vec(vec![1., 2., 3.]);
@@ -589,12 +590,14 @@ mod tests {
         assert_ne!(v2, v1);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_len() {
         let v = RowDVector::from_vec(vec![1., 2., 3.]);
         assert_eq!(3, v.len());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_set_vector() {
         let mut v = RowDVector::from_vec(vec![1., 2., 3., 4.]);
@@ -607,12 +610,14 @@ mod tests {
         assert_eq!(5., BaseVector::get(&v, 1));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_to_vec() {
         let v = RowDVector::from_vec(vec![1., 2., 3.]);
         assert_eq!(vec![1., 2., 3.], v.to_vec());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_init() {
         let zeros: RowDVector<f32> = BaseVector::zeros(3);
@@ -623,6 +628,7 @@ mod tests {
         assert_eq!(twos, RowDVector::from_vec(vec![2., 2., 2.]));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_dot() {
         let v1 = RowDVector::from_vec(vec![1., 2., 3.]);
@@ -630,6 +636,7 @@ mod tests {
         assert_eq!(32.0, BaseVector::dot(&v1, &v2));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_approximate_eq() {
         let a = RowDVector::from_vec(vec![1., 2., 3.]);
@@ -638,6 +645,7 @@ mod tests {
         assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_set_dynamic() {
         let mut m = DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
@@ -650,6 +658,7 @@ mod tests {
         assert_eq!(10., BaseMatrix::get(&m, 1, 1));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn zeros() {
         let expected = DMatrix::from_row_slice(2, 2, &[0., 0., 0., 0.]);
@@ -659,6 +668,7 @@ mod tests {
         assert_eq!(m, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ones() {
         let expected = DMatrix::from_row_slice(2, 2, &[1., 1., 1., 1.]);
@@ -668,6 +678,7 @@ mod tests {
         assert_eq!(m, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn eye() {
         let expected = DMatrix::from_row_slice(3, 3, &[1., 0., 0., 0., 1., 0., 0., 0., 1.]);
@@ -675,6 +686,7 @@ mod tests {
         assert_eq!(m, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn shape() {
         let m: DMatrix<f64> = BaseMatrix::zeros(5, 10);
@@ -684,6 +696,7 @@ mod tests {
         assert_eq!(ncols, 10);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn scalar_add_sub_mul_div() {
         let mut m = DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
@@ -697,6 +710,7 @@ mod tests {
         assert_eq!(m, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn add_sub_mul_div() {
         let mut m = DMatrix::from_row_slice(2, 2, &[1.0, 2.0, 3.0, 4.0]);
@@ -715,6 +729,7 @@ mod tests {
         assert_eq!(m, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn to_from_row_vector() {
         let v = RowDVector::from_vec(vec![1., 2., 3., 4.]);
@@ -723,12 +738,14 @@ mod tests {
         assert_eq!(m.to_row_vector(), expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn col_matrix_to_row_vector() {
         let m: DMatrix<f64> = BaseMatrix::zeros(10, 1);
         assert_eq!(m.to_row_vector().len(), 10)
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_row_col_as_vec() {
         let m = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
@@ -737,12 +754,14 @@ mod tests {
         assert_eq!(m.get_col_as_vec(1), vec!(2., 5., 8.));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_row() {
         let a = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
         assert_eq!(RowDVector::from_vec(vec![4., 5., 6.]), a.get_row(1));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn copy_row_col_as_vec() {
         let m = DMatrix::from_row_slice(3, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
@@ -754,6 +773,7 @@ mod tests {
         assert_eq!(v, vec!(2., 5., 8.));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn element_add_sub_mul_div() {
         let mut m = DMatrix::from_row_slice(2, 2, &[1.0, 2.0, 3.0, 4.0]);
@@ -767,6 +787,7 @@ mod tests {
         assert_eq!(m, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vstack_hstack() {
         let m1 = DMatrix::from_row_slice(2, 3, &[1., 2., 3., 4., 5., 6.]);
@@ -782,6 +803,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn matmul() {
         let a = DMatrix::from_row_slice(2, 3, &[1., 2., 3., 4., 5., 6.]);
@@ -791,6 +813,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn dot() {
         let a = DMatrix::from_row_slice(1, 3, &[1., 2., 3.]);
@@ -798,6 +821,7 @@ mod tests {
         assert_eq!(14., a.dot(&b));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn slice() {
         let a = DMatrix::from_row_slice(
@@ -810,6 +834,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn approximate_eq() {
         let a = DMatrix::from_row_slice(3, 3, &[1., 2., 3., 4., 5., 6., 7., 8., 9.]);
@@ -822,6 +847,7 @@ mod tests {
         assert!(!a.approximate_eq(&(&noise + &a), 1e-5));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn negative_mut() {
         let mut v = DMatrix::from_row_slice(1, 3, &[3., -2., 6.]);
@@ -829,6 +855,7 @@ mod tests {
         assert_eq!(v, DMatrix::from_row_slice(1, 3, &[-3., 2., -6.]));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn transpose() {
         let m = DMatrix::from_row_slice(2, 2, &[1.0, 3.0, 2.0, 4.0]);
@@ -837,6 +864,7 @@ mod tests {
         assert_eq!(m_transposed, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn rand() {
         let m: DMatrix<f64> = BaseMatrix::rand(3, 3);
@@ -847,6 +875,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn norm() {
         let v = DMatrix::from_row_slice(1, 3, &[3., -2., 6.]);
@@ -856,6 +885,7 @@ mod tests {
         assert_eq!(BaseMatrix::norm(&v, std::f64::NEG_INFINITY), 2.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn col_mean() {
         let a = DMatrix::from_row_slice(3, 3, &[1., 2., 3., 4., 5., 6., 7., 8., 9.]);
@@ -863,6 +893,7 @@ mod tests {
         assert_eq!(res, vec![4., 5., 6.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn reshape() {
         let m_orig = DMatrix::from_row_slice(1, 6, &[1., 2., 3., 4., 5., 6.]);
@@ -874,6 +905,7 @@ mod tests {
         assert_eq!(BaseMatrix::get(&m_result, 0, 3), 4.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn copy_from() {
         let mut src = DMatrix::from_row_slice(1, 3, &[1., 2., 3.]);
@@ -882,6 +914,7 @@ mod tests {
         assert_eq!(src, dst);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn abs_mut() {
         let mut a = DMatrix::from_row_slice(2, 2, &[1., -2., 3., -4.]);
@@ -890,6 +923,7 @@ mod tests {
         assert_eq!(a, expected);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn min_max_sum() {
         let a = DMatrix::from_row_slice(2, 3, &[1., 2., 3., 4., 5., 6.]);
@@ -898,6 +932,7 @@ mod tests {
         assert_eq!(6., a.max());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn max_diff() {
         let a1 = DMatrix::from_row_slice(2, 3, &[1., 2., 3., 4., -5., 6.]);
@@ -906,6 +941,7 @@ mod tests {
         assert_eq!(a2.max_diff(&a2), 0.);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn softmax_mut() {
         let mut prob: DMatrix<f64> = DMatrix::from_row_slice(1, 3, &[1., 2., 3.]);
@@ -915,6 +951,7 @@ mod tests {
         assert!((BaseMatrix::get(&prob, 0, 2) - 0.66).abs() < 0.01);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn pow_mut() {
         let mut a = DMatrix::from_row_slice(1, 3, &[1., 2., 3.]);
@@ -922,6 +959,7 @@ mod tests {
         assert_eq!(a, DMatrix::from_row_slice(1, 3, &[1., 8., 27.]));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn argmax() {
         let a = DMatrix::from_row_slice(3, 3, &[1., 2., 3., -5., -6., -7., 0.1, 0.2, 0.1]);
@@ -929,6 +967,7 @@ mod tests {
         assert_eq!(res, vec![2, 0, 1]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn unique() {
         let a = DMatrix::from_row_slice(3, 3, &[1., 2., 2., -2., -6., -7., 2., 3., 4.]);
@@ -937,6 +976,7 @@ mod tests {
         assert_eq!(res, vec![-7., -6., -2., 1., 2., 3., 4.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ols_fit_predict() {
         let x = DMatrix::from_row_slice(

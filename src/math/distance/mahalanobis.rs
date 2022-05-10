@@ -44,6 +44,7 @@
 
 use std::marker::PhantomData;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::math::num::RealNumber;
@@ -52,7 +53,8 @@ use super::Distance;
 use crate::linalg::Matrix;
 
 /// Mahalanobis distance.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
     /// covariance matrix of the dataset
     pub sigma: M,
@@ -131,6 +133,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn mahalanobis_distance() {
         let data = DenseMatrix::from_2d_array(&[

@@ -47,6 +47,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Transformer, UnsupervisedEstimator};
@@ -55,7 +56,8 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 /// Principal components analysis algorithm
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 pub struct PCA<T: RealNumber, M: Matrix<T>> {
     eigenvectors: M,
     eigenvalues: Vec<T>,
@@ -323,7 +325,7 @@ mod tests {
             &[6.8, 161.0, 60.0, 15.6],
         ])
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn pca_components() {
         let us_arrests = us_arrests_data();
@@ -339,7 +341,7 @@ mod tests {
 
         assert!(expected.approximate_eq(&pca.components().abs(), 0.4));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_covariance() {
         let us_arrests = us_arrests_data();
@@ -449,6 +451,7 @@ mod tests {
             .approximate_eq(&expected_projection.abs(), 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_correlation() {
         let us_arrests = us_arrests_data();
@@ -564,7 +567,9 @@ mod tests {
             .approximate_eq(&expected_projection.abs(), 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let iris = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],

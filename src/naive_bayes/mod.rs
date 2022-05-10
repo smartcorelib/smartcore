@@ -39,6 +39,7 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -55,7 +56,8 @@ pub(crate) trait NBDistribution<T: RealNumber, M: Matrix<T>> {
 }
 
 /// Base struct for the Naive Bayes classifier.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
 pub(crate) struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
     distribution: D,
     _phantom_t: PhantomData<T>,

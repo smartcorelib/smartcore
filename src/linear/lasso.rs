@@ -24,6 +24,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -34,7 +35,8 @@ use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 use crate::math::num::RealNumber;
 
 /// Lasso regression parameters
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LassoParameters<T: RealNumber> {
     /// Controls the strength of the penalty to the loss function.
     pub alpha: T,
@@ -47,7 +49,8 @@ pub struct LassoParameters<T: RealNumber> {
     pub max_iter: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 /// Lasso regressor
 pub struct Lasso<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
@@ -223,6 +226,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lasso_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -271,7 +275,9 @@ mod tests {
         assert!(mean_absolute_error(&y_hat, &y) < 2.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    #[cfg(feature = "serde")]
     fn serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],

@@ -26,6 +26,7 @@
 pub mod svc;
 pub mod svr;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::BaseVector;
@@ -93,18 +94,21 @@ impl Kernels {
 }
 
 /// Linear Kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LinearKernel {}
 
 /// Radial basis function (Gaussian) kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct RBFKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,
 }
 
 /// Polynomial kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct PolynomialKernel<T: RealNumber> {
     /// degree of the polynomial
     pub degree: T,
@@ -115,7 +119,8 @@ pub struct PolynomialKernel<T: RealNumber> {
 }
 
 /// Sigmoid (hyperbolic tangent) kernel
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct SigmoidKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,
@@ -154,6 +159,7 @@ impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for SigmoidKernel<T> {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn linear_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -162,6 +168,7 @@ mod tests {
         assert_eq!(32f64, Kernels::linear().apply(&v1, &v2));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn rbf_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -170,6 +177,7 @@ mod tests {
         assert!((0.2265f64 - Kernels::rbf(0.055).apply(&v1, &v2)).abs() < 1e-4);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn polynomial_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -181,6 +189,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn sigmoid_kernel() {
         let v1 = vec![1., 2., 3.];

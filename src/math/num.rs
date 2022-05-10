@@ -136,6 +136,7 @@ impl RealNumber for f32 {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn sigmoid() {
         assert_eq!(1.0.sigmoid(), 0.7310585786300049);

@@ -46,13 +46,13 @@ use crate::math::num::RealNumber;
 pub struct LU<T: RealNumber, M: BaseMatrix<T>> {
     LU: M,
     pivot: Vec<usize>,
-    pivot_sign: i8,
+    _pivot_sign: i8,
     singular: bool,
     phantom: PhantomData<T>,
 }
 
 impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
-    pub(crate) fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
+    pub(crate) fn new(LU: M, pivot: Vec<usize>, _pivot_sign: i8) -> LU<T, M> {
         let (_, n) = LU.shape();
 
         let mut singular = false;
@@ -66,7 +66,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         LU {
             LU,
             pivot,
-            pivot_sign,
+            _pivot_sign,
             singular,
             phantom: PhantomData,
         }
@@ -260,6 +260,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
@@ -274,7 +275,7 @@ mod tests {
         assert!(lu.U().approximate_eq(&expected_U, 1e-4));
         assert!(lu.pivot().approximate_eq(&expected_pivot, 1e-4));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn inverse() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
