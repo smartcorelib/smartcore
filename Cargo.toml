@@ -20,7 +20,7 @@ datasets = []
 
 [dependencies]
 ndarray = { version = "0.15", optional = true }
-nalgebra = { version = "0.26", optional = true }
+nalgebra = { version = "0.31", optional = true }
 num-traits = "0.2"
 num = "0.4"
 rand = "0.8"
