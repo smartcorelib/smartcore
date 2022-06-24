@@ -343,8 +343,42 @@ impl<T: RealNumber> RandomForestClassifier<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dataset::digits;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::metrics::*;
+    use crate::model_selection::train_test_split;
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    fn fit_predict_digits() {
+        let dataset_digits = digits::load_dataset();
+        let nrows = dataset_digits.target.len();
+        let ncols = dataset_digits.num_features;
+        let values = dataset_digits.data;
+        let x = DenseMatrix::from_vec(nrows, ncols, &values);
+        let y = dataset_digits.target;
+
+        let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
+        let classifier = RandomForestClassifier::fit(
+            &x_train,
+            &y_train,
+            RandomForestClassifierParameters {
+                criterion: SplitCriterion::Gini,
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 100,
+                m: Option::None,
+                keep_samples: false,
+                seed: 87,
+            },
+        )
+        .unwrap();
+
+        let test_predictions = &classifier.predict(&x_test).unwrap();
+        let accuracy_score = accuracy(&y_test, test_predictions);
+        assert!(accuracy_score >= 0.95);
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
