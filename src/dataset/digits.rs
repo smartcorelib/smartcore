@@ -20,24 +20,18 @@ pub fn load_dataset() -> Dataset<f32, f32> {
         Ok((x, y, num_samples, num_features)) => (x, y, num_samples, num_features),
     };
 
+    let feature_names: Vec<String> = (0..num_features)
+        .map(|number| format!("x_{}", number))
+        .collect();
+    let target_names: Vec<String> = (0..=9).map(|number| format!("y_{}", number)).collect();
+
     Dataset {
         data: x,
         target: y,
         num_samples,
         num_features,
-        feature_names: vec![
-            "sepal length (cm)",
-            "sepal width (cm)",
-            "petal length (cm)",
-            "petal width (cm)",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect(),
-        target_names: vec!["setosa", "versicolor", "virginica"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
+        feature_names,
+        target_names,
         description: "Digits dataset: https://archive.ics.uci.edu/ml/datasets/Optical+Recognition+of+Handwritten+Digits".to_string(),
     }
 }
@@ -61,6 +55,17 @@ mod tests {
     #[test]
     fn digits_dataset() {
         let dataset = load_dataset();
+
+        println!("{:?}", dataset.feature_names);
+        println!("{:?}", dataset.target_names);
+        let start_index = 0;
+        let num_feature = 64;
+        println!(
+            "{:?}",
+            &dataset.data[start_index..start_index + num_feature]
+        );
+        println!("{:?}", dataset.target[100]);
+
         assert_eq!(dataset.data.len(), 1797 * 64);
         assert_eq!(dataset.target.len(), 1797);
         assert_eq!(dataset.num_features, 64);
