@@ -16,7 +16,7 @@ fn random_forest_classifier_for_digits(c: &mut Criterion) {
     let x = DenseMatrix::from_vec(nrows, ncols, &values);
     let y = dataset_digits.target;
 
-    c.bench_function("Bencmarking random forest fitting on digits", |b| {
+    c.bench_function("Benchmarking random forest fitting on digits", |b| {
         b.iter(|| {
             RandomForestClassifier::fit(
                 &x,

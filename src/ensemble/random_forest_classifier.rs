@@ -231,18 +231,20 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             maybe_all_samples = Some(Vec::new());
         }
 
+        let params = DecisionTreeClassifierParameters {
+            criterion: parameters.criterion.clone(),
+            max_depth: parameters.max_depth,
+            min_samples_leaf: parameters.min_samples_leaf,
+            min_samples_split: parameters.min_samples_split,
+        };
+
+        //inside here can be made concurrent
         for _ in 0..parameters.n_trees {
             let samples = RandomForestClassifier::<T>::sample_with_replacement(&yi, k, &mut rng);
             if let Some(ref mut all_samples) = maybe_all_samples {
                 all_samples.push(samples.iter().map(|x| *x != 0).collect())
             }
 
-            let params = DecisionTreeClassifierParameters {
-                criterion: parameters.criterion.clone(),
-                max_depth: parameters.max_depth,
-                min_samples_leaf: parameters.min_samples_leaf,
-                min_samples_split: parameters.min_samples_split,
-            };
             let tree =
                 DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params, &mut rng)?;
             trees.push(tree);
