@@ -79,7 +79,7 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
     /// Split criteria to use when building a tree.
@@ -105,7 +105,7 @@ pub struct DecisionTreeClassifier<T: RealNumber> {
 
 /// The function to measure the quality of a split.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
     Gini,

@@ -46,9 +46,8 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use rand::rngs::StdRng;
-use rand::{thread_rng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon::*;
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -233,18 +232,18 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         let classes = y_m.unique();
         let k = classes.len();
 
-        let params = DecisionTreeClassifierParameters {
-            criterion: parameters.criterion.clone(),
-            max_depth: parameters.max_depth,
-            min_samples_leaf: parameters.min_samples_leaf,
-            min_samples_split: parameters.min_samples_split,
-        };
-
         //collect fitted trees and relevant_samples if necessary
         let trees_and_sample_pairs: Vec<(DecisionTreeClassifier<T>, Option<Vec<bool>>)> = (0
             ..parameters.n_trees)
             .into_par_iter()
             .map(|tree_number| {
+                let params = DecisionTreeClassifierParameters {
+                    criterion: parameters.criterion.clone(),
+                    max_depth: parameters.max_depth,
+                    min_samples_leaf: parameters.min_samples_leaf,
+                    min_samples_split: parameters.min_samples_split,
+                };
+
                 let mut rng = StdRng::seed_from_u64(parameters.seed + tree_number as u64);
                 let samples =
                     RandomForestClassifier::<T>::sample_with_replacement(&yi, k, &mut rng);

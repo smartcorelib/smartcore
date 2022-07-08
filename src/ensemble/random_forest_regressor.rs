@@ -45,6 +45,7 @@
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -53,7 +54,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::{Failed, FailedError};
-use crate::linalg::Matrix;
+use crate::linalg::{BaseMatrix, Matrix};
 use crate::math::num::RealNumber;
 use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
@@ -160,6 +161,9 @@ impl<T: RealNumber> PartialEq for RandomForestRegressor<T> {
 impl<T: RealNumber, M: Matrix<T>>
     SupervisedEstimator<M, M::RowVector, RandomForestRegressorParameters>
     for RandomForestRegressor<T>
+where
+    <M as BaseMatrix<T>>::RowVector: Sync + Send,
+    M: std::marker::Sync,
 {
     fn fit(
         x: &M,
@@ -184,35 +188,57 @@ impl<T: RealNumber> RandomForestRegressor<T> {
         x: &M,
         y: &M::RowVector,
         parameters: RandomForestRegressorParameters,
-    ) -> Result<RandomForestRegressor<T>, Failed> {
+    ) -> Result<RandomForestRegressor<T>, Failed>
+    where
+        <M as BaseMatrix<T>>::RowVector: Sync + Send,
+        M: std::marker::Sync,
+    {
         let (n_rows, num_attributes) = x.shape();
 
         let mtry = parameters
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        let mut rng = StdRng::seed_from_u64(parameters.seed);
-        let mut trees: Vec<DecisionTreeRegressor<T>> = Vec::new();
+        //collect fitted trees and relevant_samples if necessary
+        let trees_and_sample_pairs: Vec<(DecisionTreeRegressor<T>, Option<Vec<bool>>)> = (0
+            ..parameters.n_trees)
+            .into_par_iter()
+            .map(|tree_number| {
+                let params = DecisionTreeRegressorParameters {
+                    max_depth: parameters.max_depth,
+                    min_samples_leaf: parameters.min_samples_leaf,
+                    min_samples_split: parameters.min_samples_split,
+                };
 
-        let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
-        if parameters.keep_samples {
-            maybe_all_samples = Some(Vec::new());
-        }
+                let mut rng = StdRng::seed_from_u64(parameters.seed + tree_number as u64);
+                let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows, &mut rng);
+                let relevant_samples: Option<Vec<bool>> = match parameters.keep_samples {
+                    true => Some(samples.iter().map(|x| *x != 0).collect()),
+                    false => None,
+                };
 
-        for _ in 0..parameters.n_trees {
-            let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows, &mut rng);
-            if let Some(ref mut all_samples) = maybe_all_samples {
-                all_samples.push(samples.iter().map(|x| *x != 0).collect())
-            }
-            let params = DecisionTreeRegressorParameters {
-                max_depth: parameters.max_depth,
-                min_samples_leaf: parameters.min_samples_leaf,
-                min_samples_split: parameters.min_samples_split,
-            };
-            let tree =
-                DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params, &mut rng)?;
-            trees.push(tree);
-        }
+                (
+                    DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params, &mut rng)
+                        .unwrap(),
+                    relevant_samples,
+                )
+            })
+            .collect();
+
+        let mut trees = vec![];
+        let mut used_samples = vec![];
+        trees_and_sample_pairs
+            .into_iter()
+            .for_each(|(tree, samples)| {
+                trees.push(tree);
+                if samples.is_some() {
+                    used_samples.push(samples.unwrap());
+                }
+            });
+        let maybe_all_samples = match used_samples.len() {
+            0 => None,
+            _ => Some(used_samples),
+        };
 
         Ok(RandomForestRegressor {
             _parameters: parameters,
