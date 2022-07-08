@@ -46,7 +46,9 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{thread_rng, Rng, SeedableRng};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::*;
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -55,7 +57,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::{Failed, FailedError};
-use crate::linalg::Matrix;
+use crate::linalg::{BaseMatrix, Matrix};
 use crate::math::num::RealNumber;
 use crate::tree::decision_tree_classifier::{
     which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,
@@ -177,6 +179,9 @@ impl Default for RandomForestClassifierParameters {
 impl<T: RealNumber, M: Matrix<T>>
     SupervisedEstimator<M, M::RowVector, RandomForestClassifierParameters>
     for RandomForestClassifier<T>
+where
+    <M as BaseMatrix<T>>::RowVector: Sync + Send,
+    M: std::marker::Sync,
 {
     fn fit(
         x: &M,
@@ -201,7 +206,11 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         x: &M,
         y: &M::RowVector,
         parameters: RandomForestClassifierParameters,
-    ) -> Result<RandomForestClassifier<T>, Failed> {
+    ) -> Result<RandomForestClassifier<T>, Failed>
+    where
+        <M as BaseMatrix<T>>::RowVector: Sync + Send,
+        M: std::marker::Sync,
+    {
         let (_, num_attributes) = x.shape();
         let y_m = M::from_row_vector(y.clone());
         let (_, y_ncols) = y_m.shape();
@@ -221,15 +230,8 @@ impl<T: RealNumber> RandomForestClassifier<T> {
                 .unwrap()
         });
 
-        let mut rng = StdRng::seed_from_u64(parameters.seed);
         let classes = y_m.unique();
         let k = classes.len();
-        let mut trees: Vec<DecisionTreeClassifier<T>> = Vec::new();
-
-        let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
-        if parameters.keep_samples {
-            maybe_all_samples = Some(Vec::new());
-        }
 
         let params = DecisionTreeClassifierParameters {
             criterion: parameters.criterion.clone(),
@@ -238,17 +240,41 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             min_samples_split: parameters.min_samples_split,
         };
 
-        //inside here can be made concurrent
-        for _ in 0..parameters.n_trees {
-            let samples = RandomForestClassifier::<T>::sample_with_replacement(&yi, k, &mut rng);
-            if let Some(ref mut all_samples) = maybe_all_samples {
-                all_samples.push(samples.iter().map(|x| *x != 0).collect())
-            }
+        //collect fitted trees and relevant_samples if necessary
+        let trees_and_sample_pairs: Vec<(DecisionTreeClassifier<T>, Option<Vec<bool>>)> = (0
+            ..parameters.n_trees)
+            .into_par_iter()
+            .map(|tree_number| {
+                let mut rng = StdRng::seed_from_u64(parameters.seed + tree_number as u64);
+                let samples =
+                    RandomForestClassifier::<T>::sample_with_replacement(&yi, k, &mut rng);
+                let relevant_samples: Option<Vec<bool>> = match parameters.keep_samples {
+                    true => Some(samples.iter().map(|x| *x != 0).collect()),
+                    false => None,
+                };
 
-            let tree =
-                DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params, &mut rng)?;
-            trees.push(tree);
-        }
+                (
+                    DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params, &mut rng)
+                        .unwrap(),
+                    relevant_samples,
+                )
+            })
+            .collect();
+
+        let mut trees = vec![];
+        let mut used_samples = vec![];
+        trees_and_sample_pairs
+            .into_iter()
+            .for_each(|(tree, samples)| {
+                trees.push(tree);
+                if samples.is_some() {
+                    used_samples.push(samples.unwrap());
+                }
+            });
+        let maybe_all_samples = match used_samples.len() {
+            0 => None,
+            _ => Some(used_samples),
+        };
 
         Ok(RandomForestClassifier {
             _parameters: parameters,

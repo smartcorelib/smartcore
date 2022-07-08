@@ -22,6 +22,7 @@ pub trait RealNumber:
     + SubAssign
     + MulAssign
     + DivAssign
+    + Send
 {
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
