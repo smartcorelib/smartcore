@@ -79,6 +79,9 @@ pub struct RandomForestRegressorParameters {
     pub keep_samples: bool,
     /// First seed used for bootstrap sampling and feature selection for each tree.
     pub base_seed: u64,
+    /// The number of threads to use for tree building, if set to 0 then num_threads will be chosen
+    /// automatically by the rayon runtime
+    pub num_threads: usize,
 }
 
 /// Random Forest Regressor
@@ -128,7 +131,15 @@ impl RandomForestRegressorParameters {
         self.base_seed = seed;
         self
     }
+
+    /// The number of threads to use for tree building, if set to 0 then num_threads will be chosen
+    /// automatically by the rayon runtime
+    pub fn with_num_threads(mut self, num_threads: usize) -> Self {
+        self.num_threads = num_threads;
+        self
+    }
 }
+
 impl Default for RandomForestRegressorParameters {
     fn default() -> Self {
         RandomForestRegressorParameters {
@@ -139,6 +150,7 @@ impl Default for RandomForestRegressorParameters {
             m: Option::None,
             keep_samples: false,
             base_seed: 0,
+            num_threads: 1,
         }
     }
 }
@@ -199,13 +211,20 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        let tree_sample_pairs = RandomForestRegressor::<T>::collect_tree_sample_pairs(
-            x,
-            y,
-            parameters.clone(),
-            n_rows,
-            mtry,
-        );
+        let thread_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(parameters.num_threads)
+            .build()
+            .unwrap();
+
+        let tree_sample_pairs = thread_pool.install(|| {
+            RandomForestRegressor::<T>::collect_tree_sample_pairs(
+                x,
+                y,
+                parameters.clone(),
+                n_rows,
+                mtry,
+            )
+        });
 
         let (trees, samples) =
             RandomForestRegressor::<T>::parse_tree_sample_pairs(tree_sample_pairs);
@@ -390,6 +409,7 @@ mod tests {
                 m: Option::None,
                 keep_samples: false,
                 base_seed: 87,
+                num_threads: 10,
             },
         )
         .and_then(|rf| rf.predict(&x))
@@ -435,6 +455,7 @@ mod tests {
                 m: Option::None,
                 keep_samples: true,
                 base_seed: 87,
+                num_threads: 10,
             },
         )
         .unwrap();

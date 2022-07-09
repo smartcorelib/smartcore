@@ -29,7 +29,8 @@ fn random_forest_classifier_for_digits(c: &mut Criterion) {
                     n_trees: 100,
                     m: Option::None,
                     keep_samples: false,
-                    seed: 87,
+                    base_seed: 87,
+                    num_threads: 0,
                 },
             )
         })

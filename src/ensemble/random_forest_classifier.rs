@@ -83,6 +83,9 @@ pub struct RandomForestClassifierParameters {
     pub keep_samples: bool,
     /// First seed used for bootstrap sampling and feature selection for each tree.
     pub base_seed: u64,
+    /// The number of threads to use for tree building, if set to 0 then num_threads will be chosen
+    /// automatically by the rayon runtime
+    pub num_threads: usize,
 }
 
 /// Random Forest Classifier
@@ -138,6 +141,13 @@ impl RandomForestClassifierParameters {
         self.base_seed = seed;
         self
     }
+
+    /// The number of threads to use for tree building, if set to 0 then num_threads will be chosen
+    /// automatically by the rayon runtime
+    pub fn with_num_threads(mut self, num_threads: usize) -> Self {
+        self.num_threads = num_threads;
+        self
+    }
 }
 
 impl<T: RealNumber> PartialEq for RandomForestClassifier<T> {
@@ -171,6 +181,7 @@ impl Default for RandomForestClassifierParameters {
             m: Option::None,
             keep_samples: false,
             base_seed: 0,
+            num_threads: 1,
         }
     }
 }
@@ -232,14 +243,21 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         let classes = y_m.unique();
         let k = classes.len();
 
-        let tree_sample_pairs = RandomForestClassifier::<T>::collect_tree_sample_pairs(
-            x,
-            y,
-            parameters.clone(),
-            yi,
-            k,
-            mtry,
-        );
+        let thread_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(parameters.num_threads)
+            .build()
+            .unwrap();
+
+        let tree_sample_pairs = thread_pool.install(|| {
+            RandomForestClassifier::<T>::collect_tree_sample_pairs(
+                x,
+                y,
+                parameters.clone(),
+                yi,
+                k,
+                mtry,
+            )
+        });
 
         let (trees, samples) =
             RandomForestClassifier::<T>::parse_tree_sample_pairs(tree_sample_pairs);
@@ -432,6 +450,7 @@ mod tests {
                 m: Option::None,
                 keep_samples: false,
                 base_seed: 87,
+                num_threads: 10,
             },
         )
         .unwrap();
@@ -482,6 +501,7 @@ mod tests {
                 m: Option::None,
                 keep_samples: false,
                 base_seed: 87,
+                num_threads: 10,
             },
         )
         .unwrap();
@@ -530,6 +550,7 @@ mod tests {
                 m: Option::None,
                 keep_samples: true,
                 base_seed: 87,
+                num_threads: 10,
             },
         )
         .unwrap();
