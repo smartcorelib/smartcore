@@ -232,12 +232,41 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         let classes = y_m.unique();
         let k = classes.len();
 
-        //collect fitted trees and relevant_samples if necessary
-        let trees_and_sample_pairs: Vec<(DecisionTreeClassifier<T>, Option<Vec<bool>>)> = (0
-            ..parameters.n_trees)
+        let tree_sample_pairs = RandomForestClassifier::<T>::collect_tree_sample_pairs(
+            x,
+            y,
+            parameters.clone(),
+            yi,
+            k,
+            mtry,
+        );
+
+        let (trees, samples) =
+            RandomForestClassifier::<T>::parse_tree_sample_pairs(tree_sample_pairs);
+        Ok(RandomForestClassifier {
+            _parameters: parameters,
+            trees,
+            classes,
+            samples,
+        })
+    }
+
+    fn collect_tree_sample_pairs<M: Matrix<T>>(
+        x: &M,
+        y: &M::RowVector,
+        parameters: RandomForestClassifierParameters,
+        yi: Vec<usize>,
+        k: usize,
+        mtry: usize,
+    ) -> Vec<(DecisionTreeClassifier<T>, Option<Vec<bool>>)>
+    where
+        <M as BaseMatrix<T>>::RowVector: Sync + Send,
+        M: std::marker::Sync,
+    {
+        (0..parameters.n_trees)
             .into_par_iter()
             .map(|tree_number| {
-                let params = DecisionTreeClassifierParameters {
+                let decision_tree_params = DecisionTreeClassifierParameters {
                     criterion: parameters.criterion.clone(),
                     max_depth: parameters.max_depth,
                     min_samples_leaf: parameters.min_samples_leaf,
@@ -253,36 +282,40 @@ impl<T: RealNumber> RandomForestClassifier<T> {
                 };
 
                 (
-                    DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params, &mut rng)
-                        .unwrap(),
+                    DecisionTreeClassifier::fit_weak_learner(
+                        x,
+                        y,
+                        samples,
+                        mtry,
+                        decision_tree_params,
+                        &mut rng,
+                    )
+                    .unwrap(),
                     relevant_samples,
                 )
             })
-            .collect();
-
-        let mut trees = vec![];
-        let mut used_samples = vec![];
-        trees_and_sample_pairs
-            .into_iter()
-            .for_each(|(tree, samples)| {
-                trees.push(tree);
-                if samples.is_some() {
-                    used_samples.push(samples.unwrap());
-                }
-            });
-        let maybe_all_samples = match used_samples.len() {
-            0 => None,
-            _ => Some(used_samples),
-        };
-
-        Ok(RandomForestClassifier {
-            _parameters: parameters,
-            trees,
-            classes,
-            samples: maybe_all_samples,
-        })
+            .collect()
     }
 
+    fn parse_tree_sample_pairs(
+        tree_sample_pairs: Vec<(DecisionTreeClassifier<T>, Option<Vec<bool>>)>,
+    ) -> (Vec<DecisionTreeClassifier<T>>, Option<Vec<Vec<bool>>>) {
+        let mut trees = vec![];
+        let mut samples = vec![];
+        tree_sample_pairs
+            .into_iter()
+            .for_each(|(tree, samples_for_tree)| {
+                trees.push(tree);
+                if samples_for_tree.is_some() {
+                    samples.push(samples_for_tree.unwrap());
+                }
+            });
+        let samples = match samples.len() {
+            0 => None,
+            _ => Some(samples),
+        };
+        (trees, samples)
+    }
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
