@@ -316,6 +316,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
         };
         (trees, samples)
     }
+
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {

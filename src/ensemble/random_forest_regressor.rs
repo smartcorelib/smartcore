@@ -199,9 +199,35 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        //collect fitted trees and relevant_samples if necessary
-        let trees_and_sample_pairs: Vec<(DecisionTreeRegressor<T>, Option<Vec<bool>>)> = (0
-            ..parameters.n_trees)
+        let tree_sample_pairs = RandomForestRegressor::<T>::collect_tree_sample_pairs(
+            x,
+            y,
+            parameters.clone(),
+            n_rows,
+            mtry,
+        );
+
+        let (trees, samples) =
+            RandomForestRegressor::<T>::parse_tree_sample_pairs(tree_sample_pairs);
+        Ok(RandomForestRegressor {
+            _parameters: parameters,
+            trees,
+            samples,
+        })
+    }
+
+    fn collect_tree_sample_pairs<M: Matrix<T>>(
+        x: &M,
+        y: &M::RowVector,
+        parameters: RandomForestRegressorParameters,
+        n_rows: usize,
+        mtry: usize,
+    ) -> Vec<(DecisionTreeRegressor<T>, Option<Vec<bool>>)>
+    where
+        <M as BaseMatrix<T>>::RowVector: Sync + Send,
+        M: std::marker::Sync,
+    {
+        (0..parameters.n_trees)
             .into_par_iter()
             .map(|tree_number| {
                 let params = DecisionTreeRegressorParameters {
@@ -223,28 +249,27 @@ impl<T: RealNumber> RandomForestRegressor<T> {
                     relevant_samples,
                 )
             })
-            .collect();
+            .collect()
+    }
 
+    fn parse_tree_sample_pairs(
+        tree_sample_pairs: Vec<(DecisionTreeRegressor<T>, Option<Vec<bool>>)>,
+    ) -> (Vec<DecisionTreeRegressor<T>>, Option<Vec<Vec<bool>>>) {
         let mut trees = vec![];
-        let mut used_samples = vec![];
-        trees_and_sample_pairs
+        let mut samples = vec![];
+        tree_sample_pairs
             .into_iter()
-            .for_each(|(tree, samples)| {
+            .for_each(|(tree, samples_for_tree)| {
                 trees.push(tree);
-                if samples.is_some() {
-                    used_samples.push(samples.unwrap());
+                if samples_for_tree.is_some() {
+                    samples.push(samples_for_tree.unwrap());
                 }
             });
-        let maybe_all_samples = match used_samples.len() {
+        let samples = match samples.len() {
             0 => None,
-            _ => Some(used_samples),
+            _ => Some(samples),
         };
-
-        Ok(RandomForestRegressor {
-            _parameters: parameters,
-            trees,
-            samples: maybe_all_samples,
-        })
+        (trees, samples)
     }
 
     /// Predict class for `x`
