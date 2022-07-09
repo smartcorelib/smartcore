@@ -81,8 +81,8 @@ pub struct RandomForestClassifierParameters {
     pub m: Option<usize>,
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// First seed used for bootstrap sampling and feature selection for each tree.
+    pub base_seed: u64,
 }
 
 /// Random Forest Classifier
@@ -133,9 +133,9 @@ impl RandomForestClassifierParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+    /// First seed used for bootstrap sampling and feature selection for each tree.
+    pub fn with_base_seed(mut self, seed: u64) -> Self {
+        self.base_seed = seed;
         self
     }
 }
@@ -170,7 +170,7 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            base_seed: 0,
         }
     }
 }
@@ -273,7 +273,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
                     min_samples_split: parameters.min_samples_split,
                 };
 
-                let mut rng = StdRng::seed_from_u64(parameters.seed + tree_number as u64);
+                let mut rng = StdRng::seed_from_u64(parameters.base_seed + tree_number as u64);
                 let samples =
                     RandomForestClassifier::<T>::sample_with_replacement(&yi, k, &mut rng);
                 let relevant_samples: Option<Vec<bool>> = match parameters.keep_samples {
@@ -431,7 +431,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                base_seed: 87,
             },
         )
         .unwrap();
@@ -481,7 +481,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                base_seed: 87,
             },
         )
         .unwrap();
@@ -529,7 +529,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: true,
-                seed: 87,
+                base_seed: 87,
             },
         )
         .unwrap();

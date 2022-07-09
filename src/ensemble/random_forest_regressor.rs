@@ -77,8 +77,8 @@ pub struct RandomForestRegressorParameters {
     pub m: Option<usize>,
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// First seed used for bootstrap sampling and feature selection for each tree.
+    pub base_seed: u64,
 }
 
 /// Random Forest Regressor
@@ -123,9 +123,9 @@ impl RandomForestRegressorParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+    /// First seed used for bootstrap sampling and feature selection for each tree.
+    pub fn with_base_seed(mut self, seed: u64) -> Self {
+        self.base_seed = seed;
         self
     }
 }
@@ -138,7 +138,7 @@ impl Default for RandomForestRegressorParameters {
             n_trees: 10,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            base_seed: 0,
         }
     }
 }
@@ -236,7 +236,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
                     min_samples_split: parameters.min_samples_split,
                 };
 
-                let mut rng = StdRng::seed_from_u64(parameters.seed + tree_number as u64);
+                let mut rng = StdRng::seed_from_u64(parameters.base_seed + tree_number as u64);
                 let samples = RandomForestRegressor::<T>::sample_with_replacement(n_rows, &mut rng);
                 let relevant_samples: Option<Vec<bool>> = match parameters.keep_samples {
                     true => Some(samples.iter().map(|x| *x != 0).collect()),
@@ -389,7 +389,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                base_seed: 87,
             },
         )
         .and_then(|rf| rf.predict(&x))
@@ -434,7 +434,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: true,
-                seed: 87,
+                base_seed: 87,
             },
         )
         .unwrap();
