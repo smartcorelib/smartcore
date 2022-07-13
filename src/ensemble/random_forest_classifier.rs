@@ -324,8 +324,8 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             .into_iter()
             .for_each(|(tree, samples_for_tree)| {
                 trees.push(tree);
-                if samples_for_tree.is_some() {
-                    samples.push(samples_for_tree.unwrap());
+                if let Some(tree_samples) = samples_for_tree {
+                    samples.push(tree_samples);
                 }
             });
         let samples = match samples.len() {
