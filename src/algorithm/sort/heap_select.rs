@@ -12,7 +12,7 @@ pub struct HeapSelection<T: PartialOrd + Debug> {
     heap: Vec<T>,
 }
 
-impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
+impl<T: PartialOrd + Debug> HeapSelection<T> {
     pub fn with_capacity(k: usize) -> HeapSelection<T> {
         HeapSelection {
             k,
