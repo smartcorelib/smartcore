@@ -1008,7 +1008,8 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: false,
-                seed: 0,
+                num_threads: 10,
+                base_seed: 0,
             },
         )
         .unwrap()
