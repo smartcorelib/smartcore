@@ -242,7 +242,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
         Ok(y_hat)
     }
 
-    pub(in crate) fn predict_for_row(&self, x: M::RowVector) -> T {
+    pub(crate) fn predict_for_row(&self, x: M::RowVector) -> T {
         let mut f = self.b;
 
         for i in 0..self.instances.len() {
