@@ -33,7 +33,7 @@ use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Naive Bayes classifier for categorical features
+/// Naive Bayes classifier using Gaussian distribution
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 struct GaussianNBDistribution<T: RealNumber> {
@@ -179,7 +179,8 @@ impl<T: RealNumber> GaussianNBDistribution<T> {
     }
 }
 
-/// GaussianNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// GaussianNB implements the naive Bayes algorithm for data that follows the Gaussian
+/// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct GaussianNB<T: RealNumber, M: Matrix<T>> {
@@ -259,6 +260,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_gaussian_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
@@ -295,6 +297,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_gaussian_naive_bayes_with_priors() {
         let x = DenseMatrix::from_2d_array(&[
@@ -314,6 +317,7 @@ mod tests {
         assert_eq!(gnb.class_priors(), &priors);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

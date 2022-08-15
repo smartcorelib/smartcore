@@ -222,7 +222,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
 
         if n != y.len() {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 
@@ -263,16 +263,28 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let (n, _) = x.shape();
+        let mut y_hat = self.decision_function(x)?;
 
-        let mut y_hat = M::RowVector::zeros(n);
-
-        for i in 0..n {
-            let cls_idx = match self.predict_for_row(x.get_row(i)) == T::one() {
+        for i in 0..y_hat.len() {
+            let cls_idx = match y_hat.get(i) > T::zero() {
                 false => self.classes[0],
                 true => self.classes[1],
             };
+
             y_hat.set(i, cls_idx);
+        }
+
+        Ok(y_hat)
+    }
+
+    /// Evaluates the decision function for the rows in `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
+    pub fn decision_function(&self, x: &M) -> Result<M::RowVector, Failed> {
+        let (n, _) = x.shape();
+        let mut y_hat = M::RowVector::zeros(n);
+
+        for i in 0..n {
+            y_hat.set(i, self.predict_for_row(x.get_row(i)));
         }
 
         Ok(y_hat)
@@ -285,11 +297,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
             f += self.w[i] * self.kernel.apply(&x, &self.instances[i]);
         }
 
-        if f > T::zero() {
-            T::one()
-        } else {
-            -T::one()
-        }
+        f
     }
 }
 
@@ -377,7 +385,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         Optimizer {
             x,
             y,
-            parameters: &parameters,
+            parameters,
             svmin: 0,
             svmax: 0,
             gmin: T::max_value(),
@@ -589,7 +597,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = v.grad - gm;
-                    let k = cache.get(sv1, &v);
+                    let k = cache.get(sv1, v);
                     let mut curv = km + v.k - T::two() * k;
                     if curv <= T::zero() {
                         curv = self.tau;
@@ -729,6 +737,7 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svc_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -771,6 +780,46 @@ mod tests {
         assert!(accuracy(&y_hat, &y) >= 0.9);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    fn svc_fit_decision_function() {
+        let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
+
+        let x2 = DenseMatrix::from_2d_array(&[
+            &[3.0, 3.0],
+            &[4.0, 4.0],
+            &[6.0, 6.0],
+            &[10.0, 10.0],
+            &[1.0, 1.0],
+            &[0.0, 0.0],
+        ]);
+
+        let y: Vec<f64> = vec![0., 0., 1., 1.];
+
+        let y_hat = SVC::fit(
+            &x,
+            &y,
+            SVCParameters::default()
+                .with_c(200.0)
+                .with_kernel(Kernels::linear()),
+        )
+        .and_then(|lr| lr.decision_function(&x2))
+        .unwrap();
+
+        // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
+        // so the score should increase as points get further away from that line
+        println!("{:?}", y_hat);
+        assert!(y_hat[1] < y_hat[2]);
+        assert!(y_hat[2] < y_hat[3]);
+
+        // for negative scores the score should decrease
+        assert!(y_hat[4] > y_hat[5]);
+
+        // y_hat[0] is on the line, so its score should be close to 0
+        assert!(y_hat[0].abs() <= 0.1);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svc_fit_predict_rbf() {
         let x = DenseMatrix::from_2d_array(&[
@@ -814,6 +863,7 @@ mod tests {
         assert!(accuracy(&y_hat, &y) >= 0.9);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn svc_serde() {

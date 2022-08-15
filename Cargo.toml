@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "The most advanced machine learning library in rust."
 homepage = "https://smartcorelib.org"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["SmartCore Developers"]
 edition = "2018"
 license = "Apache-2.0"
@@ -19,18 +19,24 @@ nalgebra-bindings = ["nalgebra"]
 datasets = []
 
 [dependencies]
-ndarray = { version = "0.14", optional = true }
-nalgebra = { version = "0.23.0", optional = true }
-num-traits = "0.2.12"
-num = "0.3.0"
-rand = "0.7.3"
-rand_distr = "0.3.0"
-serde = { version = "1.0.115", features = ["derive"], optional = true }
+ndarray = { version = "0.15", optional = true }
+nalgebra = { version = "0.31", optional = true }
+num-traits = "0.2"
+num = "0.4"
+rand = "0.8"
+rand_distr = "0.4"
+serde = { version = "1", features = ["derive"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 criterion = "0.3"
 serde_json = "1.0"
 bincode = "1.3.1"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
 
 [[bench]]
 name = "distance"

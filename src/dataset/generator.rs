@@ -137,6 +137,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_make_blobs() {
         let dataset = make_blobs(10, 2, 3);
@@ -149,6 +150,7 @@ mod tests {
         assert_eq!(dataset.num_samples, 10);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_make_circles() {
         let dataset = make_circles(10, 0.5, 0.05);
@@ -161,6 +163,7 @@ mod tests {
         assert_eq!(dataset.num_samples, 10);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_make_moons() {
         let dataset = make_moons(10, 0.05);

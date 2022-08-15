@@ -12,7 +12,7 @@ pub struct HeapSelection<T: PartialOrd + Debug> {
     heap: Vec<T>,
 }
 
-impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
+impl<T: PartialOrd + Debug> HeapSelection<T> {
     pub fn with_capacity(k: usize) -> HeapSelection<T> {
         HeapSelection {
             k,
@@ -53,8 +53,7 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
         if self.sorted {
             &self.heap[0]
         } else {
-            &self
-                .heap
+            self.heap
                 .iter()
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap()
@@ -96,12 +95,14 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn with_capacity() {
         let heap = HeapSelection::<i32>::with_capacity(3);
         assert_eq!(3, heap.k);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_add() {
         let mut heap = HeapSelection::with_capacity(3);
@@ -119,6 +120,7 @@ mod tests {
         assert_eq!(vec![2, 0, -5], heap.get());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_add1() {
         let mut heap = HeapSelection::with_capacity(3);
@@ -133,6 +135,7 @@ mod tests {
         assert_eq!(vec![0f64, -1f64, -5f64], heap.get());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_add2() {
         let mut heap = HeapSelection::with_capacity(3);
@@ -145,6 +148,7 @@ mod tests {
         assert_eq!(vec![5.6568, 2.8284, 0.0], heap.get());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_add_ordered() {
         let mut heap = HeapSelection::with_capacity(3);

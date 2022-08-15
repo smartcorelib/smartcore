@@ -50,14 +50,14 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
             let f_alpha = |alpha: T| -> T {
                 let mut dx = step.clone();
                 dx.mul_scalar_mut(alpha);
-                f(&dx.add_mut(&x)) // f(x) = f(x .+ gvec .* alpha)
+                f(dx.add_mut(&x)) // f(x) = f(x .+ gvec .* alpha)
             };
 
             let df_alpha = |alpha: T| -> T {
                 let mut dx = step.clone();
                 let mut dg = gvec.clone();
                 dx.mul_scalar_mut(alpha);
-                df(&mut dg, &dx.add_mut(&x)); //df(x) = df(x .+ gvec .* alpha)
+                df(&mut dg, dx.add_mut(&x)); //df(x) = df(x .+ gvec .* alpha)
                 gvec.dot(&dg)
             };
 
@@ -66,7 +66,7 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
             let ls_r = ls.search(&f_alpha, &df_alpha, alpha, fx, df0);
             alpha = ls_r.alpha;
             fx = ls_r.f_x;
-            x.add_mut(&step.mul_scalar_mut(alpha));
+            x.add_mut(step.mul_scalar_mut(alpha));
             df(&mut gvec, &x);
             gnorm = gvec.norm2();
         }
@@ -88,6 +88,7 @@ mod tests {
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn gradient_descent() {
         let x0 = DenseMatrix::row_vector_from_array(&[-1., 1.]);

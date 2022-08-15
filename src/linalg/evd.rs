@@ -25,6 +25,19 @@
 //! let eigenvectors: DenseMatrix<f64> = evd.V;
 //! let eigenvalues: Vec<f64> = evd.d;
 //! ```
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::evd::*;
+//!
+//! let A = DenseMatrix::from_2d_array(&[
+//!     &[-5.0, 2.0],
+//!     &[-7.0, 4.0],
+//! ]);
+//!
+//! let evd = A.evd(false).unwrap();
+//! let eigenvectors: DenseMatrix<f64> = evd.V;
+//! let eigenvalues: Vec<f64> = evd.d;
+//! ```
 //!
 //! ## References:
 //! * ["Numerical Recipes: The Art of Scientific Computing",  Press W.H., Teukolsky S.A., Vetterling W.T, Flannery B.P, 3rd ed., Section 11 Eigensystems](http://numerical.recipes/)
@@ -93,11 +106,11 @@ pub trait EVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             sort(&mut d, &mut e, &mut V);
         }
 
-        Ok(EVD { V, d, e })
+        Ok(EVD { d, e, V })
     }
 }
 
-fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = V.shape();
     for (i, d_i) in d.iter_mut().enumerate().take(n) {
         *d_i = V.get(n - 1, i);
@@ -195,7 +208,7 @@ fn tred2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec
     e[0] = T::zero();
 }
 
-fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tql2<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = V.shape();
     for i in 1..n {
         e[i - 1] = e[i];
@@ -419,7 +432,7 @@ fn eltran<T: RealNumber, M: BaseMatrix<T>>(A: &M, V: &mut M, perm: &[usize]) {
     }
 }
 
-fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = A.shape();
     let mut z = T::zero();
     let mut s = T::zero();
@@ -471,7 +484,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                     A.set(nn, nn, x);
                     A.set(nn - 1, nn - 1, y + t);
                     if q >= T::zero() {
-                        z = p + z.copysign(p);
+                        z = p + RealNumber::copysign(z, p);
                         d[nn - 1] = x + z;
                         d[nn] = x + z;
                         if z != T::zero() {
@@ -570,7 +583,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                                 r /= x;
                             }
                         }
-                        let s = (p * p + q * q + r * r).sqrt().copysign(p);
+                        let s = RealNumber::copysign((p * p + q * q + r * r).sqrt(), p);
                         if s != T::zero() {
                             if k == m {
                                 if l != m {
@@ -594,12 +607,7 @@ fn hqr2<T: RealNumber, M: BaseMatrix<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e
                                 A.sub_element_mut(k + 1, j, p * y);
                                 A.sub_element_mut(k, j, p * x);
                             }
-                            let mmin;
-                            if nn < k + 3 {
-                                mmin = nn;
-                            } else {
-                                mmin = k + 3;
-                            }
+                            let mmin = if nn < k + 3 { nn } else { k + 3 };
                             for i in 0..mmin + 1 {
                                 p = x * A.get(i, k) + y * A.get(i, k + 1);
                                 if k + 1 != nn {
@@ -783,7 +791,7 @@ fn balbak<T: RealNumber, M: BaseMatrix<T>>(V: &mut M, scale: &[T]) {
     }
 }
 
-fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut M) {
+fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut [T], e: &mut [T], V: &mut M) {
     let n = d.len();
     let mut temp = vec![T::zero(); n];
     for j in 1..n {
@@ -804,10 +812,10 @@ fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut
             }
             i -= 1;
         }
-        d[i as usize + 1] = real;
-        e[i as usize + 1] = img;
+        d[(i + 1) as usize] = real;
+        e[(i + 1) as usize] = img;
         for (k, temp_k) in temp.iter().enumerate().take(n) {
-            V.set(k, i as usize + 1, *temp_k);
+            V.set(k, (i + 1) as usize, *temp_k);
         }
     }
 }
@@ -816,7 +824,7 @@ fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_symmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -843,7 +851,7 @@ mod tests {
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_asymmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -870,7 +878,7 @@ mod tests {
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_complex() {
         let A = DenseMatrix::from_2d_array(&[

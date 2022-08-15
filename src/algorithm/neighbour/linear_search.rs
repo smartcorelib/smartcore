@@ -74,7 +74,7 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
         }
 
         for i in 0..self.data.len() {
-            let d = self.distance.distance(&from, &self.data[i]);
+            let d = self.distance.distance(from, &self.data[i]);
             let datum = heap.peek_mut();
             if d < datum.distance {
                 datum.distance = d;
@@ -104,7 +104,7 @@ impl<T, F: RealNumber, D: Distance<T, F>> LinearKNNSearch<T, F, D> {
         let mut neighbors: Vec<(usize, F, &T)> = Vec::new();
 
         for i in 0..self.data.len() {
-            let d = self.distance.distance(&from, &self.data[i]);
+            let d = self.distance.distance(from, &self.data[i]);
 
             if d <= radius {
                 neighbors.push((i, d, &self.data[i]));
@@ -150,6 +150,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_find() {
         let data1 = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -196,7 +197,7 @@ mod tests {
 
         assert_eq!(vec!(1, 2, 3), found_idxs2);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn knn_point_eq() {
         let point1 = KNNPoint {

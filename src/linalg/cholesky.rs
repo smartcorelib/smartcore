@@ -87,8 +87,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
         if bn != rn {
             return Err(Failed::because(
                 FailedError::SolutionFailed,
-                &"Can\'t solve Ax = b for x. Number of rows in b != number of rows in R."
-                    .to_string(),
+                "Can\'t solve Ax = b for x. Number of rows in b != number of rows in R.",
             ));
         }
 
@@ -128,7 +127,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         if m != n {
             return Err(Failed::because(
                 FailedError::DecompositionFailed,
-                &"Can\'t do Cholesky decomposition on a non-square matrix".to_string(),
+                "Can\'t do Cholesky decomposition on a non-square matrix",
             ));
         }
 
@@ -148,7 +147,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             if d < T::zero() {
                 return Err(Failed::because(
                     FailedError::DecompositionFailed,
-                    &"The matrix is not positive definite.".to_string(),
+                    "The matrix is not positive definite.",
                 ));
             }
 
@@ -168,7 +167,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cholesky_decompose() {
         let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
@@ -187,6 +186,7 @@ mod tests {
             .approximate_eq(&a.abs(), 1e-4));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cholesky_solve_mut() {
         let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);

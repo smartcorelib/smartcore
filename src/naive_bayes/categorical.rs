@@ -161,7 +161,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
         let y_max = y
             .iter()
             .max()
-            .ok_or_else(|| Failed::fit(&"Failed to get the labels of y.".to_string()))?;
+            .ok_or_else(|| Failed::fit("Failed to get the labels of y."))?;
 
         let class_labels: Vec<T> = (0..*y_max + 1)
             .map(|label| T::from(label).unwrap())
@@ -232,8 +232,8 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
             class_labels,
             class_priors,
             coefficients,
-            n_categories,
             n_features,
+            n_categories,
             category_count,
         })
     }
@@ -351,6 +351,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_categorical_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
@@ -431,6 +432,7 @@ mod tests {
         assert_eq!(y_hat, vec![0., 1.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_categorical_naive_bayes2() {
         let x = DenseMatrix::from_2d_array(&[
@@ -459,6 +461,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

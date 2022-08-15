@@ -212,7 +212,7 @@ impl<T: RealNumber> MultinomialNBDistribution<T> {
     }
 }
 
-/// MultinomialNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// MultinomialNB implements the naive Bayes algorithm for multinomially distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct MultinomialNB<T: RealNumber, M: Matrix<T>> {
@@ -297,6 +297,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_multinomial_naive_bayes() {
         // Tests that MultinomialNB when alpha=1.0 gives the same values as
@@ -352,6 +353,7 @@ mod tests {
         assert_eq!(y_hat, &[0.]);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn multinomial_nb_scikit_parity() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
@@ -411,6 +413,7 @@ mod tests {
             1e-5
         ));
     }
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

@@ -330,7 +330,7 @@ impl<T: RealNumber> DenseMatrix<T> {
             cur_r: 0,
             max_c: self.ncols,
             max_r: self.nrows,
-            m: &self,
+            m: self,
         }
     }
 }
@@ -523,10 +523,9 @@ impl<T: RealNumber> PartialEq for DenseMatrix<T> {
         true
     }
 }
-
-impl<T: RealNumber> Into<Vec<T>> for DenseMatrix<T> {
-    fn into(self) -> Vec<T> {
-        self.values
+impl<T: RealNumber> From<DenseMatrix<T>> for Vec<T> {
+    fn from(dense_matrix: DenseMatrix<T>) -> Vec<T> {
+        dense_matrix.values
     }
 }
 
@@ -1060,14 +1059,14 @@ impl<T: RealNumber> BaseMatrix<T> for DenseMatrix<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_dot() {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
         assert_eq!(32.0, BaseVector::dot(&v1, &v2));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_copy_from() {
         let mut v1 = vec![1., 2., 3.];
@@ -1075,7 +1074,7 @@ mod tests {
         v1.copy_from(&v2);
         assert_eq!(v1, v2);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn vec_approximate_eq() {
         let a = vec![1., 2., 3.];
@@ -1083,7 +1082,7 @@ mod tests {
         assert!(a.approximate_eq(&b, 1e-4));
         assert!(!a.approximate_eq(&b, 1e-5));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn from_array() {
         let vec = [1., 2., 3., 4., 5., 6.];
@@ -1096,7 +1095,7 @@ mod tests {
             DenseMatrix::new(2, 3, vec![1., 4., 2., 5., 3., 6.])
         );
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn row_column_vec_from_array() {
         let vec = vec![1., 2., 3., 4., 5., 6.];
@@ -1109,7 +1108,7 @@ mod tests {
             DenseMatrix::new(6, 1, vec![1., 2., 3., 4., 5., 6.])
         );
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn from_to_row_vec() {
         let vec = vec![1., 2., 3.];
@@ -1122,20 +1121,20 @@ mod tests {
             vec![1., 2., 3.]
         );
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn col_matrix_to_row_vector() {
         let m: DenseMatrix<f64> = BaseMatrix::zeros(10, 1);
         assert_eq!(m.to_row_vector().len(), 10)
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn iter() {
         let vec = vec![1., 2., 3., 4., 5., 6.];
         let m = DenseMatrix::from_array(3, 2, &vec);
         assert_eq!(vec, m.iter().collect::<Vec<f32>>());
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn v_stack() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
@@ -1150,7 +1149,7 @@ mod tests {
         let result = a.v_stack(&b);
         assert_eq!(result, expected);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn h_stack() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
@@ -1163,13 +1162,13 @@ mod tests {
         let result = a.h_stack(&b);
         assert_eq!(result, expected);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn get_row() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
         assert_eq!(vec![4., 5., 6.], a.get_row(1));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn matmul() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
@@ -1178,7 +1177,7 @@ mod tests {
         let result = a.matmul(&b);
         assert_eq!(result, expected);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ab() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
@@ -1201,14 +1200,14 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[29., 39., 49.], &[40., 54., 68.,], &[51., 69., 87.]])
         );
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn dot() {
         let a = DenseMatrix::from_array(1, 3, &[1., 2., 3.]);
         let b = DenseMatrix::from_array(1, 3, &[4., 5., 6.]);
         assert_eq!(a.dot(&b), 32.);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn copy_from() {
         let mut a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
@@ -1216,7 +1215,7 @@ mod tests {
         a.copy_from(&b);
         assert_eq!(a, b);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn slice() {
         let m = DenseMatrix::from_2d_array(&[
@@ -1228,7 +1227,7 @@ mod tests {
         let result = m.slice(0..2, 1..3);
         assert_eq!(result, expected);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn approximate_eq() {
         let m = DenseMatrix::from_2d_array(&[&[2., 3.], &[5., 6.]]);
@@ -1237,7 +1236,7 @@ mod tests {
         assert!(m.approximate_eq(&m_eq, 0.5));
         assert!(!m.approximate_eq(&m_neq, 0.5));
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn rand() {
         let m: DenseMatrix<f64> = DenseMatrix::rand(3, 3);
@@ -1247,7 +1246,7 @@ mod tests {
             }
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn transpose() {
         let m = DenseMatrix::from_2d_array(&[&[1.0, 3.0], &[2.0, 4.0]]);
@@ -1259,7 +1258,7 @@ mod tests {
             }
         }
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn reshape() {
         let m_orig = DenseMatrix::row_vector_from_array(&[1., 2., 3., 4., 5., 6.]);
@@ -1270,7 +1269,7 @@ mod tests {
         assert_eq!(m_result.get(0, 1), 2.);
         assert_eq!(m_result.get(0, 3), 4.);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn norm() {
         let v = DenseMatrix::row_vector_from_array(&[3., -2., 6.]);
@@ -1279,7 +1278,7 @@ mod tests {
         assert_eq!(v.norm(std::f64::INFINITY), 6.);
         assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn softmax_mut() {
         let mut prob: DenseMatrix<f64> = DenseMatrix::row_vector_from_array(&[1., 2., 3.]);
@@ -1288,14 +1287,14 @@ mod tests {
         assert!((prob.get(0, 1) - 0.24).abs() < 0.01);
         assert!((prob.get(0, 2) - 0.66).abs() < 0.01);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn col_mean() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
         let res = a.column_mean();
         assert_eq!(res, vec![4., 5., 6.]);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn min_max_sum() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
@@ -1303,14 +1302,14 @@ mod tests {
         assert_eq!(1., a.min());
         assert_eq!(6., a.max());
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn eye() {
         let a = DenseMatrix::from_2d_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0., 0., 1.]]);
         let res = DenseMatrix::eye(3);
         assert_eq!(res, a);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn to_from_json() {
@@ -1319,7 +1318,7 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&a).unwrap()).unwrap();
         assert_eq!(a, deserialized_a);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn to_from_bincode() {
@@ -1328,7 +1327,7 @@ mod tests {
             bincode::deserialize(&bincode::serialize(&a).unwrap()).unwrap();
         assert_eq!(a, deserialized_a);
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn to_string() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
@@ -1337,7 +1336,7 @@ mod tests {
             "[[0.9, 0.4, 0.7], [0.4, 0.5, 0.3], [0.7, 0.3, 0.8]]"
         );
     }
-
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cov() {
         let a = DenseMatrix::from_2d_array(&[

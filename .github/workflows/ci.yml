@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, development ]
+  pull_request:
+    branches: [ development ]
+
+jobs:
+  tests:
+    runs-on: "${{ matrix.platform.os }}-latest"
+    strategy:
+      matrix:
+        platform: [
+          { os: "windows", target: "x86_64-pc-windows-msvc" },
+          { os: "windows", target: "i686-pc-windows-msvc" },
+          { os: "ubuntu", target: "x86_64-unknown-linux-gnu" },
+          { os: "ubuntu", target: "i686-unknown-linux-gnu" },
+          { os: "ubuntu", target: "wasm32-unknown-unknown" },
+          { os: "macos", target: "aarch64-apple-darwin" },
+        ]    
+    env:
+      TZ: "/usr/share/zoneinfo/your/location"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache .cargo and target
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+          profile: minimal
+          default: true
+      - name: Install test runner for wasm
+        if: matrix.platform.target == 'wasm32-unknown-unknown'
+        run:  curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Stable Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --all-features --target ${{ matrix.platform.target }}
+      - name: Tests
+        if: matrix.platform.target == 'x86_64-unknown-linux-gnu' || matrix.platform.target == 'x86_64-pc-windows-msvc' || matrix.platform.target == 'aarch64-apple-darwin'
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+      - name: Tests in WASM
+        if: matrix.platform.target == 'wasm32-unknown-unknown'
+        run: wasm-pack test --node -- --all-features

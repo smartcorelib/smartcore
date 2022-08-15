@@ -94,7 +94,7 @@ pub struct LinearRegressionParameters {
 pub struct LinearRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
-    solver: LinearRegressionSolverName,
+    _solver: LinearRegressionSolverName,
 }
 
 impl LinearRegressionParameters {
@@ -155,7 +155,7 @@ impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
 
         if x_nrows != y_nrows {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 
@@ -171,7 +171,7 @@ impl<T: RealNumber, M: Matrix<T>> LinearRegression<T, M> {
         Ok(LinearRegression {
             intercept: w.get(num_attributes, 0),
             coefficients: wights,
-            solver: parameters.solver,
+            _solver: parameters.solver,
         })
     }
 
@@ -200,6 +200,7 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ols_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -250,6 +251,7 @@ mod tests {
             .all(|(&a, &b)| (a - b).abs() <= 5.0));
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

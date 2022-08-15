@@ -2,10 +2,11 @@
     clippy::type_complexity,
     clippy::too_many_arguments,
     clippy::many_single_char_names,
-    clippy::unnecessary_wraps
+    clippy::unnecessary_wraps,
+    clippy::upper_case_acronyms
 )]
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
+#![warn(rustdoc::missing_doc_code_examples)]
 
 //! # SmartCore
 //!

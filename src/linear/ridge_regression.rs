@@ -96,7 +96,7 @@ pub struct RidgeRegressionParameters<T: RealNumber> {
 pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
     coefficients: M,
     intercept: T,
-    solver: RidgeRegressionSolverName,
+    _solver: RidgeRegressionSolverName,
 }
 
 impl<T: RealNumber> RidgeRegressionParameters<T> {
@@ -226,7 +226,7 @@ impl<T: RealNumber, M: Matrix<T>> RidgeRegression<T, M> {
         Ok(RidgeRegression {
             intercept: b,
             coefficients: w,
-            solver: parameters.solver,
+            _solver: parameters.solver,
         })
     }
 
@@ -274,6 +274,7 @@ mod tests {
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ridge_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -329,6 +330,7 @@ mod tests {
         assert!(mean_absolute_error(&y_hat_svd, &y) < 2.0);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

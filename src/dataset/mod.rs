@@ -8,9 +8,12 @@ pub mod digits;
 pub mod generator;
 pub mod iris;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::math::num::RealNumber;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 use std::io;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::prelude::*;
 
 /// Dataset
@@ -49,6 +52,8 @@ impl<X, Y> Dataset<X, Y> {
     }
 }
 
+// Running this in wasm throws: operation not supported on this platform.
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(dead_code)]
 pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
     dataset: &Dataset<X, Y>,
@@ -62,14 +67,14 @@ pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
                 .data
                 .iter()
                 .copied()
-                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
+                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec())
                 .collect();
             file.write_all(&x)?;
             let y: Vec<u8> = dataset
                 .target
                 .iter()
                 .copied()
-                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec().into_iter())
+                .flat_map(|f| f.to_f32_bits().to_le_bytes().to_vec())
                 .collect();
             file.write_all(&y)?;
         }
@@ -82,11 +87,12 @@ pub(crate) fn deserialize_data(
     bytes: &[u8],
 ) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {
     // read the same file back into a Vec of bytes
+    const USIZE_SIZE: usize = std::mem::size_of::<usize>();
     let (num_samples, num_features) = {
-        let mut buffer = [0u8; if cfg!(target_arch = "wasm32") { 4 } else { 8 }];
-        buffer.copy_from_slice(&bytes[0..8]);
+        let mut buffer = [0u8; USIZE_SIZE];
+        buffer.copy_from_slice(&bytes[0..USIZE_SIZE]);
         let num_features = usize::from_le_bytes(buffer);
-        buffer.copy_from_slice(&bytes[8..16]);
+        buffer.copy_from_slice(&bytes[8..8 + USIZE_SIZE]);
         let num_samples = usize::from_le_bytes(buffer);
         (num_samples, num_features)
     };
@@ -115,6 +121,7 @@ pub(crate) fn deserialize_data(
 mod tests {
     use super::*;
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn as_matrix() {
         let dataset = Dataset {
