@@ -43,6 +43,8 @@ pub(crate) mod bbd_tree;
 pub mod cover_tree;
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
+/// fastpair closest neighbour algorithm
+pub mod fastpair;
 
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
