@@ -8,6 +8,7 @@
 ///
 use std::collections::HashMap;
 use std::iter;
+use itertools::Itertools;
 
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 use crate::error::{Failed, FailedError};
@@ -30,7 +31,7 @@ pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M
         samples: m,
         distances: Box::new(HashMap::with_capacity(m.shape().0)),
         neighbours: Vec::with_capacity(m.shape().0 + 1),
-        // to be computed in inti(..)
+        // to be computed in init(..)
         connectivity: None,
     };
     init.init();
@@ -88,18 +89,18 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                     node: index_row_i,
                     neighbour: None,
                     distance: Some(T::max_value()),
-                },
+                }
             );
 
             // start looking for the neighbour in the second element
             let mut index_closest = index_row_i + 1; // closest neighbour index
-            let mut nbd: Option<T> = Some(T::max_value()); // init neighbour distance
+            let mut nbd: Option<T> = distances[&index_row_i].distance; // init neighbour distance
             for index_row_j in (index_row_i + 1)..len {
                 distances.insert(
                     index_row_j,
                     PairwiseDissimilarity {
                         node: index_row_j,
-                        neighbour: None,
+                        neighbour: Some(index_row_i),
                         distance: Some(T::max_value()),
                     },
                 );
@@ -165,6 +166,32 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         }
     }
 
+    ///
+    /// Brute force algorithm, used only for comparison and testing
+    /// 
+    pub fn closest_pair_brute(&self) -> PairwiseDissimilarity<T> {
+        let m = self.samples.shape().0;
+
+        let mut closest_pair = PairwiseDissimilarity {
+            node: 0,
+            neighbour: None,
+            distance: Some(T::max_value()),
+        };
+        for pair in (0..m).combinations(2) {
+            let d = Euclidian::squared_distance(
+                &(self.samples.get_row_as_vec(pair[0])),
+                &(self.samples.get_row_as_vec(pair[1])),
+            );
+            if d < closest_pair.distance.unwrap() {
+                closest_pair.node = pair[0];
+                closest_pair.neighbour = Some(pair[1]);
+                closest_pair.distance = Some(d);
+            }
+        }
+        
+        closest_pair
+    }
+
     //
     // Compute distances from input to all other points in data-structure.
     // input is the row index of the sample matrix
@@ -189,7 +216,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_fastpair {
 
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
@@ -243,6 +270,9 @@ mod tests {
             distance: Some(4.0),
         };
         assert_eq!(closest_pair, expected_closest_pair);
+
+        let closest_pair_brute = fastpair.closest_pair_brute();
+        assert_eq!(closest_pair_brute, expected_closest_pair);
     }
 
     #[test]
@@ -254,11 +284,14 @@ mod tests {
 
         let fastpair = result.unwrap();
         let closest_pair = fastpair.closest_pair();
+        println!("{:?}", closest_pair);
+        println!("{:?}", fastpair.closest_pair_brute());
         let expected_closest_pair = PairwiseDissimilarity {
             node: 1,
             neighbour: Some(3),
             distance: Some(4.0),
         };
+        assert_eq!(closest_pair, fastpair.closest_pair_brute());
         assert_eq!(closest_pair, expected_closest_pair);
     }
 
