@@ -689,12 +689,11 @@ impl<'a, T: RealNumber, M: BaseMatrix<T>> Iterator for RowIter<'a, T, M> {
     type Item = Vec<T>;
 
     fn next(&mut self) -> Option<Vec<T>> {
-        let res;
-        if self.pos < self.max_pos {
-            res = Some(self.m.get_row_as_vec(self.pos))
+        let res = if self.pos < self.max_pos {
+            Some(self.m.get_row_as_vec(self.pos))
         } else {
-            res = None
-        }
+            None
+        };
         self.pos += 1;
         res
     }

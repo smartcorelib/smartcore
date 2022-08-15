@@ -212,7 +212,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
 
         if n != y.len() {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 
@@ -242,7 +242,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
         Ok(y_hat)
     }
 
-    pub(in crate) fn predict_for_row(&self, x: M::RowVector) -> T {
+    pub(crate) fn predict_for_row(&self, x: M::RowVector) -> T {
         let mut f = self.b;
 
         for i in 0..self.instances.len() {

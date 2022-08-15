@@ -330,7 +330,7 @@ impl<T: RealNumber> DenseMatrix<T> {
             cur_r: 0,
             max_c: self.ncols,
             max_r: self.nrows,
-            m: &self,
+            m: self,
         }
     }
 }
@@ -523,7 +523,6 @@ impl<T: RealNumber> PartialEq for DenseMatrix<T> {
         true
     }
 }
-
 impl<T: RealNumber> From<DenseMatrix<T>> for Vec<T> {
     fn from(dense_matrix: DenseMatrix<T>) -> Vec<T> {
         dense_matrix.values

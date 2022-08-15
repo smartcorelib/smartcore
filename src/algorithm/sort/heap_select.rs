@@ -12,7 +12,7 @@ pub struct HeapSelection<T: PartialOrd + Debug> {
     heap: Vec<T>,
 }
 
-impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
+impl<T: PartialOrd + Debug> HeapSelection<T> {
     pub fn with_capacity(k: usize) -> HeapSelection<T> {
         HeapSelection {
             k,
@@ -53,8 +53,7 @@ impl<'a, T: PartialOrd + Debug> HeapSelection<T> {
         if self.sorted {
             &self.heap[0]
         } else {
-            &self
-                .heap
+            self.heap
                 .iter()
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap()
