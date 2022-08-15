@@ -41,12 +41,12 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
-/// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
-pub mod linear_search;
+/// dissimilarities for vector-vector distance. Linkage algorithms used in fastpair
+pub mod dissimilarities;
 /// fastpair closest neighbour algorithm
 pub(crate) mod fastpair;
-// Dissimilarities for vector-vector distance. Linkage algorithms used in fastpair 
-pub mod dissimilarities;
+/// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
+pub mod linear_search;
 
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)

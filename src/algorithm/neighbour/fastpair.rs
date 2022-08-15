@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use itertools::Itertools;
 ///
 /// FastPair: Data-structure for the dynamic closest-pair problem.
 ///
@@ -7,8 +8,6 @@
 ///  dynamic closest pairs. Journal of Experimental Algorithmics 5 (2000) 1.
 ///
 use std::collections::HashMap;
-use std::iter;
-use itertools::Itertools;
 
 use crate::algorithm::neighbour::dissimilarities::PairwiseDissimilarity;
 use crate::error::{Failed, FailedError};
@@ -80,8 +79,6 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         // fill neighbours with -1 values
         neighbours.extend(0..len);
 
-        println!("{:?}", neighbours);
-
         // loop through indeces and neighbours
         for index_row_i in 0..(max_index) {
             // init closest neighbour pairwise data
@@ -91,10 +88,9 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                     node: index_row_i,
                     neighbour: None,
                     distance: Some(T::max_value()),
-                }
+                },
             );
         }
-        println!("{:?}", distances);
 
         for index_row_i in 0..(len) {
             // start looking for the neighbour in the second element
@@ -126,7 +122,6 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                 e.distance = nbd;
                 e.neighbour = Some(index_closest);
             });
-            println!("{:?}", distances);
         }
         // No more neighbors, terminate conga line.
         // Last person on the line has no neigbors
@@ -144,7 +139,6 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         self.distances = Box::new(distances);
         self.neighbours = neighbours;
         self.connectivity = Some(Box::new(sparse_matrix));
-        println!("{:?}", self.neighbours);
     }
 
     ///
@@ -165,12 +159,11 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
             neighbour: b,
             distance: d,
         }
-
     }
 
     ///
     /// Brute force algorithm, used only for comparison and testing
-    /// 
+    ///
     pub fn closest_pair_brute(&self) -> PairwiseDissimilarity<T> {
         let m = self.samples.shape().0;
 
@@ -190,7 +183,6 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                 closest_pair.distance = Some(d);
             }
         }
-        
         closest_pair
     }
 
@@ -286,8 +278,6 @@ mod tests_fastpair {
 
         let fastpair = result.unwrap();
         let closest_pair = fastpair.closest_pair();
-        println!("{:?}", closest_pair);
-        println!("{:?}", fastpair.closest_pair_brute());
         let expected_closest_pair = PairwiseDissimilarity {
             node: 1,
             neighbour: Some(3),
