@@ -18,6 +18,7 @@ use crate::math::num::RealNumber;
 ///
 /// FastPair factory function
 ///
+#[allow(dead_code)]
 pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M>, Failed> {
     if m.shape().0 < 3 {
         return Err(Failed::because(
@@ -28,7 +29,7 @@ pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M
 
     let mut init = _FastPair {
         samples: m,
-        distances: Box::new(HashMap::with_capacity(m.shape().0)),
+        distances: HashMap::with_capacity(m.shape().0),
         neighbours: Vec::with_capacity(m.shape().0 + 1),
         // to be computed in init(..)
         connectivity: None,
@@ -51,7 +52,7 @@ pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     /// initial matrix
     samples: &'a M,
     /// closest pair hashmap (connectivity matrix for closest pairs)
-    pub distances: Box<HashMap<usize, PairwiseDissimilarity<T>>>,
+    pub distances: HashMap<usize, PairwiseDissimilarity<T>>,
     /// conga line used to keep track of the closest pair
     pub neighbours: Vec<usize>,
     /// sparse matrix of closest pairs
@@ -64,6 +65,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     /// Initialise `FastPair` by passing a `Matrix`.
     /// Build a FastPairs data-structure from a set of (new) points.
     ///
+    #[allow(dead_code)]
     fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
@@ -136,7 +138,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
 
         // TODO: as we now store the connectivity matrix in `self.connectivity`,
         //       it may be possible to avoid storing closest pairs in `self.distances`
-        self.distances = Box::new(distances);
+        self.distances = distances;
         self.neighbours = neighbours;
         self.connectivity = Some(Box::new(sparse_matrix));
     }
@@ -144,13 +146,14 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     ///
     /// Find closest pair by scanning list of nearest neighbors.
     ///
+    #[allow(dead_code)]
     pub fn closest_pair(&self) -> PairwiseDissimilarity<T> {
         let mut a = self.neighbours[0]; // Start with first point
         let mut d = self.distances[&a].distance;
         for p in self.neighbours.iter() {
-            if self.distances[&p].distance < d {
+            if self.distances[p].distance < d {
                 a = *p; // Update `a` and distance `d`
-                d = self.distances[&p].distance;
+                d = self.distances[p].distance;
             }
         }
         let b = self.distances[&a].neighbour;
@@ -164,6 +167,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
     ///
     /// Brute force algorithm, used only for comparison and testing
     ///
+    #[allow(dead_code)]
     pub fn closest_pair_brute(&self) -> PairwiseDissimilarity<T> {
         let m = self.samples.shape().0;
 
@@ -222,7 +226,7 @@ mod tests_fastpair {
         assert!(fastpair.is_ok());
 
         let result = fastpair.unwrap();
-        let distances = *result.distances;
+        let distances = result.distances;
         let neighbours = result.neighbours;
         let sparse_matrix = *(result.connectivity.unwrap());
         assert_eq!(10, neighbours.len());

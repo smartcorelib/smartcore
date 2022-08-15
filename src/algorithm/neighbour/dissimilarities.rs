@@ -16,15 +16,15 @@ use crate::math::num::RealNumber;
 ///
 #[derive(Debug, Clone, Copy)]
 pub struct PairwiseDissimilarity<T: RealNumber> {
-    // index of the vector in the original `Matrix` or list
+    /// index of the vector in the original `Matrix` or list
     pub node: usize,
 
-    // index of the closest neighbor in the original `Matrix` or same list
+    /// index of the closest neighbor in the original `Matrix` or same list
     pub neighbour: Option<usize>,
 
-    // measure of distance, according to the algorithm distance function
-    // if the distance is None, the edge has value "infinite" or max distance
-    // each algorithm has to match
+    /// measure of distance, according to the algorithm distance function
+    /// if the distance is None, the edge has value "infinite" or max distance
+    /// each algorithm has to match
     pub distance: Option<T>,
 }
 
