@@ -78,10 +78,12 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         let mut neighbours = *_neighbours;
 
         // fill neighbours with -1 values
-        neighbours.extend(iter::repeat(0).take(len));
+        neighbours.extend(0..len);
+
+        println!("{:?}", neighbours);
 
         // loop through indeces and neighbours
-        for index_row_i in 0..len {
+        for index_row_i in 0..(max_index) {
             // init closest neighbour pairwise data
             distances.insert(
                 index_row_i,
@@ -91,7 +93,10 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                     distance: Some(T::max_value()),
                 }
             );
+        }
+        println!("{:?}", distances);
 
+        for index_row_i in 0..(len) {
             // start looking for the neighbour in the second element
             let mut index_closest = index_row_i + 1; // closest neighbour index
             let mut nbd: Option<T> = distances[&index_row_i].distance; // init neighbour distance
@@ -101,7 +106,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                     PairwiseDissimilarity {
                         node: index_row_j,
                         neighbour: Some(index_row_i),
-                        distance: Some(T::max_value()),
+                        distance: nbd,
                     },
                 );
 
@@ -115,17 +120,13 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                     nbd = Some(d);
                 }
             }
+
             // Add that edge, move nbr to points[i+1] in conga line
             distances.entry(index_row_i).and_modify(|e| {
                 e.distance = nbd;
                 e.neighbour = Some(index_closest);
             });
-
-            // update conga line
-            if index_closest != len {
-                neighbours[index_closest] = neighbours[index_row_i + 1];
-                neighbours[index_row_i + 1] = index_closest;
-            }
+            println!("{:?}", distances);
         }
         // No more neighbors, terminate conga line.
         // Last person on the line has no neigbors
@@ -143,12 +144,12 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         self.distances = Box::new(distances);
         self.neighbours = neighbours;
         self.connectivity = Some(Box::new(sparse_matrix));
+        println!("{:?}", self.neighbours);
     }
 
     ///
     /// Find closest pair by scanning list of nearest neighbors.
     ///
-    #[allow(dead_code)]
     pub fn closest_pair(&self) -> PairwiseDissimilarity<T> {
         let mut a = self.neighbours[0]; // Start with first point
         let mut d = self.distances[&a].distance;
@@ -164,6 +165,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
             neighbour: b,
             distance: d,
         }
+
     }
 
     ///
@@ -320,15 +322,8 @@ mod tests_fastpair {
 
         // unwrap results
         let result = fastpair.unwrap();
-        let neighbours = result.neighbours;
         // let distances = *result.distances;
         let sparse_matrix = *(result.connectivity.unwrap());
-
-        // sequence of indeces computed
-        assert_eq!(
-            neighbours,
-            &[0, 4, 9, 3, 8, 7, 7, 7, 9, 9, 13, 12, 14, 14, 14]
-        );
 
         // list of minimal pairwise dissimilarities
         let dissimilarities = vec!(
