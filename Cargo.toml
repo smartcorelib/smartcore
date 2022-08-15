@@ -26,7 +26,6 @@ num = "0.4.0"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 serde = { version = "1.0.115", features = ["derive"], optional = true }
-itertools = "0.10.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
