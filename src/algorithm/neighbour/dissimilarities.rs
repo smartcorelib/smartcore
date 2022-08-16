@@ -1,10 +1,9 @@
 //!
 //! Dissimilarities for vector-vector distance
 //!
-//! Different algorithms based on Closest Pairs use to store graph's edges to
-//!  compute clusters or closest neighbors in Matrices rows.
-//!  The struct `PairwiseDissimilarity` can be used to represent edges between
-//!  closest pairs by storing the nodes' indices.
+//! Representing distances as pairwise dissimilarities, so to build a
+//! graph of closest neoghbour. This representation can be reused for
+//! different implementations (initially used in this library for FastPair).
 use std::cmp::{Eq, Ordering, PartialOrd};
 
 use crate::math::num::RealNumber;
