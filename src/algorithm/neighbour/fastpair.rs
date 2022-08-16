@@ -274,7 +274,7 @@ mod tests_fastpair {
     }
 
     #[test]
-    fn one_dimensional_dataset_currently_fails() {
+    fn one_dimensional_dataset_2() {
         let dataset = DenseMatrix::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
 
         let result = FastPair(&dataset);
@@ -392,6 +392,21 @@ mod tests_fastpair {
         };
 
         assert_eq!(closest, dissimilarity);
+    }
+
+    #[test]
+    fn fastpair_closest_pair_random_matrix() {
+        let x = DenseMatrix::<f64>::rand(200, 25);
+        // compute
+        let fastpair = FastPair(&x);
+        assert!(fastpair.is_ok());
+
+        let result = fastpair.unwrap();
+
+        let dissimilarity1 = result.closest_pair();
+        let dissimilarity2 = result.closest_pair_brute();
+
+        assert_eq!(dissimilarity1, dissimilarity2);
     }
 
     #[test]
