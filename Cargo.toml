@@ -47,3 +47,7 @@ harness = false
 name = "naive_bayes"
 harness = false
 required-features = ["ndarray-bindings", "nalgebra-bindings"]
+
+[[bench]]
+name = "fastpair"
+harness = false
