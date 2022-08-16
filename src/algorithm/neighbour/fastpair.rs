@@ -29,10 +29,9 @@ pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M
 
     let mut init = _FastPair {
         samples: m,
+        // to be computed in init(..)
         distances: HashMap::with_capacity(m.shape().0),
         neighbours: Vec::with_capacity(m.shape().0 + 1),
-        // to be computed in init(..)
-        connectivity: None,
     };
     init.init();
     Ok(init)
@@ -55,9 +54,6 @@ pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     pub distances: HashMap<usize, PairwiseDissimilarity<T>>,
     /// conga line used to keep track of the closest pair
     pub neighbours: Vec<usize>,
-    /// sparse matrix of closest pairs
-    /// values are set for closest pairs distances, other pairs are zeroed
-    pub connectivity: Option<Box<M>>,
 }
 
 impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
@@ -81,9 +77,8 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
         // fill neighbours with -1 values
         neighbours.extend(0..len);
 
-        // loop through indeces and neighbours
+        // init closest neighbour pairwise data
         for index_row_i in 0..(max_index) {
-            // init closest neighbour pairwise data
             distances.insert(
                 index_row_i,
                 PairwiseDissimilarity {
@@ -94,6 +89,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
             );
         }
 
+        // loop through indeces and neighbours
         for index_row_i in 0..(len) {
             // start looking for the neighbour in the second element
             let mut index_closest = index_row_i + 1; // closest neighbour index
@@ -119,7 +115,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
                 }
             }
 
-            // Add that edge, move nbr to points[i+1] in conga line
+            // Add that edge
             distances.entry(index_row_i).and_modify(|e| {
                 e.distance = nbd;
                 e.neighbour = Some(index_closest);
@@ -136,11 +132,8 @@ impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
             sparse_matrix.set(p.node, p.neighbour.unwrap(), p.distance.unwrap());
         }
 
-        // TODO: as we now store the connectivity matrix in `self.connectivity`,
-        //       it may be possible to avoid storing closest pairs in `self.distances`
         self.distances = distances;
         self.neighbours = neighbours;
-        self.connectivity = Some(Box::new(sparse_matrix));
     }
 
     ///
@@ -228,11 +221,9 @@ mod tests_fastpair {
         let result = fastpair.unwrap();
         let distances = result.distances;
         let neighbours = result.neighbours;
-        let sparse_matrix = *(result.connectivity.unwrap());
+
         assert_eq!(10, neighbours.len());
         assert_eq!(10, distances.len());
-        assert_eq!(10, sparse_matrix.shape().0);
-        assert_eq!(10, sparse_matrix.shape().1);
     }
 
     #[test]
@@ -294,7 +285,7 @@ mod tests_fastpair {
     #[test]
     fn fastpair_new() {
         // compute
-        let x = DenseMatrix::from_2d_array(&[
+        let x = DenseMatrix::<f64>::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
@@ -316,27 +307,130 @@ mod tests_fastpair {
 
         // unwrap results
         let result = fastpair.unwrap();
-        // let distances = *result.distances;
-        let sparse_matrix = *(result.connectivity.unwrap());
 
         // list of minimal pairwise dissimilarities
-        let dissimilarities = vec!(
-            (1, PairwiseDissimilarity { node: 1, neighbour: Some(9), distance: Some(0.030000000000000037) }),
-            (10, PairwiseDissimilarity { node: 10, neighbour: Some(12), distance: Some(0.07000000000000003) }),
-            (11, PairwiseDissimilarity { node: 11, neighbour: Some(14), distance: Some(0.18000000000000013) }),
-            (12, PairwiseDissimilarity { node: 12, neighbour: Some(14), distance: Some(0.34000000000000086) }),
-            (13, PairwiseDissimilarity { node: 13, neighbour: Some(14), distance: Some(1.6499999999999997) }),
-            (14, PairwiseDissimilarity { node: 14, neighbour: Some(14), distance: Some(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0) }),
-            (6, PairwiseDissimilarity { node: 6, neighbour: Some(7), distance: Some(0.18000000000000027) }),
-            (0, PairwiseDissimilarity { node: 0, neighbour: Some(4), distance: Some(0.01999999999999995) }),
-            (8, PairwiseDissimilarity { node: 8, neighbour: Some(9), distance: Some(0.3100000000000001) }),
-            (2, PairwiseDissimilarity { node: 2, neighbour: Some(3), distance: Some(0.0600000000000001) }),
-            (3, PairwiseDissimilarity { node: 3, neighbour: Some(8), distance: Some(0.08999999999999982) }),
-            (7, PairwiseDissimilarity { node: 7, neighbour: Some(9), distance: Some(0.10999999999999982) }),
-            (9, PairwiseDissimilarity { node: 9, neighbour: Some(13), distance: Some(8.69) }),
-            (4, PairwiseDissimilarity { node: 4, neighbour: Some(7), distance: Some(0.050000000000000086) }),
-            (5, PairwiseDissimilarity { node: 5, neighbour: Some(7), distance: Some(0.4900000000000002) })
-        );
+        let dissimilarities = vec![
+            (
+                1,
+                PairwiseDissimilarity {
+                    node: 1,
+                    neighbour: Some(9),
+                    distance: Some(0.030000000000000037),
+                },
+            ),
+            (
+                10,
+                PairwiseDissimilarity {
+                    node: 10,
+                    neighbour: Some(12),
+                    distance: Some(0.07000000000000003),
+                },
+            ),
+            (
+                11,
+                PairwiseDissimilarity {
+                    node: 11,
+                    neighbour: Some(14),
+                    distance: Some(0.18000000000000013),
+                },
+            ),
+            (
+                12,
+                PairwiseDissimilarity {
+                    node: 12,
+                    neighbour: Some(14),
+                    distance: Some(0.34000000000000086),
+                },
+            ),
+            (
+                13,
+                PairwiseDissimilarity {
+                    node: 13,
+                    neighbour: Some(14),
+                    distance: Some(1.6499999999999997),
+                },
+            ),
+            (
+                14,
+                PairwiseDissimilarity {
+                    node: 14,
+                    neighbour: Some(14),
+                    distance: Some(f64::MAX),
+                },
+            ),
+            (
+                6,
+                PairwiseDissimilarity {
+                    node: 6,
+                    neighbour: Some(7),
+                    distance: Some(0.18000000000000027),
+                },
+            ),
+            (
+                0,
+                PairwiseDissimilarity {
+                    node: 0,
+                    neighbour: Some(4),
+                    distance: Some(0.01999999999999995),
+                },
+            ),
+            (
+                8,
+                PairwiseDissimilarity {
+                    node: 8,
+                    neighbour: Some(9),
+                    distance: Some(0.3100000000000001),
+                },
+            ),
+            (
+                2,
+                PairwiseDissimilarity {
+                    node: 2,
+                    neighbour: Some(3),
+                    distance: Some(0.0600000000000001),
+                },
+            ),
+            (
+                3,
+                PairwiseDissimilarity {
+                    node: 3,
+                    neighbour: Some(8),
+                    distance: Some(0.08999999999999982),
+                },
+            ),
+            (
+                7,
+                PairwiseDissimilarity {
+                    node: 7,
+                    neighbour: Some(9),
+                    distance: Some(0.10999999999999982),
+                },
+            ),
+            (
+                9,
+                PairwiseDissimilarity {
+                    node: 9,
+                    neighbour: Some(13),
+                    distance: Some(8.69),
+                },
+            ),
+            (
+                4,
+                PairwiseDissimilarity {
+                    node: 4,
+                    neighbour: Some(7),
+                    distance: Some(0.050000000000000086),
+                },
+            ),
+            (
+                5,
+                PairwiseDissimilarity {
+                    node: 5,
+                    neighbour: Some(7),
+                    distance: Some(0.4900000000000002),
+                },
+            ),
+        ];
 
         let expected: HashMap<_, _> = dissimilarities.into_iter().collect();
 
@@ -354,16 +448,12 @@ mod tests_fastpair {
                 expected.get(&i).unwrap().neighbour.unwrap()
             );
             assert_eq!(distance, expected.get(&i).unwrap().distance.unwrap());
-            assert_eq!(
-                sparse_matrix.get(i, input_neighbour),
-                expected.get(&i).unwrap().distance.unwrap()
-            );
         }
     }
 
     #[test]
     fn fastpair_closest_pair() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x = DenseMatrix::<f64>::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
@@ -411,7 +501,7 @@ mod tests_fastpair {
 
     #[test]
     fn fastpair_distances() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x = DenseMatrix::<f64>::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
@@ -437,7 +527,7 @@ mod tests_fastpair {
         let mut min_dissimilarity = PairwiseDissimilarity {
             node: 0,
             neighbour: None,
-            distance: Some(179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0),
+            distance: Some(f64::MAX),
         };
         for p in dissimilarities.iter() {
             if p.distance.unwrap() < min_dissimilarity.distance.unwrap() {
