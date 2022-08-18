@@ -16,28 +16,6 @@ use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
 
 ///
-/// FastPair factory function
-///
-#[allow(dead_code)]
-pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M>, Failed> {
-    if m.shape().0 < 3 {
-        return Err(Failed::because(
-            FailedError::FindFailed,
-            "min number of rows is 3",
-        ));
-    }
-
-    let mut init = _FastPair {
-        samples: m,
-        // to be computed in init(..)
-        distances: HashMap::with_capacity(m.shape().0),
-        neighbours: Vec::with_capacity(m.shape().0 + 1),
-    };
-    init.init();
-    Ok(init)
-}
-
-///
 /// FastPair
 ///
 /// Ported from Python implementation:
@@ -47,7 +25,7 @@ pub fn FastPair<T: RealNumber, M: Matrix<T>>(m: &M) -> Result<_FastPair<'_, T, M
 /// affinity used is Euclidean so to allow linkage with single, ward, complete and average
 ///
 #[derive(Debug, Clone)]
-pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
+pub struct FastPair<'a, T: RealNumber, M: Matrix<T>> {
     /// initial matrix
     samples: &'a M,
     /// closest pair hashmap (connectivity matrix for closest pairs)
@@ -56,12 +34,33 @@ pub struct _FastPair<'a, T: RealNumber, M: Matrix<T>> {
     pub neighbours: Vec<usize>,
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>> _FastPair<'a, T, M> {
+impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
+    ///
+    /// Constructor
+    /// Instantiate and inizialise the algorithm
+    ///
+    pub fn new(m: &'a M) -> Result<Self, Failed> {
+        if m.shape().0 < 3 {
+            return Err(Failed::because(
+                FailedError::FindFailed,
+                "min number of rows is 3",
+            ));
+        }
+
+        let mut init = Self {
+            samples: m,
+            // to be computed in init(..)
+            distances: HashMap::with_capacity(m.shape().0),
+            neighbours: Vec::with_capacity(m.shape().0 + 1),
+        };
+        init.init();
+        Ok(init)
+    }
+
     ///
     /// Initialise `FastPair` by passing a `Matrix`.
     /// Build a FastPairs data-structure from a set of (new) points.
     ///
-    #[allow(dead_code)]
     fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
@@ -215,12 +214,16 @@ mod tests_fastpair {
     #[test]
     fn fastpair_init() {
         let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
-        let fastpair = FastPair(&x);
-        assert!(fastpair.is_ok());
+        let _fastpair = FastPair::new(&x);
+        assert!(_fastpair.is_ok());
 
-        let result = fastpair.unwrap();
-        let distances = result.distances;
-        let neighbours = result.neighbours;
+        let fastpair = _fastpair.unwrap();
+
+        let distances = fastpair.distances;
+        let neighbours = fastpair.neighbours;
+
+        assert!(distances.len() != 0);
+        assert!(neighbours.len() != 0);
 
         assert_eq!(10, neighbours.len());
         assert_eq!(10, distances.len());
@@ -230,25 +233,30 @@ mod tests_fastpair {
     fn dataset_has_at_least_three_points() {
         // Create a dataset which consists of only two points:
         // A(0.0, 0.0) and B(1.0, 1.0).
-        let dataset = DenseMatrix::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]);
 
         // We expect an error when we run `FastPair` on this dataset,
         // becuase `FastPair` currently only works on a minimum of 3
         // points.
-        if let Err(e) = FastPair(&dataset) {
-            let expected_error =
-                Failed::because(FailedError::FindFailed, "min number of rows is 3");
-            assert_eq!(e, expected_error)
-        } else {
-            assert!(false)
+        let _fastpair = FastPair::new(&dataset);
+
+        match _fastpair {
+            Err(e) => {
+                let expected_error =
+                    Failed::because(FailedError::FindFailed, "min number of rows is 3");
+                assert_eq!(e, expected_error)
+            }
+            _ => {
+                assert!(false);
+            }
         }
     }
 
     #[test]
     fn one_dimensional_dataset_minimal() {
-        let dataset = DenseMatrix::from_2d_array(&[&[0.0], &[2.0], &[9.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]);
 
-        let result = FastPair(&dataset);
+        let result = FastPair::new(&dataset);
         assert!(result.is_ok());
 
         let fastpair = result.unwrap();
@@ -266,9 +274,9 @@ mod tests_fastpair {
 
     #[test]
     fn one_dimensional_dataset_2() {
-        let dataset = DenseMatrix::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
 
-        let result = FastPair(&dataset);
+        let result = FastPair::new(&dataset);
         assert!(result.is_ok());
 
         let fastpair = result.unwrap();
@@ -302,7 +310,7 @@ mod tests_fastpair {
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
         ]);
-        let fastpair = FastPair(&x);
+        let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
         // unwrap results
@@ -471,7 +479,7 @@ mod tests_fastpair {
             &[6.5, 2.8, 4.6, 1.5],
         ]);
         // compute
-        let fastpair = FastPair(&x);
+        let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
         let dissimilarity = fastpair.unwrap().closest_pair();
@@ -488,7 +496,7 @@ mod tests_fastpair {
     fn fastpair_closest_pair_random_matrix() {
         let x = DenseMatrix::<f64>::rand(200, 25);
         // compute
-        let fastpair = FastPair(&x);
+        let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
         let result = fastpair.unwrap();
@@ -519,7 +527,7 @@ mod tests_fastpair {
             &[6.5, 2.8, 4.6, 1.5],
         ]);
         // compute
-        let fastpair = FastPair(&x);
+        let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
         let dissimilarities = fastpair.unwrap().distances_from(0);

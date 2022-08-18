@@ -7,7 +7,7 @@ use std::time::Duration;
 
 fn closest_pair_bench(n: usize, m: usize) -> () {
     let x = DenseMatrix::<f64>::rand(n, m);
-    let fastpair = FastPair(&x);
+    let fastpair = FastPair::new(&x);
     let result = fastpair.unwrap();
 
     result.closest_pair();
@@ -15,7 +15,7 @@ fn closest_pair_bench(n: usize, m: usize) -> () {
 
 fn closest_pair_brute_bench(n: usize, m: usize) -> () {
     let x = DenseMatrix::<f64>::rand(n, m);
-    let fastpair = FastPair(&x);
+    let fastpair = FastPair::new(&x);
     let result = fastpair.unwrap();
 
     result.closest_pair_brute();
@@ -29,7 +29,7 @@ fn bench_fastpair(c: &mut Criterion) {
     // increase from default 5.0 secs
     group.measurement_time(Duration::from_secs(60));
 
-    for n_samples in [100_usize, 1000_usize, 10000_usize].iter() {
+    for n_samples in [100_usize, 1000_usize].iter() {
         for n_features in [10_usize, 100_usize, 1000_usize].iter() {
             group.bench_with_input(
                 BenchmarkId::from_parameter(format!(
