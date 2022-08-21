@@ -2,15 +2,15 @@
 //! Dissimilarities for vector-vector distance
 //!
 //! Representing distances as pairwise dissimilarities, so to build a
-//! graph of closest neoghbour. This representation can be reused for
+//! graph of closest neighbours. This representation can be reused for
 //! different implementations (initially used in this library for FastPair).
 use std::cmp::{Eq, Ordering, PartialOrd};
 
 use crate::math::num::RealNumber;
 
 ///
-/// The edge of the subgraph is defined by this structure.
-/// The calling algorithm can store a list of dissimilarities as
+/// The edge of the subgraph is defined by `PairwiseDistance`.
+/// The calling algorithm can store a list of distsances as
 /// a list of these structures.
 ///
 #[derive(Debug, Clone, Copy)]
