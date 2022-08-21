@@ -43,7 +43,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
         if m.shape().0 < 3 {
             return Err(Failed::because(
                 FailedError::FindFailed,
-                "min number of rows is 3",
+                "min number of rows should be 3",
             ));
         }
 
@@ -243,7 +243,7 @@ mod tests_fastpair {
         match _fastpair {
             Err(e) => {
                 let expected_error =
-                    Failed::because(FailedError::FindFailed, "min number of rows is 3");
+                    Failed::because(FailedError::FindFailed, "min number of rows should be 3");
                 assert_eq!(e, expected_error)
             }
             _ => {
