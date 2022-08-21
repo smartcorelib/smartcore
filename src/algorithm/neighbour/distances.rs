@@ -14,7 +14,7 @@ use crate::math::num::RealNumber;
 /// a list of these structures.
 ///
 #[derive(Debug, Clone, Copy)]
-pub struct PairwiseDissimilarity<T: RealNumber> {
+pub struct PairwiseDistance<T: RealNumber> {
     /// index of the vector in the original `Matrix` or list
     pub node: usize,
 
@@ -27,9 +27,9 @@ pub struct PairwiseDissimilarity<T: RealNumber> {
     pub distance: Option<T>,
 }
 
-impl<T: RealNumber> Eq for PairwiseDissimilarity<T> {}
+impl<T: RealNumber> Eq for PairwiseDistance<T> {}
 
-impl<T: RealNumber> PartialEq for PairwiseDissimilarity<T> {
+impl<T: RealNumber> PartialEq for PairwiseDistance<T> {
     fn eq(&self, other: &Self) -> bool {
         self.node == other.node
             && self.neighbour == other.neighbour
@@ -37,7 +37,7 @@ impl<T: RealNumber> PartialEq for PairwiseDissimilarity<T> {
     }
 }
 
-impl<T: RealNumber> PartialOrd for PairwiseDissimilarity<T> {
+impl<T: RealNumber> PartialOrd for PairwiseDistance<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.distance.partial_cmp(&other.distance)
     }
