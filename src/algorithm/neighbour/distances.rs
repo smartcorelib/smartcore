@@ -6,6 +6,9 @@
 //! different implementations (initially used in this library for FastPair).
 use std::cmp::{Eq, Ordering, PartialOrd};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::math::num::RealNumber;
 
 ///
@@ -13,6 +16,7 @@ use crate::math::num::RealNumber;
 /// The calling algorithm can store a list of distsances as
 /// a list of these structures.
 ///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub struct PairwiseDistance<T: RealNumber> {
     /// index of the vector in the original `Matrix` or list
