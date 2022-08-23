@@ -159,7 +159,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
     ///
     /// Brute force algorithm, used only for comparison and testing
     ///
-    #[allow(dead_code)]
+    #[cfg(feature = "fp_bench")]
     pub fn closest_pair_brute(&self) -> PairwiseDistance<T> {
         let m = self.samples.shape().0;
 

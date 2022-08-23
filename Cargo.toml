@@ -17,6 +17,7 @@ default = ["datasets"]
 ndarray-bindings = ["ndarray"]
 nalgebra-bindings = ["nalgebra"]
 datasets = []
+fp_bench = []
 
 [dependencies]
 ndarray = { version = "0.15", optional = true }
@@ -51,3 +52,4 @@ required-features = ["ndarray-bindings", "nalgebra-bindings"]
 [[bench]]
 name = "fastpair"
 harness = false
+required-features = ["fp_bench"]
