@@ -7,6 +7,21 @@ use itertools::Itertools;
 ///  Eppstein, David: Fast hierarchical clustering and other applications of
 ///  dynamic closest pairs. Journal of Experimental Algorithmics 5 (2000) 1.
 ///
+/// Example:
+/// ```
+/// let x = DenseMatrix::<f64>::from_2d_array(&[
+///     &[5.1, 3.5, 1.4, 0.2],
+///     &[4.9, 3.0, 1.4, 0.2],
+///     &[4.7, 3.2, 1.3, 0.2],
+///     &[4.6, 3.1, 1.5, 0.2],
+///     &[5.0, 3.6, 1.4, 0.2],
+///     &[5.4, 3.9, 1.7, 0.4],
+/// ]);
+/// let fastpair = FastPair::new(&x);
+/// let closest_pair: PairwiseDistance = fastpair.unwrap().closest_pair();
+/// ```
+/// <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+/// <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::collections::HashMap;
 
 use crate::algorithm::neighbour::distances::PairwiseDistance;
@@ -22,19 +37,6 @@ use crate::math::num::RealNumber;
 ///
 /// affinity used is Euclidean so to allow linkage with single, ward, complete and average
 ///
-/// Example:
-/// ```
-/// let x = DenseMatrix::<f64>::from_2d_array(&[
-///     &[5.1, 3.5, 1.4, 0.2],
-///     &[4.9, 3.0, 1.4, 0.2],
-///     &[4.7, 3.2, 1.3, 0.2],
-///     &[4.6, 3.1, 1.5, 0.2],
-///     &[5.0, 3.6, 1.4, 0.2],
-///     &[5.4, 3.9, 1.7, 0.4],
-// ]);
-// let fastpair = FastPair::new(&x);
-// let closest_pair: PairwiseDistance = fastpair.unwrap().closest_pair();
-/// ```
 #[derive(Debug, Clone)]
 pub struct FastPair<'a, T: RealNumber, M: Matrix<T>> {
     /// initial matrix
