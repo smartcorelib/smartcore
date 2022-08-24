@@ -9,9 +9,9 @@ use itertools::Itertools;
 ///
 /// Example:
 /// ```
-/// use crate::algorithm::neighbour::distances::PairwiseDistance;
-/// use crate::linalg::Matrix;
-/// use crate::algorithm::neighbour::fastpair::FastPair
+/// use smartcore::algorithm::neighbour::distances::PairwiseDistance;
+/// use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+/// use smartcore::algorithm::neighbour::fastpair::FastPair;
 /// let x = DenseMatrix::<f64>::from_2d_array(&[
 ///     &[5.1, 3.5, 1.4, 0.2],
 ///     &[4.9, 3.0, 1.4, 0.2],
@@ -21,7 +21,7 @@ use itertools::Itertools;
 ///     &[5.4, 3.9, 1.7, 0.4],
 /// ]);
 /// let fastpair = FastPair::new(&x);
-/// let closest_pair: PairwiseDistance = fastpair.unwrap().closest_pair();
+/// let closest_pair: PairwiseDistance<f64> = fastpair.unwrap().closest_pair();
 /// ```
 /// <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 /// <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
