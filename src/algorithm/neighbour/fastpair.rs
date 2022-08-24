@@ -1,12 +1,30 @@
 #![allow(non_snake_case)]
 use itertools::Itertools;
 ///
-/// FastPair: Data-structure for the dynamic closest-pair problem.
+/// # FastPair: Data-structure for the dynamic closest-pair problem.
 ///
 /// Reference:
 ///  Eppstein, David: Fast hierarchical clustering and other applications of
 ///  dynamic closest pairs. Journal of Experimental Algorithmics 5 (2000) 1.
 ///
+/// Example:
+/// ```
+/// use smartcore::algorithm::neighbour::distances::PairwiseDistance;
+/// use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+/// use smartcore::algorithm::neighbour::fastpair::FastPair;
+/// let x = DenseMatrix::<f64>::from_2d_array(&[
+///     &[5.1, 3.5, 1.4, 0.2],
+///     &[4.9, 3.0, 1.4, 0.2],
+///     &[4.7, 3.2, 1.3, 0.2],
+///     &[4.6, 3.1, 1.5, 0.2],
+///     &[5.0, 3.6, 1.4, 0.2],
+///     &[5.4, 3.9, 1.7, 0.4],
+/// ]);
+/// let fastpair = FastPair::new(&x);
+/// let closest_pair: PairwiseDistance<f64> = fastpair.unwrap().closest_pair();
+/// ```
+/// <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+/// <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::collections::HashMap;
 
 use crate::algorithm::neighbour::distances::PairwiseDistance;
@@ -16,9 +34,7 @@ use crate::math::distance::euclidian::Euclidian;
 use crate::math::num::RealNumber;
 
 ///
-/// FastPair
-///
-/// Ported from Python implementation:
+/// Inspired by Python implementation:
 /// <https://github.com/carsonfarmer/fastpair/blob/b8b4d3000ab6f795a878936667eee1b557bf353d/fastpair/base.py>
 /// MIT License (MIT) Copyright (c) 2016 Carson Farmer
 ///
