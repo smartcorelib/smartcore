@@ -9,6 +9,9 @@ use itertools::Itertools;
 ///
 /// Example:
 /// ```
+/// use crate::algorithm::neighbour::distances::PairwiseDistance;
+/// use crate::linalg::Matrix;
+/// use crate::algorithm::neighbour::fastpair::FastPair
 /// let x = DenseMatrix::<f64>::from_2d_array(&[
 ///     &[5.1, 3.5, 1.4, 0.2],
 ///     &[4.9, 3.0, 1.4, 0.2],
