@@ -651,6 +651,10 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
 
         result
     }
+    /// Take an individual column from the matrix.
+    fn take_column(&self, column_index: usize) -> Self {
+        self.take(&[column_index], 1)
+    }
 }
 
 /// Generic matrix with additional mixins like various factorization methods.
@@ -760,5 +764,22 @@ mod tests {
 
         assert_eq!(m.take(&vec!(1, 1, 3), 0), expected_0);
         assert_eq!(m.take(&vec!(1, 0), 1), expected_1);
+    }
+
+    #[test]
+    fn take_second_column_from_matrix() {
+        let four_columns: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[0.0, 1.0, 2.0, 3.0],
+            &[0.0, 1.0, 2.0, 3.0],
+            &[0.0, 1.0, 2.0, 3.0],
+            &[0.0, 1.0, 2.0, 3.0],
+        ]);
+
+        let second_column = four_columns.take_column(1);
+        assert_eq!(
+            second_column,
+            DenseMatrix::from_2d_array(&[&[1.0], &[1.0], &[1.0], &[1.0]]),
+            "The second column was not extracted correctly"
+        );
     }
 }
