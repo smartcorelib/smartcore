@@ -28,9 +28,11 @@ class AgglomerativeClustering():
     """
 
     def fit(X):
-        # compute tree 
+        # compute tree
+        # <https://github.com/scikit-learn/scikit-learn/blob/02ebf9e68fe1fc7687d9e1047b9e465ae0fd945e/sklearn/cluster/_agglomerative.py#L172>
         parents, childern = ward_tree(X, ....)
         # compute clusters
+        # <https://github.com/scikit-learn/scikit-learn/blob/70c495250fea7fa3c8c1a4631e6ddcddc9f22451/sklearn/cluster/_hierarchical_fast.pyx#L98>
         labels = _hierarchical.hc_get_heads(parents)
         # assign cluster numbers
         self.labels_ = np.searchsorted(np.unique(labels), labels)
@@ -38,15 +40,14 @@ class AgglomerativeClustering():
 */
 
 // implement ward tree
+// use scipy.cluster.hierarchy.ward
+// <https://github.com/scipy/scipy/blob/main/scipy/cluster/hierarchy.py#L738>
+// use linkage
+// <https://github.com/scipy/scipy/blob/main/scipy/cluster/hierarchy.py#L837>
+// use nn_chain
+// <https://github.com/scipy/scipy/blob/main/scipy/cluster/_hierarchy.pyx#L906>
 
-
-// implement hierarchical cut (only needed if we want to allwo compute_full_tree) (future)
-
-
-// HOT: try to implement fastcluster <https://arxiv.org/pdf/1109.2378.pdf> (future)
-
-
-// additional: implement BisectingKMeans (future)
+// implement hc_get_heads
 
 
 mod tests {
