@@ -301,6 +301,36 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     /// Transforms row vector `vec` into a 1xM matrix.
     fn from_row_vector(vec: Self::RowVector) -> Self;
 
+    /// Transforms Vector of n rows with dimension m into
+    /// a matrix nxm.
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+    /// use crate::smartcore::linalg::BaseMatrix;
+    ///
+    /// let eye = DenseMatrix::from_row_vectors(vec![vec![1., 0., 0.], vec![0., 1., 0.], vec![0., 0., 1.]])
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///    eye,
+    ///    DenseMatrix::from_2d_vec(&vec![
+    ///        vec![1.0, 0.0, 0.0],
+    ///        vec![0.0, 1.0, 0.0],
+    ///        vec![0.0, 0.0, 1.0],
+    ///    ])
+    /// );
+    fn from_row_vectors(rows: Vec<Self::RowVector>) -> Option<Self> {
+        if let Some(first_row) = rows.first().cloned() {
+            return Some(rows.iter().skip(1).cloned().fold(
+                Self::from_row_vector(first_row),
+                |current_matrix, new_row| {
+                    current_matrix.v_stack(&BaseMatrix::from_row_vector(new_row))
+                },
+            ));
+        } else {
+            None
+        }
+    }
+
     /// Transforms 1-d matrix of 1xM into a row vector.
     fn to_row_vector(self) -> Self::RowVector;
 
