@@ -7,6 +7,7 @@ use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+use std::str::FromStr;
 
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
@@ -22,6 +23,7 @@ pub trait RealNumber:
     + SubAssign
     + MulAssign
     + DivAssign
+    + FromStr
 {
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
@@ -142,5 +144,15 @@ mod tests {
         assert_eq!(1.0.sigmoid(), 0.7310585786300049);
         assert_eq!(41.0.sigmoid(), 1.);
         assert_eq!((-41.0).sigmoid(), 0.);
+    }
+
+    #[test]
+    fn f32_from_string() {
+        assert_eq!(f32::from_str("1.111111").unwrap(), 1.111111)
+    }
+
+    #[test]
+    fn f64_from_string() {
+        assert_eq!(f64::from_str("1.111111111").unwrap(), 1.111111111)
     }
 }
