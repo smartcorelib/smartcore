@@ -46,7 +46,7 @@ impl Precision {
 
         let mut classes = HashSet::new();
         for i in 0..y_true.len() {
-            classes.insert(y_true.get(i).to_f64_bits()); 
+            classes.insert(y_true.get(i).to_f64_bits());
         }
         let classes = classes.len();
 
@@ -64,7 +64,7 @@ impl Precision {
             } else {
                 if classes == 2 {
                     if y_true.get(i) == T::one() {
-                        fp += 1; 
+                        fp += 1;
                     }
                 } else {
                     fp += 1;

@@ -47,7 +47,7 @@ impl Recall {
 
         let mut classes = HashSet::new();
         for i in 0..y_true.len() {
-            classes.insert(y_true.get(i).to_f64_bits()); 
+            classes.insert(y_true.get(i).to_f64_bits());
         }
         let classes: i64 = classes.len().try_into().unwrap();
 
