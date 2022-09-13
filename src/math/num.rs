@@ -46,8 +46,11 @@ pub trait RealNumber:
         self * self
     }
 
-    /// Raw transmutation to u64
+    /// Raw transmutation to u32
     fn to_f32_bits(self) -> u32;
+
+    /// Raw transmutation to u64
+    fn to_f64_bits(self) -> u64;
 }
 
 impl RealNumber for f64 {
@@ -89,6 +92,10 @@ impl RealNumber for f64 {
     fn to_f32_bits(self) -> u32 {
         self.to_bits() as u32
     }
+
+    fn to_f64_bits(self) -> u64 {
+        self.to_bits()
+    }
 }
 
 impl RealNumber for f32 {
@@ -129,6 +136,10 @@ impl RealNumber for f32 {
 
     fn to_f32_bits(self) -> u32 {
         self.to_bits()
+    }
+
+    fn to_f64_bits(self) -> u64 {
+        self.to_bits() as u64
     }
 }
 
