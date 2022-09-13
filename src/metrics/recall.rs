@@ -62,14 +62,12 @@ impl Recall {
                 } else {
                     tp += 1;
                 }
-            } else {
-                if classes == 2 {
-                    if y_true.get(i) != T::one() {
-                        fne += 1;
-                    }
-                } else {
+            } else if classes == 2 {
+                if y_true.get(i) != T::one() {
                     fne += 1;
                 }
+            } else {
+                fne += 1;
             }
         }
         T::from_i64(tp).unwrap() / (T::from_i64(tp).unwrap() + T::from_i64(fne).unwrap())

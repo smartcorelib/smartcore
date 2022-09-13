@@ -61,14 +61,12 @@ impl Precision {
                 } else {
                     tp += 1;
                 }
-            } else {
-                if classes == 2 {
-                    if y_true.get(i) == T::one() {
-                        fp += 1;
-                    }
-                } else {
+            } else if classes == 2 {
+                if y_true.get(i) == T::one() {
                     fp += 1;
                 }
+            } else {
+                fp += 1;
             }
         }
 
