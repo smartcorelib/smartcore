@@ -515,7 +515,6 @@ mod tests_prob {
         assert_eq!(forest, deserialized_forest);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_probabilities() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
