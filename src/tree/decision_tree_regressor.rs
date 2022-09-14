@@ -321,7 +321,7 @@ impl<T: RealNumber> DecisionTreeRegressor<T> {
         Ok(result.to_row_vector())
     }
 
-    pub(in crate) fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> T {
+    pub(crate) fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> T {
         let mut result = T::zero();
         let mut queue: LinkedList<usize> = LinkedList::new();
 

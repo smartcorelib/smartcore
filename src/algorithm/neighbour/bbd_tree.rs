@@ -59,7 +59,7 @@ impl<T: RealNumber> BBDTree<T> {
         tree
     }
 
-    pub(in crate) fn clustering(
+    pub(crate) fn clustering(
         &self,
         centroids: &[Vec<T>],
         sums: &mut Vec<Vec<T>>,

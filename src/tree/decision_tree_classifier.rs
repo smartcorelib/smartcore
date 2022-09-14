@@ -285,7 +285,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> NodeVisitor<'a, T, M> {
     }
 }
 
-pub(in crate) fn which_max(x: &[usize]) -> usize {
+pub(crate) fn which_max(x: &[usize]) -> usize {
     let mut m = x[0];
     let mut which = 0;
 
@@ -421,7 +421,7 @@ impl<T: RealNumber> DecisionTreeClassifier<T> {
         Ok(result.to_row_vector())
     }
 
-    pub(in crate) fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> usize {
+    pub(crate) fn predict_for_row<M: Matrix<T>>(&self, x: &M, row: usize) -> usize {
         let mut result = 0;
         let mut queue: LinkedList<usize> = LinkedList::new();
 
