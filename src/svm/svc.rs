@@ -94,12 +94,115 @@ pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
     pub epoch: usize,
     /// Regularization parameter.
     pub c: T,
-    /// Tolerance for stopping criterion.
+    /// Tolerance for stopping epoch.
     pub tol: T,
     /// The kernel function.
     pub kernel: K,
     /// Unused parameter.
     m: PhantomData<M>,
+}
+
+/// SVC grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct SVCSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    /// Number of epochs.
+    pub epoch: Vec<usize>,
+    /// Regularization parameter.
+    pub c: Vec<T>,
+    /// Tolerance for stopping epoch.
+    pub tol: Vec<T>,
+    /// The kernel function.
+    pub kernel: Vec<K>,
+    /// Unused parameter.
+    m: PhantomData<M>,
+}
+
+/// SVC grid search iterator
+pub struct SVCSearchParametersIterator<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    svc_search_parameters: SVCSearchParameters<T, M, K>,
+    current_epoch: usize,
+    current_c: usize,
+    current_tol: usize,
+    current_kernel: usize,
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
+    for SVCSearchParameters<T, M, K>
+{
+    type Item = SVCParameters<T, M, K>;
+    type IntoIter = SVCSearchParametersIterator<T, M, K>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SVCSearchParametersIterator {
+            svc_search_parameters: self,
+            current_epoch: 0,
+            current_c: 0,
+            current_tol: 0,
+            current_kernel: 0,
+        }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
+    for SVCSearchParametersIterator<T, M, K>
+{
+    type Item = SVCParameters<T, M, K>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_epoch == self.svc_search_parameters.epoch.len()
+            && self.current_c == self.svc_search_parameters.c.len()
+            && self.current_tol == self.svc_search_parameters.tol.len()
+            && self.current_kernel == self.svc_search_parameters.kernel.len()
+        {
+            return None;
+        }
+
+        let next = SVCParameters::<T, M, K> {
+            epoch: self.svc_search_parameters.epoch[self.current_epoch],
+            c: self.svc_search_parameters.c[self.current_c],
+            tol: self.svc_search_parameters.tol[self.current_tol],
+            kernel: self.svc_search_parameters.kernel[self.current_kernel].clone(),
+            m: PhantomData,
+        };
+
+        if self.current_epoch + 1 < self.svc_search_parameters.epoch.len() {
+            self.current_epoch += 1;
+        } else if self.current_c + 1 < self.svc_search_parameters.c.len() {
+            self.current_epoch = 0;
+            self.current_c += 1;
+        } else if self.current_tol + 1 < self.svc_search_parameters.tol.len() {
+            self.current_epoch = 0;
+            self.current_c = 0;
+            self.current_tol += 1;
+        } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
+            self.current_epoch = 0;
+            self.current_c = 0;
+            self.current_tol = 0;
+            self.current_kernel += 1;
+        } else {
+            self.current_epoch += 1;
+            self.current_c += 1;
+            self.current_tol += 1;
+            self.current_kernel += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Default for SVCSearchParameters<T, M, LinearKernel> {
+    fn default() -> Self {
+        let default_params: SVCParameters<T, M, LinearKernel> = SVCParameters::default();
+
+        SVCSearchParameters {
+            epoch: vec![default_params.epoch],
+            c: vec![default_params.c],
+            tol: vec![default_params.tol],
+            kernel: vec![default_params.kernel],
+            m: PhantomData,
+        }
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -163,7 +266,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M
         self.c = c;
         self
     }
-    /// Tolerance for stopping criterion.
+    /// Tolerance for stopping epoch.
     pub fn with_tol(mut self, tol: T) -> Self {
         self.tol = tol;
         self
@@ -736,6 +839,24 @@ mod tests {
     use crate::metrics::accuracy;
     #[cfg(feature = "serde")]
     use crate::svm::*;
+
+    #[test]
+    fn search_parameters() {
+        let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+            SVCSearchParameters {
+                epoch: vec![10, 100],
+                kernel: vec![LinearKernel {}],
+                ..Default::default()
+            };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.epoch, 10);
+        assert_eq!(next.kernel, LinearKernel {});
+        let next = iter.next().unwrap();
+        assert_eq!(next.epoch, 100);
+        assert_eq!(next.kernel, LinearKernel {});
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
