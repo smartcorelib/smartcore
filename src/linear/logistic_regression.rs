@@ -68,7 +68,7 @@ use crate::optimization::line_search::Backtracking;
 use crate::optimization::FunctionOrder;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// Solver options for Logistic regression. Right now only LBFGS solver is supported.
 pub enum LogisticRegressionSolverName {
     /// Limited-memory Broyden–Fletcher–Goldfarb–Shanno method, see [LBFGS paper](http://users.iems.northwestern.edu/~nocedal/lbfgsb.html)
@@ -522,6 +522,21 @@ mod tests {
     use crate::dataset::generator::make_blobs;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::accuracy;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = LogisticRegressionSearchParameters {
+            alpha: vec![0., 1.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        assert_eq!(iter.next().unwrap().alpha, 0.);
+        assert_eq!(
+            iter.next().unwrap().solver,
+            LogisticRegressionSolverName::LBFGS
+        );
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
