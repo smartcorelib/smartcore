@@ -281,7 +281,6 @@ mod tests {
 
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
-
     use crate::metrics::{accuracy, mean_absolute_error};
     use crate::model_selection::kfold::KFold;
     use crate::neighbors::knn_regressor::KNNRegressor;
