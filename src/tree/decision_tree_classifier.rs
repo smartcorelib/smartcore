@@ -105,7 +105,7 @@ pub struct DecisionTreeClassifier<T: RealNumber> {
 
 /// The function to measure the quality of a split.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
     Gini,

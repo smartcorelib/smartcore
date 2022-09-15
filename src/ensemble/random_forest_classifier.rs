@@ -193,6 +193,225 @@ impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestCla
     }
 }
 
+/// RandomForestClassifier grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct RandomForestClassifierSearchParameters {
+    /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub criterion: Vec<SplitCriterion>,
+    /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub max_depth: Vec<Option<u16>>,
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub min_samples_leaf: Vec<usize>,
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
+    pub min_samples_split: Vec<usize>,
+    /// The number of trees in the forest.
+    pub n_trees: Vec<u16>,
+    /// Number of random sample of predictors to use as split candidates.
+    pub m: Vec<Option<usize>>,
+    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
+    pub keep_samples: Vec<bool>,
+    /// Seed used for bootstrap sampling and feature selection for each tree.
+    pub seed: Vec<u64>,
+}
+
+/// RandomForestClassifier grid search iterator
+pub struct RandomForestClassifierSearchParametersIterator {
+    random_forest_classifier_search_parameters: RandomForestClassifierSearchParameters,
+    current_criterion: usize,
+    current_max_depth: usize,
+    current_min_samples_leaf: usize,
+    current_min_samples_split: usize,
+    current_n_trees: usize,
+    current_m: usize,
+    current_keep_samples: usize,
+    current_seed: usize,
+}
+
+impl IntoIterator for RandomForestClassifierSearchParameters {
+    type Item = RandomForestClassifierParameters;
+    type IntoIter = RandomForestClassifierSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RandomForestClassifierSearchParametersIterator {
+            random_forest_classifier_search_parameters: self,
+            current_criterion: 0,
+            current_max_depth: 0,
+            current_min_samples_leaf: 0,
+            current_min_samples_split: 0,
+            current_n_trees: 0,
+            current_m: 0,
+            current_keep_samples: 0,
+            current_seed: 0,
+        }
+    }
+}
+
+impl Iterator for RandomForestClassifierSearchParametersIterator {
+    type Item = RandomForestClassifierParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_criterion
+            == self
+                .random_forest_classifier_search_parameters
+                .criterion
+                .len()
+            && self.current_max_depth
+                == self
+                    .random_forest_classifier_search_parameters
+                    .max_depth
+                    .len()
+            && self.current_min_samples_leaf
+                == self
+                    .random_forest_classifier_search_parameters
+                    .min_samples_leaf
+                    .len()
+            && self.current_min_samples_split
+                == self
+                    .random_forest_classifier_search_parameters
+                    .min_samples_split
+                    .len()
+            && self.current_n_trees
+                == self
+                    .random_forest_classifier_search_parameters
+                    .n_trees
+                    .len()
+            && self.current_m == self.random_forest_classifier_search_parameters.m.len()
+            && self.current_keep_samples
+                == self
+                    .random_forest_classifier_search_parameters
+                    .keep_samples
+                    .len()
+            && self.current_seed == self.random_forest_classifier_search_parameters.seed.len()
+        {
+            return None;
+        }
+
+        let next = RandomForestClassifierParameters {
+            criterion: self.random_forest_classifier_search_parameters.criterion
+                [self.current_criterion],
+            max_depth: self.random_forest_classifier_search_parameters.max_depth
+                [self.current_max_depth],
+            min_samples_leaf: self
+                .random_forest_classifier_search_parameters
+                .min_samples_leaf[self.current_min_samples_leaf],
+            min_samples_split: self
+                .random_forest_classifier_search_parameters
+                .min_samples_split[self.current_min_samples_split],
+            n_trees: self.random_forest_classifier_search_parameters.n_trees[self.current_n_trees],
+            m: self.random_forest_classifier_search_parameters.m[self.current_m],
+            keep_samples: self.random_forest_classifier_search_parameters.keep_samples
+                [self.current_keep_samples],
+            seed: self.random_forest_classifier_search_parameters.seed[self.current_seed],
+        };
+
+        if self.current_criterion + 1
+            < self
+                .random_forest_classifier_search_parameters
+                .criterion
+                .len()
+        {
+            self.current_criterion += 1;
+        } else if self.current_max_depth + 1
+            < self
+                .random_forest_classifier_search_parameters
+                .max_depth
+                .len()
+        {
+            self.current_criterion = 0;
+            self.current_max_depth += 1;
+        } else if self.current_min_samples_leaf + 1
+            < self
+                .random_forest_classifier_search_parameters
+                .min_samples_leaf
+                .len()
+        {
+            self.current_criterion = 0;
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf += 1;
+        } else if self.current_min_samples_split + 1
+            < self
+                .random_forest_classifier_search_parameters
+                .min_samples_split
+                .len()
+        {
+            self.current_criterion = 0;
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split += 1;
+        } else if self.current_n_trees + 1
+            < self
+                .random_forest_classifier_search_parameters
+                .n_trees
+                .len()
+        {
+            self.current_criterion = 0;
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split = 0;
+            self.current_n_trees += 1;
+        } else if self.current_m + 1 < self.random_forest_classifier_search_parameters.m.len() {
+            self.current_criterion = 0;
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split = 0;
+            self.current_n_trees = 0;
+            self.current_m += 1;
+        } else if self.current_keep_samples + 1
+            < self
+                .random_forest_classifier_search_parameters
+                .keep_samples
+                .len()
+        {
+            self.current_criterion = 0;
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split = 0;
+            self.current_n_trees = 0;
+            self.current_m = 0;
+            self.current_keep_samples += 1;
+        } else if self.current_seed + 1 < self.random_forest_classifier_search_parameters.seed.len()
+        {
+            self.current_criterion = 0;
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split = 0;
+            self.current_n_trees = 0;
+            self.current_m = 0;
+            self.current_keep_samples = 0;
+            self.current_seed += 1;
+        } else {
+            self.current_criterion += 1;
+            self.current_max_depth += 1;
+            self.current_min_samples_leaf += 1;
+            self.current_min_samples_split += 1;
+            self.current_n_trees += 1;
+            self.current_m += 1;
+            self.current_keep_samples += 1;
+            self.current_seed += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl Default for RandomForestClassifierSearchParameters {
+    fn default() -> Self {
+        let default_params = RandomForestClassifierParameters::default();
+
+        RandomForestClassifierSearchParameters {
+            criterion: vec![default_params.criterion],
+            max_depth: vec![default_params.max_depth],
+            min_samples_leaf: vec![default_params.min_samples_leaf],
+            min_samples_split: vec![default_params.min_samples_split],
+            n_trees: vec![default_params.n_trees],
+            m: vec![default_params.m],
+            keep_samples: vec![default_params.keep_samples],
+            seed: vec![default_params.seed],
+        }
+    }
+}
+
 impl<T: RealNumber> RandomForestClassifier<T> {
     /// Build a forest of trees from the training set.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
@@ -238,7 +457,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             }
 
             let params = DecisionTreeClassifierParameters {
-                criterion: parameters.criterion.clone(),
+                criterion: parameters.criterion,
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
@@ -345,6 +564,29 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
     use crate::metrics::*;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = RandomForestClassifierSearchParameters {
+            n_trees: vec![10, 100],
+            m: vec![None, Some(1)],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.m, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.m, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.m, Some(1));
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.m, Some(1));
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
