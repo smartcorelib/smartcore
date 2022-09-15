@@ -105,7 +105,7 @@ pub struct DecisionTreeClassifier<T: RealNumber> {
 
 /// The function to measure the quality of a split.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
     Gini,
@@ -269,7 +269,8 @@ impl Iterator for DecisionTreeClassifierSearchParametersIterator {
 
         let next = DecisionTreeClassifierParameters {
             criterion: self.decision_tree_classifier_search_parameters.criterion
-                [self.current_criterion],
+                [self.current_criterion]
+                .clone(),
             max_depth: self.decision_tree_classifier_search_parameters.max_depth
                 [self.current_max_depth],
             min_samples_leaf: self

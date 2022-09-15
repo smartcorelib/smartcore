@@ -94,7 +94,7 @@ pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
     pub epoch: usize,
     /// Regularization parameter.
     pub c: T,
-    /// Tolerance for stopping epoch.
+    /// Tolerance for stopping criterion.
     pub tol: T,
     /// The kernel function.
     pub kernel: K,
@@ -266,7 +266,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M
         self.c = c;
         self
     }
-    /// Tolerance for stopping epoch.
+    /// Tolerance for stopping criterion.
     pub fn with_tol(mut self, tol: T) -> Self {
         self.tol = tol;
         self

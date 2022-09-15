@@ -289,7 +289,8 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
 
         let next = RandomForestClassifierParameters {
             criterion: self.random_forest_classifier_search_parameters.criterion
-                [self.current_criterion],
+                [self.current_criterion]
+                .clone(),
             max_depth: self.random_forest_classifier_search_parameters.max_depth
                 [self.current_max_depth],
             min_samples_leaf: self
@@ -457,7 +458,7 @@ impl<T: RealNumber> RandomForestClassifier<T> {
             }
 
             let params = DecisionTreeClassifierParameters {
-                criterion: parameters.criterion,
+                criterion: parameters.criterion.clone(),
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
