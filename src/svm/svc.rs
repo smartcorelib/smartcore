@@ -865,6 +865,30 @@ mod tests {
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
+    fn svc_fit_predict_c() {
+        let breast_cancer = crate::dataset::breast_cancer::load_dataset();
+        let y = breast_cancer.target;
+        let x = DenseMatrix::from_array(
+            breast_cancer.num_samples,
+            breast_cancer.num_features,
+            &breast_cancer.data,
+        );
+
+        let y_hat = SVC::fit(
+            &x,
+            &y,
+            SVCParameters::default()
+                .with_c(10.0)
+                .with_kernel(Kernels::linear()),
+        )
+        .and_then(|lr| lr.predict(&x))
+        .unwrap();
+
+        assert!(accuracy(&y_hat, &y) >= 0.9);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
     #[cfg(feature = "serde")]
     fn svc_serde() {
         let x = DenseMatrix::from_2d_array(&[
