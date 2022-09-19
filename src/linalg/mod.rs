@@ -343,6 +343,9 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     ///    ])
     /// );
     fn from_row_vectors(rows: Vec<Self::RowVector>) -> Option<Self> {
+        if rows.is_empty() {
+            return None;
+        }
         let n = rows.len();
         let m = rows[0].len();
 
