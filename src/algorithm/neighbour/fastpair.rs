@@ -175,7 +175,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
     ///
     #[cfg(feature = "fp_bench")]
     pub fn closest_pair_brute(&self) -> PairwiseDistance<T> {
-	use itertools::Itertools;
+        use itertools::Itertools;
         let m = self.samples.shape().0;
 
         let mut closest_pair = PairwiseDistance {
