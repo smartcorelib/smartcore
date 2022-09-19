@@ -17,7 +17,7 @@ default = ["datasets"]
 ndarray-bindings = ["ndarray"]
 nalgebra-bindings = ["nalgebra"]
 datasets = []
-fp_bench = []
+fp_bench = ["itertools"]
 
 [dependencies]
 ndarray = { version = "0.15", optional = true }
@@ -27,7 +27,7 @@ num = "0.4"
 rand = "0.8"
 rand_distr = "0.4"
 serde = { version = "1", features = ["derive"], optional = true }
-itertools = "0.10.3"
+itertools = { version = "0.10.3", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
