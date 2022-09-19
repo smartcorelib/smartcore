@@ -343,16 +343,16 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     ///    ])
     /// );
     fn from_row_vectors(rows: Vec<Self::RowVector>) -> Option<Self> {
-        if let Some(first_row) = rows.first().cloned() {
-            return Some(rows.iter().skip(1).cloned().fold(
-                Self::from_row_vector(first_row),
-                |current_matrix, new_row| {
-                    current_matrix.v_stack(&BaseMatrix::from_row_vector(new_row))
-                },
-            ));
-        } else {
-            None
+        let n = rows.len();
+        let m = rows[0].len();
+
+        let mut result = Self::zeros(n, m);
+
+        for (row_idx, row) in rows.into_iter().enumerate() {
+            result.set_row(row_idx, row);
         }
+
+        Some(result)
     }
 
     /// Transforms 1-d matrix of 1xM into a row vector.
@@ -375,6 +375,13 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     /// * `row` - row number
     /// * `result` - receiver for the row
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>);
+
+    /// Set row vector at row `row_idx`.
+    fn set_row(&mut self, row_idx: usize, row: Self::RowVector) {
+        for (col_idx, val) in row.to_vec().into_iter().enumerate() {
+            self.set(row_idx, col_idx, val);
+        }
+    }
 
     /// Get a vector with elements of the `col`'th column
     /// * `col` - column number
@@ -835,6 +842,32 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[1.0], &[1.0], &[1.0], &[1.0]]),
             "The second column was not extracted correctly"
         );
+    }
+
+    #[test]
+    fn test_from_row_vectors_simple() {
+        let eye = DenseMatrix::from_row_vectors(vec![
+            vec![1., 0., 0.],
+            vec![0., 1., 0.],
+            vec![0., 0., 1.],
+        ])
+        .unwrap();
+        assert_eq!(
+            eye,
+            DenseMatrix::from_2d_vec(&vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0],
+            ])
+        );
+    }
+
+    #[test]
+    fn test_from_row_vectors_large() {
+        let eye = DenseMatrix::from_row_vectors(vec![vec![4.25; 5000]; 5000]).unwrap();
+
+        assert_eq!(eye.shape(), (5000, 5000));
+        assert_eq!(eye.get_row(5), vec![4.25; 5000]);
     }
     mod matrix_from_csv {
 
