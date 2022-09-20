@@ -95,7 +95,7 @@ pub struct RidgeRegressionParameters {
 /// Ridge Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RidgeRegressionSearchParameters<T: RealNumber> {
+pub struct RidgeRegressionSearchParameters<T: FloatNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<RidgeRegressionSolverName>,
     /// Regularization parameter.
@@ -106,14 +106,14 @@ pub struct RidgeRegressionSearchParameters<T: RealNumber> {
 }
 
 /// Ridge Regression grid search iterator
-pub struct RidgeRegressionSearchParametersIterator<T: RealNumber> {
+pub struct RidgeRegressionSearchParametersIterator<T: FloatNumber> {
     ridge_regression_search_parameters: RidgeRegressionSearchParameters<T>,
     current_solver: usize,
     current_alpha: usize,
     current_normalize: usize,
 }
 
-impl<T: RealNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
+impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
     type Item = RidgeRegressionParameters<T>;
     type IntoIter = RidgeRegressionSearchParametersIterator<T>;
 
@@ -127,7 +127,7 @@ impl<T: RealNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
     }
 }
 
-impl<T: RealNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
+impl<T: FloatNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
     type Item = RidgeRegressionParameters<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -164,7 +164,7 @@ impl<T: RealNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
     }
 }
 
-impl<T: RealNumber> Default for RidgeRegressionSearchParameters<T> {
+impl<T: FloatNumber> Default for RidgeRegressionSearchParameters<T> {
     fn default() -> Self {
         let default_params = RidgeRegressionParameters::default();
 
@@ -179,7 +179,6 @@ impl<T: RealNumber> Default for RidgeRegressionSearchParameters<T> {
 /// Ridge regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-<<<<<<< HEAD
 pub struct RidgeRegression<
     TX: FloatNumber,
     TY: Number,
@@ -191,12 +190,6 @@ pub struct RidgeRegression<
     solver: RidgeRegressionSolverName,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
-=======
-pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
-    coefficients: M,
-    intercept: T,
-    _solver: RidgeRegressionSolverName,
->>>>>>> 436da104d7d6e96c43b58c106ade158ac9c5d446
 }
 
 impl RidgeRegressionParameters {
@@ -354,13 +347,9 @@ impl<
         Ok(RidgeRegression {
             intercept: b,
             coefficients: w,
-<<<<<<< HEAD
             solver: parameters.solver,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
-=======
-            _solver: parameters.solver,
->>>>>>> 436da104d7d6e96c43b58c106ade158ac9c5d446
         })
     }
 
