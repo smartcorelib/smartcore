@@ -47,7 +47,7 @@ pub struct SVD<T: RealNumber, M: SVDDecomposableMatrix<T>> {
     pub V: M,
     /// Singular values of the original matrix
     pub s: Vec<T>,
-    full: bool,
+    _full: bool,
     m: usize,
     n: usize,
     tol: T,
@@ -116,7 +116,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     }
 
                     let mut f = U.get(i, i);
-                    g = -s.sqrt().copysign(f);
+                    g = -RealNumber::copysign(s.sqrt(), f);
                     let h = f * g - s;
                     U.set(i, i, f - g);
                     for j in l - 1..n {
@@ -152,7 +152,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     }
 
                     let f = U.get(i, l - 1);
-                    g = -s.sqrt().copysign(f);
+                    g = -RealNumber::copysign(s.sqrt(), f);
                     let h = f * g - s;
                     U.set(i, l - 1, f - g);
 
@@ -299,7 +299,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 let mut h = rv1[k];
                 let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (T::two() * h * y);
                 g = f.hypot(T::one());
-                f = ((x - z) * (x + z) + h * ((y / (f + g.copysign(f))) - h)) / x;
+                f = ((x - z) * (x + z) + h * ((y / (f + RealNumber::copysign(g, f))) - h)) / x;
                 let mut c = T::one();
                 let mut s = T::one();
 
@@ -428,13 +428,13 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
     pub(crate) fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;
-        let full = s.len() == m.min(n);
+        let _full = s.len() == m.min(n);
         let tol = T::half() * (T::from(m + n).unwrap() + T::one()).sqrt() * s[0] * T::epsilon();
         SVD {
             U,
             V,
             s,
-            full,
+            _full,
             m,
             n,
             tol,

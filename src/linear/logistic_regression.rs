@@ -69,7 +69,7 @@ use crate::optimization::line_search::Backtracking;
 use crate::optimization::FunctionOrder;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// Solver options for Logistic regression. Right now only LBFGS solver is supported.
 pub enum LogisticRegressionSolverName {
     /// Limited-memory Broyden–Fletcher–Goldfarb–Shanno method, see [LBFGS paper](http://users.iems.northwestern.edu/~nocedal/lbfgsb.html)
@@ -79,11 +79,82 @@ pub enum LogisticRegressionSolverName {
 /// Logistic Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct LogisticRegressionParameters {
+pub struct LogisticRegressionParameters<T: FloatNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: LogisticRegressionSolverName,
     /// Regularization parameter.
-    pub alpha: f64,
+    pub alpha: T,
+}
+
+/// Logistic Regression grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct LogisticRegressionSearchParameters<T: Number> {
+    /// Solver to use for estimation of regression coefficients.
+    pub solver: Vec<LogisticRegressionSolverName>,
+    /// Regularization parameter.
+    pub alpha: Vec<T>,
+}
+
+/// Logistic Regression grid search iterator
+pub struct LogisticRegressionSearchParametersIterator<T: Number> {
+    logistic_regression_search_parameters: LogisticRegressionSearchParameters<T>,
+    current_solver: usize,
+    current_alpha: usize,
+}
+
+impl<T: Number> IntoIterator for LogisticRegressionSearchParameters<T> {
+    type Item = LogisticRegressionParameters<T>;
+    type IntoIter = LogisticRegressionSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LogisticRegressionSearchParametersIterator {
+            logistic_regression_search_parameters: self,
+            current_solver: 0,
+            current_alpha: 0,
+        }
+    }
+}
+
+impl<T: Number> Iterator for LogisticRegressionSearchParametersIterator<T> {
+    type Item = LogisticRegressionParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.logistic_regression_search_parameters.alpha.len()
+            && self.current_solver == self.logistic_regression_search_parameters.solver.len()
+        {
+            return None;
+        }
+
+        let next = LogisticRegressionParameters {
+            solver: self.logistic_regression_search_parameters.solver[self.current_solver].clone(),
+            alpha: self.logistic_regression_search_parameters.alpha[self.current_alpha],
+        };
+
+        if self.current_alpha + 1 < self.logistic_regression_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_solver + 1 < self.logistic_regression_search_parameters.solver.len()
+        {
+            self.current_alpha = 0;
+            self.current_solver += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_solver += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: Number> Default for LogisticRegressionSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = LogisticRegressionParameters::default();
+
+        LogisticRegressionSearchParameters {
+            solver: vec![default_params.solver],
+            alpha: vec![default_params.alpha],
+        }
+    }
 }
 
 /// Logistic Regression
@@ -121,7 +192,7 @@ struct BinaryObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     _phantom_t: PhantomData<T>,
 }
 
-impl LogisticRegressionParameters {
+impl LogisticRegressionParameters<T: FloatNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub fn with_solver(mut self, solver: LogisticRegressionSolverName) -> Self {
         self.solver = solver;
@@ -134,7 +205,7 @@ impl LogisticRegressionParameters {
     }
 }
 
-impl Default for LogisticRegressionParameters {
+impl Default for LogisticRegressionParameters<T: FloatNumber> {
     fn default() -> Self {
         LogisticRegressionParameters {
             solver: LogisticRegressionSolverName::LBFGS,
@@ -326,7 +397,7 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         if x_nrows != y_nrows {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 
@@ -469,6 +540,21 @@ mod tests {
     use crate::linalg::base::*;
     use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::accuracy;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = LogisticRegressionSearchParameters {
+            alpha: vec![0., 1.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        assert_eq!(iter.next().unwrap().alpha, 0.);
+        assert_eq!(
+            iter.next().unwrap().solver,
+            LogisticRegressionSolverName::LBFGS
+        );
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

@@ -43,15 +43,15 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+use rand::Rng;
 use std::default::Default;
 use std::fmt::Debug;
 
-use rand::Rng;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::error::Failed;
+use crate::error::{Failed, FailedError};
 use crate::linalg::base::{Array1, Array2};
 use crate::num::Number;
 use crate::tree::decision_tree_regressor::{
@@ -73,6 +73,10 @@ pub struct RandomForestRegressorParameters {
     pub n_trees: usize,
     /// Number of random sample of predictors to use as split candidates.
     pub m: Option<usize>,
+    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
+    pub keep_samples: bool,
+    /// Seed used for bootstrap sampling and feature selection for each tree.
+    pub seed: u64,
 }
 
 /// Random Forest Regressor
@@ -110,8 +114,19 @@ impl RandomForestRegressorParameters {
         self.m = Some(m);
         self
     }
-}
 
+    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
+    pub fn with_keep_samples(mut self, keep_samples: bool) -> Self {
+        self.keep_samples = keep_samples;
+        self
+    }
+
+    /// Seed used for bootstrap sampling and feature selection for each tree.
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+}
 impl Default for RandomForestRegressorParameters {
     fn default() -> Self {
         RandomForestRegressorParameters {
@@ -120,6 +135,8 @@ impl Default for RandomForestRegressorParameters {
             min_samples_split: 2,
             n_trees: 10,
             m: Option::None,
+            keep_samples: false,
+            seed: 0,
         }
     }
 }
@@ -176,17 +193,23 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut trees: Vec<DecisionTreeRegressor<TX, TY, X, Y>> = Vec::new();
 
         for _ in 0..parameters.n_trees {
-            let samples = RandomForestRegressor::<TX, TY, X, Y>::sample_with_replacement(n_rows);
+            let samples = RandomForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
+                n_rows, &mut rand::thread_rng());
             let params = DecisionTreeRegressorParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree = DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params)?;
+            let tree =
+                DecisionTreeRegressor::fit_weak_learner(
+                    x, y, samples, mtry, params)?;
             trees.push(tree);
         }
 
-        Ok(RandomForestRegressor { parameters, trees })
+        Ok(RandomForestRegressor {
+            parameters: parameters,
+            trees,
+        })
     }
 
     /// Predict class for `x`
@@ -215,8 +238,47 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         result / TY::from_usize(n_trees).unwrap()
     }
 
-    fn sample_with_replacement(nrows: usize) -> Vec<usize> {
-        let mut rng = rand::thread_rng();
+    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
+    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+        let (n, _) = x.shape();
+        if self.samples.is_none() {
+            Err(Failed::because(
+                FailedError::PredictFailed,
+                "Need samples=true for OOB predictions.",
+            ))
+        } else if self.samples.as_ref().unwrap()[0].len() != n {
+            Err(Failed::because(
+                FailedError::PredictFailed,
+                "Prediction matrix must match matrix used in training for OOB predictions.",
+            ))
+        } else {
+            let mut result = X::zeros(1, n);
+
+            for i in 0..n {
+                // TODO: fix this call
+                //result.set(0, i, self.predict_for_row_oob(x, i));
+            }
+
+            Ok(result.to_row_vector())
+        }
+    }
+
+    fn predict_for_row_oob(&self, x: &X, row: usize) -> X {
+        let mut n_trees = 0;
+        let mut result = X::zero();
+
+        for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
+            if !samples[row] {
+                result += tree.predict_for_row(x, row);
+                n_trees += 1;
+            }
+        }
+
+        // TODO: What to do if there are no oob trees?
+        result / X::from(n_trees).unwrap()
+    }
+
+    fn sample_with_replacement(nrows: usize, rng: &mut impl Rng) -> Vec<usize> {
         let mut samples = vec![0; nrows];
         for _ in 0..nrows {
             let xi = rng.gen_range(0..nrows);
@@ -267,12 +329,61 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 1000,
                 m: Option::None,
+                keep_samples: false,
+                seed: 87,
             },
         )
         .and_then(|rf| rf.predict(&x))
         .unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 1.0);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    fn fit_predict_longley_oob() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159., 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165., 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.27, 1952., 63.639],
+            &[365.385, 187., 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335., 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.18, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.95, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ]);
+        let y = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
+
+        let regressor = RandomForestRegressor::fit(
+            &x,
+            &y,
+            RandomForestRegressorParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 1000,
+                m: Option::None,
+                keep_samples: true,
+                seed: 87,
+            },
+        )
+        .unwrap();
+
+        let y_hat = regressor.predict(&x).unwrap();
+        let y_hat_oob = regressor.predict_oob(&x).unwrap();
+
+        assert!(mean_absolute_error(&y, &y_hat) < mean_absolute_error(&y, &y_hat_oob));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

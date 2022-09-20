@@ -74,7 +74,7 @@ use crate::linalg::svd_n::SVDDecomposable;
 use crate::num::{FloatNumber, Number};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// Approach to use for estimation of regression coefficients. QR is more efficient but SVD is more stable.
 pub enum LinearRegressionSolverName {
     /// QR decomposition, see [QR](../../linalg/qr/index.html)
@@ -192,7 +192,7 @@ impl<
 
         if x_nrows != y_nrows {
             return Err(Failed::fit(
-                &"Number of rows of X doesn\'t match number of rows of Y".to_string(),
+                "Number of rows of X doesn\'t match number of rows of Y",
             ));
         }
 
@@ -243,18 +243,28 @@ mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
 
+    #[test]
+    fn search_parameters() {
+        let parameters = LinearRegressionSearchParameters {
+            solver: vec![
+                LinearRegressionSolverName::QR,
+                LinearRegressionSolverName::SVD,
+            ],
+        };
+        let mut iter = parameters.into_iter();
+        assert_eq!(iter.next().unwrap().solver, LinearRegressionSolverName::QR);
+        assert_eq!(iter.next().unwrap().solver, LinearRegressionSolverName::SVD);
+        assert!(iter.next().is_none());
+    }
+
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn ols_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
-            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
             &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
             &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
             &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
-            &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
-            &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
-            &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
             &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
             &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
             &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],

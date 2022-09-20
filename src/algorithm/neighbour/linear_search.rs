@@ -67,7 +67,7 @@ impl<T, D: Distance<T>> LinearKNNSearch<T, D> {
         }
 
         for i in 0..self.data.len() {
-            let d = self.distance.distance(&from, &self.data[i]);
+            let d = self.distance.distance(from, &self.data[i]);
             let datum = heap.peek_mut();
             if d < datum.distance {
                 datum.distance = d;
@@ -97,7 +97,7 @@ impl<T, D: Distance<T>> LinearKNNSearch<T, D> {
         let mut neighbors: Vec<(usize, f64, &T)> = Vec::new();
 
         for i in 0..self.data.len() {
-            let d = self.distance.distance(&from, &self.data[i]);
+            let d = self.distance.distance(from, &self.data[i]);
 
             if d <= radius {
                 neighbors.push((i, d, &self.data[i]));

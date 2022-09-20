@@ -70,7 +70,7 @@ use crate::linalg::svd_n::SVDDecomposable;
 use crate::num::{FloatNumber, Number};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
@@ -92,9 +92,94 @@ pub struct RidgeRegressionParameters {
     pub normalize: bool,
 }
 
+/// Ridge Regression grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct RidgeRegressionSearchParameters<T: RealNumber> {
+    /// Solver to use for estimation of regression coefficients.
+    pub solver: Vec<RidgeRegressionSolverName>,
+    /// Regularization parameter.
+    pub alpha: Vec<T>,
+    /// If true the regressors X will be normalized before regression
+    /// by subtracting the mean and dividing by the standard deviation.
+    pub normalize: Vec<bool>,
+}
+
+/// Ridge Regression grid search iterator
+pub struct RidgeRegressionSearchParametersIterator<T: RealNumber> {
+    ridge_regression_search_parameters: RidgeRegressionSearchParameters<T>,
+    current_solver: usize,
+    current_alpha: usize,
+    current_normalize: usize,
+}
+
+impl<T: RealNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
+    type Item = RidgeRegressionParameters<T>;
+    type IntoIter = RidgeRegressionSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RidgeRegressionSearchParametersIterator {
+            ridge_regression_search_parameters: self,
+            current_solver: 0,
+            current_alpha: 0,
+            current_normalize: 0,
+        }
+    }
+}
+
+impl<T: RealNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
+    type Item = RidgeRegressionParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.ridge_regression_search_parameters.alpha.len()
+            && self.current_solver == self.ridge_regression_search_parameters.solver.len()
+        {
+            return None;
+        }
+
+        let next = RidgeRegressionParameters {
+            solver: self.ridge_regression_search_parameters.solver[self.current_solver].clone(),
+            alpha: self.ridge_regression_search_parameters.alpha[self.current_alpha],
+            normalize: self.ridge_regression_search_parameters.normalize[self.current_normalize],
+        };
+
+        if self.current_alpha + 1 < self.ridge_regression_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_solver + 1 < self.ridge_regression_search_parameters.solver.len() {
+            self.current_alpha = 0;
+            self.current_solver += 1;
+        } else if self.current_normalize + 1
+            < self.ridge_regression_search_parameters.normalize.len()
+        {
+            self.current_alpha = 0;
+            self.current_solver = 0;
+            self.current_normalize += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_solver += 1;
+            self.current_normalize += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber> Default for RidgeRegressionSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = RidgeRegressionParameters::default();
+
+        RidgeRegressionSearchParameters {
+            solver: vec![default_params.solver],
+            alpha: vec![default_params.alpha],
+            normalize: vec![default_params.normalize],
+        }
+    }
+}
+
 /// Ridge regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
+<<<<<<< HEAD
 pub struct RidgeRegression<
     TX: FloatNumber,
     TY: Number,
@@ -106,6 +191,12 @@ pub struct RidgeRegression<
     solver: RidgeRegressionSolverName,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
+=======
+pub struct RidgeRegression<T: RealNumber, M: Matrix<T>> {
+    coefficients: M,
+    intercept: T,
+    _solver: RidgeRegressionSolverName,
+>>>>>>> 436da104d7d6e96c43b58c106ade158ac9c5d446
 }
 
 impl RidgeRegressionParameters {
@@ -263,9 +354,13 @@ impl<
         Ok(RidgeRegression {
             intercept: b,
             coefficients: w,
+<<<<<<< HEAD
             solver: parameters.solver,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
+=======
+            _solver: parameters.solver,
+>>>>>>> 436da104d7d6e96c43b58c106ade158ac9c5d446
         })
     }
 
@@ -319,6 +414,21 @@ mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = RidgeRegressionSearchParameters {
+            alpha: vec![0., 1.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        assert_eq!(iter.next().unwrap().alpha, 0.);
+        assert_eq!(
+            iter.next().unwrap().solver,
+            RidgeRegressionSolverName::Cholesky
+        );
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

@@ -18,6 +18,7 @@
 //! Example:
 //!
 //! ```
+//! use rand::thread_rng;
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_regressor::*;
 //!
@@ -64,6 +65,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -141,7 +143,7 @@ impl Default for DecisionTreeRegressorParameters {
 impl Node {
     fn new(index: usize, output: f64) -> Self {
         Node {
-            index,
+            index: index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -253,7 +255,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
-        DecisionTreeRegressor::fit_weak_learner(x, y, samples, num_attributes, parameters)
+        DecisionTreeRegressor::fit_weak_learner(
+            x,
+            y,
+            samples,
+            num_attributes,
+            parameters,
+        )
     }
 
     pub(crate) fn fit_weak_learner(

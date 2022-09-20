@@ -59,7 +59,7 @@ impl BBDTree {
         tree
     }
 
-    pub(in crate) fn clustering(
+    pub(crate) fn clustering(
         &self,
         centroids: &[Vec<f64>],
         sums: &mut Vec<Vec<f64>>,

@@ -254,6 +254,29 @@ mod tests {
     use crate::linalg::dense::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
+    #[test]
+    fn search_parameters() {
+        let parameters = LassoSearchParameters {
+            alpha: vec![0., 1.],
+            max_iter: vec![10, 100],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 100);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 100);
+        assert!(iter.next().is_none());
+    }
+
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lasso_fit_predict() {

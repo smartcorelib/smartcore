@@ -87,8 +87,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
         if bn != rn {
             return Err(Failed::because(
                 FailedError::SolutionFailed,
-                &"Can\'t solve Ax = b for x. Number of rows in b != number of rows in R."
-                    .to_string(),
+                "Can\'t solve Ax = b for x. Number of rows in b != number of rows in R.",
             ));
         }
 
@@ -128,7 +127,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         if m != n {
             return Err(Failed::because(
                 FailedError::DecompositionFailed,
-                &"Can\'t do Cholesky decomposition on a non-square matrix".to_string(),
+                "Can\'t do Cholesky decomposition on a non-square matrix",
             ));
         }
 
@@ -148,7 +147,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             if d < T::zero() {
                 return Err(Failed::because(
                     FailedError::DecompositionFailed,
-                    &"The matrix is not positive definite.".to_string(),
+                    "The matrix is not positive definite.",
                 ));
             }
 

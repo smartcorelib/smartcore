@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "The most advanced machine learning library in rust."
 homepage = "https://smartcorelib.org"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["SmartCore Developers"]
 edition = "2018"
 license = "Apache-2.0"
@@ -17,6 +17,7 @@ default = ["datasets", "serde"]
 ndarray-bindings = ["ndarray"]
 nalgebra-bindings = ["nalgebra"]
 datasets = []
+fp_bench = ["itertools"]
 
 [dependencies]
 ndarray = { version = "0.15", optional = true }
@@ -27,12 +28,14 @@ rand = "0.8.3"
 rand_distr = "0.4.0"
 approx = "0.4"
 serde = { version = "1.0.115", features = ["derive"], optional = true }
+itertools = { version = "0.10.3", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
-criterion = "0.3"
+smartcore = { path = ".", features = ["fp_bench"] }
+criterion = { version = "0.4", default-features = false }
 serde_json = "1.0"
 bincode = "1.3.1"
 
@@ -47,3 +50,8 @@ harness = false
 name = "naive_bayes"
 harness = false
 required-features = ["ndarray-bindings", "nalgebra-bindings"]
+
+[[bench]]
+name = "fastpair"
+harness = false
+required-features = ["fp_bench"]

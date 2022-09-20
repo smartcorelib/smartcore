@@ -71,7 +71,7 @@ use crate::num::Number;
 #[derive(Debug)]
 pub struct KMeans<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     k: usize,
-    y: Vec<usize>,
+    _y: Vec<usize>,
     size: Vec<usize>,
     distortion: f64,
     centroids: Vec<Vec<f64>>,
@@ -216,9 +216,9 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
 
         Ok(KMeans {
             k: parameters.k,
-            y,
+            _y: y,
             size,
-            distortion,
+            distortion: distortion,
             centroids,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
@@ -375,7 +375,7 @@ mod tests {
         let y: Vec<usize> = kmeans.predict(&x).unwrap();
 
         for i in 0..y.len() {
-            assert_eq!(y[i] as usize, kmeans.y[i]);
+            assert_eq!(y[i] as usize, kmeans._y[i]);
         }
     }
 

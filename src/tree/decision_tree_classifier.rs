@@ -21,6 +21,8 @@
 //! Example:
 //!
 //! ```
+//! use rand::Rng;
+//! 
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_classifier::*;
 //!
@@ -68,6 +70,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -210,7 +213,7 @@ impl Default for DecisionTreeClassifierParameters {
 impl Node {
     fn new(index: usize, output: usize) -> Self {
         Node {
-            index,
+            index: index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -291,7 +294,7 @@ impl<'a, TX: Number + PartialOrd, X: Array2<TX>> NodeVisitor<'a, TX, X> {
     }
 }
 
-pub(in crate) fn which_max(x: &[usize]) -> usize {
+pub(crate) fn which_max(x: &[usize]) -> usize {
     let mut m = x[0];
     let mut which = 0;
 
@@ -335,7 +338,13 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     ) -> Result<DecisionTreeClassifier<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
-        DecisionTreeClassifier::fit_weak_learner(x, y, samples, num_attributes, parameters)
+        DecisionTreeClassifier::fit_weak_learner(
+            x,
+            y,
+            samples,
+            num_attributes,
+            parameters,
+        )
     }
 
     pub(crate) fn fit_weak_learner(

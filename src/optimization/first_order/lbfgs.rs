@@ -222,7 +222,7 @@ impl<T: FloatNumber> FirstOrderOptimizer<T> for LBFGS {
     ) -> OptimizerResult<T, X> {
         let mut state = self.init_state(x0);
 
-        df(&mut state.x_df, &x0);
+        df(&mut state.x_df, x0);
 
         let g_converged = state.x_df.norm(std::f64::INFINITY) < self.g_atol;
         let mut converged = g_converged;

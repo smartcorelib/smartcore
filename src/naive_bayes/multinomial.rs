@@ -209,7 +209,7 @@ impl<TY: Number + Ord + Unsigned> MultinomialNBDistribution<TY> {
     }
 }
 
-/// MultinomialNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// MultinomialNB implements the naive Bayes algorithm for multinomially distributed data.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct MultinomialNB<

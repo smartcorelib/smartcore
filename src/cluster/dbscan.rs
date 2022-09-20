@@ -166,7 +166,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         parameters: DBSCANParameters<TX, D>,
     ) -> Result<DBSCAN<TX, TY, X, Y, D>, Failed> {
         if parameters.min_samples < 1 {
-            return Err(Failed::fit(&"Invalid minPts".to_string()));
+            return Err(Failed::fit("Invalid minPts"));
         }
 
         if parameters.eps <= 0f64 {

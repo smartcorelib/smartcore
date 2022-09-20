@@ -6,7 +6,7 @@
     clippy::upper_case_acronyms
 )]
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
+#![warn(rustdoc::missing_doc_code_examples)]
 
 //! # SmartCore
 //!
@@ -96,6 +96,8 @@ pub mod num;
 pub(crate) mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;
+/// Reading in Data.
+pub mod readers;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods

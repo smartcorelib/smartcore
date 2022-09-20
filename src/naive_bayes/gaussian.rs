@@ -32,7 +32,7 @@ use crate::num::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Naive Bayes classifier for categorical features
+/// Naive Bayes classifier using Gaussian distribution
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 struct GaussianNBDistribution<T: Number> {
@@ -179,7 +179,8 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
     }
 }
 
-/// GaussianNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// GaussianNB implements the naive Bayes algorithm for data that follows the Gaussian
+/// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct GaussianNB<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> {

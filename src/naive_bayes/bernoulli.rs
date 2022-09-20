@@ -248,7 +248,8 @@ impl<TY: Number + Ord + Unsigned> BernoulliNBDistribution<TY> {
     }
 }
 
-/// BernoulliNB implements the categorical naive Bayes algorithm for categorically distributed data.
+/// BernoulliNB implements the naive Bayes algorithm for data that follows the Bernoulli
+/// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct BernoulliNB<
