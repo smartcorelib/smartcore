@@ -101,3 +101,5 @@ pub mod readers;
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
+
+pub(crate) mod rand;

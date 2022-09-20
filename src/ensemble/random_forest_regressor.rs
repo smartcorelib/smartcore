@@ -43,8 +43,8 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::Rng;
+
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -55,6 +55,7 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::{Failed, FailedError};
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+use crate::rand::get_rng_impl;
 use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
 };
@@ -191,7 +192,7 @@ impl<T: RealNumber> RandomForestRegressor<T> {
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        let mut rng = StdRng::seed_from_u64(parameters.seed);
+        let mut rng = get_rng_impl(Some(parameters.seed));
         let mut trees: Vec<DecisionTreeRegressor<T>> = Vec::new();
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
@@ -208,9 +209,9 @@ impl<T: RealNumber> RandomForestRegressor<T> {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
+                seed: Some(parameters.seed),
             };
-            let tree =
-                DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params, &mut rng)?;
+            let tree = DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
         }
 
