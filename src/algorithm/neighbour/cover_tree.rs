@@ -61,17 +61,10 @@ impl<T, D: Distance<T>> PartialEq for CoverTree<T, D> {
 #[derive(Debug)]
 struct Node {
     idx: usize,
-<<<<<<< HEAD
     max_dist: f64,
     parent_dist: f64,
     children: Vec<Node>,
     scale: i64,
-=======
-    max_dist: F,
-    parent_dist: F,
-    children: Vec<Node<F>>,
-    _scale: i64,
->>>>>>> 436da104d7d6e96c43b58c106ade158ac9c5d446
 }
 
 #[derive(Debug)]
@@ -91,7 +84,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
             max_dist: 0f64,
             parent_dist: 0f64,
             children: Vec::new(),
-            _scale: 0,
+            scale: 0,
         };
         let mut tree = CoverTree {
             base,
@@ -252,7 +245,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
             max_dist: 0f64,
             parent_dist: 0f64,
             children: Vec::new(),
-            _scale: 100,
+            scale: 100,
         }
     }
 
@@ -313,7 +306,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
                     max_dist: 0f64,
                     parent_dist: 0f64,
                     children,
-                    _scale: 100,
+                    scale: 100,
                 }
             } else {
                 let mut far: Vec<DistanceSet> = Vec::new();
@@ -382,7 +375,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
                         max_dist: self.max(consumed_set),
                         parent_dist: 0f64,
                         children,
-                        _scale: (top_scale - max_scale),
+                        scale: (top_scale - max_scale),
                     }
                 }
             }
