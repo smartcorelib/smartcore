@@ -776,8 +776,13 @@ mod tests {
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
+        let acc = accuracy(&y_hat, &y);
 
-        assert!(accuracy(&y_hat, &y) >= 0.9);
+        assert!(
+            acc >= 0.9,
+            "accuracy ({}) is not larger or equal to 0.9",
+            acc
+        );
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -860,7 +865,13 @@ mod tests {
         .and_then(|lr| lr.predict(&x))
         .unwrap();
 
-        assert!(accuracy(&y_hat, &y) >= 0.9);
+        let acc = accuracy(&y_hat, &y);
+
+        assert!(
+            acc >= 0.9,
+            "accuracy ({}) is not larger or equal to 0.9",
+            acc
+        );
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
