@@ -114,6 +114,76 @@ impl<T: RealNumber> Default for MultinomialNBParameters<T> {
     }
 }
 
+/// MultinomialNB grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct MultinomialNBSearchParameters<T: RealNumber> {
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub alpha: Vec<T>,
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub priors: Vec<Option<Vec<T>>>,
+}
+
+/// MultinomialNB grid search iterator
+pub struct MultinomialNBSearchParametersIterator<T: RealNumber> {
+    multinomial_nb_search_parameters: MultinomialNBSearchParameters<T>,
+    current_alpha: usize,
+    current_priors: usize,
+}
+
+impl<T: RealNumber> IntoIterator for MultinomialNBSearchParameters<T> {
+    type Item = MultinomialNBParameters<T>;
+    type IntoIter = MultinomialNBSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        MultinomialNBSearchParametersIterator {
+            multinomial_nb_search_parameters: self,
+            current_alpha: 0,
+            current_priors: 0,
+        }
+    }
+}
+
+impl<T: RealNumber> Iterator for MultinomialNBSearchParametersIterator<T> {
+    type Item = MultinomialNBParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.multinomial_nb_search_parameters.alpha.len()
+            && self.current_priors == self.multinomial_nb_search_parameters.priors.len()
+        {
+            return None;
+        }
+
+        let next = MultinomialNBParameters {
+            alpha: self.multinomial_nb_search_parameters.alpha[self.current_alpha],
+            priors: self.multinomial_nb_search_parameters.priors[self.current_priors].clone(),
+        };
+
+        if self.current_alpha + 1 < self.multinomial_nb_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_priors + 1 < self.multinomial_nb_search_parameters.priors.len() {
+            self.current_alpha = 0;
+            self.current_priors += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_priors += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber> Default for MultinomialNBSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = MultinomialNBParameters::default();
+
+        MultinomialNBSearchParameters {
+            alpha: vec![default_params.alpha],
+            priors: vec![default_params.priors],
+        }
+    }
+}
+
 impl<T: RealNumber> MultinomialNBDistribution<T> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
@@ -296,6 +366,20 @@ impl<T: RealNumber, M: Matrix<T>> MultinomialNB<T, M> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = MultinomialNBSearchParameters {
+            alpha: vec![1., 2.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 2.);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

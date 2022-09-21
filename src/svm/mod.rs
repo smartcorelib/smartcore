@@ -33,7 +33,7 @@ use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
 /// Defines a kernel function
-pub trait Kernel<T: RealNumber, V: BaseVector<T>> {
+pub trait Kernel<T: RealNumber, V: BaseVector<T>>: Clone {
     /// Apply kernel function to x_i and x_j
     fn apply(&self, x_i: &V, x_j: &V) -> T;
 }
@@ -95,12 +95,12 @@ impl Kernels {
 
 /// Linear Kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinearKernel {}
 
 /// Radial basis function (Gaussian) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RBFKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,
@@ -108,7 +108,7 @@ pub struct RBFKernel<T: RealNumber> {
 
 /// Polynomial kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PolynomialKernel<T: RealNumber> {
     /// degree of the polynomial
     pub degree: T,
@@ -120,7 +120,7 @@ pub struct PolynomialKernel<T: RealNumber> {
 
 /// Sigmoid (hyperbolic tangent) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SigmoidKernel<T: RealNumber> {
     /// kernel coefficient
     pub gamma: T,
