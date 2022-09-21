@@ -103,7 +103,7 @@ pub struct LogisticRegressionSearchParametersIterator<T: Number> {
     current_alpha: usize,
 }
 
-impl<T: Number> IntoIterator for LogisticRegressionSearchParameters<T> {
+impl<T: FloatNumber> IntoIterator for LogisticRegressionSearchParameters<T> {
     type Item = LogisticRegressionParameters<T>;
     type IntoIter = LogisticRegressionSearchParametersIterator<T>;
 
@@ -116,7 +116,7 @@ impl<T: Number> IntoIterator for LogisticRegressionSearchParameters<T> {
     }
 }
 
-impl<T: Number> Iterator for LogisticRegressionSearchParametersIterator<T> {
+impl<T: FloatNumber> Iterator for LogisticRegressionSearchParametersIterator<T> {
     type Item = LogisticRegressionParameters<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -192,7 +192,7 @@ struct BinaryObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     _phantom_t: PhantomData<T>,
 }
 
-impl LogisticRegressionParameters<T: FloatNumber> {
+impl<T: FloatNumber> LogisticRegressionParameters<T> {
     /// Solver to use for estimation of regression coefficients.
     pub fn with_solver(mut self, solver: LogisticRegressionSolverName) -> Self {
         self.solver = solver;
@@ -205,7 +205,7 @@ impl LogisticRegressionParameters<T: FloatNumber> {
     }
 }
 
-impl Default for LogisticRegressionParameters<T: FloatNumber> {
+impl<T: FloatNumber> Default for LogisticRegressionParameters<T> {
     fn default() -> Self {
         LogisticRegressionParameters {
             solver: LogisticRegressionSolverName::LBFGS,
@@ -365,9 +365,9 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
 }
 
 impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    SupervisedEstimator<X, Y, LogisticRegressionParameters> for LogisticRegression<TX, TY, X, Y>
+    SupervisedEstimator<X, Y, LogisticRegressionParameters<TX>> for LogisticRegression<TX, TY, X, Y>
 {
-    fn fit(x: &X, y: &Y, parameters: LogisticRegressionParameters) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: LogisticRegressionParameters<TX>) -> Result<Self, Failed> {
         LogisticRegression::fit(x, y, parameters)
     }
 }
@@ -390,7 +390,7 @@ impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     pub fn fit(
         x: &X,
         y: &Y,
-        parameters: LogisticRegressionParameters,
+        parameters: LogisticRegressionParameters<TX>,
     ) -> Result<LogisticRegression<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let y_nrows = y.shape();

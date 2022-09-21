@@ -2,7 +2,6 @@ use std::fmt::{Debug, Display};
 use std::ops::Range;
 
 use crate::linalg::base::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
-use crate::num::{FloatNumber, Number};
 
 #[derive(Debug)]
 pub struct VecMutView<'a, T: Debug + Display + Copy + Sized> {

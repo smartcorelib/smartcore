@@ -114,7 +114,7 @@ pub struct RidgeRegressionSearchParametersIterator<T: FloatNumber> {
 }
 
 impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
-    type Item = RidgeRegressionParameters<T>;
+    type Item = RidgeRegressionParameters;
     type IntoIter = RidgeRegressionSearchParametersIterator<T>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -128,7 +128,7 @@ impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
 }
 
 impl<T: FloatNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
-    type Item = RidgeRegressionParameters<T>;
+    type Item = RidgeRegressionParameters;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_alpha == self.ridge_regression_search_parameters.alpha.len()
