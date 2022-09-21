@@ -281,11 +281,7 @@ impl Iterator for DecisionTreeClassifierSearchParametersIterator {
                     .decision_tree_classifier_search_parameters
                     .min_samples_split
                     .len()
-            && self.current_seed
-                == self
-                    .decision_tree_classifier_search_parameters
-                    .seed
-                    .len()
+            && self.current_seed == self.decision_tree_classifier_search_parameters.seed.len()
         {
             return None;
         }
@@ -302,9 +298,7 @@ impl Iterator for DecisionTreeClassifierSearchParametersIterator {
             min_samples_split: self
                 .decision_tree_classifier_search_parameters
                 .min_samples_split[self.current_min_samples_split],
-                seed: self
-                .decision_tree_classifier_search_parameters
-                .seed[self.current_seed],
+            seed: self.decision_tree_classifier_search_parameters.seed[self.current_seed],
         };
 
         if self.current_criterion + 1

@@ -203,11 +203,7 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
                     .decision_tree_regressor_search_parameters
                     .min_samples_split
                     .len()
-            && self.current_seed
-                == self
-                    .decision_tree_regressor_search_parameters
-                    .seed
-                    .len()
+            && self.current_seed == self.decision_tree_regressor_search_parameters.seed.len()
         {
             return None;
         }
@@ -221,9 +217,7 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
             min_samples_split: self
                 .decision_tree_regressor_search_parameters
                 .min_samples_split[self.current_min_samples_split],
-            seed: self
-                .decision_tree_regressor_search_parameters
-                .seed[self.current_seed],
+            seed: self.decision_tree_regressor_search_parameters.seed[self.current_seed],
         };
 
         if self.current_max_depth + 1
@@ -250,11 +244,7 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
             self.current_max_depth = 0;
             self.current_min_samples_leaf = 0;
             self.current_min_samples_split += 1;
-        } else if self.current_seed + 1
-            < self
-                .decision_tree_regressor_search_parameters
-                .seed
-                .len()
+        } else if self.current_seed + 1 < self.decision_tree_regressor_search_parameters.seed.len()
         {
             self.current_max_depth = 0;
             self.current_min_samples_leaf = 0;
