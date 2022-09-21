@@ -118,8 +118,8 @@ impl<T: RealNumber> Default for KNNRegressorParameters<T, Euclidian> {
     fn default() -> Self {
         KNNRegressorParameters {
             distance: Distances::euclidian(),
-            algorithm: KNNAlgorithmName::CoverTree,
-            weight: KNNWeightFunction::Uniform,
+            algorithm: KNNAlgorithmName::default(),
+            weight: KNNWeightFunction::default(),
             k: 3,
             t: PhantomData,
         }

@@ -69,6 +69,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for SVD<T, M> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVD parameters
 pub struct SVDParameters {

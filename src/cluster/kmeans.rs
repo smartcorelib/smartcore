@@ -102,6 +102,7 @@ impl<T: RealNumber> PartialEq for KMeans<T> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// K-Means clustering algorithm parameters
 pub struct KMeansParameters {

@@ -123,6 +123,12 @@ pub enum SplitCriterion {
     ClassificationError,
 }
 
+impl Default for SplitCriterion {
+    fn default() -> Self {
+        SplitCriterion::Gini
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 struct Node<T: RealNumber> {
@@ -201,7 +207,7 @@ impl DecisionTreeClassifierParameters {
 impl Default for DecisionTreeClassifierParameters {
     fn default() -> Self {
         DecisionTreeClassifierParameters {
-            criterion: SplitCriterion::Gini,
+            criterion: SplitCriterion::default(),
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,

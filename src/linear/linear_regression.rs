@@ -80,6 +80,12 @@ pub enum LinearRegressionSolverName {
     SVD,
 }
 
+impl Default for LinearRegressionSolverName {
+    fn default() -> Self {
+        LinearRegressionSolverName::SVD
+    }
+}
+
 /// Linear Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -109,7 +115,7 @@ impl LinearRegressionParameters {
 impl Default for LinearRegressionParameters {
     fn default() -> Self {
         LinearRegressionParameters {
-            solver: LinearRegressionSolverName::SVD,
+            solver: LinearRegressionSolverName::default(),
         }
     }
 }

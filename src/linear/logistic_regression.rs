@@ -75,6 +75,12 @@ pub enum LogisticRegressionSolverName {
     LBFGS,
 }
 
+impl Default for LogisticRegressionSolverName {
+    fn default() -> Self {
+        LogisticRegressionSolverName::LBFGS
+    }
+}
+
 /// Logistic Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -208,7 +214,7 @@ impl<T: RealNumber> LogisticRegressionParameters<T> {
 impl<T: RealNumber> Default for LogisticRegressionParameters<T> {
     fn default() -> Self {
         LogisticRegressionParameters {
-            solver: LogisticRegressionSolverName::LBFGS,
+            solver: LogisticRegressionSolverName::default(),
             alpha: T::zero(),
         }
     }

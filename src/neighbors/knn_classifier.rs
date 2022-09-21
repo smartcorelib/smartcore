@@ -116,8 +116,8 @@ impl<T: RealNumber> Default for KNNClassifierParameters<T, Euclidian> {
     fn default() -> Self {
         KNNClassifierParameters {
             distance: Distances::euclidian(),
-            algorithm: KNNAlgorithmName::CoverTree,
-            weight: KNNWeightFunction::Uniform,
+            algorithm: KNNAlgorithmName::default(),
+            weight: KNNWeightFunction::default(),
             k: 3,
             t: PhantomData,
         }

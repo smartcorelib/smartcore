@@ -65,6 +65,7 @@ pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
     eps: T,
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// DBSCAN clustering algorithm parameters
 pub struct DBSCANParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
@@ -229,7 +230,7 @@ impl<T: RealNumber> Default for DBSCANParameters<T, Euclidian> {
             distance: Distances::euclidian(),
             min_samples: 5,
             eps: T::half(),
-            algorithm: KNNAlgorithmName::CoverTree,
+            algorithm: KNNAlgorithmName::default(),
         }
     }
 }

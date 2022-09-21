@@ -83,6 +83,7 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// PCA parameters
 pub struct PCAParameters {
