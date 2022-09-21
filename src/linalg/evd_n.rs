@@ -467,7 +467,7 @@ fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &
                     A.set((nn, nn), x);
                     A.set((nn - 1, nn - 1), y + t);
                     if q >= T::zero() {
-                        z = p + z.copysign(p);
+                        z = p + FloatNumber::copysign(z, p);
                         d[nn - 1] = x + z;
                         d[nn] = x + z;
                         if z != T::zero() {
@@ -517,9 +517,9 @@ fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &
                             A.sub_element_mut((i, i), x);
                         }
                         s = A.get((nn, nn - 1)).abs() + A.get((nn - 1, nn - 2)).abs();
-                        y = T::from(0.75).unwrap() * s;
-                        x = T::from(0.75).unwrap() * s;
-                        w = T::from(-0.4375).unwrap() * s * s;
+                        y = T::from_f64(0.75).unwrap() * s;
+                        x = T::from_f64(0.75).unwrap() * s;
+                        w = T::from_f64(-0.4375).unwrap() * s * s;
                     }
                     its += 1;
                     let mut m = nn - 2;
@@ -566,7 +566,7 @@ fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &
                                 r /= x;
                             }
                         }
-                        let s = (p * p + q * q + r * r).sqrt().copysign(p);
+                        let s = FloatNumber::copysign((p * p + q * q + r * r).sqrt(), p);
                         if s != T::zero() {
                             if k == m {
                                 if l != m {

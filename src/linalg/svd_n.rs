@@ -116,7 +116,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
                     }
 
                     let mut f = *U.get((i, i));
-                    g = -s.sqrt().copysign(f);
+                    g = -FloatNumber::copysign(s.sqrt(), f);
                     let h = f * g - s;
                     U.set((i, i), f - g);
                     for j in l - 1..n {
@@ -152,7 +152,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
                     }
 
                     let f = *U.get((i, l - 1));
-                    g = -s.sqrt().copysign(f);
+                    g = -FloatNumber::copysign(s.sqrt(), f);
                     let h = f * g - s;
                     U.set((i, l - 1), f - g);
 
@@ -299,7 +299,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
                 let mut h = rv1[k];
                 let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (T::two() * h * y);
                 g = f.hypot(T::one());
-                f = ((x - z) * (x + z) + h * ((y / (f + g.copysign(f))) - h)) / x;
+                f = ((x - z) * (x + z) + h * ((y / (f + FloatNumber::copysign(g, f))) - h)) / x;
                 let mut c = T::one();
                 let mut s = T::one();
 
