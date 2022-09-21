@@ -148,6 +148,8 @@ pub struct DecisionTreeRegressorSearchParameters {
     pub min_samples_leaf: Vec<usize>,
     /// The minimum number of samples required to split an internal node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub min_samples_split: Vec<usize>,
+    /// Controls the randomness of the estimator
+    pub seed: Vec<Option<u64>>,
 }
 
 /// DecisionTreeRegressor grid search iterator
@@ -156,6 +158,7 @@ pub struct DecisionTreeRegressorSearchParametersIterator {
     current_max_depth: usize,
     current_min_samples_leaf: usize,
     current_min_samples_split: usize,
+    current_seed: usize,
 }
 
 impl IntoIterator for DecisionTreeRegressorSearchParameters {
@@ -168,6 +171,7 @@ impl IntoIterator for DecisionTreeRegressorSearchParameters {
             current_max_depth: 0,
             current_min_samples_leaf: 0,
             current_min_samples_split: 0,
+            current_seed: 0,
         }
     }
 }
@@ -191,6 +195,7 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
                     .decision_tree_regressor_search_parameters
                     .min_samples_split
                     .len()
+            && self.current_seed == self.decision_tree_regressor_search_parameters.seed.len()
         {
             return None;
         }
@@ -204,6 +209,7 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
             min_samples_split: self
                 .decision_tree_regressor_search_parameters
                 .min_samples_split[self.current_min_samples_split],
+            seed: self.decision_tree_regressor_search_parameters.seed[self.current_seed],
         };
 
         if self.current_max_depth + 1
@@ -230,10 +236,17 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
             self.current_max_depth = 0;
             self.current_min_samples_leaf = 0;
             self.current_min_samples_split += 1;
+        } else if self.current_seed + 1 < self.decision_tree_regressor_search_parameters.seed.len()
+        {
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split = 0;
+            self.current_seed += 1;
         } else {
             self.current_max_depth += 1;
             self.current_min_samples_leaf += 1;
             self.current_min_samples_split += 1;
+            self.current_seed += 1;
         }
 
         Some(next)
@@ -248,6 +261,7 @@ impl Default for DecisionTreeRegressorSearchParameters {
             max_depth: vec![default_params.max_depth],
             min_samples_leaf: vec![default_params.min_samples_leaf],
             min_samples_split: vec![default_params.min_samples_split],
+            seed: vec![default_params.seed],
         }
     }
 }
