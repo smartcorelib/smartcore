@@ -82,11 +82,11 @@ pub enum RidgeRegressionSolverName {
 /// Ridge Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RidgeRegressionParameters {
+pub struct RidgeRegressionParameters<T: FloatNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
     /// Controls the strength of the penalty to the loss function.
-    pub alpha: f64,
+    pub alpha: T,
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
@@ -114,7 +114,7 @@ pub struct RidgeRegressionSearchParametersIterator<T: FloatNumber> {
 }
 
 impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
-    type Item = RidgeRegressionParameters;
+    type Item = RidgeRegressionParameters<T>;
     type IntoIter = RidgeRegressionSearchParametersIterator<T>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -128,7 +128,7 @@ impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
 }
 
 impl<T: FloatNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
-    type Item = RidgeRegressionParameters;
+    type Item = RidgeRegressionParameters<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_alpha == self.ridge_regression_search_parameters.alpha.len()
@@ -192,9 +192,9 @@ pub struct RidgeRegression<
     _phantom_y: PhantomData<Y>,
 }
 
-impl RidgeRegressionParameters {
+impl<T:FloatNumber> RidgeRegressionParameters<T> {
     /// Regularization parameter.
-    pub fn with_alpha(mut self, alpha: f64) -> Self {
+    pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;
         self
     }
@@ -210,11 +210,11 @@ impl RidgeRegressionParameters {
     }
 }
 
-impl Default for RidgeRegressionParameters {
+impl<T: FloatNumber> Default for RidgeRegressionParameters<T> {
     fn default() -> Self {
         RidgeRegressionParameters {
             solver: RidgeRegressionSolverName::Cholesky,
-            alpha: 1f64,
+            alpha: T::from_f64(1.0).unwrap(),
             normalize: true,
         }
     }
@@ -243,9 +243,9 @@ impl<
         TY: Number,
         X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, RidgeRegressionParameters> for RidgeRegression<TX, TY, X, Y>
+    > SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
 {
-    fn fit(x: &X, y: &Y, parameters: RidgeRegressionParameters) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: RidgeRegressionParameters<TX>) -> Result<Self, Failed> {
         RidgeRegression::fit(x, y, parameters)
     }
 }
@@ -276,7 +276,7 @@ impl<
     pub fn fit(
         x: &X,
         y: &Y,
-        parameters: RidgeRegressionParameters,
+        parameters: RidgeRegressionParameters<TX>,
     ) -> Result<RidgeRegression<TX, TY, X, Y>, Failed> {
         //w = inv(X^t X + alpha*Id) * X.T y
 
@@ -306,7 +306,7 @@ impl<
             let mut x_t_x = x_t.matmul(&scaled_x);
 
             for i in 0..p {
-                x_t_x.add_element_mut((i, i), TX::from_f64(parameters.alpha).unwrap());
+                x_t_x.add_element_mut((i, i), parameters.alpha);
             }
 
             let mut w = match parameters.solver {
@@ -333,7 +333,7 @@ impl<
             let mut x_t_x = x_t.matmul(x);
 
             for i in 0..p {
-                x_t_x.add_element_mut((i, i), TX::from_f64(parameters.alpha).unwrap());
+                x_t_x.add_element_mut((i, i), parameters.alpha);
             }
 
             let w = match parameters.solver {

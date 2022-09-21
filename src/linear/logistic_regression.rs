@@ -146,7 +146,7 @@ impl<T: FloatNumber> Iterator for LogisticRegressionSearchParametersIterator<T> 
     }
 }
 
-impl<T: Number> Default for LogisticRegressionSearchParameters<T> {
+impl<T: FloatNumber> Default for LogisticRegressionSearchParameters<T> {
     fn default() -> Self {
         let default_params = LogisticRegressionParameters::default();
 
@@ -188,7 +188,7 @@ trait ObjectiveFunction<T: FloatNumber, X: Array2<T>> {
 struct BinaryObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     x: &'a X,
     y: Vec<usize>,
-    alpha: f64,
+    alpha: T,
     _phantom_t: PhantomData<T>,
 }
 
@@ -199,7 +199,7 @@ impl<T: FloatNumber> LogisticRegressionParameters<T> {
         self
     }
     /// Regularization parameter.
-    pub fn with_alpha(mut self, alpha: f64) -> Self {
+    pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;
         self
     }
@@ -209,7 +209,7 @@ impl<T: FloatNumber> Default for LogisticRegressionParameters<T> {
     fn default() -> Self {
         LogisticRegressionParameters {
             solver: LogisticRegressionSolverName::LBFGS,
-            alpha: 0f64,
+            alpha: T::zero(),   
         }
     }
 }
@@ -255,13 +255,13 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
             f += wx.ln_1pe() - (T::from(self.y[i]).unwrap()) * wx;
         }
 
-        if self.alpha > 0f64 {
+        if self.alpha > T::zero() {
             let mut w_squared = T::zero();
             for i in 0..p {
                 let w = w_bias[i];
                 w_squared += w * w;
             }
-            f += T::from_f64(0.5 * self.alpha).unwrap() * w_squared;
+            f += T::from_f64(0.5).unwrap() * self.alpha * w_squared;
         }
 
         f
@@ -282,10 +282,10 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
             g[p] -= dyi;
         }
 
-        if self.alpha > 0f64 {
+        if self.alpha > T::zero() {
             for i in 0..p {
                 let w = w_bias[i];
-                g[i] += T::from_f64(self.alpha).unwrap() * w;
+                g[i] += self.alpha * w;
             }
         }
     }
@@ -295,7 +295,7 @@ struct MultiClassObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     x: &'a X,
     y: Vec<usize>,
     k: usize,
-    alpha: f64,
+    alpha: T,
     _phantom_t: PhantomData<T>,
 }
 
@@ -314,7 +314,7 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
             f -= prob[self.y[i]].ln();
         }
 
-        if self.alpha > 0f64 {
+        if self.alpha > T::zero() {
             let mut w_squared = T::zero();
             for i in 0..self.k {
                 for j in 0..p {
@@ -322,7 +322,7 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
                     w_squared += wi * wi;
                 }
             }
-            f += T::from_f64(0.5 * self.alpha).unwrap() * w_squared;
+            f += T::from_f64(0.5).unwrap() * self.alpha * w_squared;
         }
 
         f
@@ -352,12 +352,12 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
             }
         }
 
-        if self.alpha > 0f64 {
+        if self.alpha > T::zero() {
             for i in 0..self.k {
                 for j in 0..p {
                     let pos = i * (p + 1);
                     let wi = w[pos + j];
-                    g[pos + j] += T::from_f64(self.alpha).unwrap() * wi;
+                    g[pos + j] += self.alpha * wi;
                 }
             }
         }
