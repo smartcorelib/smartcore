@@ -90,6 +90,60 @@ impl SVDParameters {
     }
 }
 
+/// SVD grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct SVDSearchParameters {
+    /// Maximum number of iterations of the k-means algorithm for a single run.
+    pub n_components: Vec<usize>,
+}
+
+/// SVD grid search iterator
+pub struct SVDSearchParametersIterator {
+    svd_search_parameters: SVDSearchParameters,
+    current_n_components: usize,
+}
+
+impl IntoIterator for SVDSearchParameters {
+    type Item = SVDParameters;
+    type IntoIter = SVDSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SVDSearchParametersIterator {
+            svd_search_parameters: self,
+            current_n_components: 0,
+        }
+    }
+}
+
+impl Iterator for SVDSearchParametersIterator {
+    type Item = SVDParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_n_components == self.svd_search_parameters.n_components.len() {
+            return None;
+        }
+
+        let next = SVDParameters {
+            n_components: self.svd_search_parameters.n_components[self.current_n_components],
+        };
+
+        self.current_n_components += 1;
+
+        Some(next)
+    }
+}
+
+impl Default for SVDSearchParameters {
+    fn default() -> Self {
+        let default_params = SVDParameters::default();
+
+        SVDSearchParameters {
+            n_components: vec![default_params.n_components],
+        }
+    }
+}
+
 impl<T: RealNumber, M: Matrix<T>> UnsupervisedEstimator<M, SVDParameters> for SVD<T, M> {
     fn fit(x: &M, parameters: SVDParameters) -> Result<Self, Failed> {
         SVD::fit(x, parameters)
@@ -152,6 +206,20 @@ impl<T: RealNumber, M: Matrix<T>> SVD<T, M> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = SVDSearchParameters {
+            n_components: vec![10, 100],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_components, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_components, 100);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
