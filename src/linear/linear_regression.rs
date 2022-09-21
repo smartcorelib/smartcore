@@ -71,24 +71,19 @@ use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 /// Approach to use for estimation of regression coefficients. QR is more efficient but SVD is more stable.
 pub enum LinearRegressionSolverName {
     /// QR decomposition, see [QR](../../linalg/qr/index.html)
     QR,
+    #[default]
     /// SVD decomposition, see [SVD](../../linalg/svd/index.html)
     SVD,
 }
 
-impl Default for LinearRegressionSolverName {
-    fn default() -> Self {
-        LinearRegressionSolverName::SVD
-    }
-}
-
 /// Linear Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct LinearRegressionParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -109,14 +104,6 @@ impl LinearRegressionParameters {
     pub fn with_solver(mut self, solver: LinearRegressionSolverName) -> Self {
         self.solver = solver;
         self
-    }
-}
-
-impl Default for LinearRegressionParameters {
-    fn default() -> Self {
-        LinearRegressionParameters {
-            solver: LinearRegressionSolverName::default(),
-        }
     }
 }
 
