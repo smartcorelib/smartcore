@@ -84,6 +84,7 @@ pub enum LinearRegressionSolverName {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LinearRegressionParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: LinearRegressionSolverName,
 }
@@ -117,6 +118,7 @@ impl Default for LinearRegressionParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LinearRegressionSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<LinearRegressionSolverName>,
 }
@@ -353,5 +355,9 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);
+
+        let default = LinearRegressionParameters::default();
+        let parameters: LinearRegressionParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(parameters.solver, default.solver);
     }
 }

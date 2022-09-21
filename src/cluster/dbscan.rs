@@ -68,14 +68,18 @@ pub struct DBSCAN<T: RealNumber, D: Distance<Vec<T>, T>> {
 #[derive(Debug, Clone)]
 /// DBSCAN clustering algorithm parameters
 pub struct DBSCANParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
     pub distance: D,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The number of samples (or total weight) in a neighborhood for a point to be considered as a core point.
     pub min_samples: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
     pub eps: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// KNN algorithm to use.
     pub algorithm: KNNAlgorithmName,
 }
@@ -113,14 +117,18 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> DBSCANParameters<T, D> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct DBSCANSearchParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
     pub distance: Vec<D>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The number of samples (or total weight) in a neighborhood for a point to be considered as a core point.
     pub min_samples: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum distance between two samples for one to be considered as in the neighborhood of the other.
     pub eps: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// KNN algorithm to use.
     pub algorithm: Vec<KNNAlgorithmName>,
 }

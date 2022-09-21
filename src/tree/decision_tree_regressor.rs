@@ -78,12 +78,16 @@ use crate::rand::get_rng_impl;
 #[derive(Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the tree.
     pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node.
     pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node.
     pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the randomness of the estimator
     pub seed: Option<u64>,
 }
@@ -142,12 +146,16 @@ impl Default for DecisionTreeRegressorParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct DecisionTreeRegressorSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub max_depth: Vec<Option<u16>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub min_samples_leaf: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub min_samples_split: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the randomness of the estimator
     pub seed: Vec<Option<u64>>,
 }
@@ -195,7 +203,11 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
                     .decision_tree_regressor_search_parameters
                     .min_samples_split
                     .len()
-            && self.current_seed == self.decision_tree_regressor_search_parameters.seed.len()
+            && self.current_seed
+                == self
+                    .decision_tree_regressor_search_parameters
+                    .seed
+                    .len()
         {
             return None;
         }
@@ -209,7 +221,9 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
             min_samples_split: self
                 .decision_tree_regressor_search_parameters
                 .min_samples_split[self.current_min_samples_split],
-            seed: self.decision_tree_regressor_search_parameters.seed[self.current_seed],
+            seed: self
+                .decision_tree_regressor_search_parameters
+                .seed[self.current_seed],
         };
 
         if self.current_max_depth + 1
@@ -236,7 +250,11 @@ impl Iterator for DecisionTreeRegressorSearchParametersIterator {
             self.current_max_depth = 0;
             self.current_min_samples_leaf = 0;
             self.current_min_samples_split += 1;
-        } else if self.current_seed + 1 < self.decision_tree_regressor_search_parameters.seed.len()
+        } else if self.current_seed + 1
+            < self
+                .decision_tree_regressor_search_parameters
+                .seed
+                .len()
         {
             self.current_max_depth = 0;
             self.current_min_samples_leaf = 0;

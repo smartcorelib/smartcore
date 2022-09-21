@@ -83,14 +83,19 @@ use crate::rand::get_rng_impl;
 #[derive(Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree.
     pub criterion: SplitCriterion,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the tree.
     pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node.
     pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node.
     pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the randomness of the estimator
     pub seed: Option<u64>,
 }
@@ -276,7 +281,11 @@ impl Iterator for DecisionTreeClassifierSearchParametersIterator {
                     .decision_tree_classifier_search_parameters
                     .min_samples_split
                     .len()
-            && self.current_seed == self.decision_tree_classifier_search_parameters.seed.len()
+            && self.current_seed
+                == self
+                    .decision_tree_classifier_search_parameters
+                    .seed
+                    .len()
         {
             return None;
         }
@@ -293,7 +302,9 @@ impl Iterator for DecisionTreeClassifierSearchParametersIterator {
             min_samples_split: self
                 .decision_tree_classifier_search_parameters
                 .min_samples_split[self.current_min_samples_split],
-            seed: self.decision_tree_classifier_search_parameters.seed[self.current_seed],
+                seed: self
+                .decision_tree_classifier_search_parameters
+                .seed[self.current_seed],
         };
 
         if self.current_criterion + 1

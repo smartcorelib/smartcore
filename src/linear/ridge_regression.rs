@@ -71,8 +71,10 @@ use crate::math::num::RealNumber;
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
     Cholesky,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// SVD decomposition, see [SVD](../../linalg/svd/index.html)
     SVD,
 }
@@ -94,10 +96,13 @@ pub struct RidgeRegressionParameters<T: RealNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct RidgeRegressionSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<RidgeRegressionSolverName>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: Vec<bool>,

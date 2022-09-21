@@ -79,8 +79,10 @@ pub enum LogisticRegressionSolverName {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LogisticRegressionParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: LogisticRegressionSolverName,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: T,
 }
@@ -89,8 +91,10 @@ pub struct LogisticRegressionParameters<T: RealNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LogisticRegressionSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<LogisticRegressionSolverName>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: Vec<T>,
 }
