@@ -65,7 +65,10 @@ use high_order::HighOrderOperations;
 use lu::LUDecomposableMatrix;
 use qr::QRDecomposableMatrix;
 use stats::{MatrixPreprocessing, MatrixStats};
+use std::fs;
 use svd::SVDDecomposableMatrix;
+
+use crate::readers;
 
 /// Column or row vector
 pub trait BaseVector<T: RealNumber>: Clone + Debug {
@@ -298,8 +301,62 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     /// represents a row in this matrix.
     type RowVector: BaseVector<T> + Clone + Debug;
 
+    /// Create a matrix from a csv file.
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+    /// use smartcore::linalg::BaseMatrix;
+    /// use smartcore::readers::csv;
+    /// use std::fs;
+    ///
+    /// fs::write("identity.csv", "header\n1.0,0.0\n0.0,1.0");
+    /// assert_eq!(
+    ///     DenseMatrix::<f64>::from_csv("identity.csv", csv::CSVDefinition::default()).unwrap(),
+    ///     DenseMatrix::from_row_vectors(vec![vec![1.0, 0.0], vec![0.0, 1.0]]).unwrap()
+    /// );
+    /// fs::remove_file("identity.csv");
+    /// ```
+    fn from_csv(
+        path: &str,
+        definition: readers::csv::CSVDefinition<'_>,
+    ) -> Result<Self, readers::ReadingError> {
+        readers::csv::matrix_from_csv_source(fs::File::open(path)?, definition)
+    }
+
     /// Transforms row vector `vec` into a 1xM matrix.
     fn from_row_vector(vec: Self::RowVector) -> Self;
+
+    /// Transforms Vector of n rows with dimension m into
+    /// a matrix nxm.
+    /// ```
+    /// use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+    /// use crate::smartcore::linalg::BaseMatrix;
+    ///
+    /// let eye = DenseMatrix::from_row_vectors(vec![vec![1., 0., 0.], vec![0., 1., 0.], vec![0., 0., 1.]])
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///    eye,
+    ///    DenseMatrix::from_2d_vec(&vec![
+    ///        vec![1.0, 0.0, 0.0],
+    ///        vec![0.0, 1.0, 0.0],
+    ///        vec![0.0, 0.0, 1.0],
+    ///    ])
+    /// );
+    fn from_row_vectors(rows: Vec<Self::RowVector>) -> Option<Self> {
+        if rows.is_empty() {
+            return None;
+        }
+        let n = rows.len();
+        let m = rows[0].len();
+
+        let mut result = Self::zeros(n, m);
+
+        for (row_idx, row) in rows.into_iter().enumerate() {
+            result.set_row(row_idx, row);
+        }
+
+        Some(result)
+    }
 
     /// Transforms 1-d matrix of 1xM into a row vector.
     fn to_row_vector(self) -> Self::RowVector;
@@ -321,6 +378,13 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
     /// * `row` - row number
     /// * `result` - receiver for the row
     fn copy_row_as_vec(&self, row: usize, result: &mut Vec<T>);
+
+    /// Set row vector at row `row_idx`.
+    fn set_row(&mut self, row_idx: usize, row: Self::RowVector) {
+        for (col_idx, val) in row.to_vec().into_iter().enumerate() {
+            self.set(row_idx, col_idx, val);
+        }
+    }
 
     /// Get a vector with elements of the `col`'th column
     /// * `col` - column number
@@ -651,6 +715,10 @@ pub trait BaseMatrix<T: RealNumber>: Clone + Debug {
 
         result
     }
+    /// Take an individual column from the matrix.
+    fn take_column(&self, column_index: usize) -> Self {
+        self.take(&[column_index], 1)
+    }
 }
 
 /// Generic matrix with additional mixins like various factorization methods.
@@ -760,5 +828,94 @@ mod tests {
 
         assert_eq!(m.take(&vec!(1, 1, 3), 0), expected_0);
         assert_eq!(m.take(&vec!(1, 0), 1), expected_1);
+    }
+
+    #[test]
+    fn take_second_column_from_matrix() {
+        let four_columns: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[0.0, 1.0, 2.0, 3.0],
+            &[0.0, 1.0, 2.0, 3.0],
+            &[0.0, 1.0, 2.0, 3.0],
+            &[0.0, 1.0, 2.0, 3.0],
+        ]);
+
+        let second_column = four_columns.take_column(1);
+        assert_eq!(
+            second_column,
+            DenseMatrix::from_2d_array(&[&[1.0], &[1.0], &[1.0], &[1.0]]),
+            "The second column was not extracted correctly"
+        );
+    }
+
+    #[test]
+    fn test_from_row_vectors_simple() {
+        let eye = DenseMatrix::from_row_vectors(vec![
+            vec![1., 0., 0.],
+            vec![0., 1., 0.],
+            vec![0., 0., 1.],
+        ])
+        .unwrap();
+        assert_eq!(
+            eye,
+            DenseMatrix::from_2d_vec(&vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0],
+            ])
+        );
+    }
+
+    #[test]
+    fn test_from_row_vectors_large() {
+        let eye = DenseMatrix::from_row_vectors(vec![vec![4.25; 5000]; 5000]).unwrap();
+
+        assert_eq!(eye.shape(), (5000, 5000));
+        assert_eq!(eye.get_row(5), vec![4.25; 5000]);
+    }
+    mod matrix_from_csv {
+
+        use crate::linalg::naive::dense_matrix::DenseMatrix;
+        use crate::linalg::BaseMatrix;
+        use crate::readers::csv;
+        use crate::readers::io_testing;
+        use crate::readers::ReadingError;
+
+        #[test]
+        fn simple_read_default_csv() {
+            let test_csv_file = io_testing::TemporaryTextFile::new(
+                "'sepal.length','sepal.width','petal.length','petal.width'\n\
+                5.1,3.5,1.4,0.2\n\
+                4.9,3,1.4,0.2\n\
+                4.7,3.2,1.3,0.2",
+            );
+
+            assert_eq!(
+                DenseMatrix::<f64>::from_csv(
+                    test_csv_file
+                        .expect("Temporary file could not be written.")
+                        .path(),
+                    csv::CSVDefinition::default()
+                ),
+                Ok(DenseMatrix::from_2d_array(&[
+                    &[5.1, 3.5, 1.4, 0.2],
+                    &[4.9, 3.0, 1.4, 0.2],
+                    &[4.7, 3.2, 1.3, 0.2],
+                ]))
+            )
+        }
+
+        #[test]
+        fn non_existant_input_file() {
+            let potential_error =
+                DenseMatrix::<f64>::from_csv("/invalid/path", csv::CSVDefinition::default());
+            // The exact message is operating system dependant, therefore, I only test that the correct type
+            // error was returned.
+            assert_eq!(
+                potential_error.clone(),
+                Err(ReadingError::CouldNotReadFileSystem {
+                    msg: String::from(potential_error.err().unwrap().message().unwrap())
+                })
+            )
+        }
     }
 }

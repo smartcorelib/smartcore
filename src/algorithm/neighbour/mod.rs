@@ -41,6 +41,10 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
+/// dissimilarities for vector-vector distance. Linkage algorithms used in fastpair
+pub mod distances;
+/// fastpair closest neighbour algorithm
+pub mod fastpair;
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
 
@@ -53,6 +57,12 @@ pub enum KNNAlgorithmName {
     LinearSearch,
     /// Cover Tree Search algorithm, see [`CoverTree`](../algorithm/neighbour/cover_tree/index.html)
     CoverTree,
+}
+
+impl Default for KNNAlgorithmName {
+    fn default() -> Self {
+        KNNAlgorithmName::CoverTree
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

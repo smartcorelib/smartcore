@@ -38,13 +38,17 @@ use crate::math::num::RealNumber;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LassoParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the strength of the penalty to the loss function.
     pub alpha: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
     pub tol: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -109,6 +113,106 @@ impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LassoPara
 impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for Lasso<T, M> {
     fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.predict(x)
+    }
+}
+
+/// Lasso grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct LassoSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the strength of the penalty to the loss function.
+    pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// If true the regressors X will be normalized before regression
+    /// by subtracting the mean and dividing by the standard deviation.
+    pub normalize: Vec<bool>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The tolerance for the optimization
+    pub tol: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The maximum number of iterations
+    pub max_iter: Vec<usize>,
+}
+
+/// Lasso grid search iterator
+pub struct LassoSearchParametersIterator<T: RealNumber> {
+    lasso_search_parameters: LassoSearchParameters<T>,
+    current_alpha: usize,
+    current_normalize: usize,
+    current_tol: usize,
+    current_max_iter: usize,
+}
+
+impl<T: RealNumber> IntoIterator for LassoSearchParameters<T> {
+    type Item = LassoParameters<T>;
+    type IntoIter = LassoSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LassoSearchParametersIterator {
+            lasso_search_parameters: self,
+            current_alpha: 0,
+            current_normalize: 0,
+            current_tol: 0,
+            current_max_iter: 0,
+        }
+    }
+}
+
+impl<T: RealNumber> Iterator for LassoSearchParametersIterator<T> {
+    type Item = LassoParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.lasso_search_parameters.alpha.len()
+            && self.current_normalize == self.lasso_search_parameters.normalize.len()
+            && self.current_tol == self.lasso_search_parameters.tol.len()
+            && self.current_max_iter == self.lasso_search_parameters.max_iter.len()
+        {
+            return None;
+        }
+
+        let next = LassoParameters {
+            alpha: self.lasso_search_parameters.alpha[self.current_alpha],
+            normalize: self.lasso_search_parameters.normalize[self.current_normalize],
+            tol: self.lasso_search_parameters.tol[self.current_tol],
+            max_iter: self.lasso_search_parameters.max_iter[self.current_max_iter],
+        };
+
+        if self.current_alpha + 1 < self.lasso_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_normalize + 1 < self.lasso_search_parameters.normalize.len() {
+            self.current_alpha = 0;
+            self.current_normalize += 1;
+        } else if self.current_tol + 1 < self.lasso_search_parameters.tol.len() {
+            self.current_alpha = 0;
+            self.current_normalize = 0;
+            self.current_tol += 1;
+        } else if self.current_max_iter + 1 < self.lasso_search_parameters.max_iter.len() {
+            self.current_alpha = 0;
+            self.current_normalize = 0;
+            self.current_tol = 0;
+            self.current_max_iter += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_normalize += 1;
+            self.current_tol += 1;
+            self.current_max_iter += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber> Default for LassoSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = LassoParameters::default();
+
+        LassoSearchParameters {
+            alpha: vec![default_params.alpha],
+            normalize: vec![default_params.normalize],
+            tol: vec![default_params.tol],
+            max_iter: vec![default_params.max_iter],
+        }
     }
 }
 
@@ -225,6 +329,29 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = LassoSearchParameters {
+            alpha: vec![0., 1.],
+            max_iter: vec![10, 100],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 100);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 100);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

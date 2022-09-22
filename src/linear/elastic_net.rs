@@ -71,16 +71,21 @@ use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct ElasticNetParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
     /// For l1_ratio = 0 the penalty is an L2 penalty.
     /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     pub l1_ratio: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
     pub tol: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -131,6 +136,126 @@ impl<T: RealNumber> Default for ElasticNetParameters<T> {
             normalize: true,
             tol: T::from_f64(1e-4).unwrap(),
             max_iter: 1000,
+        }
+    }
+}
+
+/// ElasticNet grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct ElasticNetSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Regularization parameter.
+    pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
+    /// For l1_ratio = 0 the penalty is an L2 penalty.
+    /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
+    pub l1_ratio: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
+    pub normalize: Vec<bool>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The tolerance for the optimization
+    pub tol: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The maximum number of iterations
+    pub max_iter: Vec<usize>,
+}
+
+/// ElasticNet grid search iterator
+pub struct ElasticNetSearchParametersIterator<T: RealNumber> {
+    lasso_regression_search_parameters: ElasticNetSearchParameters<T>,
+    current_alpha: usize,
+    current_l1_ratio: usize,
+    current_normalize: usize,
+    current_tol: usize,
+    current_max_iter: usize,
+}
+
+impl<T: RealNumber> IntoIterator for ElasticNetSearchParameters<T> {
+    type Item = ElasticNetParameters<T>;
+    type IntoIter = ElasticNetSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ElasticNetSearchParametersIterator {
+            lasso_regression_search_parameters: self,
+            current_alpha: 0,
+            current_l1_ratio: 0,
+            current_normalize: 0,
+            current_tol: 0,
+            current_max_iter: 0,
+        }
+    }
+}
+
+impl<T: RealNumber> Iterator for ElasticNetSearchParametersIterator<T> {
+    type Item = ElasticNetParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.lasso_regression_search_parameters.alpha.len()
+            && self.current_l1_ratio == self.lasso_regression_search_parameters.l1_ratio.len()
+            && self.current_normalize == self.lasso_regression_search_parameters.normalize.len()
+            && self.current_tol == self.lasso_regression_search_parameters.tol.len()
+            && self.current_max_iter == self.lasso_regression_search_parameters.max_iter.len()
+        {
+            return None;
+        }
+
+        let next = ElasticNetParameters {
+            alpha: self.lasso_regression_search_parameters.alpha[self.current_alpha],
+            l1_ratio: self.lasso_regression_search_parameters.alpha[self.current_l1_ratio],
+            normalize: self.lasso_regression_search_parameters.normalize[self.current_normalize],
+            tol: self.lasso_regression_search_parameters.tol[self.current_tol],
+            max_iter: self.lasso_regression_search_parameters.max_iter[self.current_max_iter],
+        };
+
+        if self.current_alpha + 1 < self.lasso_regression_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_l1_ratio + 1 < self.lasso_regression_search_parameters.l1_ratio.len()
+        {
+            self.current_alpha = 0;
+            self.current_l1_ratio += 1;
+        } else if self.current_normalize + 1
+            < self.lasso_regression_search_parameters.normalize.len()
+        {
+            self.current_alpha = 0;
+            self.current_l1_ratio = 0;
+            self.current_normalize += 1;
+        } else if self.current_tol + 1 < self.lasso_regression_search_parameters.tol.len() {
+            self.current_alpha = 0;
+            self.current_l1_ratio = 0;
+            self.current_normalize = 0;
+            self.current_tol += 1;
+        } else if self.current_max_iter + 1 < self.lasso_regression_search_parameters.max_iter.len()
+        {
+            self.current_alpha = 0;
+            self.current_l1_ratio = 0;
+            self.current_normalize = 0;
+            self.current_tol = 0;
+            self.current_max_iter += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_l1_ratio += 1;
+            self.current_normalize += 1;
+            self.current_tol += 1;
+            self.current_max_iter += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber> Default for ElasticNetSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = ElasticNetParameters::default();
+
+        ElasticNetSearchParameters {
+            alpha: vec![default_params.alpha],
+            l1_ratio: vec![default_params.l1_ratio],
+            normalize: vec![default_params.normalize],
+            tol: vec![default_params.tol],
+            max_iter: vec![default_params.max_iter],
         }
     }
 }
@@ -290,6 +415,29 @@ mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::*;
     use crate::metrics::mean_absolute_error;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = ElasticNetSearchParameters {
+            alpha: vec![0., 1.],
+            max_iter: vec![10, 100],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 100);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 100);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
