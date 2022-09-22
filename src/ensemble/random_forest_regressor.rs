@@ -263,9 +263,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
-    fn predict_for_row_oob(&self, x: &X, row: usize) -> X {
+    fn predict_for_row_oob(&self, x: &X, row: usize) -> TX {
         let mut n_trees = 0;
-        let mut result = X::zero();
+        let mut result = TX::zero();
 
         for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
             if !samples[row] {
@@ -275,7 +275,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         // TODO: What to do if there are no oob trees?
-        result / X::from(n_trees).unwrap()
+        result / TX::from(n_trees).unwrap()
     }
 
     fn sample_with_replacement(nrows: usize, rng: &mut impl Rng) -> Vec<usize> {
