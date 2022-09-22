@@ -42,7 +42,7 @@
 //!           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
 //! ];
 //!
-//! let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
+//! let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true, None);
 //!
 //! println!("X train: {:?}, y train: {}, X test: {:?}, y test: {}",
 //!             x_train.shape(), y_train.len(), x_test.shape(), y_test.len());
@@ -104,13 +104,13 @@
 //! but instead of test error it calculates predictions for all samples in the test set.
 
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::fmt::{Debug, Display};
 
 use crate::api::Predictor;
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
 use crate::num::Number;
+use crate::rand::get_rng_impl;
 
 pub(crate) mod kfold;
 
@@ -142,6 +142,7 @@ pub fn train_test_split<
     y: &Y,
     test_size: f32,
     shuffle: bool,
+    seed: Option<u64>,
 ) -> (X, X, Y, Y) {
     if x.shape().0 != y.shape() {
         panic!(
@@ -150,6 +151,7 @@ pub fn train_test_split<
             y.shape()
         );
     }
+    let mut rng = get_rng_impl(seed);
 
     if test_size <= 0. || test_size > 1.0 {
         panic!("test_size should be between 0 and 1");
@@ -166,7 +168,7 @@ pub fn train_test_split<
     let mut indices: Vec<usize> = (0..n).collect();
 
     if shuffle {
-        indices.shuffle(&mut thread_rng());
+        indices.shuffle(&mut rng);
     }
 
     let x_train = x.take(&indices[n_test..n], 0);
@@ -306,7 +308,7 @@ mod tests {
         let x: DenseMatrix<f64> = DenseMatrix::rand(n, 3);
         let y = vec![0f64; n];
 
-        let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
+        let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true, None);
 
         assert!(
             x_train.shape().0 > (n as f64 * 0.65) as usize

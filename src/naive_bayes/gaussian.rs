@@ -77,6 +77,7 @@ impl<X: Number, Y: Number + Ord + Unsigned> NBDistribution<X, Y> for GaussianNBD
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Default, Clone)]
 pub struct GaussianNBParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<f64>>,
 }
@@ -86,6 +87,67 @@ impl GaussianNBParameters {
     pub fn with_priors(mut self, priors: Vec<f64>) -> Self {
         self.priors = Some(priors);
         self
+    }
+}
+
+impl GaussianNBParameters {
+    fn default() -> Self {
+        Self { priors: None }
+    }
+}
+
+/// GaussianNB grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct GaussianNBSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub priors: Vec<Option<Vec<f64>>>,
+}
+
+/// GaussianNB grid search iterator
+pub struct GaussianNBSearchParametersIterator {
+    gaussian_nb_search_parameters: GaussianNBSearchParameters,
+    current_priors: usize,
+}
+
+impl IntoIterator for GaussianNBSearchParameters {
+    type Item = GaussianNBParameters;
+    type IntoIter = GaussianNBSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        GaussianNBSearchParametersIterator {
+            gaussian_nb_search_parameters: self,
+            current_priors: 0,
+        }
+    }
+}
+
+impl Iterator for GaussianNBSearchParametersIterator {
+    type Item = GaussianNBParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_priors == self.gaussian_nb_search_parameters.priors.len() {
+            return None;
+        }
+
+        let next = GaussianNBParameters {
+            priors: self.gaussian_nb_search_parameters.priors[self.current_priors].clone(),
+        };
+
+        self.current_priors += 1;
+
+        Some(next)
+    }
+}
+
+impl Default for GaussianNBSearchParameters {
+    fn default() -> Self {
+        let default_params = GaussianNBParameters::default();
+
+        GaussianNBSearchParameters {
+            priors: vec![default_params.priors],
+        }
     }
 }
 
@@ -259,6 +321,20 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
 mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = GaussianNBSearchParameters {
+            priors: vec![Some(vec![1.]), Some(vec![2.])],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.priors, Some(vec![1.]));
+        let next = iter.next().unwrap();
+        assert_eq!(next.priors, Some(vec![2.]));
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

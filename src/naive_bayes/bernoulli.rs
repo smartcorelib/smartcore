@@ -115,10 +115,13 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct BernoulliNBParameters<T: Number> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: f64,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<f64>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
     pub binarize: Option<T>,
 }
@@ -147,6 +150,92 @@ impl<T: Number + PartialOrd> Default for BernoulliNBParameters<T> {
             alpha: 1f64,
             priors: None,
             binarize: Some(T::zero()),
+        }
+    }
+}
+
+
+/// BernoulliNB grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct BernoulliNBSearchParameters<T: Number> {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub alpha: Vec<f64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub priors: Vec<Option<Vec<f64>>>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
+    pub binarize: Vec<Option<T>>,
+}
+
+/// BernoulliNB grid search iterator
+pub struct BernoulliNBSearchParametersIterator<T: Number> {
+    bernoulli_nb_search_parameters: BernoulliNBSearchParameters<T>,
+    current_alpha: usize,
+    current_priors: usize,
+    current_binarize: usize,
+}
+
+impl<T: Number> IntoIterator for BernoulliNBSearchParameters<T> {
+    type Item = BernoulliNBParameters<T>;
+    type IntoIter = BernoulliNBSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BernoulliNBSearchParametersIterator {
+            bernoulli_nb_search_parameters: self,
+            current_alpha: 0,
+            current_priors: 0,
+            current_binarize: 0,
+        }
+    }
+}
+
+impl<T: Number> Iterator for BernoulliNBSearchParametersIterator<T> {
+    type Item = BernoulliNBParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.bernoulli_nb_search_parameters.alpha.len()
+            && self.current_priors == self.bernoulli_nb_search_parameters.priors.len()
+            && self.current_binarize == self.bernoulli_nb_search_parameters.binarize.len()
+        {
+            return None;
+        }
+
+        let next = BernoulliNBParameters {
+            alpha: self.bernoulli_nb_search_parameters.alpha[self.current_alpha],
+            priors: self.bernoulli_nb_search_parameters.priors[self.current_priors].clone(),
+            binarize: self.bernoulli_nb_search_parameters.binarize[self.current_binarize],
+        };
+
+        if self.current_alpha + 1 < self.bernoulli_nb_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_priors + 1 < self.bernoulli_nb_search_parameters.priors.len() {
+            self.current_alpha = 0;
+            self.current_priors += 1;
+        } else if self.current_binarize + 1 < self.bernoulli_nb_search_parameters.binarize.len() {
+            self.current_alpha = 0;
+            self.current_priors = 0;
+            self.current_binarize += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_priors += 1;
+            self.current_binarize += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: Number + std::cmp::PartialOrd> Default for BernoulliNBSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = BernoulliNBParameters::<T>::default();
+
+        BernoulliNBSearchParameters {
+            alpha: vec![default_params.alpha],
+            priors: vec![default_params.priors],
+            binarize: vec![default_params.binarize],
         }
     }
 }
@@ -370,6 +459,20 @@ mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
     use crate::utils::vec_utils::approx_eq;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = BernoulliNBSearchParameters {
+            alpha: vec![1., 2.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 2.);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

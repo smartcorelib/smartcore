@@ -74,11 +74,12 @@ use crate::linalg::svd_n::SVDDecomposable;
 use crate::num::{FloatNumber, Number};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 /// Approach to use for estimation of regression coefficients. QR is more efficient but SVD is more stable.
 pub enum LinearRegressionSolverName {
     /// QR decomposition, see [QR](../../linalg/qr/index.html)
     QR,
+    #[default]
     /// SVD decomposition, see [SVD](../../linalg/svd/index.html)
     SVD,
 }
@@ -87,8 +88,17 @@ pub enum LinearRegressionSolverName {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LinearRegressionParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: LinearRegressionSolverName,
+}
+
+impl Default for LinearRegressionParameters {
+    fn default() -> Self {
+        LinearRegressionParameters {
+            solver: LinearRegressionSolverName::SVD,
+        }
+    }
 }
 
 /// Linear Regression
@@ -115,10 +125,59 @@ impl LinearRegressionParameters {
     }
 }
 
-impl Default for LinearRegressionParameters {
+
+/// Linear Regression grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct LinearRegressionSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Solver to use for estimation of regression coefficients.
+    pub solver: Vec<LinearRegressionSolverName>,
+}
+
+/// Linear Regression grid search iterator
+pub struct LinearRegressionSearchParametersIterator {
+    linear_regression_search_parameters: LinearRegressionSearchParameters,
+    current_solver: usize,
+}
+
+impl IntoIterator for LinearRegressionSearchParameters {
+    type Item = LinearRegressionParameters;
+    type IntoIter = LinearRegressionSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LinearRegressionSearchParametersIterator {
+            linear_regression_search_parameters: self,
+            current_solver: 0,
+        }
+    }
+}
+
+impl Iterator for LinearRegressionSearchParametersIterator {
+    type Item = LinearRegressionParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_solver == self.linear_regression_search_parameters.solver.len() {
+            return None;
+        }
+
+        let next = LinearRegressionParameters {
+            solver: self.linear_regression_search_parameters.solver[self.current_solver].clone(),
+        };
+
+        self.current_solver += 1;
+
+        Some(next)
+    }
+}
+
+
+impl Default for LinearRegressionSearchParameters {
     fn default() -> Self {
-        LinearRegressionParameters {
-            solver: LinearRegressionSolverName::SVD,
+        let default_params = LinearRegressionParameters::default();
+
+        LinearRegressionSearchParameters {
+            solver: vec![default_params.solver],
         }
     }
 }
@@ -338,5 +397,9 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);
+
+        let default = LinearRegressionParameters::default();
+        let parameters: LinearRegressionParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(parameters.solver, default.solver);
     }
 }

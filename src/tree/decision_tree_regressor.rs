@@ -64,6 +64,7 @@ use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use rand::Rng;
 use rand::seq::SliceRandom;
 
 #[cfg(feature = "serde")]
@@ -73,17 +74,24 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2, MutArrayView1};
 use crate::num::Number;
+use crate::rand::get_rng_impl;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the tree.
     pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node.
     pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node.
     pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the randomness of the estimator
+    pub seed: Option<u64>,
 }
 
 /// Regression Tree
@@ -136,6 +144,139 @@ impl Default for DecisionTreeRegressorParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,
+            seed: None,
+        }
+    }
+}
+
+/// DecisionTreeRegressor grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct DecisionTreeRegressorSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
+    pub max_depth: Vec<Option<u16>>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The minimum number of samples required to be at a leaf node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
+    pub min_samples_leaf: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The minimum number of samples required to split an internal node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
+    pub min_samples_split: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the randomness of the estimator
+    pub seed: Vec<Option<u64>>,
+}
+
+/// DecisionTreeRegressor grid search iterator
+pub struct DecisionTreeRegressorSearchParametersIterator {
+    decision_tree_regressor_search_parameters: DecisionTreeRegressorSearchParameters,
+    current_max_depth: usize,
+    current_min_samples_leaf: usize,
+    current_min_samples_split: usize,
+    current_seed: usize,
+}
+
+impl IntoIterator for DecisionTreeRegressorSearchParameters {
+    type Item = DecisionTreeRegressorParameters;
+    type IntoIter = DecisionTreeRegressorSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DecisionTreeRegressorSearchParametersIterator {
+            decision_tree_regressor_search_parameters: self,
+            current_max_depth: 0,
+            current_min_samples_leaf: 0,
+            current_min_samples_split: 0,
+            current_seed: 0,
+        }
+    }
+}
+
+impl Iterator for DecisionTreeRegressorSearchParametersIterator {
+    type Item = DecisionTreeRegressorParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_max_depth
+            == self
+                .decision_tree_regressor_search_parameters
+                .max_depth
+                .len()
+            && self.current_min_samples_leaf
+                == self
+                    .decision_tree_regressor_search_parameters
+                    .min_samples_leaf
+                    .len()
+            && self.current_min_samples_split
+                == self
+                    .decision_tree_regressor_search_parameters
+                    .min_samples_split
+                    .len()
+            && self.current_seed == self.decision_tree_regressor_search_parameters.seed.len()
+        {
+            return None;
+        }
+
+        let next = DecisionTreeRegressorParameters {
+            max_depth: self.decision_tree_regressor_search_parameters.max_depth
+                [self.current_max_depth],
+            min_samples_leaf: self
+                .decision_tree_regressor_search_parameters
+                .min_samples_leaf[self.current_min_samples_leaf],
+            min_samples_split: self
+                .decision_tree_regressor_search_parameters
+                .min_samples_split[self.current_min_samples_split],
+            seed: self.decision_tree_regressor_search_parameters.seed[self.current_seed],
+        };
+
+        if self.current_max_depth + 1
+            < self
+                .decision_tree_regressor_search_parameters
+                .max_depth
+                .len()
+        {
+            self.current_max_depth += 1;
+        } else if self.current_min_samples_leaf + 1
+            < self
+                .decision_tree_regressor_search_parameters
+                .min_samples_leaf
+                .len()
+        {
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf += 1;
+        } else if self.current_min_samples_split + 1
+            < self
+                .decision_tree_regressor_search_parameters
+                .min_samples_split
+                .len()
+        {
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split += 1;
+        } else if self.current_seed + 1 < self.decision_tree_regressor_search_parameters.seed.len()
+        {
+            self.current_max_depth = 0;
+            self.current_min_samples_leaf = 0;
+            self.current_min_samples_split = 0;
+            self.current_seed += 1;
+        } else {
+            self.current_max_depth += 1;
+            self.current_min_samples_leaf += 1;
+            self.current_min_samples_split += 1;
+            self.current_seed += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl Default for DecisionTreeRegressorSearchParameters {
+    fn default() -> Self {
+        let default_params = DecisionTreeRegressorParameters::default();
+
+        DecisionTreeRegressorSearchParameters {
+            max_depth: vec![default_params.max_depth],
+            min_samples_leaf: vec![default_params.min_samples_leaf],
+            min_samples_split: vec![default_params.min_samples_split],
+            seed: vec![default_params.seed],
         }
     }
 }
@@ -271,6 +412,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let (_, num_attributes) = x.shape();
 
         let mut nodes: Vec<Node> = Vec::new();
+        let mut rng = get_rng_impl(parameters.seed);
 
         let mut n = 0;
         let mut sum = 0f64;
@@ -302,13 +444,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
 
-        if tree.find_best_cutoff(&mut visitor, mtry) {
+        if tree.find_best_cutoff(&mut visitor, mtry, &mut rng) {
             visitor_queue.push_back(visitor);
         }
 
         while tree.depth < tree.parameters.max_depth.unwrap_or(std::u16::MAX) {
             match visitor_queue.pop_front() {
-                Some(node) => tree.split(node, mtry, &mut visitor_queue),
+                Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
             };
         }
@@ -361,6 +503,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         mtry: usize,
+        rng: &mut impl Rng,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
@@ -452,6 +595,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mut visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
+        rng: &mut impl Rng,
     ) -> bool {
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
@@ -506,7 +650,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry) {
+        if self.find_best_cutoff(&mut true_visitor, mtry, rng) {
             visitor_queue.push_back(true_visitor);
         }
 
@@ -519,7 +663,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry) {
+        if self.find_best_cutoff(&mut false_visitor, mtry, rng) {
             visitor_queue.push_back(false_visitor);
         }
 
@@ -531,6 +675,29 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = DecisionTreeRegressorSearchParameters {
+            max_depth: vec![Some(10), Some(100)],
+            min_samples_split: vec![1, 2],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.max_depth, Some(10));
+        assert_eq!(next.min_samples_split, 1);
+        let next = iter.next().unwrap();
+        assert_eq!(next.max_depth, Some(100));
+        assert_eq!(next.min_samples_split, 1);
+        let next = iter.next().unwrap();
+        assert_eq!(next.max_depth, Some(10));
+        assert_eq!(next.min_samples_split, 2);
+        let next = iter.next().unwrap();
+        assert_eq!(next.max_depth, Some(100));
+        assert_eq!(next.min_samples_split, 2);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -577,6 +744,7 @@ mod tests {
                 max_depth: Option::None,
                 min_samples_leaf: 2,
                 min_samples_split: 6,
+                seed: None,
             },
         )
         .and_then(|t| t.predict(&x))
@@ -597,6 +765,7 @@ mod tests {
                 max_depth: Option::None,
                 min_samples_leaf: 1,
                 min_samples_split: 3,
+                seed: None,
             },
         )
         .and_then(|t| t.predict(&x))

@@ -87,8 +87,10 @@ impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct MultinomialNBParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: f64,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<f64>>,
 }
@@ -111,6 +113,78 @@ impl Default for MultinomialNBParameters {
         Self {
             alpha: 1f64,
             priors: None,
+        }
+    }
+}
+
+/// MultinomialNB grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct MultinomialNBSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub alpha: Vec<f64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
+    pub priors: Vec<Option<Vec<f64>>>,
+}
+
+/// MultinomialNB grid search iterator
+pub struct MultinomialNBSearchParametersIterator {
+    multinomial_nb_search_parameters: MultinomialNBSearchParameters,
+    current_alpha: usize,
+    current_priors: usize,
+}
+
+impl IntoIterator for MultinomialNBSearchParameters {
+    type Item = MultinomialNBParameters;
+    type IntoIter = MultinomialNBSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        MultinomialNBSearchParametersIterator {
+            multinomial_nb_search_parameters: self,
+            current_alpha: 0,
+            current_priors: 0,
+        }
+    }
+}
+
+impl Iterator for MultinomialNBSearchParametersIterator {
+    type Item = MultinomialNBParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.multinomial_nb_search_parameters.alpha.len()
+            && self.current_priors == self.multinomial_nb_search_parameters.priors.len()
+        {
+            return None;
+        }
+
+        let next = MultinomialNBParameters {
+            alpha: self.multinomial_nb_search_parameters.alpha[self.current_alpha],
+            priors: self.multinomial_nb_search_parameters.priors[self.current_priors].clone(),
+        };
+
+        if self.current_alpha + 1 < self.multinomial_nb_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_priors + 1 < self.multinomial_nb_search_parameters.priors.len() {
+            self.current_alpha = 0;
+            self.current_priors += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_priors += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl Default for MultinomialNBSearchParameters {
+    fn default() -> Self {
+        let default_params = MultinomialNBParameters::default();
+
+        MultinomialNBSearchParameters {
+            alpha: vec![default_params.alpha],
+            priors: vec![default_params.priors],
         }
     }
 }
@@ -295,6 +369,20 @@ mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
     use crate::utils::vec_utils::approx_eq;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = MultinomialNBSearchParameters {
+            alpha: vec![1., 2.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 2.);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

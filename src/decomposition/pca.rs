@@ -91,11 +91,14 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Par
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// PCA parameters
 pub struct PCAParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.
     pub n_components: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// By default, covariance matrix is used to compute principal components.
     /// Enable this flag if you want to use correlation matrix instead.
     pub use_correlation_matrix: bool,
@@ -120,6 +123,83 @@ impl Default for PCAParameters {
         PCAParameters {
             n_components: 2,
             use_correlation_matrix: false,
+        }
+    }
+}
+
+/// PCA grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct PCASearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Number of components to keep.
+    pub n_components: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// By default, covariance matrix is used to compute principal components.
+    /// Enable this flag if you want to use correlation matrix instead.
+    pub use_correlation_matrix: Vec<bool>,
+}
+
+/// PCA grid search iterator
+pub struct PCASearchParametersIterator {
+    pca_search_parameters: PCASearchParameters,
+    current_k: usize,
+    current_use_correlation_matrix: usize,
+}
+
+impl IntoIterator for PCASearchParameters {
+    type Item = PCAParameters;
+    type IntoIter = PCASearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PCASearchParametersIterator {
+            pca_search_parameters: self,
+            current_k: 0,
+            current_use_correlation_matrix: 0,
+        }
+    }
+}
+
+impl Iterator for PCASearchParametersIterator {
+    type Item = PCAParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_k == self.pca_search_parameters.n_components.len()
+            && self.current_use_correlation_matrix
+                == self.pca_search_parameters.use_correlation_matrix.len()
+        {
+            return None;
+        }
+
+        let next = PCAParameters {
+            n_components: self.pca_search_parameters.n_components[self.current_k],
+            use_correlation_matrix: self.pca_search_parameters.use_correlation_matrix
+                [self.current_use_correlation_matrix],
+        };
+
+        if self.current_k + 1 < self.pca_search_parameters.n_components.len() {
+            self.current_k += 1;
+        } else if self.current_use_correlation_matrix + 1
+            < self.pca_search_parameters.use_correlation_matrix.len()
+        {
+            self.current_k = 0;
+            self.current_use_correlation_matrix += 1;
+        } else {
+            self.current_k += 1;
+            self.current_use_correlation_matrix += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl Default for PCASearchParameters {
+    fn default() -> Self {
+        let default_params = PCAParameters::default();
+
+        PCASearchParameters {
+            n_components: vec![default_params.n_components],
+            use_correlation_matrix: vec![default_params.use_correlation_matrix],
         }
     }
 }
@@ -287,6 +367,29 @@ mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
     use approx::relative_eq;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = PCASearchParameters {
+            n_components: vec![2, 4],
+            use_correlation_matrix: vec![true, false],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_components, 2);
+        assert_eq!(next.use_correlation_matrix, true);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_components, 4);
+        assert_eq!(next.use_correlation_matrix, true);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_components, 2);
+        assert_eq!(next.use_correlation_matrix, false);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_components, 4);
+        assert_eq!(next.use_correlation_matrix, false);
+        assert!(iter.next().is_none());
+    }
 
     fn us_arrests_data() -> DenseMatrix<f64> {
         DenseMatrix::from_2d_array(&[

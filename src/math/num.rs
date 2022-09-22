@@ -9,6 +9,8 @@ use std::iter::{Product, Sum};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use std::str::FromStr;
 
+use crate::rand::get_rng_impl;
+
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 pub trait RealNumber:
@@ -79,7 +81,7 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng_impl(None);
         rng.gen()
     }
 
@@ -124,7 +126,7 @@ impl RealNumber for f32 {
     }
 
     fn rand() -> f32 {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng_impl(None);
         rng.gen()
     }
 

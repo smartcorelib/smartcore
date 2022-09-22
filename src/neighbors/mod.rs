@@ -57,6 +57,12 @@ pub enum KNNWeightFunction {
     Distance,
 }
 
+impl Default for KNNWeightFunction {
+    fn default() -> Self {
+        KNNWeightFunction::Uniform
+    }
+}
+
 impl KNNWeightFunction {
     fn calc_weights(&self, distances: Vec<f64>) -> std::vec::Vec<f64> {
         match *self {

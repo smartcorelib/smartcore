@@ -5,8 +5,8 @@ use std::fmt::{Debug, Display};
 
 use crate::linalg::base::Array2;
 use crate::model_selection::BaseKFold;
+use crate::rand::get_rng_impl;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 
 /// K-Folds cross-validator
 pub struct KFold {
@@ -14,6 +14,9 @@ pub struct KFold {
     pub n_splits: usize, // cannot exceed std::usize::MAX
     /// Whether to shuffle the data before splitting into batches
     pub shuffle: bool,
+    /// When shuffle is True, seed affects the ordering of the indices.
+    /// Which controls the randomness of each fold
+    pub seed: Option<u64>,
 }
 
 impl KFold {
@@ -26,8 +29,10 @@ impl KFold {
 
         // initialise indices
         let mut indices: Vec<usize> = (0..n_samples).collect();
+        let mut rng = get_rng_impl(self.seed);
+
         if self.shuffle {
-            indices.shuffle(&mut thread_rng());
+            indices.shuffle(&mut rng);
         }
         //  return a new array of given shape n_split, filled with each element of n_samples divided by n_splits.
         let mut fold_sizes = vec![n_samples / self.n_splits; self.n_splits];
@@ -69,6 +74,7 @@ impl Default for KFold {
         KFold {
             n_splits: 3,
             shuffle: true,
+            seed: None,
         }
     }
 }
@@ -82,6 +88,12 @@ impl KFold {
     /// Whether to shuffle the data before splitting into batches
     pub fn with_shuffle(mut self, shuffle: bool) -> Self {
         self.shuffle = shuffle;
+        self
+    }
+
+    /// When shuffle is True, random_state affects the ordering of the indices.
+    pub fn with_seed(mut self, seed: Option<u64>) -> Self {
+        self.seed = seed;
         self
     }
 }
@@ -153,6 +165,7 @@ mod tests {
         let k = KFold {
             n_splits: 3,
             shuffle: false,
+            seed: None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(33, 100);
         let test_indices = k.test_indices(&x);
@@ -168,6 +181,7 @@ mod tests {
         let k = KFold {
             n_splits: 3,
             shuffle: false,
+            seed: None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(34, 100);
         let test_indices = k.test_indices(&x);
@@ -183,6 +197,7 @@ mod tests {
         let k = KFold {
             n_splits: 2,
             shuffle: false,
+            seed: None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
         let test_masks = k.test_masks(&x);
@@ -209,6 +224,7 @@ mod tests {
         let k = KFold {
             n_splits: 2,
             shuffle: false,
+            seed: None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
         let train_test_splits: Vec<(Vec<usize>, Vec<usize>)> = k.split(&x).collect();
@@ -241,6 +257,7 @@ mod tests {
         let k = KFold {
             n_splits: 3,
             shuffle: false,
+            seed: None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
         let expected: Vec<(Vec<usize>, Vec<usize>)> = vec![

@@ -104,3 +104,5 @@ pub mod svm;
 pub mod tree;
 #[cfg(test)]
 pub mod utils;
+
+pub(crate) mod rand;

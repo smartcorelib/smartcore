@@ -79,6 +79,12 @@ pub enum RidgeRegressionSolverName {
     SVD,
 }
 
+impl Default for RidgeRegressionSolverName {
+    fn default() -> Self {
+        RidgeRegressionSolverName::Cholesky
+    }
+}
+
 /// Ridge Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -96,10 +102,13 @@ pub struct RidgeRegressionParameters<T: FloatNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct RidgeRegressionSearchParameters<T: FloatNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<RidgeRegressionSolverName>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: Vec<bool>,
@@ -213,7 +222,7 @@ impl<T: FloatNumber> RidgeRegressionParameters<T> {
 impl<T: FloatNumber> Default for RidgeRegressionParameters<T> {
     fn default() -> Self {
         RidgeRegressionParameters {
-            solver: RidgeRegressionSolverName::Cholesky,
+            solver: RidgeRegressionSolverName::default(),
             alpha: T::from_f64(1.0).unwrap(),
             normalize: true,
         }

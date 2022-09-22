@@ -49,16 +49,21 @@ use crate::num::Number;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct KNNClassifierParameters<T: Number, D: Distance<Vec<T>>> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
     pub distance: D,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// backend search algorithm. See [`knn search algorithms`](../../algorithm/neighbour/index.html). `CoverTree` is default.
     pub algorithm: KNNAlgorithmName,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// weighting function that is used to calculate estimated class value. Default function is `KNNWeightFunction::Uniform`.
     pub weight: KNNWeightFunction,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// number of training samples to consider when estimating class for new point. Default value is 3.
     pub k: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// this parameter is not used
     t: PhantomData<T>,
 }
@@ -120,8 +125,8 @@ impl<T: Number> Default for KNNClassifierParameters<T, Euclidian<T>> {
     fn default() -> Self {
         KNNClassifierParameters {
             distance: Distances::euclidian(),
-            algorithm: KNNAlgorithmName::CoverTree,
-            weight: KNNWeightFunction::Uniform,
+            algorithm: KNNAlgorithmName::default(),
+            weight: KNNWeightFunction::default(),
             k: 3,
             t: PhantomData,
         }

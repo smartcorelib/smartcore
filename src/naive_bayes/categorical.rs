@@ -238,6 +238,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct CategoricalNBParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: f64,
 }
@@ -253,6 +254,61 @@ impl CategoricalNBParameters {
 impl Default for CategoricalNBParameters {
     fn default() -> Self {
         Self { alpha: 1f64 }
+    }
+}
+
+/// CategoricalNB grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct CategoricalNBSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub alpha: Vec<f64>,
+}
+
+/// CategoricalNB grid search iterator
+pub struct CategoricalNBSearchParametersIterator {
+    categorical_nb_search_parameters: CategoricalNBSearchParameters,
+    current_alpha: usize,
+}
+
+impl IntoIterator for CategoricalNBSearchParameters {
+    type Item = CategoricalNBParameters;
+    type IntoIter = CategoricalNBSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CategoricalNBSearchParametersIterator {
+            categorical_nb_search_parameters: self,
+            current_alpha: 0,
+        }
+    }
+}
+
+impl Iterator for CategoricalNBSearchParametersIterator {
+    type Item = CategoricalNBParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.categorical_nb_search_parameters.alpha.len() {
+            return None;
+        }
+
+        let next = CategoricalNBParameters {
+            alpha: self.categorical_nb_search_parameters.alpha[self.current_alpha],
+        };
+
+        self.current_alpha += 1;
+
+        Some(next)
+    }
+}
+
+impl Default for CategoricalNBSearchParameters {
+    fn default() -> Self {
+        let default_params = CategoricalNBParameters::default();
+
+        CategoricalNBSearchParameters {
+            alpha: vec![default_params.alpha],
+        }
     }
 }
 
@@ -337,6 +393,20 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
 mod tests {
     use super::*;
     use crate::linalg::dense::matrix::DenseMatrix;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = CategoricalNBSearchParameters {
+            alpha: vec![1., 2.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 2.);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
