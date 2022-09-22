@@ -7,7 +7,6 @@
 )]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
-#![feature(associated_type_bounds)]
 
 //! # SmartCore
 //!

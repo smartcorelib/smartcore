@@ -269,40 +269,40 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     }
 
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        let (n, _) = x.shape();
-        if self.samples.is_none() {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
-            ))
-        } else if self.samples.as_ref().unwrap()[0].len() != n {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Prediction matrix must match matrix used in training for OOB predictions.",
-            ))
-        } else {
-            let mut result = TX::zeros(1, n);
+    // pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+    //     let (n, _) = x.shape();
+    //     if self.samples.is_none() {
+    //         Err(Failed::because(
+    //             FailedError::PredictFailed,
+    //             "Need samples=true for OOB predictions.",
+    //         ))
+    //     } else if self.samples.as_ref().unwrap()[0].len() != n {
+    //         Err(Failed::because(
+    //             FailedError::PredictFailed,
+    //             "Prediction matrix must match matrix used in training for OOB predictions.",
+    //         ))
+    //     } else {
+    //         let mut result = X::zero(1, n);
 
-            for i in 0..n {
-                result.set(0, i, self.classes[self.predict_for_row_oob(x, i)]);
-            }
+    //         for i in 0..n {
+    //             result.set(0, i, self.classes[self.predict_for_row_oob(x, i)]);
+    //         }
 
-            Ok(result.to_row_vector())
-        }
-    }
+    //         Ok(result.to_row_vector())
+    //     }
+    // }
 
-    fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
-        let mut result = vec![0; self.classes.len()];
+    // fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
+    //     let mut result = vec![0; self.classes.len()];
 
-        for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
-            if !samples[row] {
-                result[tree.predict_for_row(x, row)] += 1;
-            }
-        }
+    //     for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
+    //         if !samples[row] {
+    //             result[tree.predict_for_row(x, row)] += 1;
+    //         }
+    //     }
 
-        which_max(&result)
-    }
+    //     which_max(&result)
+    // }
 
     fn sample_with_replacement(y: &[usize], num_classes: usize) -> Vec<usize> {
         let class_weight = vec![1.; num_classes];
@@ -382,56 +382,56 @@ mod tests {
         // assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    #[test]
-    fn fit_predict_iris_oob() {
-        let x = DenseMatrix::from_2d_array(&[
-            &[5.1, 3.5, 1.4, 0.2],
-            &[4.9, 3.0, 1.4, 0.2],
-            &[4.7, 3.2, 1.3, 0.2],
-            &[4.6, 3.1, 1.5, 0.2],
-            &[5.0, 3.6, 1.4, 0.2],
-            &[5.4, 3.9, 1.7, 0.4],
-            &[4.6, 3.4, 1.4, 0.3],
-            &[5.0, 3.4, 1.5, 0.2],
-            &[4.4, 2.9, 1.4, 0.2],
-            &[4.9, 3.1, 1.5, 0.1],
-            &[7.0, 3.2, 4.7, 1.4],
-            &[6.4, 3.2, 4.5, 1.5],
-            &[6.9, 3.1, 4.9, 1.5],
-            &[5.5, 2.3, 4.0, 1.3],
-            &[6.5, 2.8, 4.6, 1.5],
-            &[5.7, 2.8, 4.5, 1.3],
-            &[6.3, 3.3, 4.7, 1.6],
-            &[4.9, 2.4, 3.3, 1.0],
-            &[6.6, 2.9, 4.6, 1.3],
-            &[5.2, 2.7, 3.9, 1.4],
-        ]);
-        let y = vec![
-            0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-        ];
+    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // fn fit_predict_iris_oob() {
+    //     let x = DenseMatrix::from_2d_array(&[
+    //         &[5.1, 3.5, 1.4, 0.2],
+    //         &[4.9, 3.0, 1.4, 0.2],
+    //         &[4.7, 3.2, 1.3, 0.2],
+    //         &[4.6, 3.1, 1.5, 0.2],
+    //         &[5.0, 3.6, 1.4, 0.2],
+    //         &[5.4, 3.9, 1.7, 0.4],
+    //         &[4.6, 3.4, 1.4, 0.3],
+    //         &[5.0, 3.4, 1.5, 0.2],
+    //         &[4.4, 2.9, 1.4, 0.2],
+    //         &[4.9, 3.1, 1.5, 0.1],
+    //         &[7.0, 3.2, 4.7, 1.4],
+    //         &[6.4, 3.2, 4.5, 1.5],
+    //         &[6.9, 3.1, 4.9, 1.5],
+    //         &[5.5, 2.3, 4.0, 1.3],
+    //         &[6.5, 2.8, 4.6, 1.5],
+    //         &[5.7, 2.8, 4.5, 1.3],
+    //         &[6.3, 3.3, 4.7, 1.6],
+    //         &[4.9, 2.4, 3.3, 1.0],
+    //         &[6.6, 2.9, 4.6, 1.3],
+    //         &[5.2, 2.7, 3.9, 1.4],
+    //     ]);
+    //     let y = vec![
+    //         0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+    //     ];
 
-        let classifier = RandomForestClassifier::fit(
-            &x,
-            &y,
-            RandomForestClassifierParameters {
-                criterion: SplitCriterion::Gini,
-                max_depth: None,
-                min_samples_leaf: 1,
-                min_samples_split: 2,
-                n_trees: 100,
-                m: Option::None,
-                keep_samples: true,
-                seed: 87,
-            },
-        )
-        .unwrap();
+    //     let classifier = RandomForestClassifier::fit(
+    //         &x,
+    //         &y,
+    //         RandomForestClassifierParameters {
+    //             criterion: SplitCriterion::Gini,
+    //             max_depth: None,
+    //             min_samples_leaf: 1,
+    //             min_samples_split: 2,
+    //             n_trees: 100,
+    //             m: Option::None,
+    //             keep_samples: true,
+    //             seed: 87,
+    //         },
+    //     )
+    //     .unwrap();
 
-        assert!(
-            accuracy(&y, &classifier.predict_oob(&x).unwrap())
-                < accuracy(&y, &classifier.predict(&x).unwrap())
-        );
-    }
+    //     assert!(
+    //         accuracy(&y, &classifier.predict_oob(&x).unwrap())
+    //             < accuracy(&y, &classifier.predict(&x).unwrap())
+    //     );
+    // }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
