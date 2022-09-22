@@ -46,9 +46,9 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+use rand::{thread_rng, Rng};
 use std::default::Default;
 use std::fmt::Debug;
-use rand::{thread_rng, Rng};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -232,8 +232,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree =
-                DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
+            let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
         }
 

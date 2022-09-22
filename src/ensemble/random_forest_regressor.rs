@@ -194,15 +194,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         for _ in 0..parameters.n_trees {
             let samples = RandomForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
-                n_rows, &mut rand::thread_rng());
+                n_rows,
+                &mut rand::thread_rng(),
+            );
             let params = DecisionTreeRegressorParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
             };
-            let tree =
-                DecisionTreeRegressor::fit_weak_learner(
-                    x, y, samples, mtry, params)?;
+            let tree = DecisionTreeRegressor::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
         }
 

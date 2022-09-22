@@ -22,7 +22,7 @@
 //!
 //! ```
 //! use rand::Rng;
-//! 
+//!
 //! use smartcore::linalg::dense::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_classifier::*;
 //!
@@ -338,13 +338,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     ) -> Result<DecisionTreeClassifier<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
-        DecisionTreeClassifier::fit_weak_learner(
-            x,
-            y,
-            samples,
-            num_attributes,
-            parameters,
-        )
+        DecisionTreeClassifier::fit_weak_learner(x, y, samples, num_attributes, parameters)
     }
 
     pub(crate) fn fit_weak_learner(
@@ -431,7 +425,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         Ok(result)
     }
 
-    pub(in crate) fn predict_for_row(&self, x: &X, row: usize) -> usize {
+    pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> usize {
         let mut result = 0;
         let mut queue: LinkedList<usize> = LinkedList::new();
 

@@ -192,7 +192,7 @@ pub struct RidgeRegression<
     _phantom_y: PhantomData<Y>,
 }
 
-impl<T:FloatNumber> RidgeRegressionParameters<T> {
+impl<T: FloatNumber> RidgeRegressionParameters<T> {
     /// Regularization parameter.
     pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;

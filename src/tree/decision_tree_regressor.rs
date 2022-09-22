@@ -255,13 +255,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         let samples = vec![1; x_nrows];
-        DecisionTreeRegressor::fit_weak_learner(
-            x,
-            y,
-            samples,
-            num_attributes,
-            parameters,
-        )
+        DecisionTreeRegressor::fit_weak_learner(x, y, samples, num_attributes, parameters)
     }
 
     pub(crate) fn fit_weak_learner(
@@ -336,7 +330,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         Ok(result)
     }
 
-    pub(in crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
+    pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
         let mut result = 0f64;
         let mut queue: LinkedList<usize> = LinkedList::new();
 

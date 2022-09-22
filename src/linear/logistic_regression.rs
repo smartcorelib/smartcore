@@ -209,7 +209,7 @@ impl<T: FloatNumber> Default for LogisticRegressionParameters<T> {
     fn default() -> Self {
         LogisticRegressionParameters {
             solver: LogisticRegressionSolverName::LBFGS,
-            alpha: T::zero(),   
+            alpha: T::zero(),
         }
     }
 }
@@ -365,7 +365,8 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
 }
 
 impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    SupervisedEstimator<X, Y, LogisticRegressionParameters<TX>> for LogisticRegression<TX, TY, X, Y>
+    SupervisedEstimator<X, Y, LogisticRegressionParameters<TX>>
+    for LogisticRegression<TX, TY, X, Y>
 {
     fn fit(x: &X, y: &Y, parameters: LogisticRegressionParameters<TX>) -> Result<Self, Failed> {
         LogisticRegression::fit(x, y, parameters)
