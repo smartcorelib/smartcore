@@ -34,6 +34,7 @@ pub struct Manhattan<T: Number> {
 }
 
 impl<T: Number> Manhattan<T> {
+    /// instatiate the initial structure
     pub fn new() -> Manhattan<T> {
         Manhattan { _t: PhantomData }
     }

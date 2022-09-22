@@ -35,10 +35,12 @@ pub struct Euclidian<T> {
 }
 
 impl<T: Number> Euclidian<T> {
+    /// instatiate the initial structure
     pub fn new() -> Euclidian<T> {
         Euclidian { _t: PhantomData }
     }
 
+    /// return sum of squared distances
     #[inline]
     pub(crate) fn squared_distance<A: ArrayView1<T>>(x: &A, y: &A) -> f64 {
         if x.shape() != y.shape() {

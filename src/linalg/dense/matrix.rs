@@ -15,6 +15,7 @@ use crate::linalg::qr_n::QRDecomposable;
 use crate::linalg::svd_n::SVDDecomposable;
 use crate::num::FloatNumber;
 
+/// Dense matrix
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DenseMatrix<T> {
     ncols: usize,
@@ -23,6 +24,7 @@ pub struct DenseMatrix<T> {
     column_major: bool,
 }
 
+/// View on dense matrix
 #[derive(Debug, Clone)]
 pub struct DenseMatrixView<'a, T: Debug + Display + Copy + Sized> {
     values: &'a [T],
@@ -32,6 +34,7 @@ pub struct DenseMatrixView<'a, T: Debug + Display + Copy + Sized> {
     column_major: bool,
 }
 
+/// Mutable view on dense matrix
 #[derive(Debug)]
 pub struct DenseMatrixMutView<'a, T: Debug + Display + Copy + Sized> {
     values: &'a mut [T],
@@ -196,6 +199,7 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         DenseMatrix::new(nrows, ncols, m_values, true)
     }
 
+    /// Iterate over values of matrix
     pub fn iter(&self) -> Iter<T> {
         self.values.iter()
     }

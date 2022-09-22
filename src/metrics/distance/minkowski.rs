@@ -40,6 +40,7 @@ pub struct Minkowski<T: Number> {
 }
 
 impl<T: Number> Minkowski<T> {
+    /// instatiate the initial structure
     pub fn new(p: u16) -> Minkowski<T> {
         Minkowski { p, _t: PhantomData }
     }

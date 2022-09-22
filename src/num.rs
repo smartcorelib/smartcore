@@ -1,6 +1,6 @@
-//! # Real Number
-//! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
-//! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
+//! # Float Number
+//! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of float numbers.
+//! This module defines number sets and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
 use num_traits::{Bounded, Float, FromPrimitive, Num, NumCast, Signed, ToPrimitive};
 use rand::prelude::*;
@@ -8,6 +8,8 @@ use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
+/// Define a `Number` set that acquires traits from `num_traits` to make available a base trait  
+/// to be used by other usable sets like `FloatNumber`.
 pub trait Number:
     Num
     + FromPrimitive
@@ -26,7 +28,7 @@ pub trait Number:
 {
 }
 
-/// Defines real number
+/// Defines float number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 pub trait FloatNumber: Number + Float + Signed {
     /// Copy sign from `sign` - another real number

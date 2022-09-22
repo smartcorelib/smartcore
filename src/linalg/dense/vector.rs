@@ -4,11 +4,13 @@ use std::ops::Range;
 use crate::num::{Number, FloatNumber};
 use crate::linalg::base::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
 
+/// Provide mutable window on array
 #[derive(Debug)]
 pub struct VecMutView<'a, T: Debug + Display + Copy + Sized> {
     ptr: &'a mut [T],
 }
 
+/// Provide window on array
 #[derive(Debug, Clone)]
 pub struct VecView<'a, T: Debug + Display + Copy + Sized> {
     ptr: &'a [T],

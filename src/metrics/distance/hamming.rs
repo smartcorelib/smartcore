@@ -35,6 +35,7 @@ pub struct Hamming<T: Number> {
 }
 
 impl<T: Number> Hamming<T> {
+    /// instatiate the initial structure
     pub fn new() -> Hamming<T> {
         Hamming { _t: PhantomData }
     }
