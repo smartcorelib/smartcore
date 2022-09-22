@@ -270,35 +270,38 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         let (n, _) = x.shape();
-        if self.samples.is_none() {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
-            ))
-        } else if self.samples.as_ref().unwrap()[0].len() != n {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Prediction matrix must match matrix used in training for OOB predictions.",
-            ))
-        } else {
-            let mut result = Y::zeros(n);
+        /* TODO: fix this:
+         if self.samples.is_none() {
+                Err(Failed::because(
+                    FailedError::PredictFailed,
+                    "Need samples=true for OOB predictions.",
+                ))
+            } else if self.samples.as_ref().unwrap()[0].len() != n {
+                Err(Failed::because(
+                    FailedError::PredictFailed,
+                    "Prediction matrix must match matrix used in training for OOB predictions.",
+                ))
+            } else {
+        */
+        let mut result = Y::zeros(n);
 
-            for i in 0..n {
-                result.set(i, self.classes[self.predict_for_row_oob(x, i)]);
-            }
-
-            Ok(result)
+        for i in 0..n {
+            result.set(i, self.classes[self.predict_for_row_oob(x, i)]);
         }
+
+        Ok(result)
+        //}
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
         let mut result = vec![0; self.classes.len()];
 
-        for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
-            if !samples[row] {
-                result[tree.predict_for_row(x, row)] += 1;
-            }
-        }
+        // TODO: FIX THIS
+        //for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
+        //    if !samples[row] {
+        //        result[tree.predict_for_row(x, row)] += 1;
+        //    }
+        // }
 
         which_max(&result)
     }

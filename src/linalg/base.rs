@@ -22,7 +22,7 @@ pub trait Array<T: Debug + Display + Copy + Sized, S>: Debug {
 pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
     /// assign value to a position
     fn set(&mut self, pos: S, x: T);
-    /// iterate over mutable values 
+    /// iterate over mutable values
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b>;
     /// swap values between positions
     fn swap(&mut self, a: S, b: S)
@@ -601,7 +601,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
-    /// return a mutable view of values at power `p` 
+    /// return a mutable view of values at power `p`
     fn pow_mut(&mut self, p: T)
     where
         T: FloatNumber,
@@ -726,7 +726,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
 pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
     MutArray<T, (usize, usize)> + ArrayView2<T>
 {
-    /// 
+    ///
     fn copy_from(&mut self, other: &dyn Array<T, (usize, usize)>) {
         self.iterator_mut(0)
             .zip(other.iterator(0))
@@ -1142,7 +1142,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             result
         }
     }
-    /// 
+    ///
     fn ax(&self, a_transpose: bool, x: &dyn ArrayView1<T>) -> Self
     where
         T: Number,

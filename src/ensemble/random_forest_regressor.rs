@@ -241,6 +241,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         let (n, _) = x.shape();
+        /* TODO: FIX THIS
         if self.samples.is_none() {
             Err(Failed::because(
                 FailedError::PredictFailed,
@@ -251,27 +252,28 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 FailedError::PredictFailed,
                 "Prediction matrix must match matrix used in training for OOB predictions.",
             ))
-        } else {
-            let mut result = Y::zeros(n);
+        } else { */
+        let mut result = Y::zeros(n);
 
-            for i in 0..n {
-                result.set(i, self.predict_for_row_oob(x, i));
-            }
-
-            Ok(result)
+        for i in 0..n {
+            result.set(i, self.predict_for_row_oob(x, i));
         }
+
+        Ok(result)
+        // }
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> TY {
         let mut n_trees = 0;
         let mut result = TY::zero();
 
-        for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
-            if !samples[row] {
-                result += tree.predict_for_row(x, row);
-                n_trees += 1;
-            }
-        }
+        // TODO: FIX
+	// for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
+        //    if !samples[row] {
+        //        result += tree.predict_for_row(x, row);
+        //        n_trees += 1;
+        //    }
+        // }
 
         // TODO: What to do if there are no oob trees?
         result / TY::from(n_trees).unwrap()
