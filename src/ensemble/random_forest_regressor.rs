@@ -252,20 +252,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 "Prediction matrix must match matrix used in training for OOB predictions.",
             ))
         } else {
-            let mut result = X::zeros(1, n);
+            let mut result = Y::zeros(n);
 
             for i in 0..n {
-                // TODO: fix this call
-                //result.set(0, i, self.predict_for_row_oob(x, i));
+                result.set(i, self.predict_for_row_oob(x, i));
             }
 
-            Ok(result.to_row_vector())
+            Ok(result)
         }
     }
 
-    fn predict_for_row_oob(&self, x: &X, row: usize) -> TX {
+    fn predict_for_row_oob(&self, x: &X, row: usize) -> TY {
         let mut n_trees = 0;
-        let mut result = TX::zero();
+        let mut result = TY::zero();
 
         for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
             if !samples[row] {
@@ -275,7 +274,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         // TODO: What to do if there are no oob trees?
-        result / TX::from(n_trees).unwrap()
+        result / TY::from(n_trees).unwrap()
     }
 
     fn sample_with_replacement(nrows: usize, rng: &mut impl Rng) -> Vec<usize> {
