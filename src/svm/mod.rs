@@ -32,126 +32,60 @@ use serde::{Deserialize, Serialize};
 use crate::linalg::BaseVector;
 use crate::math::num::RealNumber;
 
-/// Defines a kernel function
-pub trait Kernel<T: RealNumber, V: BaseVector<T>>: Clone {
-    /// Apply kernel function to x_i and x_j
-    fn apply(&self, x_i: &V, x_j: &V) -> T;
+/// Kernel functions
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Kernel<T: RealNumber> {
+    /// Linear kernel
+    Linear,
+    /// Radial basis function kernel (Gaussian)
+    RBF {
+        /// kernel coefficient
+        gamma: T,
+    },
+    /// Sigmoid kernel    
+    Sigmoid {
+        /// kernel coefficient
+        gamma: T,
+        /// independent term in kernel function
+        coef0: T,
+    },
+    /// Polynomial kernel
+    Polynomial {
+        /// kernel coefficient
+        gamma: T,
+        /// independent term in kernel function
+        coef0: T,
+        /// degree of the polynomial
+        degree: T,
+    },
 }
 
-/// Pre-defined kernel functions
-pub struct Kernels {}
-
-impl Kernels {
-    /// Linear kernel
-    pub fn linear() -> LinearKernel {
-        LinearKernel {}
+impl<T: RealNumber> Default for Kernel<T> {
+    fn default() -> Self {
+        Kernel::Linear
     }
+}
 
-    /// Radial basis function kernel (Gaussian)
-    pub fn rbf<T: RealNumber>(gamma: T) -> RBFKernel<T> {
-        RBFKernel { gamma }
-    }
-
-    /// Polynomial kernel
-    /// * `degree` - degree of the polynomial
-    /// * `gamma` - kernel coefficient
-    /// * `coef0` - independent term in kernel function
-    pub fn polynomial<T: RealNumber>(degree: T, gamma: T, coef0: T) -> PolynomialKernel<T> {
-        PolynomialKernel {
+fn apply<T: RealNumber, V: BaseVector<T>>(kernel: &Kernel<T>, x_i: &V, x_j: &V) -> T {
+    match kernel {
+        Kernel::Polynomial {
             degree,
             gamma,
             coef0,
+        } => {
+            let dot = x_i.dot(x_j);
+            (*gamma * dot + *coef0).powf(*degree)
         }
-    }
-
-    /// Polynomial kernel
-    /// * `degree` - degree of the polynomial
-    /// * `n_features` - number of features in vector
-    pub fn polynomial_with_degree<T: RealNumber>(
-        degree: T,
-        n_features: usize,
-    ) -> PolynomialKernel<T> {
-        let coef0 = T::one();
-        let gamma = T::one() / T::from_usize(n_features).unwrap();
-        Kernels::polynomial(degree, gamma, coef0)
-    }
-
-    /// Sigmoid kernel    
-    /// * `gamma` - kernel coefficient
-    /// * `coef0` - independent term in kernel function
-    pub fn sigmoid<T: RealNumber>(gamma: T, coef0: T) -> SigmoidKernel<T> {
-        SigmoidKernel { gamma, coef0 }
-    }
-
-    /// Sigmoid kernel    
-    /// * `gamma` - kernel coefficient    
-    pub fn sigmoid_with_gamma<T: RealNumber>(gamma: T) -> SigmoidKernel<T> {
-        SigmoidKernel {
-            gamma,
-            coef0: T::one(),
+        Kernel::Sigmoid { gamma, coef0 } => {
+            let dot = x_i.dot(x_j);
+            (*gamma * dot + *coef0).tanh()
         }
-    }
-}
-
-/// Linear Kernel
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LinearKernel {}
-
-/// Radial basis function (Gaussian) kernel
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RBFKernel<T: RealNumber> {
-    /// kernel coefficient
-    pub gamma: T,
-}
-
-/// Polynomial kernel
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PolynomialKernel<T: RealNumber> {
-    /// degree of the polynomial
-    pub degree: T,
-    /// kernel coefficient
-    pub gamma: T,
-    /// independent term in kernel function
-    pub coef0: T,
-}
-
-/// Sigmoid (hyperbolic tangent) kernel
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SigmoidKernel<T: RealNumber> {
-    /// kernel coefficient
-    pub gamma: T,
-    /// independent term in kernel function
-    pub coef0: T,
-}
-
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for LinearKernel {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
-        x_i.dot(x_j)
-    }
-}
-
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for RBFKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
-        let v_diff = x_i.sub(x_j);
-        (-self.gamma * v_diff.mul(&v_diff).sum()).exp()
-    }
-}
-
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for PolynomialKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
-        let dot = x_i.dot(x_j);
-        (self.gamma * dot + self.coef0).powf(self.degree)
-    }
-}
-
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for SigmoidKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
-        let dot = x_i.dot(x_j);
-        (self.gamma * dot + self.coef0).tanh()
+        Kernel::RBF { gamma } => {
+            let v_diff = x_i.sub(x_j);
+            (-*gamma * v_diff.mul(&v_diff).sum()).exp()
+        }
+        Kernel::Linear => x_i.dot(x_j),
     }
 }
 
@@ -165,7 +99,7 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert_eq!(32f64, Kernels::linear().apply(&v1, &v2));
+        assert_eq!(32f64, apply(&Kernel::Linear, &v1, &v2));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -174,7 +108,7 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert!((0.2265f64 - Kernels::rbf(0.055).apply(&v1, &v2)).abs() < 1e-4);
+        assert!((0.2265f64 - apply(&Kernel::RBF { gamma: 0.055 }, &v1, &v2)).abs() < 1e-4);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -184,7 +118,17 @@ mod tests {
         let v2 = vec![4., 5., 6.];
 
         assert!(
-            (4913f64 - Kernels::polynomial(3.0, 0.5, 1.0).apply(&v1, &v2)).abs()
+            (4913f64
+                - apply(
+                    &Kernel::Polynomial {
+                        gamma: 0.5,
+                        coef0: 1.0,
+                        degree: 3.0
+                    },
+                    &v1,
+                    &v2
+                ))
+            .abs()
                 < std::f64::EPSILON
         );
     }
@@ -195,6 +139,18 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert!((0.3969f64 - Kernels::sigmoid(0.01, 0.1).apply(&v1, &v2)).abs() < 1e-4);
+        assert!(
+            (0.3969f64
+                - apply(
+                    &Kernel::Sigmoid {
+                        gamma: 0.01,
+                        coef0: 0.1
+                    },
+                    &v1,
+                    &v2
+                ))
+            .abs()
+                < 1e-4
+        );
     }
 }
