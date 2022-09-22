@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
-use crate::num::{Number, FloatNumber};
 use crate::linalg::base::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
 
 /// Provide mutable window on array
