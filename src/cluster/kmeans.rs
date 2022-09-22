@@ -102,13 +102,17 @@ impl<T: RealNumber> PartialEq for KMeans<T> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// K-Means clustering algorithm parameters
 pub struct KMeansParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of clusters.
     pub k: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Maximum number of iterations of the k-means algorithm for a single run.
     pub max_iter: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Determines random number generation for centroid initialization.
     /// Use an int to make the randomness deterministic
     pub seed: Option<u64>,
@@ -141,10 +145,13 @@ impl Default for KMeansParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct KMeansSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of clusters.
     pub k: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Maximum number of iterations of the k-means algorithm for a single run.
     pub max_iter: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Determines random number generation for centroid initialization.
     /// Use an int to make the randomness deterministic
     pub seed: Vec<Option<u64>>,

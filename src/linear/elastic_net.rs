@@ -71,16 +71,21 @@ use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct ElasticNetParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
     /// For l1_ratio = 0 the penalty is an L2 penalty.
     /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     pub l1_ratio: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
     pub tol: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -139,16 +144,21 @@ impl<T: RealNumber> Default for ElasticNetParameters<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct ElasticNetSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The elastic net mixing parameter, with 0 <= l1_ratio <= 1.
     /// For l1_ratio = 0 the penalty is an L2 penalty.
     /// For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     pub l1_ratio: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If True, the regressors X will be normalized before regression by subtracting the mean and dividing by the standard deviation.
     pub normalize: Vec<bool>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
     pub tol: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: Vec<usize>,
 }
