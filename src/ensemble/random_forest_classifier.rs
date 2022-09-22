@@ -281,13 +281,13 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 "Prediction matrix must match matrix used in training for OOB predictions.",
             ))
         } else {
-            let mut result = X::zeros(1, n);
+            let mut result = Y::zeros(n);
 
             for i in 0..n {
-                result.set(0, i, self.classes[self.predict_for_row_oob(x, i)]);
+                result.set(i, self.classes[self.predict_for_row_oob(x, i)]);
             }
 
-            Ok(result.to_row_vector())
+            Ok(result)
         }
     }
 
