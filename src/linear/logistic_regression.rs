@@ -75,12 +75,20 @@ pub enum LogisticRegressionSolverName {
     LBFGS,
 }
 
+impl Default for LogisticRegressionSolverName {
+    fn default() -> Self {
+        LogisticRegressionSolverName::LBFGS
+    }
+}
+
 /// Logistic Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LogisticRegressionParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: LogisticRegressionSolverName,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: T,
 }
@@ -89,8 +97,10 @@ pub struct LogisticRegressionParameters<T: RealNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LogisticRegressionSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<LogisticRegressionSolverName>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: Vec<T>,
 }
@@ -204,7 +214,7 @@ impl<T: RealNumber> LogisticRegressionParameters<T> {
 impl<T: RealNumber> Default for LogisticRegressionParameters<T> {
     fn default() -> Self {
         LogisticRegressionParameters {
-            solver: LogisticRegressionSolverName::LBFGS,
+            solver: LogisticRegressionSolverName::default(),
             alpha: T::zero(),
         }
     }

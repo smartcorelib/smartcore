@@ -91,16 +91,22 @@ use crate::svm::{Kernel, Kernels, LinearKernel};
 #[derive(Debug, Clone)]
 /// SVC Parameters
 pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
     pub tol: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
     pub kernel: K,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<M>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Option<u64>,
 }
@@ -109,16 +115,22 @@ pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct SVCSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping epoch.
     pub tol: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
     pub kernel: Vec<K>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<M>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Vec<Option<u64>>,
 }

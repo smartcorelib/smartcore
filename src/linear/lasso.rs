@@ -38,13 +38,17 @@ use crate::math::num::RealNumber;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LassoParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the strength of the penalty to the loss function.
     pub alpha: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
     pub tol: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -116,13 +120,17 @@ impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for Lasso<T, M> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct LassoSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the strength of the penalty to the loss function.
     pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: Vec<bool>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
     pub tol: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: Vec<usize>,
 }

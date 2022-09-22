@@ -83,14 +83,19 @@ use crate::rand::get_rng_impl;
 #[derive(Debug, Clone)]
 /// Parameters of Decision Tree
 pub struct DecisionTreeClassifierParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree.
     pub criterion: SplitCriterion,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the tree.
     pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node.
     pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node.
     pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the randomness of the estimator
     pub seed: Option<u64>,
 }
@@ -116,6 +121,12 @@ pub enum SplitCriterion {
     Entropy,
     /// [Classification error](../decision_tree_classifier/index.html)
     ClassificationError,
+}
+
+impl Default for SplitCriterion {
+    fn default() -> Self {
+        SplitCriterion::Gini
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -196,7 +207,7 @@ impl DecisionTreeClassifierParameters {
 impl Default for DecisionTreeClassifierParameters {
     fn default() -> Self {
         DecisionTreeClassifierParameters {
-            criterion: SplitCriterion::Gini,
+            criterion: SplitCriterion::default(),
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,

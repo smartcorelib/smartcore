@@ -59,6 +59,12 @@ pub enum KNNAlgorithmName {
     CoverTree,
 }
 
+impl Default for KNNAlgorithmName {
+    fn default() -> Self {
+        KNNAlgorithmName::CoverTree
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub(crate) enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {

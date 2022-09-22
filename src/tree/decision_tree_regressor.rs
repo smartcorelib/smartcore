@@ -78,12 +78,16 @@ use crate::rand::get_rng_impl;
 #[derive(Debug, Clone)]
 /// Parameters of Regression Tree
 pub struct DecisionTreeRegressorParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the tree.
     pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node.
     pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node.
     pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the randomness of the estimator
     pub seed: Option<u64>,
 }
@@ -142,12 +146,16 @@ impl Default for DecisionTreeRegressorParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct DecisionTreeRegressorSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub max_depth: Vec<Option<u16>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub min_samples_leaf: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub min_samples_split: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the randomness of the estimator
     pub seed: Vec<Option<u64>>,
 }

@@ -67,20 +67,28 @@ use crate::tree::decision_tree_classifier::{
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct RandomForestClassifierParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub criterion: SplitCriterion,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The number of trees in the forest.
     pub n_trees: u16,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of random sample of predictors to use as split candidates.
     pub m: Option<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree.
     pub seed: u64,
 }
@@ -198,20 +206,28 @@ impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for RandomForestCla
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct RandomForestClassifierSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub criterion: Vec<SplitCriterion>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub max_depth: Vec<Option<u16>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub min_samples_leaf: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to split an internal node. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
     pub min_samples_split: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The number of trees in the forest.
     pub n_trees: Vec<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of random sample of predictors to use as split candidates.
     pub m: Vec<Option<usize>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: Vec<bool>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree.
     pub seed: Vec<u64>,
 }

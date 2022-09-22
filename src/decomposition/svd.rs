@@ -69,9 +69,11 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for SVD<T, M> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVD parameters
 pub struct SVDParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.
     pub n_components: usize,
 }
@@ -94,6 +96,7 @@ impl SVDParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct SVDSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Maximum number of iterations of the k-means algorithm for a single run.
     pub n_components: Vec<usize>,
 }
