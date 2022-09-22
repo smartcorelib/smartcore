@@ -114,10 +114,13 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for BernoulliNBDistributi
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct BernoulliNBParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<T>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
     pub binarize: Option<T>,
 }
@@ -154,10 +157,13 @@ impl<T: RealNumber> Default for BernoulliNBParameters<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct BernoulliNBSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Vec<Option<Vec<T>>>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
     pub binarize: Vec<Option<T>>,
 }

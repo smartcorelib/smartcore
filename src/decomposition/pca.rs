@@ -83,11 +83,14 @@ impl<T: RealNumber, M: Matrix<T>> PartialEq for PCA<T, M> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// PCA parameters
 pub struct PCAParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.
     pub n_components: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// By default, covariance matrix is used to compute principal components.
     /// Enable this flag if you want to use correlation matrix instead.
     pub use_correlation_matrix: bool,
@@ -120,8 +123,10 @@ impl Default for PCAParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct PCASearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.
     pub n_components: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// By default, covariance matrix is used to compute principal components.
     /// Enable this flag if you want to use correlation matrix instead.
     pub use_correlation_matrix: Vec<bool>,

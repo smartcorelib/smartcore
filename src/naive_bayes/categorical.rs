@@ -243,6 +243,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct CategoricalNBParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
 }
@@ -265,6 +266,7 @@ impl<T: RealNumber> Default for CategoricalNBParameters<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct CategoricalNBSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: Vec<T>,
 }

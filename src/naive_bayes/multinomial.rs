@@ -86,8 +86,10 @@ impl<T: RealNumber, M: Matrix<T>> NBDistribution<T, M> for MultinomialNBDistribu
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct MultinomialNBParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Option<Vec<T>>,
 }
@@ -118,8 +120,10 @@ impl<T: RealNumber> Default for MultinomialNBParameters<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct MultinomialNBSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
     pub priors: Vec<Option<Vec<T>>>,
 }
