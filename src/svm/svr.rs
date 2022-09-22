@@ -714,7 +714,7 @@ mod tests {
 
         let svr = SVR::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_svr: SVR<f64, DenseMatrix<f64>, Kernel::Linear> =
+        let deserialized_svr: SVR<f64, DenseMatrix<f64>> =
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
         assert_eq!(svr, deserialized_svr);

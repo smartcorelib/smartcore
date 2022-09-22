@@ -1055,7 +1055,7 @@ mod tests {
 
         let svc = SVC::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_svc: SVC<f64, DenseMatrix<f64>, LinearKernel> =
+        let deserialized_svc: SVC<f64, DenseMatrix<f64>> =
             serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
         assert_eq!(svc, deserialized_svc);
