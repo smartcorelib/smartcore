@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2, ArrayView1};
+use crate::linalg::base::{Array1, Array2};
 use crate::metrics::distance::euclidian::Euclidian;
 use crate::metrics::distance::{Distance, Distances};
 use crate::neighbors::KNNWeightFunction;

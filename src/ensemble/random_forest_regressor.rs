@@ -401,7 +401,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         for _ in 0..parameters.n_trees {
             let samples = RandomForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
                 n_rows,
-                &mut rand::thread_rng(),
+                &mut rng,
             );
             let params = DecisionTreeRegressorParameters {
                 max_depth: parameters.max_depth,
