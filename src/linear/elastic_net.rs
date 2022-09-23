@@ -62,7 +62,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array, Array1, Array2, ArrayView1, MutArray};
+use crate::linalg::base::{Array, Array1, Array2, MutArray};
 use crate::num::{FloatNumber, Number};
 
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
