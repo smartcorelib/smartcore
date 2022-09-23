@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn search_parameters() {
-        let parameters = DBSCANSearchParameters {
+        let parameters: DBSCANSearchParameters<f64, Euclidian<f64>> = DBSCANSearchParameters {
             min_samples: vec![10, 100],
             eps: vec![1., 2.],
             ..Default::default()

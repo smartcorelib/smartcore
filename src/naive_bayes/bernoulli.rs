@@ -462,7 +462,7 @@ mod tests {
 
     #[test]
     fn search_parameters() {
-        let parameters = BernoulliNBSearchParameters {
+        let parameters: BernoulliNBSearchParameters<f64> = BernoulliNBSearchParameters {
             alpha: vec![1., 2.],
             ..Default::default()
         };

@@ -518,7 +518,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
         if mtry < n_attr {
-            variables.shuffle(&mut rng);
+            variables.shuffle(rng);
         }
 
         let parent_gain =

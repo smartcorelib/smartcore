@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 use std::ops::Range;
 
 use crate::linalg::base::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
+use crate::num::Number;
 
 /// Provide mutable window on array
 #[derive(Debug)]
@@ -163,10 +164,10 @@ mod tests {
         dot
     }
 
-    fn vector_ops<T: FloatNumber, V: Array1<T>>(_: &V) -> T {
-        let v = V::zeros(10);
-        v.max()
-    }
+    // fn vector_ops<T: Number, V: Array1<T>>(_: &V) -> T {
+    //     let v = V::zeros(10);
+    //     v.max()
+    // }
 
     #[test]
     fn test_get_set() {
@@ -313,10 +314,10 @@ mod tests {
         println!("{:?}", x);
     }
 
-    #[test]
-    fn test_vector_ops() {
-        let mut x = vec![1., 2., 3.];
+    // #[test]
+    // fn test_vector_ops() {
+    //     let mut x = vec![1., 2., 3.];
 
-        vector_ops(&x);
-    }
+    //     vector_ops(&x);
+    // }
 }

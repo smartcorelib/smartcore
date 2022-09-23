@@ -382,8 +382,8 @@ mod tests {
             BiasedEstimator::fit,
             &x,
             &y,
-            &NoParameters {},
-            &cv,
+            NoParameters {},
+            cv,
             &accuracy,
         )
         .unwrap();
