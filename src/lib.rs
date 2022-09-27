@@ -95,7 +95,11 @@ pub mod neighbors;
 pub(crate) mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;
+/// Reading in Data.
+pub mod readers;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
+
+pub(crate) mod rand;

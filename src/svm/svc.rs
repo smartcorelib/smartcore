@@ -84,22 +84,154 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
+use crate::rand::get_rng_impl;
 use crate::svm::{Kernel, Kernels, LinearKernel};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVC Parameters
 pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
     pub tol: T,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
     pub kernel: K,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<M>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the pseudo random number generation for shuffling the data for probability estimates
+    seed: Option<u64>,
+}
+
+/// SVC grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct SVCSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Number of epochs.
+    pub epoch: Vec<usize>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Regularization parameter.
+    pub c: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Tolerance for stopping epoch.
+    pub tol: Vec<T>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The kernel function.
+    pub kernel: Vec<K>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Unused parameter.
+    m: PhantomData<M>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the pseudo random number generation for shuffling the data for probability estimates
+    seed: Vec<Option<u64>>,
+}
+
+/// SVC grid search iterator
+pub struct SVCSearchParametersIterator<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+    svc_search_parameters: SVCSearchParameters<T, M, K>,
+    current_epoch: usize,
+    current_c: usize,
+    current_tol: usize,
+    current_kernel: usize,
+    current_seed: usize,
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
+    for SVCSearchParameters<T, M, K>
+{
+    type Item = SVCParameters<T, M, K>;
+    type IntoIter = SVCSearchParametersIterator<T, M, K>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SVCSearchParametersIterator {
+            svc_search_parameters: self,
+            current_epoch: 0,
+            current_c: 0,
+            current_tol: 0,
+            current_kernel: 0,
+            current_seed: 0,
+        }
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
+    for SVCSearchParametersIterator<T, M, K>
+{
+    type Item = SVCParameters<T, M, K>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_epoch == self.svc_search_parameters.epoch.len()
+            && self.current_c == self.svc_search_parameters.c.len()
+            && self.current_tol == self.svc_search_parameters.tol.len()
+            && self.current_kernel == self.svc_search_parameters.kernel.len()
+            && self.current_seed == self.svc_search_parameters.kernel.len()
+        {
+            return None;
+        }
+
+        let next = SVCParameters::<T, M, K> {
+            epoch: self.svc_search_parameters.epoch[self.current_epoch],
+            c: self.svc_search_parameters.c[self.current_c],
+            tol: self.svc_search_parameters.tol[self.current_tol],
+            kernel: self.svc_search_parameters.kernel[self.current_kernel].clone(),
+            m: PhantomData,
+            seed: self.svc_search_parameters.seed[self.current_seed],
+        };
+
+        if self.current_epoch + 1 < self.svc_search_parameters.epoch.len() {
+            self.current_epoch += 1;
+        } else if self.current_c + 1 < self.svc_search_parameters.c.len() {
+            self.current_epoch = 0;
+            self.current_c += 1;
+        } else if self.current_tol + 1 < self.svc_search_parameters.tol.len() {
+            self.current_epoch = 0;
+            self.current_c = 0;
+            self.current_tol += 1;
+        } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
+            self.current_epoch = 0;
+            self.current_c = 0;
+            self.current_tol = 0;
+            self.current_kernel += 1;
+        } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
+            self.current_epoch = 0;
+            self.current_c = 0;
+            self.current_tol = 0;
+            self.current_kernel = 0;
+            self.current_seed += 1;
+        } else {
+            self.current_epoch += 1;
+            self.current_c += 1;
+            self.current_tol += 1;
+            self.current_kernel += 1;
+            self.current_seed += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber, M: Matrix<T>> Default for SVCSearchParameters<T, M, LinearKernel> {
+    fn default() -> Self {
+        let default_params: SVCParameters<T, M, LinearKernel> = SVCParameters::default();
+
+        SVCSearchParameters {
+            epoch: vec![default_params.epoch],
+            c: vec![default_params.c],
+            tol: vec![default_params.tol],
+            kernel: vec![default_params.kernel],
+            m: PhantomData,
+            seed: vec![default_params.seed],
+        }
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -176,7 +308,14 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M
             tol: self.tol,
             kernel,
             m: PhantomData,
+            seed: self.seed,
         }
+    }
+
+    /// Seed for the pseudo random number generator.
+    pub fn with_seed(mut self, seed: Option<u64>) -> Self {
+        self.seed = seed;
+        self
     }
 }
 
@@ -188,6 +327,7 @@ impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, LinearKernel> 
             tol: T::from_f64(1e-3).unwrap(),
             kernel: Kernels::linear(),
             m: PhantomData,
+            seed: None,
         }
     }
 }
@@ -263,16 +403,28 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let (n, _) = x.shape();
+        let mut y_hat = self.decision_function(x)?;
 
-        let mut y_hat = M::RowVector::zeros(n);
-
-        for i in 0..n {
-            let cls_idx = match self.predict_for_row(x.get_row(i)) == T::one() {
+        for i in 0..y_hat.len() {
+            let cls_idx = match y_hat.get(i) > T::zero() {
                 false => self.classes[0],
                 true => self.classes[1],
             };
+
             y_hat.set(i, cls_idx);
+        }
+
+        Ok(y_hat)
+    }
+
+    /// Evaluates the decision function for the rows in `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
+    pub fn decision_function(&self, x: &M) -> Result<M::RowVector, Failed> {
+        let (n, _) = x.shape();
+        let mut y_hat = M::RowVector::zeros(n);
+
+        for i in 0..n {
+            y_hat.set(i, self.predict_for_row(x.get_row(i)));
         }
 
         Ok(y_hat)
@@ -285,11 +437,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
             f += self.w[i] * self.kernel.apply(&x, &self.instances[i]);
         }
 
-        if f > T::zero() {
-            T::one()
-        } else {
-            -T::one()
-        }
+        f
     }
 }
 
@@ -400,7 +548,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let good_enough = T::from_i32(1000).unwrap();
 
         for _ in 0..self.parameters.epoch {
-            for i in Self::permutate(n) {
+            for i in self.permutate(n) {
                 self.process(i, self.x.get_row(i), self.y.get(i), &mut cache);
                 loop {
                     self.reprocess(tol, &mut cache);
@@ -433,7 +581,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let mut cp = 0;
         let mut cn = 0;
 
-        for i in Self::permutate(n) {
+        for i in self.permutate(n) {
             if self.y.get(i) == T::one() && cp < few {
                 if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
                     cp += 1;
@@ -558,8 +706,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         self.recalculate_minmax_grad = true;
     }
 
-    fn permutate(n: usize) -> Vec<usize> {
-        let mut rng = rand::thread_rng();
+    fn permutate(&self, n: usize) -> Vec<usize> {
+        let mut rng = get_rng_impl(self.parameters.seed);
         let mut range: Vec<usize> = (0..n).collect();
         range.shuffle(&mut rng);
         range
@@ -729,6 +877,24 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
+    #[test]
+    fn search_parameters() {
+        let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+            SVCSearchParameters {
+                epoch: vec![10, 100],
+                kernel: vec![LinearKernel {}],
+                ..Default::default()
+            };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.epoch, 10);
+        assert_eq!(next.kernel, LinearKernel {});
+        let next = iter.next().unwrap();
+        assert_eq!(next.epoch, 100);
+        assert_eq!(next.kernel, LinearKernel {});
+        assert!(iter.next().is_none());
+    }
+
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svc_fit_predict() {
@@ -764,12 +930,57 @@ mod tests {
             &y,
             SVCParameters::default()
                 .with_c(200.0)
-                .with_kernel(Kernels::linear()),
+                .with_kernel(Kernels::linear())
+                .with_seed(Some(100)),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
+        let acc = accuracy(&y_hat, &y);
 
-        assert!(accuracy(&y_hat, &y) >= 0.9);
+        assert!(
+            acc >= 0.9,
+            "accuracy ({}) is not larger or equal to 0.9",
+            acc
+        );
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    fn svc_fit_decision_function() {
+        let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
+
+        let x2 = DenseMatrix::from_2d_array(&[
+            &[3.0, 3.0],
+            &[4.0, 4.0],
+            &[6.0, 6.0],
+            &[10.0, 10.0],
+            &[1.0, 1.0],
+            &[0.0, 0.0],
+        ]);
+
+        let y: Vec<f64> = vec![0., 0., 1., 1.];
+
+        let y_hat = SVC::fit(
+            &x,
+            &y,
+            SVCParameters::default()
+                .with_c(200.0)
+                .with_kernel(Kernels::linear()),
+        )
+        .and_then(|lr| lr.decision_function(&x2))
+        .unwrap();
+
+        // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
+        // so the score should increase as points get further away from that line
+        println!("{:?}", y_hat);
+        assert!(y_hat[1] < y_hat[2]);
+        assert!(y_hat[2] < y_hat[3]);
+
+        // for negative scores the score should decrease
+        assert!(y_hat[4] > y_hat[5]);
+
+        // y_hat[0] is on the line, so its score should be close to 0
+        assert!(y_hat[0].abs() <= 0.1);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -813,7 +1024,13 @@ mod tests {
         .and_then(|lr| lr.predict(&x))
         .unwrap();
 
-        assert!(accuracy(&y_hat, &y) >= 0.9);
+        let acc = accuracy(&y_hat, &y);
+
+        assert!(
+            acc >= 0.9,
+            "accuracy ({}) is not larger or equal to 0.9",
+            acc
+        );
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

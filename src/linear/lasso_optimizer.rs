@@ -211,9 +211,7 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
     }
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>> BiconjugateGradientSolver<T, M>
-    for InteriorPointOptimizer<T, M>
-{
+impl<T: RealNumber, M: Matrix<T>> BiconjugateGradientSolver<T, M> for InteriorPointOptimizer<T, M> {
     fn solve_preconditioner(&self, a: &M, b: &M, x: &mut M) {
         let (_, p) = a.shape();
 

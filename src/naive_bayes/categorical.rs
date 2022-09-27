@@ -243,6 +243,7 @@ impl<T: RealNumber> CategoricalNBDistribution<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct CategoricalNBParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
     pub alpha: T,
 }
@@ -258,6 +259,61 @@ impl<T: RealNumber> CategoricalNBParameters<T> {
 impl<T: RealNumber> Default for CategoricalNBParameters<T> {
     fn default() -> Self {
         Self { alpha: T::one() }
+    }
+}
+
+/// CategoricalNB grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct CategoricalNBSearchParameters<T: RealNumber> {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+    pub alpha: Vec<T>,
+}
+
+/// CategoricalNB grid search iterator
+pub struct CategoricalNBSearchParametersIterator<T: RealNumber> {
+    categorical_nb_search_parameters: CategoricalNBSearchParameters<T>,
+    current_alpha: usize,
+}
+
+impl<T: RealNumber> IntoIterator for CategoricalNBSearchParameters<T> {
+    type Item = CategoricalNBParameters<T>;
+    type IntoIter = CategoricalNBSearchParametersIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CategoricalNBSearchParametersIterator {
+            categorical_nb_search_parameters: self,
+            current_alpha: 0,
+        }
+    }
+}
+
+impl<T: RealNumber> Iterator for CategoricalNBSearchParametersIterator<T> {
+    type Item = CategoricalNBParameters<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.categorical_nb_search_parameters.alpha.len() {
+            return None;
+        }
+
+        let next = CategoricalNBParameters {
+            alpha: self.categorical_nb_search_parameters.alpha[self.current_alpha],
+        };
+
+        self.current_alpha += 1;
+
+        Some(next)
+    }
+}
+
+impl<T: RealNumber> Default for CategoricalNBSearchParameters<T> {
+    fn default() -> Self {
+        let default_params = CategoricalNBParameters::default();
+
+        CategoricalNBSearchParameters {
+            alpha: vec![default_params.alpha],
+        }
     }
 }
 
@@ -350,6 +406,20 @@ impl<T: RealNumber, M: Matrix<T>> CategoricalNB<T, M> {
 mod tests {
     use super::*;
     use crate::linalg::naive::dense_matrix::DenseMatrix;
+
+    #[test]
+    fn search_parameters() {
+        let parameters = CategoricalNBSearchParameters {
+            alpha: vec![1., 2.],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 2.);
+        assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

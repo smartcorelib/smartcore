@@ -7,6 +7,9 @@ use rand::prelude::*;
 use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+use std::str::FromStr;
+
+use crate::rand::get_rng_impl;
 
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
@@ -22,6 +25,7 @@ pub trait RealNumber:
     + SubAssign
     + MulAssign
     + DivAssign
+    + FromStr
 {
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
@@ -46,8 +50,11 @@ pub trait RealNumber:
         self * self
     }
 
-    /// Raw transmutation to u64
+    /// Raw transmutation to u32
     fn to_f32_bits(self) -> u32;
+
+    /// Raw transmutation to u64
+    fn to_f64_bits(self) -> u64;
 }
 
 impl RealNumber for f64 {
@@ -74,7 +81,7 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng_impl(None);
         rng.gen()
     }
 
@@ -88,6 +95,10 @@ impl RealNumber for f64 {
 
     fn to_f32_bits(self) -> u32 {
         self.to_bits() as u32
+    }
+
+    fn to_f64_bits(self) -> u64 {
+        self.to_bits()
     }
 }
 
@@ -115,7 +126,7 @@ impl RealNumber for f32 {
     }
 
     fn rand() -> f32 {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng_impl(None);
         rng.gen()
     }
 
@@ -130,6 +141,10 @@ impl RealNumber for f32 {
     fn to_f32_bits(self) -> u32 {
         self.to_bits()
     }
+
+    fn to_f64_bits(self) -> u64 {
+        self.to_bits() as u64
+    }
 }
 
 #[cfg(test)]
@@ -142,5 +157,15 @@ mod tests {
         assert_eq!(1.0.sigmoid(), 0.7310585786300049);
         assert_eq!(41.0.sigmoid(), 1.);
         assert_eq!((-41.0).sigmoid(), 0.);
+    }
+
+    #[test]
+    fn f32_from_string() {
+        assert_eq!(f32::from_str("1.111111").unwrap(), 1.111111)
+    }
+
+    #[test]
+    fn f64_from_string() {
+        assert_eq!(f64::from_str("1.111111111").unwrap(), 1.111111111)
     }
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## Added
+- Seeds to multiple algorithims that depend on random number generation.
+- Added feature `js` to use WASM in browser
+
+## BREAKING CHANGE
+- Added a new parameter to `train_test_split` to define the seed.
+
+## [0.2.1] - 2022-05-10
+
+## Added
 - L2 regularization penalty to the Logistic Regression
 - Getters for the naive bayes structs
 - One hot encoder

@@ -25,6 +25,19 @@
 //! let eigenvectors: DenseMatrix<f64> = evd.V;
 //! let eigenvalues: Vec<f64> = evd.d;
 //! ```
+//! ```
+//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::evd::*;
+//!
+//! let A = DenseMatrix::from_2d_array(&[
+//!     &[-5.0, 2.0],
+//!     &[-7.0, 4.0],
+//! ]);
+//!
+//! let evd = A.evd(false).unwrap();
+//! let eigenvectors: DenseMatrix<f64> = evd.V;
+//! let eigenvalues: Vec<f64> = evd.d;
+//! ```
 //!
 //! ## References:
 //! * ["Numerical Recipes: The Art of Scientific Computing",  Press W.H., Teukolsky S.A., Vetterling W.T, Flannery B.P, 3rd ed., Section 11 Eigensystems](http://numerical.recipes/)
@@ -799,10 +812,10 @@ fn sort<T: RealNumber, M: BaseMatrix<T>>(d: &mut [T], e: &mut [T], V: &mut M) {
             }
             i -= 1;
         }
-        d[i as usize + 1] = real;
-        e[i as usize + 1] = img;
+        d[(i + 1) as usize] = real;
+        e[(i + 1) as usize] = img;
         for (k, temp_k) in temp.iter().enumerate().take(n) {
-            V.set(k, i as usize + 1, *temp_k);
+            V.set(k, (i + 1) as usize, *temp_k);
         }
     }
 }
