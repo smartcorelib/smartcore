@@ -60,9 +60,9 @@ where
 
 #[cfg(test)]
 mod tests {
-  use crate::linear::logistic_regression::{
-    LogisticRegression, LogisticRegressionSearchParameters,
-};
+    use crate::linear::logistic_regression::{
+        LogisticRegression, LogisticRegressionSearchParameters,
+    };
 
   #[test]
   fn test_grid_search() {
@@ -113,5 +113,31 @@ mod tests {
       .unwrap();
 
       assert!([0., 1.].contains(&results.parameters.alpha));
-  }
+    }
+
+    #[test]
+    fn svm_check() {
+        let breast_cancer = crate::dataset::breast_cancer::load_dataset();
+        let y = breast_cancer.target;
+        let x = DenseMatrix::from_array(
+            breast_cancer.num_samples,
+            breast_cancer.num_features,
+            &breast_cancer.data,
+        );
+        let kernels = vec![
+            Kernel::Linear,
+            Kernel::RBF { gamma: 0.001 },
+            Kernel::RBF { gamma: 0.0001 },
+        ];
+        let parameters = SVCSearchParameters {
+            kernel: kernels,
+            c: vec![0., 10., 100., 1000.],
+            ..Default::default()
+        };
+        let cv = KFold {
+            n_splits: 5,
+            ..KFold::default()
+        };
+        grid_search(SVC::fit, &x, &y, parameters.into_iter(), cv, &recall).unwrap();
+    }
 }

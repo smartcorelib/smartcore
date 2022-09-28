@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Seeds to multiple algorithims that depend on random number generation.
 - Added feature `js` to use WASM in browser
 
-## BREAKING CHANGE
+## BREAKING CHANGES
+- SVM algorithms now use an enum type of Kernel, rather than distinct structs with a shared trait, so that they may be compared in a single hyperparameter search. 
 - Added a new parameter to `train_test_split` to define the seed.
 
 ## [0.2.1] - 2022-05-10

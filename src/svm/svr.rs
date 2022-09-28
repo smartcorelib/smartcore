@@ -76,12 +76,12 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::svm::{Kernel, Kernels, LinearKernel};
+use crate::svm::Kernel;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVR Parameters
-pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+pub struct SVRParameters<T: RealNumber, M: Matrix<T>> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: T,
     /// Regularization parameter.
@@ -89,7 +89,7 @@ pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
     /// Tolerance for stopping criterion.
     pub tol: T,
     /// The kernel function.
-    pub kernel: K,
+    pub kernel: Kernel<T>,
     /// Unused parameter.
     m: PhantomData<M>,
 }
@@ -97,7 +97,7 @@ pub struct SVRParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
 /// SVR grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct SVRSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+pub struct SVRSearchParameters<T: RealNumber, M: Matrix<T>> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: Vec<T>,
     /// Regularization parameter.
@@ -105,25 +105,23 @@ pub struct SVRSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowV
     /// Tolerance for stopping eps.
     pub tol: Vec<T>,
     /// The kernel function.
-    pub kernel: Vec<K>,
+    pub kernel: Vec<Kernel<T>>,
     /// Unused parameter.
     m: PhantomData<M>,
 }
 
 /// SVR grid search iterator
-pub struct SVRSearchParametersIterator<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-    svr_search_parameters: SVRSearchParameters<T, M, K>,
+pub struct SVRSearchParametersIterator<T: RealNumber, M: Matrix<T>> {
+    svr_search_parameters: SVRSearchParameters<T, M>,
     current_eps: usize,
     current_c: usize,
     current_tol: usize,
     current_kernel: usize,
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
-    for SVRSearchParameters<T, M, K>
-{
-    type Item = SVRParameters<T, M, K>;
-    type IntoIter = SVRSearchParametersIterator<T, M, K>;
+impl<T: RealNumber, M: Matrix<T>> IntoIterator for SVRSearchParameters<T, M> {
+    type Item = SVRParameters<T, M>;
+    type IntoIter = SVRSearchParametersIterator<T, M>;
 
     fn into_iter(self) -> Self::IntoIter {
         SVRSearchParametersIterator {
@@ -136,10 +134,8 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
-    for SVRSearchParametersIterator<T, M, K>
-{
-    type Item = SVRParameters<T, M, K>;
+impl<T: RealNumber, M: Matrix<T>> Iterator for SVRSearchParametersIterator<T, M> {
+    type Item = SVRParameters<T, M>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_eps == self.svr_search_parameters.eps.len()
@@ -150,7 +146,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
             return None;
         }
 
-        let next = SVRParameters::<T, M, K> {
+        let next = SVRParameters::<T, M> {
             eps: self.svr_search_parameters.eps[self.current_eps],
             c: self.svr_search_parameters.c[self.current_c],
             tol: self.svr_search_parameters.tol[self.current_tol],
@@ -183,9 +179,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M, LinearKernel> {
+impl<T: RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M> {
     fn default() -> Self {
-        let default_params: SVRParameters<T, M, LinearKernel> = SVRParameters::default();
+        let default_params: SVRParameters<T, M> = SVRParameters::default();
 
         SVRSearchParameters {
             eps: vec![default_params.eps],
@@ -202,14 +198,14 @@ impl<T: RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M, LinearKe
 #[cfg_attr(
     feature = "serde",
     serde(bound(
-        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+        serialize = "M::RowVector: Serialize, T: Serialize",
+        deserialize = "M::RowVector: Deserialize<'de>, T: Deserialize<'de>",
     ))
 )]
 
 /// Epsilon-Support Vector Regression
-pub struct SVR<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-    kernel: K,
+pub struct SVR<T: RealNumber, M: Matrix<T>> {
+    kernel: Kernel<T>,
     instances: Vec<M::RowVector>,
     w: Vec<T>,
     b: T,
@@ -226,7 +222,7 @@ struct SupportVector<T: RealNumber, V: BaseVector<T>> {
 }
 
 /// Sequential Minimal Optimization algorithm
-struct Optimizer<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+struct Optimizer<'a, T: RealNumber, M: Matrix<T>> {
     tol: T,
     c: T,
     svmin: usize,
@@ -237,14 +233,14 @@ struct Optimizer<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
     gmaxindex: usize,
     tau: T,
     sv: Vec<SupportVector<T, M::RowVector>>,
-    kernel: &'a K,
+    kernel: &'a Kernel<T>,
 }
 
 struct Cache<T: Clone> {
     data: Vec<RefCell<Option<Vec<T>>>>,
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVRParameters<T, M, K> {
+impl<T: RealNumber, M: Matrix<T>> SVRParameters<T, M> {
     /// Epsilon in the epsilon-SVR model.
     pub fn with_eps(mut self, eps: T) -> Self {
         self.eps = eps;
@@ -261,7 +257,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVRParameters<T, M
         self
     }
     /// The kernel function.
-    pub fn with_kernel<KK: Kernel<T, M::RowVector>>(&self, kernel: KK) -> SVRParameters<T, M, KK> {
+    pub fn with_kernel(&self, kernel: Kernel<T>) -> SVRParameters<T, M> {
         SVRParameters {
             eps: self.eps,
             c: self.c,
@@ -272,35 +268,33 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVRParameters<T, M
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVRParameters<T, M, LinearKernel> {
+impl<T: RealNumber, M: Matrix<T>> Default for SVRParameters<T, M> {
     fn default() -> Self {
         SVRParameters {
             eps: T::from_f64(0.1).unwrap(),
             c: T::one(),
             tol: T::from_f64(1e-3).unwrap(),
-            kernel: Kernels::linear(),
+            kernel: Kernel::Linear,
             m: PhantomData,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>>
-    SupervisedEstimator<M, M::RowVector, SVRParameters<T, M, K>> for SVR<T, M, K>
+impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, SVRParameters<T, M>>
+    for SVR<T, M>
 {
-    fn fit(x: &M, y: &M::RowVector, parameters: SVRParameters<T, M, K>) -> Result<Self, Failed> {
+    fn fit(x: &M, y: &M::RowVector, parameters: SVRParameters<T, M>) -> Result<Self, Failed> {
         SVR::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Predictor<M, M::RowVector>
-    for SVR<T, M, K>
-{
+impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for SVR<T, M> {
     fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
+impl<T: RealNumber, M: Matrix<T>> SVR<T, M> {
     /// Fits SVR to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
@@ -309,8 +303,8 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
     pub fn fit(
         x: &M,
         y: &M::RowVector,
-        parameters: SVRParameters<T, M, K>,
-    ) -> Result<SVR<T, M, K>, Failed> {
+        parameters: SVRParameters<T, M>,
+    ) -> Result<SVR<T, M>, Failed> {
         let (n, _) = x.shape();
 
         if n != y.len() {
@@ -349,14 +343,14 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVR<T, M, K> {
         let mut f = self.b;
 
         for i in 0..self.instances.len() {
-            f += self.w[i] * self.kernel.apply(&x, &self.instances[i]);
+            f += self.w[i] * crate::svm::apply(&self.kernel, &x, &self.instances[i]);
         }
 
         f
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVR<T, M, K> {
+impl<T: RealNumber, M: Matrix<T>> PartialEq for SVR<T, M> {
     fn eq(&self, other: &Self) -> bool {
         if (self.b - other.b).abs() > T::epsilon() * T::two()
             || self.w.len() != other.w.len()
@@ -380,8 +374,8 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVR<
 }
 
 impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
-    fn new<K: Kernel<T, V>>(i: usize, x: V, y: T, eps: T, k: &K) -> SupportVector<T, V> {
-        let k_v = k.apply(&x, &x);
+    fn new(i: usize, x: V, y: T, eps: T, k: &Kernel<T>) -> SupportVector<T, V> {
+        let k_v = crate::svm::apply(k, &x, &x);
         SupportVector {
             index: i,
             x,
@@ -392,13 +386,13 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
     }
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, T, M, K> {
+impl<'a, T: RealNumber, M: Matrix<T>> Optimizer<'a, T, M> {
     fn new(
         x: &M,
         y: &M::RowVector,
-        kernel: &'a K,
-        parameters: &SVRParameters<T, M, K>,
-    ) -> Optimizer<'a, T, M, K> {
+        kernel: &'a Kernel<T>,
+        parameters: &SVRParameters<T, M>,
+    ) -> Optimizer<'a, T, M> {
         let (n, _) = x.shape();
 
         let mut support_vectors: Vec<SupportVector<T, M::RowVector>> = Vec::with_capacity(n);
@@ -479,7 +473,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             let k1 = cache.get(self.sv[v1].index, || {
                 self.sv
                     .iter()
-                    .map(|vi| self.kernel.apply(&self.sv[v1].x, &vi.x))
+                    .map(|vi| crate::svm::apply(self.kernel, &self.sv[v1].x, &vi.x))
                     .collect()
             });
 
@@ -526,7 +520,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             let k2 = cache.get(self.sv[v2].index, || {
                 self.sv
                     .iter()
-                    .map(|vi| self.kernel.apply(&self.sv[v2].x, &vi.x))
+                    .map(|vi| crate::svm::apply(self.kernel, &self.sv[v2].x, &vi.x))
                     .collect()
             });
 
@@ -641,19 +635,18 @@ mod tests {
 
     #[test]
     fn search_parameters() {
-        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
-            SVRSearchParameters {
-                eps: vec![0., 1.],
-                kernel: vec![LinearKernel {}],
-                ..Default::default()
-            };
+        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>> = SVRSearchParameters {
+            eps: vec![0., 1.],
+            kernel: vec![Kernel::Linear {}],
+            ..Default::default()
+        };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
         assert_eq!(next.eps, 0.);
-        assert_eq!(next.kernel, LinearKernel {});
+        assert_eq!(next.kernel, Kernel::Linear {});
         let next = iter.next().unwrap();
         assert_eq!(next.eps, 1.);
-        assert_eq!(next.kernel, LinearKernel {});
+        assert_eq!(next.kernel, Kernel::Linear {});
         assert!(iter.next().is_none());
     }
 
@@ -721,7 +714,7 @@ mod tests {
 
         let svr = SVR::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_svr: SVR<f64, DenseMatrix<f64>, LinearKernel> =
+        let deserialized_svr: SVR<f64, DenseMatrix<f64>> =
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
         assert_eq!(svr, deserialized_svr);
