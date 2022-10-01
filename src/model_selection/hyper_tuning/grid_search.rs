@@ -5,7 +5,7 @@ use crate::{
     math::num::RealNumber,
 };
 
-use super::{cross_validate, BaseKFold, CrossValidationResult};
+use crate::model_selection::{cross_validate, BaseKFold, CrossValidationResult};
 
 /// grid search results.
 #[derive(Clone, Debug)]
