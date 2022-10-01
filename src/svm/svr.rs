@@ -76,7 +76,7 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::svm::{Kernel, Kernels, LinearKernel};
+use crate::svm::{Kernel, Kernels};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -183,9 +183,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M, LinearKernel> {
+impl<T: RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M, Kernels<T>> {
     fn default() -> Self {
-        let default_params: SVRParameters<T, M, LinearKernel> = SVRParameters::default();
+        let default_params: SVRParameters<T, M, Kernels<T>> = SVRParameters::default();
 
         SVRSearchParameters {
             eps: vec![default_params.eps],
@@ -272,7 +272,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVRParameters<T, M
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVRParameters<T, M, LinearKernel> {
+impl<T: RealNumber, M: Matrix<T>> Default for SVRParameters<T, M, Kernels<T>> {
     fn default() -> Self {
         SVRParameters {
             eps: T::from_f64(0.1).unwrap(),
@@ -641,19 +641,19 @@ mod tests {
 
     #[test]
     fn search_parameters() {
-        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, Kernels<_>> =
             SVRSearchParameters {
                 eps: vec![0., 1.],
-                kernel: vec![LinearKernel {}],
+                kernel: vec![Kernels::linear()],
                 ..Default::default()
             };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
         assert_eq!(next.eps, 0.);
-        assert_eq!(next.kernel, LinearKernel {});
+        assert_eq!(next.kernel, Kernels::linear());
         let next = iter.next().unwrap();
         assert_eq!(next.eps, 1.);
-        assert_eq!(next.kernel, LinearKernel {});
+        assert_eq!(next.kernel, Kernels::linear());
         assert!(iter.next().is_none());
     }
 

@@ -39,57 +39,64 @@ pub trait Kernel<T: RealNumber, V: BaseVector<T>>: Clone {
 }
 
 /// Pre-defined kernel functions
-pub struct Kernels {}
-
-impl Kernels {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Kernels<T: RealNumber> {
     /// Linear kernel
-    pub fn linear() -> LinearKernel {
-        LinearKernel {}
+    Linear(LinearKernel),
+    /// Radial basis function kernel (Gaussian)
+    RBF(RBFKernel<T>),
+    /// Polynomial kernel
+    Polynomial(PolynomialKernel<T>),
+    /// Sigmoid kernel    
+    Sigmoid(SigmoidKernel<T>),
+}
+
+impl<T: RealNumber> Kernels<T> {
+    /// Linear kernel
+    pub fn linear() -> Self {
+        Self::Linear(LinearKernel {})
     }
 
     /// Radial basis function kernel (Gaussian)
-    pub fn rbf<T: RealNumber>(gamma: T) -> RBFKernel<T> {
-        RBFKernel { gamma }
+    pub fn rbf(gamma: T) -> Self {
+        Self::RBF(RBFKernel { gamma })
     }
 
     /// Polynomial kernel
     /// * `degree` - degree of the polynomial
     /// * `gamma` - kernel coefficient
     /// * `coef0` - independent term in kernel function
-    pub fn polynomial<T: RealNumber>(degree: T, gamma: T, coef0: T) -> PolynomialKernel<T> {
-        PolynomialKernel {
+    pub fn polynomial(degree: T, gamma: T, coef0: T) -> Self {
+        Self::Polynomial(PolynomialKernel {
             degree,
             gamma,
             coef0,
-        }
+        })
     }
 
     /// Polynomial kernel
     /// * `degree` - degree of the polynomial
     /// * `n_features` - number of features in vector
-    pub fn polynomial_with_degree<T: RealNumber>(
-        degree: T,
-        n_features: usize,
-    ) -> PolynomialKernel<T> {
+    pub fn polynomial_with_degree(degree: T, n_features: usize) -> Self {
         let coef0 = T::one();
         let gamma = T::one() / T::from_usize(n_features).unwrap();
-        Kernels::polynomial(degree, gamma, coef0)
+        Self::polynomial(degree, gamma, coef0)
     }
 
     /// Sigmoid kernel    
     /// * `gamma` - kernel coefficient
     /// * `coef0` - independent term in kernel function
-    pub fn sigmoid<T: RealNumber>(gamma: T, coef0: T) -> SigmoidKernel<T> {
-        SigmoidKernel { gamma, coef0 }
+    pub fn sigmoid(gamma: T, coef0: T) -> Self {
+        Self::Sigmoid(SigmoidKernel { gamma, coef0 })
     }
 
     /// Sigmoid kernel    
     /// * `gamma` - kernel coefficient    
-    pub fn sigmoid_with_gamma<T: RealNumber>(gamma: T) -> SigmoidKernel<T> {
-        SigmoidKernel {
+    pub fn sigmoid_with_gamma(gamma: T) -> Self {
+        Self::Sigmoid(SigmoidKernel {
             gamma,
             coef0: T::one(),
-        }
+        })
     }
 }
 
@@ -126,6 +133,17 @@ pub struct SigmoidKernel<T: RealNumber> {
     pub gamma: T,
     /// independent term in kernel function
     pub coef0: T,
+}
+
+impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for Kernels<T> {
+    fn apply(&self, x_i: &V, x_j: &V) -> T {
+        match self {
+            Self::Linear(k) => k.apply(x_i, x_j),
+            Self::RBF(k) => k.apply(x_i, x_j),
+            Self::Polynomial(k) => k.apply(x_i, x_j),
+            Self::Sigmoid(k) => k.apply(x_i, x_j),
+        }
+    }
 }
 
 impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for LinearKernel {

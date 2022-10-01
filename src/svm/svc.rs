@@ -85,7 +85,7 @@ use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
 use crate::rand::get_rng_impl;
-use crate::svm::{Kernel, Kernels, LinearKernel};
+use crate::svm::{Kernel, Kernels};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -129,10 +129,10 @@ pub struct SVCSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowV
     pub kernel: Vec<K>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
-    m: PhantomData<M>,
+    pub m: PhantomData<M>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
-    seed: Vec<Option<u64>>,
+    pub seed: Vec<Option<u64>>,
 }
 
 /// SVC grid search iterator
@@ -219,9 +219,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVCSearchParameters<T, M, LinearKernel> {
+impl<T: RealNumber, M: Matrix<T>> Default for SVCSearchParameters<T, M, Kernels<T>> {
     fn default() -> Self {
-        let default_params: SVCParameters<T, M, LinearKernel> = SVCParameters::default();
+        let default_params: SVCParameters<T, M, Kernels<T>> = SVCParameters::default();
 
         SVCSearchParameters {
             epoch: vec![default_params.epoch],
@@ -319,7 +319,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, LinearKernel> {
+impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, Kernels<T>> {
     fn default() -> Self {
         SVCParameters {
             epoch: 2,
@@ -879,19 +879,19 @@ mod tests {
 
     #[test]
     fn search_parameters() {
-        let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+        let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, Kernels<_>> =
             SVCSearchParameters {
                 epoch: vec![10, 100],
-                kernel: vec![LinearKernel {}],
+                kernel: vec![Kernels::linear()],
                 ..Default::default()
             };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
         assert_eq!(next.epoch, 10);
-        assert_eq!(next.kernel, LinearKernel {});
+        assert_eq!(next.kernel, Kernels::linear());
         let next = iter.next().unwrap();
         assert_eq!(next.epoch, 100);
-        assert_eq!(next.kernel, LinearKernel {});
+        assert_eq!(next.kernel, Kernels::linear());
         assert!(iter.next().is_none());
     }
 

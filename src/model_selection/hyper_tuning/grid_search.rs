@@ -163,13 +163,14 @@ mod tests {
     use crate::{
         linalg::naive::dense_matrix::DenseMatrix,
         linear::logistic_regression::{LogisticRegression, LogisticRegressionSearchParameters},
-        metrics::accuracy,
-        model_selection::{
-            hyper_tuning::grid_search::{self, GridSearchCVParameters},
-            KFold,
+        metrics::{accuracy, recall},
+        model_selection::{hyper_tuning::grid_search, KFold},
+        svm::{
+            svc::{SVCSearchParameters, SVC},
+            Kernels,
         },
     };
-    use grid_search::GridSearchCV;
+    use grid_search::{GridSearchCV, GridSearchCVParameters};
 
     #[test]
     fn test_grid_search() {
@@ -232,5 +233,38 @@ mod tests {
         let x = DenseMatrix::from_2d_array(&[&[5., 3., 1., 0.]]);
         let result = grid_search.predict(&x).unwrap();
         assert_eq!(result, vec![0.]);
+    }
+
+    #[test]
+    fn svm_check() {
+        let breast_cancer = crate::dataset::breast_cancer::load_dataset();
+        let y = breast_cancer.target;
+        let x = DenseMatrix::from_array(
+            breast_cancer.num_samples,
+            breast_cancer.num_features,
+            &breast_cancer.data,
+        );
+        let kernels = vec![Kernels::linear(), Kernels::rbf(0.001), Kernels::rbf(0.0001)];
+        let parameters = SVCSearchParameters {
+            kernel: kernels,
+            c: vec![0., 10., 100., 1000.],
+            ..Default::default()
+        };
+        let cv = KFold {
+            n_splits: 5,
+            ..KFold::default()
+        };
+        let _grid_search = GridSearchCV::fit(
+            &x,
+            &y,
+            GridSearchCVParameters {
+                estimator: SVC::fit,
+                score: recall,
+                cv,
+                parameters_search: parameters.into_iter(),
+                _phantom: Default::default(),
+            },
+        )
+        .unwrap();
     }
 }
