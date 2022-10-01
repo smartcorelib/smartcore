@@ -113,7 +113,7 @@ use rand::seq::SliceRandom;
 pub(crate) mod hyper_tuning;
 pub(crate) mod kfold;
 
-pub use hyper_tuning::{grid_search, GridSearchResult};
+pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
 pub use kfold::{KFold, KFoldIter};
 
 /// An interface for the K-Folds cross-validator
