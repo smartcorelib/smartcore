@@ -9,6 +9,8 @@ use crate::rand::get_rng_impl;
 use rand::seq::SliceRandom;
 
 /// K-Folds cross-validator
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KFold {
     /// Number of folds. Must be at least 2.
     pub n_splits: usize, // cannot exceed std::usize::MAX

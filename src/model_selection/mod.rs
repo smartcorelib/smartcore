@@ -176,7 +176,8 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
 }
 
 /// Cross validation results.
-#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CrossValidationResult<T: RealNumber> {
     /// Vector with test scores on each cv split
     pub test_score: Vec<T>,

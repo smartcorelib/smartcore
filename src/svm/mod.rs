@@ -39,6 +39,7 @@ pub trait Kernel<T: RealNumber, V: BaseVector<T>>: Clone {
 }
 
 /// Pre-defined kernel functions
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Kernels<T: RealNumber> {
     /// Linear kernel
