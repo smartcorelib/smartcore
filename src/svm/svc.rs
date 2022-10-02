@@ -173,7 +173,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
             && self.current_c == self.svc_search_parameters.c.len()
             && self.current_tol == self.svc_search_parameters.tol.len()
             && self.current_kernel == self.svc_search_parameters.kernel.len()
-            && self.current_seed == self.svc_search_parameters.kernel.len()
+            && self.current_seed == self.svc_search_parameters.seed.len()
         {
             return None;
         }
@@ -201,7 +201,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
             self.current_c = 0;
             self.current_tol = 0;
             self.current_kernel += 1;
-        } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
+        } else if self.current_seed + 1 < self.svc_search_parameters.seed.len() {
             self.current_epoch = 0;
             self.current_c = 0;
             self.current_tol = 0;
@@ -972,7 +972,6 @@ mod tests {
 
         // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
         // so the score should increase as points get further away from that line
-        println!("{:?}", y_hat);
         assert!(y_hat[1] < y_hat[2]);
         assert!(y_hat[2] < y_hat[3]);
 
