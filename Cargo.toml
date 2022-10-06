@@ -13,7 +13,7 @@ keywords = ["machine-learning", "statistical", "ai", "optimization", "linear-alg
 categories = ["science"]
 
 [features]
-default = ["datasets", "serde"]
+default = ["datasets"]
 ndarray-bindings = ["ndarray"]
 nalgebra-bindings = ["nalgebra"]
 datasets = ["rand_distr", "std"]
@@ -23,16 +23,15 @@ std = ["rand/std", "rand/std_rng"]
 js = ["getrandom/js"]
 
 [dependencies]
-approx = "0.5.1"
-cfg-if = "1.0.0"
-itertools = { version = "0.10.3", optional = true }
 ndarray = { version = "0.15", optional = true }
 nalgebra = { version = "0.31", optional = true }
-num-traits = "0.2.12"
+num-traits = "0.2"
 num = "0.4"
 rand = { version = "0.8", default-features = false, features = ["small_rng"] }
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
+itertools = { version = "0.10.3", optional = true }
+cfg-if = "1.0.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", optional = true }
