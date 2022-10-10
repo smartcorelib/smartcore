@@ -37,7 +37,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2, ArrayView1};
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;

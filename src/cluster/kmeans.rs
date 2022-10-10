@@ -64,7 +64,7 @@ use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
 use crate::metrics::distance::euclidian::*;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 use crate::rand::get_rng_impl;
 
 /// K-Means clustering algorithm

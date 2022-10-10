@@ -24,9 +24,9 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
-use crate::linalg::base::Array2;
-use crate::linalg::lu_n::LUDecomposable;
-use crate::num::Number;
+use crate::linalg::basic::arrays::Array2;
+use crate::linalg::traits::lu::LUDecomposable;
+use crate::numbers::basenum::Number;
 
 /// Distance metric, a function that calculates distance between two points
 pub trait Distance<T>: Clone {

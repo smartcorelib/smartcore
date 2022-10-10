@@ -73,7 +73,7 @@ use serde::{Deserialize, Serialize};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2, MutArrayView1};
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 use crate::rand::get_rng_impl;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

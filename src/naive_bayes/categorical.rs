@@ -36,7 +36,7 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2, ArrayView1};
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

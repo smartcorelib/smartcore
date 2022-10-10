@@ -24,8 +24,8 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 use super::Distance;
-use crate::linalg::base::ArrayView1;
-use crate::num::Number;
+use crate::linalg::basic::arrays::ArrayView1;
+use crate::numbers::basenum::Number;
 
 /// While comparing two integer-valued vectors of equal length, Hamming distance is the number of bit positions in which the two bits are different
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

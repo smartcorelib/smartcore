@@ -53,7 +53,7 @@ use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
 use crate::metrics::distance::euclidian::Euclidian;
 use crate::metrics::distance::{Distance, Distances};
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 use crate::tree::decision_tree_classifier::which_max;
 
 /// DBSCAN clustering algorithm

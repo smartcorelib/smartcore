@@ -46,7 +46,7 @@ use crate::linalg::base::{Array1, Array2};
 use crate::metrics::distance::euclidian::Euclidian;
 use crate::metrics::distance::{Distance, Distances};
 use crate::neighbors::KNNWeightFunction;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 
 /// `KNNRegressor` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

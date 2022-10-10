@@ -25,8 +25,8 @@
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
-use crate::linalg::base::ArrayView1;
-use crate::num::Number;
+use crate::linalg::basic::arrays::ArrayView1;
+use crate::numbers::basenum::Number;
 
 use super::Distance;
 

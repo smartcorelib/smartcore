@@ -74,7 +74,7 @@ pub mod r2;
 pub mod recall;
 
 use crate::linalg::base::Array1;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 
 /// Use these metrics to compare classification models.
 pub struct ClassificationMetrics {}

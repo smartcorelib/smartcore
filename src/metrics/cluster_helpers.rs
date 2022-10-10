@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 
 use crate::linalg::base::Array1;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 
 pub fn contingency_matrix<T: Number + Ord, V: Array1<T>>(
     labels_true: &V,

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::linalg::base::Array2;
 use crate::metrics::distance::euclidian::*;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 
 #[derive(Debug)]
 pub struct BBDTree {

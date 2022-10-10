@@ -48,10 +48,10 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 use super::Distance;
-use crate::linalg::base::{Array, Array2, ArrayView1};
-use crate::linalg::dense::matrix::DenseMatrix;
-use crate::linalg::lu_n::LUDecomposable;
-use crate::num::Number;
+use crate::linalg::basic::arrays::{Array, Array2, ArrayView1};
+use crate::linalg::basic::matrix::DenseMatrix;
+use crate::linalg::traits::lu::LUDecomposable;
+use crate::numbers::basenum::Number;
 
 /// Mahalanobis distance.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

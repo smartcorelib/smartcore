@@ -24,7 +24,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::base::Array1;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 
 /// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

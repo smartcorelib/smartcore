@@ -22,7 +22,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::base::Array1;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 
 /// Coefficient of Determination (R2)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

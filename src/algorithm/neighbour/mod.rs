@@ -34,7 +34,7 @@ use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::error::Failed;
 use crate::metrics::distance::Distance;
-use crate::num::Number;
+use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
