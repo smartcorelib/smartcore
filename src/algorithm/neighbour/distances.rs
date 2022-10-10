@@ -9,7 +9,7 @@ use std::cmp::{Eq, Ordering, PartialOrd};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
+use crate::numbers::realnum::RealNumber;
 
 ///
 /// The edge of the subgraph is defined by `PairwiseDistance`.
