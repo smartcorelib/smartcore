@@ -6,7 +6,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::naive_bayes::gaussian::GaussianNB;
 //!
 //! let x = DenseMatrix::from_2d_array(&[

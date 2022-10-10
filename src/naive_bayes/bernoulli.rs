@@ -6,7 +6,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::naive_bayes::bernoulli::BernoulliNB;
 //!
 //! // Training data points are:

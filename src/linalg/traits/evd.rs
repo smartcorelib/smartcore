@@ -12,8 +12,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
-//! use smartcore_numbers::linalg::traits::evd::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linalg::traits::evd::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                  &[0.9000, 0.4000, 0.7000],

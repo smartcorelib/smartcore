@@ -19,7 +19,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::linear::ridge_regression::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -64,10 +64,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2};
-use crate::linalg::cholesky_n::CholeskyDecomposable;
-use crate::linalg::svd_n::SVDDecomposable;
-use crate::num::{FloatNumber, Number};
+use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::linalg::traits::cholesky::CholeskyDecomposable;
+use crate::linalg::traits::svd::SVDDecomposable;
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq)]

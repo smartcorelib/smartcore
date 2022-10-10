@@ -8,8 +8,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
-//! use smartcore_numbers::linalg::traits::cholesky::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linalg::traits::cholesky::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[25., 15., -5.],

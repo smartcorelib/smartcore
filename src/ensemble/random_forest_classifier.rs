@@ -8,7 +8,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::ensemble::random_forest_classifier::RandomForestClassifier;
 //!
 //! // Iris dataset
@@ -56,7 +56,8 @@ use serde::{Deserialize, Serialize};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
-use crate::num::{FloatNumber, Number};
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
 use crate::rand::get_rng_impl;
 use crate::tree::decision_tree_classifier::{
     which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,

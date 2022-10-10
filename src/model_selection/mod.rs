@@ -12,7 +12,7 @@
 //! ```
 //! use crate::smartcore::linalg::BaseMatrix;
 //! use smartcore::linalg::base::Array;
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::model_selection::train_test_split;
 //!
 //! //Iris data
@@ -56,7 +56,7 @@
 //! The simplest way to run cross-validation is to use the [cross_val_score](./fn.cross_validate.html) helper function on your estimator and the dataset.
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::model_selection::{KFold, cross_validate};
 //! use smartcore::metrics::accuracy;
 //! use smartcore::linear::logistic_regression::LogisticRegression;

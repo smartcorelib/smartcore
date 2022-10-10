@@ -12,7 +12,7 @@
 //! To fit the model to a 4 x 2 matrix with 4 training samples, 2 features per sample:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::neighbors::knn_classifier::*;
 //! use smartcore::metrics::distance::*;
 //!

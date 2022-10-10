@@ -17,7 +17,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::linear::elastic_net::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -62,8 +62,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array, Array1, Array2, MutArray};
-use crate::num::{FloatNumber, Number};
+use crate::linalg::basic::arrays::{Array, Array1, Array2, MutArray};
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
 
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 

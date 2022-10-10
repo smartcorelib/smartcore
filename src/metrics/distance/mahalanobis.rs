@@ -14,7 +14,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::linalg::base::ArrayView2;
 //! use smartcore::metrics::distance::Distance;
 //! use smartcore::metrics::distance::mahalanobis::Mahalanobis;

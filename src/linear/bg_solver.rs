@@ -2,11 +2,11 @@
 //! 
 //! Example:
 //! ```
-//! use smartcore_numbers::linalg::basic::arrays::Array1;
-//! use smartcore_numbers::linalg::basic::arrays::Array2;
-//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
-//! use smartcore_numbers::linear::bg_solver::*;
-//! use smartcore_numbers::numbers::floatnum::FloatNumber;
+//! use smartcore::linalg::basic::arrays::Array1;
+//! use smartcore::linalg::basic::arrays::Array2;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linear::bg_solver::*;
+//! use smartcore::numbers::floatnum::FloatNumber;
 //! 
 //! pub struct BGSolver {}
 //! impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}

@@ -8,9 +8,9 @@ use crate::numbers::basenum::Number;
 pub trait HighOrderOperations<T: Number >: Array2<T> {
     /// Y = AB
     /// ```
-    /// use smartcore_numbers::linalg::basic::matrix::*;
-    /// use smartcore_numbers::linalg::traits::high_order::HighOrderOperations;
-    /// use smartcore_numbers::linalg::basic::arrays::Array2;
+    /// use smartcore::linalg::basic::matrix::*;
+    /// use smartcore::linalg::traits::high_order::HighOrderOperations;
+    /// use smartcore::linalg::basic::arrays::Array2;
     ///
     /// let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
     /// let b = DenseMatrix::from_2d_array(&[&[5., 6.], &[7., 8.], &[9., 10.]]);

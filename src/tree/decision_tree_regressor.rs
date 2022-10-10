@@ -19,7 +19,7 @@
 //!
 //! ```
 //! use rand::thread_rng;
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_regressor::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)

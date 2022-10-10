@@ -23,7 +23,7 @@
 //! ```
 //! use rand::Rng;
 //!
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_classifier::*;
 //!
 //! // Iris dataset

@@ -12,7 +12,7 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::linear::logistic_regression::LogisticRegression;
 //! use smartcore::metrics::*;
 //!

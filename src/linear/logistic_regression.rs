@@ -10,7 +10,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::linear::logistic_regression::*;
 //!
 //! //Iris data
@@ -61,8 +61,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2, MutArrayView1};
-use crate::num::{FloatNumber, Number};
+use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
 use crate::optimization::first_order::lbfgs::LBFGS;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::Backtracking;

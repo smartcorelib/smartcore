@@ -7,7 +7,7 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::decomposition::svd::*;
 //!
 //! // Iris data

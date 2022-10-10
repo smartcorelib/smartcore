@@ -111,8 +111,8 @@ pub trait MatrixStats<T: RealNumber >: ArrayView2<T> {
 // pub trait MatrixPreprocessing<T: RealNumber >: MutArrayView2<T> {
 //     /// Each element of the matrix greater than the threshold becomes 1, while values less than or equal to the threshold become 0
 //     /// ```
-//     /// use smartcore_numbers::linalg::basic::matrix::*;
-//     /// use smartcore_numbers::linalg::traits::stats::MatrixPreprocessing;
+//     /// use smartcore::linalg::basic::matrix::*;
+//     /// use smartcore::linalg::traits::stats::MatrixPreprocessing;
 //     /// let mut a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
 //     /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
 //     /// a.binarize_mut(0.);
@@ -134,8 +134,8 @@ pub trait MatrixStats<T: RealNumber >: ArrayView2<T> {
 //     }
 //     /// Returns new matrix where elements are binarized according to a given threshold.
 //     /// ```
-//     /// use smartcore_numbers::linalg::basic::matrix::*;
-//     /// use smartcore_numbers::linalg::traits::stats::MatrixPreprocessing;
+//     /// use smartcore::linalg::basic::matrix::*;
+//     /// use smartcore::linalg::traits::stats::MatrixPreprocessing;
 //     /// let a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
 //     /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
 //     ///

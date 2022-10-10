@@ -30,9 +30,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2, ArrayView1};
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
-use crate::num::{FloatNumber, Number};
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
 
 /// Lasso regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

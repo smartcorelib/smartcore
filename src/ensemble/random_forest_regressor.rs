@@ -8,7 +8,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::ensemble::random_forest_regressor::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)

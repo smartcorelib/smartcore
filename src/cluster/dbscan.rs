@@ -19,7 +19,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
 //! use smartcore::linalg::base::Array2;
 //! use smartcore::cluster::dbscan::*;
 //! use smartcore::metrics::distance::Distances;
