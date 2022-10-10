@@ -21,7 +21,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::base::Array1;
+use crate::linalg::basic::arrays::Array1;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
 use crate::numbers::basenum::Number;

@@ -1,7 +1,7 @@
 #![allow(clippy::ptr_arg)]
 use std::collections::HashMap;
 
-use crate::linalg::base::Array1;
+use crate::linalg::basic::arrays::Array1;
 use crate::numbers::basenum::Number;
 
 pub fn contingency_matrix<T: Number + Ord, V: Array1<T>>(

@@ -73,7 +73,7 @@ pub mod r2;
 /// Computes the recall.
 pub mod recall;
 
-use crate::linalg::base::Array1;
+use crate::linalg::basic::arrays::Array1;
 use crate::numbers::basenum::Number;
 
 /// Use these metrics to compare classification models.
