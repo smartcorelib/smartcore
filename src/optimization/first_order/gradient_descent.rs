@@ -1,7 +1,7 @@
 use std::default::Default;
 
-use crate::linalg::base::Array1;
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::Array1;
+use crate::numbers::floatnum::FloatNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};

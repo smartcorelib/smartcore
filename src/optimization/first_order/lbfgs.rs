@@ -2,8 +2,9 @@
 use std::default::Default;
 use std::fmt::Debug;
 
-use crate::linalg::base::Array1;
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::Array1;
+use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
@@ -37,7 +38,7 @@ impl Default for LBFGS {
 }
 
 impl LBFGS {
-    fn two_loops<T: FloatNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) {
+    fn two_loops<T: FloatNumber + RealNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) {
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;
 
@@ -58,7 +59,7 @@ impl LBFGS {
             let dxi = &state.dx_history[i];
             let dgi = &state.dg_history[i];
             let mut div = dgi.abs();
-            div.pow_mut(T::two());
+            div.pow_mut(RealNumber::two());
             let scaling = dxi.dot(dgi) / div.sum();
             state.s.copy_from(&state.twoloop_q.mul_scalar(scaling));
         } else {
@@ -78,7 +79,7 @@ impl LBFGS {
         state.s.mul_scalar_mut(-T::one());
     }
 
-    fn init_state<T: FloatNumber, X: Array1<T>>(&self, x: &X) -> LBFGSState<T, X> {
+    fn init_state<T: FloatNumber + RealNumber, X: Array1<T>>(&self, x: &X) -> LBFGSState<T, X> {
         LBFGSState {
             x: x.clone(),
             x_prev: x.clone(),
@@ -101,7 +102,7 @@ impl LBFGS {
         }
     }
 
-    fn update_state<'a, T: FloatNumber, X: Array1<T>, LS: LineSearchMethod<T>>(
+    fn update_state<'a, T: FloatNumber + RealNumber, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,
         df: &'a DF<'_, X>,
@@ -212,7 +213,7 @@ struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     alpha: T,
 }
 
-impl<T: FloatNumber> FirstOrderOptimizer<T> for LBFGS {
+impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
     fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &F<'_, T, X>,

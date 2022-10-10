@@ -70,41 +70,41 @@
 pub mod numbers;
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
-pub mod algorithm;
+// pub mod algorithm;
 pub mod api;
-/// Algorithms for clustering of unlabeled data
-pub mod cluster;
-/// Various datasets
+
+// /// Algorithms for clustering of unlabeled data
+// pub mod cluster;
+// /// Various datasets
 #[cfg(feature = "datasets")]
 pub mod dataset;
-/// Matrix decomposition algorithms
-pub mod decomposition;
-/// Ensemble methods, including Random Forest classifier and regressor
-pub mod ensemble;
+// /// Matrix decomposition algorithms
+// pub mod decomposition;
+// /// Ensemble methods, including Random Forest classifier and regressor
+// pub mod ensemble;
+
 pub mod error;
 /// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.
 pub mod linear;
-/// Helper methods and classes, including definitions of distance metrics
-pub mod math;
 /// Functions for assessing prediction error.
 pub mod metrics;
-pub mod model_selection;
-///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
-pub mod naive_bayes;
-/// Supervised neighbors-based learning methods
-pub mod neighbors;
+// pub mod model_selection;
+// ///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
+// pub mod naive_bayes;
+// /// Supervised neighbors-based learning methods
+// pub mod neighbors;
 
 pub(crate) mod optimization;
-/// Preprocessing utilities
-pub mod preprocessing;
-/// Reading in Data.
-pub mod readers;
-/// Support Vector Machines
-pub mod svm;
-/// Supervised tree-based learning methods
-pub mod tree;
+// /// Preprocessing utilities
+// pub mod preprocessing;
+// /// Reading in Data.
+// pub mod readers;
+// /// Support Vector Machines
+// pub mod svm;
+// /// Supervised tree-based learning methods
+// pub mod tree;
 #[cfg(test)]
 pub mod utils;
 

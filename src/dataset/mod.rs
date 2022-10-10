@@ -9,7 +9,7 @@ pub mod generator;
 pub mod iris;
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::math::num::RealNumber;
+use crate::numbers::realnum::RealNumber;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 use std::io;
