@@ -1,3 +1,5 @@
+// TODO: change this module name as it conflicts with `srd::rand` and the `rand` crate
+
 use ::rand::SeedableRng;
 #[cfg(not(feature = "std"))]
 pub(crate) use rand::rngs::SmallRng as RngImpl;

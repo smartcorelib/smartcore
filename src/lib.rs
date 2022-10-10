@@ -43,7 +43,7 @@
 //!
 //! ```
 //! // DenseMatrix defenition
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! // KNNClassifier
 //! use smartcore::neighbors::knn_classifier::*;
 //! // Various distance metrics
@@ -65,6 +65,9 @@
 //! // Predict classes
 //! let y_hat = knn.predict(&x).unwrap();
 //! ```
+
+/// Foundamental numbers traits
+pub mod numbers;
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
@@ -92,7 +95,7 @@ pub mod model_selection;
 pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
-pub mod num;
+
 pub(crate) mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;

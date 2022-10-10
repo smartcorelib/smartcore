@@ -10,8 +10,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
-//! use smartcore::linalg::svd_n::*;
+//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
+//! use smartcore_numbers::linalg::traits::svd::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[0.9, 0.4, 0.7],
@@ -34,8 +34,8 @@
 #![allow(non_snake_case)]
 
 use crate::error::Failed;
-use crate::linalg::base::Array2;
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::floatnum::FloatNumber;
 use std::fmt::Debug;
 
 /// Results of SVD decomposition
@@ -481,7 +481,7 @@ impl<T: FloatNumber, M: SVDDecomposable<T>> SVD<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

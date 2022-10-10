@@ -1,10 +1,29 @@
 //! This is a generic solver for Ax = b type of equation
+//! 
+//! Example:
+//! ```
+//! use smartcore_numbers::linalg::basic::arrays::Array1;
+//! use smartcore_numbers::linalg::basic::arrays::Array2;
+//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
+//! use smartcore_numbers::linear::bg_solver::*;
+//! use smartcore_numbers::numbers::floatnum::FloatNumber;
+//! 
+//! pub struct BGSolver {}
+//! impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}
+//! 
+//! let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
+//! let b = vec![40., 51., 28.];
+//! let expected = vec![1.0, 2.0, 3.0];
+//! let mut x = Vec::zeros(3);
+//! let solver = BGSolver {};
+//! let err: f64 = solver.solve_mut(&a, &b, &mut x, 1e-6, 6).unwrap();
+//! ```
 //!
 //! for more information take a look at [this Wikipedia article](https://en.wikipedia.org/wiki/Biconjugate_gradient_method)
 //! and [this paper](https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf)
 use crate::error::Failed;
-use crate::linalg::base::{Array, Array1, Array2, ArrayView1, MutArrayView1};
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::{Array, Array1, Array2, ArrayView1, MutArrayView1};
+use crate::numbers::floatnum::FloatNumber;
 
 pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
     fn solve_mut(
@@ -127,15 +146,13 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::base::Array2;
-    use crate::linalg::dense::matrix::DenseMatrix;
-    use crate::num::FloatNumber;
+    use crate::linalg::basic::arrays::Array2;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     pub struct BGSolver {}
 
     impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn bg_solver() {
         let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);

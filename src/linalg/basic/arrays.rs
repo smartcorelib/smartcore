@@ -3,7 +3,10 @@ use std::fmt::{Debug, Display};
 use std::ops::Neg;
 use std::ops::Range;
 
-use crate::num::{FloatNumber, Number};
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
+
+
 use num_traits::Signed;
 
 /// Abstract methods for Array
@@ -604,7 +607,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
     /// return a mutable view of values at power `p`
     fn pow_mut(&mut self, p: T)
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         self.iterator_mut(0).for_each(|v| *v = v.powf(p));
     }
@@ -710,7 +713,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
     /// return softmax values
     fn softmax_mut(&mut self)
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         let max = self.max();
         let mut z = T::zero();
@@ -749,7 +752,7 @@ pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
     ///
     fn pow_mut(&mut self, p: T)
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         self.iterator_mut(0).for_each(|v| *v = v.powf(p));
     }
@@ -808,7 +811,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     ///
     fn rand(len: usize) -> Self
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         Self::from_iterator((0..len).map(|_| T::rand()), len)
     }
@@ -915,7 +918,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     ///
     fn pow(&self, p: T) -> Self
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         let mut result = self.clone();
         result.pow_mut(p);
@@ -937,7 +940,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     ///
     fn softmax(&self) -> Self
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         let mut result = self.clone();
         result.softmax_mut();
@@ -1032,7 +1035,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     ///
     fn rand(nrows: usize, ncols: usize) -> Self
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         Self::from_iterator((0..nrows * ncols).map(|_| T::rand()), nrows, ncols, 0)
     }
@@ -1512,7 +1515,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     ///
     fn pow(&self, p: T) -> Self
     where
-        T: FloatNumber,
+        T: RealNumber,
     {
         let mut result = self.clone();
         result.pow_mut(p);
@@ -1523,7 +1526,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
     #[test]

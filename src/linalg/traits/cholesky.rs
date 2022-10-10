@@ -8,8 +8,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
-//! use crate::smartcore::linalg::cholesky_n::*;
+//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
+//! use smartcore_numbers::linalg::traits::cholesky::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[25., 15., -5.],
@@ -34,8 +34,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::error::{Failed, FailedError};
-use crate::linalg::base::Array2;
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::{Array, Array2};
+use crate::numbers::floatnum::FloatNumber;
 
 #[derive(Debug, Clone)]
 /// Results of Cholesky decomposition.
@@ -87,7 +87,7 @@ impl<T: FloatNumber, M: Array2<T>> Cholesky<T, M> {
         if bn != rn {
             return Err(Failed::because(
                 FailedError::SolutionFailed,
-                &"Can\'t solve Ax = b for x. Number of rows in b != number of rows in R."
+                &"Can\'t solve Ax = b for x. FloatNumber of rows in b != number of rows in R."
                     .to_string(),
             ));
         }
@@ -167,7 +167,7 @@ pub trait CholeskyDecomposable<T: FloatNumber>: Array2<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

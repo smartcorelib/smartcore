@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
-use crate::linalg::base::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
-use crate::num::Number;
+use crate::linalg::basic::arrays::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
+use crate::numbers::basenum::Number;
 
 /// Provide mutable window on array
 #[derive(Debug)]

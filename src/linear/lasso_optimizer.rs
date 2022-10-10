@@ -12,9 +12,9 @@
 //!
 
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2, ArrayView1, MutArray, MutArrayView1};
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray, MutArrayView1};
 use crate::linear::bg_solver::BiconjugateGradientSolver;
-use crate::num::FloatNumber;
+use crate::numbers::floatnum::FloatNumber;
 
 pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     ata: X,

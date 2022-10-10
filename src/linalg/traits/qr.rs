@@ -6,8 +6,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::dense::matrix::DenseMatrix;
-//! use smartcore::linalg::qr_n::*;
+//! use smartcore_numbers::linalg::basic::matrix::DenseMatrix;
+//! use smartcore_numbers::linalg::traits::qr::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[0.9, 0.4, 0.7],
@@ -31,8 +31,8 @@
 use std::fmt::Debug;
 
 use crate::error::Failed;
-use crate::linalg::base::Array2;
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::floatnum::FloatNumber;
 
 #[derive(Debug, Clone)]
 /// Results of QR decomposition.
@@ -195,7 +195,7 @@ pub trait QRDecomposable<T: FloatNumber>: Array2<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

@@ -4,19 +4,17 @@ use std::ops::Range;
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 
-use crate::linalg::base::{Array,  Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
-use crate::linalg::cholesky_n::CholeskyDecomposable;
-use crate::linalg::evd_n::EVDDecomposable;
-use crate::linalg::lu_n::LUDecomposable;
-use crate::linalg::qr_n::QRDecomposable;
-use crate::linalg::svd_n::SVDDecomposable;
-use crate::num::FloatNumber;
+use crate::linalg::basic::arrays::{Array,  Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
+use crate::linalg::traits::cholesky::CholeskyDecomposable;
+use crate::linalg::traits::evd::EVDDecomposable;
+use crate::linalg::traits::lu::LUDecomposable;
+use crate::linalg::traits::qr::QRDecomposable;
+use crate::linalg::traits::svd::SVDDecomposable;
+use crate::numbers::floatnum::FloatNumber;
 
 /// Dense matrix
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct DenseMatrix<T> {
     ncols: usize,
     nrows: usize,
@@ -623,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_mut() {
-        let mut a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
         a.abs();
         a.neg();
 
