@@ -27,7 +27,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::basic::arrays::matrix::densematrix;
 //! use smartcore::svm::Kernels;
 //! use smartcore::svm::svc::{SVC, SVCParameters};
 //!

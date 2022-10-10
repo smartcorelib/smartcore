@@ -24,8 +24,8 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::realnum::RealNumber;
 
 /// Distance metric, a function that calculates distance between two points
 pub trait Distance<T, F: RealNumber>: Clone {
@@ -59,7 +59,7 @@ impl Distances {
     }
 
     /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)
-    pub fn mahalanobis<T: RealNumber, M: Matrix<T>>(data: &M) -> mahalanobis::Mahalanobis<T, M> {
+    pub fn mahalanobis<T: RealNumber, M: Array2<T>>(data: &M) -> mahalanobis::Mahalanobis<T, M> {
         mahalanobis::Mahalanobis::new(data)
     }
 }

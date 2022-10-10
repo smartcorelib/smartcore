@@ -20,7 +20,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
+use crate::numbers::realnum::RealNumber;
 
 use super::Distance;
 

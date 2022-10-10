@@ -21,7 +21,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::basic::arrays::matrix::densematrix;
 //! use smartcore::linear::linear_regression::*;
 //! use smartcore::svm::*;
 //! use smartcore::svm::svr::{SVR, SVRParameters};

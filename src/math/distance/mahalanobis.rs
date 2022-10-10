@@ -14,7 +14,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::basic::arrays::matrix::densematrix;
 //! use smartcore::math::distance::Distance;
 //! use smartcore::math::distance::mahalanobis::Mahalanobis;
 //!
@@ -47,15 +47,16 @@ use std::marker::PhantomData;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::math::num::RealNumber;
+use crate::numbers::realnum::RealNumber;
 
 use super::Distance;
-use crate::linalg::Matrix;
+use crate::linalg::basic::arrays::Array2;
+use crate::linalg::basic::matrix::DenseMatrix;
 
 /// Mahalanobis distance.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
+pub struct Mahalanobis<T: RealNumber, M: Array2<T>> {
     /// covariance matrix of the dataset
     pub sigma: M,
     /// inverse of the covariance matrix
@@ -63,11 +64,13 @@ pub struct Mahalanobis<T: RealNumber, M: Matrix<T>> {
     t: PhantomData<T>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
+impl<T: RealNumber, M: Array2<T>> Mahalanobis<T, M> {
     /// Constructs new instance of `Mahalanobis` from given dataset
     /// * `data` - a matrix of _NxM_ where _N_ is number of observations and _M_ is number of attributes
     pub fn new(data: &M) -> Mahalanobis<T, M> {
-        let sigma = data.cov();
+        let (n, m) = data.shape();
+        let mut sigma = DenseMatrix::zeros(n-1, m);
+        data.cov(&sigma);
         let sigmaInv = sigma.lu().and_then(|lu| lu.inverse()).unwrap();
         Mahalanobis {
             sigma,
@@ -89,7 +92,7 @@ impl<T: RealNumber, M: Matrix<T>> Mahalanobis<T, M> {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
+impl<T: RealNumber, M: Array2<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
     fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
         let (nrows, ncols) = self.sigma.shape();
         if x.len() != nrows {
@@ -120,7 +123,7 @@ impl<T: RealNumber, M: Matrix<T>> Distance<Vec<T>, T> for Mahalanobis<T, M> {
         let mut s = T::zero();
         for j in 0..n {
             for i in 0..n {
-                s += self.sigmaInv.get(i, j) * z[i] * z[j];
+                s += self.sigmaInv.get((i, j)) * z[i] * z[j];
             }
         }
 

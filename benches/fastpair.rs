@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 // to run this bench you have to change the declaraion in mod.rs ---> pub mod fastpair;
 use smartcore::algorithm::neighbour::fastpair::FastPair;
-use smartcore::linalg::naive::dense_matrix::*;
+use smartcore::linalg::basic::arrays::matrix::densematrix;
 use std::time::Duration;
 
 fn closest_pair_bench(n: usize, m: usize) -> () {
