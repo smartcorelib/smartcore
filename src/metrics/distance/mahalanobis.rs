@@ -15,7 +15,7 @@
 //!
 //! ```
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
-//! use smartcore::linalg::base::ArrayView2;
+//! use smartcore::linalg::basic::arrays::ArrayView2;
 //! use smartcore::metrics::distance::Distance;
 //! use smartcore::metrics::distance::mahalanobis::Mahalanobis;
 //!

@@ -7,6 +7,7 @@
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::bg_solver::*;
 //! use smartcore::numbers::floatnum::FloatNumber;
+//! use smartcore::linear::bg_solver::BiconjugateGradientSolver;
 //! 
 //! pub struct BGSolver {}
 //! impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}
