@@ -95,7 +95,7 @@ pub mod model_selection;
 // pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
-
+/// 
 pub mod optimization;
 // /// Preprocessing utilities
 // pub mod preprocessing;
@@ -103,8 +103,8 @@ pub mod optimization;
 // pub mod readers;
 // /// Support Vector Machines
 // pub mod svm;
-// /// Supervised tree-based learning methods
-// pub mod tree;
+/// Supervised tree-based learning methods
+pub mod tree;
 #[cfg(test)]
 pub mod utils;
 

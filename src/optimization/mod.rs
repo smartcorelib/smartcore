@@ -1,3 +1,5 @@
+// TODO: missing documentation
+
 pub mod first_order;
 pub mod line_search;
 
