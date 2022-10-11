@@ -3,7 +3,7 @@
 //! Defines k-fold cross validator.
 use std::fmt::{Debug, Display};
 
-use crate::linalg::base::Array2;
+use crate::linalg::basic::arrays::Array2;
 use crate::model_selection::BaseKFold;
 use crate::rand_custom::get_rng_impl;
 use rand::seq::SliceRandom;

@@ -1,7 +1,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::basic::arrays::Array1;
+use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::cluster_helpers::*;
 use crate::numbers::basenum::Number;
 
@@ -14,7 +14,7 @@ impl HCVScore {
     /// Computes Homogeneity, completeness and V-Measure scores at once.
     /// * `labels_true` - ground truth class labels to be used as a reference.
     /// * `labels_pred` - cluster labels to evaluate.    
-    pub fn get_score<T: Number + Ord, V: Array1<T>>(
+    pub fn get_score<T: Number + Ord, V: ArrayView1<T>>(
         &self,
         labels_true: &V,
         labels_pred: &V,

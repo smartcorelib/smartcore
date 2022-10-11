@@ -90,13 +90,13 @@ pub mod linalg;
 pub mod linear;
 /// Functions for assessing prediction error.
 pub mod metrics;
-// pub mod model_selection;
-// ///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
+pub mod model_selection;
+///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
 // pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
 
-pub(crate) mod optimization;
+pub mod optimization;
 // /// Preprocessing utilities
 // pub mod preprocessing;
 // /// Reading in Data.

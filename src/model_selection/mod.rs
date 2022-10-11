@@ -10,10 +10,9 @@
 //! In SmartCore a random split into training and test sets can be quickly computed with the [train_test_split](./fn.train_test_split.html) helper function.
 //!
 //! ```
-//! use crate::smartcore::linalg::BaseMatrix;
-//! use smartcore::linalg::base::Array;
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::model_selection::train_test_split;
+//! use smartcore::linalg::basic::arrays::Array;
 //!
 //! //Iris data
 //! let x = DenseMatrix::from_2d_array(&[
@@ -60,6 +59,7 @@
 //! use smartcore::model_selection::{KFold, cross_validate};
 //! use smartcore::metrics::accuracy;
 //! use smartcore::linear::logistic_regression::LogisticRegression;
+//! use smartcore::linalg::basic::arrays::Array;
 //!
 //! //Iris data
 //! let x = DenseMatrix::from_2d_array(&[
@@ -84,7 +84,7 @@
 //!           &[6.6, 2.9, 4.6, 1.3],
 //!           &[5.2, 2.7, 3.9, 1.4],
 //!           ]);
-//! let y: Vec<i8> = vec![
+//! let y: Vec<i32> = vec![
 //!           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 //! ];
 //!
@@ -92,8 +92,8 @@
 //!
 //! let results = cross_validate(LogisticRegression::fit,   //estimator
 //!                                 &x, &y,                 //data
-//!                                 &Default::default(),     //hyperparameters
-//!                                 &cv,                     //cross validation split
+//!                                 Default::default(),     //hyperparameters
+//!                                 cv,                     //cross validation split
 //!                                 &accuracy).unwrap();    //metric
 //!
 //! println!("Training accuracy: {}, test accuracy: {}",
@@ -108,14 +108,16 @@ use std::fmt::{Debug, Display};
 
 use crate::api::Predictor;
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
 
-pub(crate) mod hyper_tuning;
+// TODO: fix this module
+// pub(crate) mod hyper_tuning;
 pub(crate) mod kfold;
 
-pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
+// pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
 pub use kfold::{KFold, KFoldIter};
 
 /// An interface for the K-Folds cross-validator
@@ -183,23 +185,29 @@ pub fn train_test_split<
 
 /// Cross validation results.
 #[derive(Clone, Debug)]
-pub struct CrossValidationResult {
+pub struct CrossValidationResult<T: RealNumber> {
     /// Vector with test scores on each cv split
-    pub test_score: Vec<f64>,
+    pub test_score: Vec<T>,
     /// Vector with training scores on each cv split
-    pub train_score: Vec<f64>,
+    pub train_score: Vec<T>,
 }
 
-impl CrossValidationResult {
+impl<T: RealNumber> CrossValidationResult<T> {
     /// Average test score
-    pub fn mean_test_score(&self) -> f64 {
-        let sum: f64 = self.test_score.iter().sum();
-        sum / self.test_score.len() as f64
+    pub fn mean_test_score(&self) -> T {
+        let mut sum = T::zero();
+        for s in self.test_score.iter() {
+            sum += *s;
+        }
+        sum / T::from(self.test_score.len()).unwrap()
     }
     /// Average training score
-    pub fn mean_train_score(&self) -> f64 {
-        let sum: f64 = self.train_score.iter().sum();
-        sum / self.train_score.len() as f64
+    pub fn mean_train_score(&self) -> T {
+        let mut sum = T::zero();
+        for s in self.train_score.iter() {
+            sum += *s;
+        }
+        sum / T::from(self.train_score.len()).unwrap()
     }
 }
 
@@ -217,9 +225,9 @@ pub fn cross_validate<TX, TY, X, Y, H, E, K, F, S>(
     parameters: H,
     cv: K,
     score: S,
-) -> Result<CrossValidationResult, Failed>
+) -> Result<CrossValidationResult<TX>, Failed>
 where
-    TX: Number,
+    TX: RealNumber,
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
@@ -227,11 +235,11 @@ where
     E: Predictor<X, Y>,
     K: BaseKFold,
     F: Fn(&X, &Y, H) -> Result<E, Failed>,
-    S: Fn(&Y, &Y) -> f64,
+    S: Fn(&Y, &Y) -> TX,
 {
     let k = cv.n_splits();
-    let mut test_score = Vec::with_capacity(k);
-    let mut train_score = Vec::with_capacity(k);
+    let mut test_score: Vec<TX> = Vec::with_capacity(k);
+    let mut train_score: Vec<TX> = Vec::with_capacity(k);
 
     for (train_idx, test_idx) in cv.split(x) {
         let train_x = x.take(&train_idx, 0);
@@ -297,7 +305,7 @@ where
 mod tests {
 
     use super::*;
-    use crate::linalg::base::Array;
+    use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::{accuracy, mean_absolute_error};
     use crate::model_selection::kfold::KFold;
@@ -474,4 +482,50 @@ mod tests {
 
         assert!(mean_absolute_error(&y, &y_hat) < 10.0);
     }
+
+    // TODO: may be needed to implement something like `OrderedArray` for labels expressed like integers
+    // #[test]
+    // fn test_cross_validation_accuracy() {
+    //     use smartcore::model_selection::{KFold, cross_validate};
+    //     use smartcore::metrics::accuracy;
+    //     use smartcore::linear::logistic_regression::LogisticRegression;
+
+    //     let x = DenseMatrix::from_2d_array(&[
+    //        &[5.1, 3.5, 1.4, 0.2],
+    //        &[4.9, 3.0, 1.4, 0.2],
+    //        &[4.7, 3.2, 1.3, 0.2],
+    //        &[4.6, 3.1, 1.5, 0.2],
+    //        &[5.0, 3.6, 1.4, 0.2],
+    //        &[5.4, 3.9, 1.7, 0.4],
+    //        &[4.6, 3.4, 1.4, 0.3],
+    //        &[5.0, 3.4, 1.5, 0.2],
+    //        &[4.4, 2.9, 1.4, 0.2],
+    //        &[4.9, 3.1, 1.5, 0.1],
+    //        &[7.0, 3.2, 4.7, 1.4],
+    //        &[6.4, 3.2, 4.5, 1.5],
+    //        &[6.9, 3.1, 4.9, 1.5],
+    //        &[5.5, 2.3, 4.0, 1.3],
+    //        &[6.5, 2.8, 4.6, 1.5],
+    //        &[5.7, 2.8, 4.5, 1.3],
+    //        &[6.3, 3.3, 4.7, 1.6],
+    //        &[4.9, 2.4, 3.3, 1.0],
+    //        &[6.6, 2.9, 4.6, 1.3],
+    //        &[5.2, 2.7, 3.9, 1.4],
+    //        ]);
+    //     let y: Vec<i32> = vec![
+    //        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    //     ];
+
+    //     let cv = KFold::default().with_n_splits(3);
+
+    //     let results = cross_validate(
+    //         LogisticRegression::fit,
+    //         &x,
+    //         &y,
+    //         Default::default(),
+    //         cv,
+    //         &accuracy
+    //     ).unwrap();
+    //     println!("{:?}", results);
+    // }
 }

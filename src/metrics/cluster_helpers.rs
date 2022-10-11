@@ -1,10 +1,10 @@
 #![allow(clippy::ptr_arg)]
 use std::collections::HashMap;
 
-use crate::linalg::basic::arrays::Array1;
+use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
 
-pub fn contingency_matrix<T: Number + Ord, V: Array1<T>>(
+pub fn contingency_matrix<T: Number + Ord, V: ArrayView1<T>>(
     labels_true: &V,
     labels_pred: &V,
 ) -> Vec<Vec<usize>> {
@@ -24,7 +24,7 @@ pub fn contingency_matrix<T: Number + Ord, V: Array1<T>>(
     contingency_matrix
 }
 
-pub fn entropy<T: Number, V: Array1<T>>(data: &V) -> Option<f64> {
+pub fn entropy<T: Number, V: ArrayView1<T>>(data: &V) -> Option<f64> {
     let mut bincounts = HashMap::with_capacity(data.shape());
 
     for e in data.iterator(0) {

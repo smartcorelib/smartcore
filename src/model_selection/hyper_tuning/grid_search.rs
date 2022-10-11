@@ -1,8 +1,11 @@
+// TODO: missing documentation
+
 use crate::{
     api::{Predictor, SupervisedEstimator},
     error::{Failed, FailedError},
-    linalg::Matrix,
-    math::num::RealNumber,
+    linalg::basic::arrays::{Array2, Array1},
+    numbers::realnum::RealNumber,
+    numbers::basenum::Number,
 };
 
 use crate::model_selection::{cross_validate, BaseKFold, CrossValidationResult};
@@ -10,8 +13,8 @@ use crate::model_selection::{cross_validate, BaseKFold, CrossValidationResult};
 /// Parameters for GridSearchCV
 #[derive(Debug)]
 pub struct GridSearchCVParameters<
-    T: RealNumber,
-    M: Matrix<T>,
+    T: Number,
+    M: Array2<T>,
     C: Clone,
     I: Iterator<Item = C>,
     E: Predictor<M, M::RowVector>,
@@ -29,7 +32,7 @@ pub struct GridSearchCVParameters<
 
 impl<
         T: RealNumber,
-        M: Matrix<T>,
+        M: Array2<T>,
         C: Clone,
         I: Iterator<Item = C>,
         E: Predictor<M, M::RowVector>,
@@ -51,7 +54,7 @@ impl<
 }
 /// Exhaustive search over specified parameter values for an estimator.
 #[derive(Debug)]
-pub struct GridSearchCV<T: RealNumber, M: Matrix<T>, C: Clone, E: Predictor<M, M::RowVector>> {
+pub struct GridSearchCV<T: RealNumber, M: Array2<T>, C: Clone, E: Predictor<M, M::RowVector>> {
     _phantom: std::marker::PhantomData<(T, M)>,
     predictor: E,
     /// Cross validation results.
@@ -60,7 +63,7 @@ pub struct GridSearchCV<T: RealNumber, M: Matrix<T>, C: Clone, E: Predictor<M, M
     pub best_parameter: C,
 }
 
-impl<T: RealNumber, M: Matrix<T>, E: Predictor<M, M::RowVector>, C: Clone>
+impl<T: RealNumber, M: Array2<T>, E: Predictor<M, M::RowVector>, C: Clone>
     GridSearchCV<T, M, C, E>
 {
     ///  Search for the best estimator by testing all possible combinations with cross-validation using given metric.
@@ -130,7 +133,7 @@ impl<T: RealNumber, M: Matrix<T>, E: Predictor<M, M::RowVector>, C: Clone>
 
 impl<
         T: RealNumber,
-        M: Matrix<T>,
+        M: Array2<T>,
         C: Clone,
         I: Iterator<Item = C>,
         E: Predictor<M, M::RowVector>,
@@ -149,7 +152,7 @@ impl<
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, C: Clone, E: Predictor<M, M::RowVector>>
+impl<T: RealNumber, M: Array2<T>, C: Clone, E: Predictor<M, M::RowVector>>
     Predictor<M, M::RowVector> for GridSearchCV<T, M, C, E>
 {
     fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {

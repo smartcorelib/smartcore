@@ -23,7 +23,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::basic::arrays::Array1;
+use crate::linalg::basic::arrays::{Array1, ArrayView1};
 use crate::numbers::basenum::Number;
 
 /// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
@@ -35,11 +35,11 @@ impl AUC {
     /// AUC score.
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
-    pub fn get_score<T: Number + PartialOrd, V: Array1<T>>(
+    pub fn get_score<T: Number + PartialOrd, V: ArrayView1<T> + Array1<T>>(
         &self,
         y_true: &V,
         y_pred_prob: &V,
-    ) -> f64 {
+    ) -> T {
         let mut pos = T::zero();
         let mut neg = T::zero();
 
@@ -58,9 +58,9 @@ impl AUC {
             }
         }
 
-        let mut y_pred = y_pred_prob.clone();
+        let y_pred = y_pred_prob.clone();
 
-        let label_idx = y_pred.argsort_mut();
+        let label_idx = y_pred.argsort();
 
         let mut rank = vec![0f64; n];
         let mut i = 0;
@@ -90,7 +90,7 @@ impl AUC {
         let pos = pos.to_f64().unwrap();
         let neg = neg.to_f64().unwrap();
 
-        (auc - (pos * (pos + 1f64) / 2.0)) / (pos * neg)
+        T::from(auc - (pos * (pos + 1f64) / 2.0)).unwrap() / T::from(pos * neg).unwrap()
     }
 }
 

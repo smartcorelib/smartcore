@@ -23,7 +23,7 @@ use std::collections::HashSet;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::basic::arrays::Array1;
+use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::realnum::RealNumber;
 
 /// Precision metric.
@@ -35,7 +35,7 @@ impl Precision {
     /// Calculated precision score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: RealNumber, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    pub fn get_score<T: RealNumber, V: ArrayView1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",

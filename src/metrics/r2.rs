@@ -21,7 +21,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::basic::arrays::Array1;
+use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
 
 /// Coefficient of Determination (R2)
@@ -33,7 +33,7 @@ impl R2 {
     /// Computes R2 score
     /// * `y_true` - Ground truth (correct) target values.
     /// * `y_pred` - Estimated target values.
-    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    pub fn get_score<T: Number, V: ArrayView1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",

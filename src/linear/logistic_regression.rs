@@ -732,7 +732,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        assert!(accuracy(&y_hat, &y) as f32 > 0.9);
+        assert_eq!(y_hat, vec![0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2]);
 
         let lr_reg = LogisticRegression::fit(
             &x,
@@ -759,7 +759,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        assert!(accuracy(&y_hat, &y) as f32 > 0.9);
+        assert_eq!(y_hat, vec![0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]);
 
         let lr_reg = LogisticRegression::fit(
             &x,
