@@ -74,7 +74,7 @@ pub mod r2;
 pub mod recall;
 
 use crate::linalg::basic::arrays::Array1;
-use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Use these metrics to compare classification models.
 pub struct ClassificationMetrics {}
@@ -139,35 +139,35 @@ impl ClusterMetrics {
 /// Function that calculated accuracy score, see [accuracy](accuracy/index.html).
 /// * `y_true` - cround truth (correct) labels
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn accuracy<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn accuracy<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::accuracy().get_score(y_true, y_pred)
 }
 
 /// Calculated recall score, see [recall](recall/index.html)
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn recall<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn recall<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::recall().get_score(y_true, y_pred)
 }
 
 /// Calculated precision score, see [precision](precision/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn precision<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn precision<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::precision().get_score(y_true, y_pred)
 }
 
 /// Computes F1 score, see [F1](f1/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn f1<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V, beta: f64) -> f64 {
+pub fn f1<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V, beta: f64) -> T {
     ClassificationMetrics::f1(beta).get_score(y_true, y_pred)
 }
 
 /// AUC score, see [AUC](auc/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
-pub fn roc_auc_score<T: Number + PartialOrd, V: Array1<T>>(
+pub fn roc_auc_score<T: RealNumber + PartialOrd, V: Array1<T>>(
     y_true: &V,
     y_pred_probabilities: &V,
 ) -> f64 {
@@ -177,21 +177,21 @@ pub fn roc_auc_score<T: Number + PartialOrd, V: Array1<T>>(
 /// Computes mean squared error, see [mean squared error](mean_squared_error/index.html).
 /// * `y_true` - Ground truth (correct) target values.
 /// * `y_pred` - Estimated target values.
-pub fn mean_squared_error<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn mean_squared_error<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::mean_squared_error().get_score(y_true, y_pred)
 }
 
 /// Computes mean absolute error, see [mean absolute error](mean_absolute_error/index.html).
 /// * `y_true` - Ground truth (correct) target values.
 /// * `y_pred` - Estimated target values.
-pub fn mean_absolute_error<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn mean_absolute_error<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::mean_absolute_error().get_score(y_true, y_pred)
 }
 
 /// Computes R2 score, see [R2](r2/index.html).
 /// * `y_true` - Ground truth (correct) target values.
 /// * `y_pred` - Estimated target values.
-pub fn r2<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn r2<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     RegressionMetrics::r2().get_score(y_true, y_pred)
 }
 
@@ -199,7 +199,7 @@ pub fn r2<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> f64 {
 /// A cluster result satisfies homogeneity if all of its clusters contain only data points which are members of a single class.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn homogeneity_score<T: Number + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
+pub fn homogeneity_score<T: RealNumber + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .0
@@ -209,7 +209,7 @@ pub fn homogeneity_score<T: Number + Ord, V: Array1<T>>(labels_true: &V, labels_
 /// Completeness metric of a cluster labeling given a ground truth (range is between 0.0 and 1.0).
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn completeness_score<T: Number + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
+pub fn completeness_score<T: RealNumber + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .1
@@ -218,7 +218,7 @@ pub fn completeness_score<T: Number + Ord, V: Array1<T>>(labels_true: &V, labels
 /// The harmonic mean between homogeneity and completeness.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn v_measure_score<T: Number + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
+pub fn v_measure_score<T: RealNumber + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .2

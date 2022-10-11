@@ -31,7 +31,7 @@ impl Accuracy {
     /// Function that calculated accuracy score.
     /// * `y_true` - cround truth (correct) labels
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -49,7 +49,7 @@ impl Accuracy {
             }
         }
 
-        positive as f64 / n as f64
+        T::from_usize(positive).unwrap() / T::from_usize(n).unwrap()
     }
 }
 

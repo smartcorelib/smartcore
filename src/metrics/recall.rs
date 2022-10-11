@@ -19,11 +19,14 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+use std::collections::HashSet;
+use std::convert::TryInto;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::Array1;
-use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Recall metric.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -34,7 +37,7 @@ impl Recall {
     /// Calculated recall score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+    pub fn get_score<T: RealNumber, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -43,34 +46,32 @@ impl Recall {
             );
         }
 
+        let mut classes = HashSet::new();
+        for i in 0..y_true.shape() {
+            classes.insert(y_true.get(i).to_f64_bits());
+        }
+        let classes: i64 = classes.len().try_into().unwrap();
+
         let mut tp = 0;
-        let mut p = 0;
-        let n = y_true.shape();
-        for i in 0..n {
-            if y_true.get(i) != &T::zero() && y_true.get(i) != &T::one() {
-                panic!(
-                    "Recall can only be applied to binary classification: {}",
-                    y_true.get(i)
-                );
-            }
-
-            if y_pred.get(i) != &T::zero() && y_pred.get(i) != &T::one() {
-                panic!(
-                    "Recall can only be applied to binary classification: {}",
-                    y_pred.get(i)
-                );
-            }
-
-            if y_true.get(i) == &T::one() {
-                p += 1;
-
-                if y_pred.get(i) == &T::one() {
+        let mut fne = 0;
+        for i in 0..y_true.shape() {
+            if y_pred.get(i) == y_true.get(i) {
+                if classes == 2 {
+                    if *y_true.get(i) == T::one() {
+                        tp += 1;
+                    }
+                } else {
                     tp += 1;
                 }
+            } else if classes == 2 {
+                if *y_true.get(i) != T::one() {
+                    fne += 1;
+                }
+            } else {
+                fne += 1;
             }
         }
-
-        tp as f64 / p as f64
+        T::from_i64(tp).unwrap() / (T::from_i64(tp).unwrap() + T::from_i64(fne).unwrap())
     }
 }
 
@@ -94,7 +95,8 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 
         let score3: f64 = Recall {}.get_score(&y_pred, &y_true);
-        assert!((score3 - 0.66666666).abs() < 1e-8);
+        println!("{:?}", score3);
+        assert!((score3 - 0.5).abs() < 1e-8);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

@@ -23,7 +23,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::Array1;
-use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Precision metric.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -34,7 +34,7 @@ impl Precision {
     /// Calculated precision score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+    pub fn get_score<T: RealNumber, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -47,30 +47,30 @@ impl Precision {
         let mut p = 0;
         let n = y_true.shape();
         for i in 0..n {
-            if y_true.get(i) != &T::zero() && y_true.get(i) != &T::one() {
+            if *y_true.get(i) != T::zero() && *y_true.get(i) != T::one() {
                 panic!(
                     "Precision can only be applied to binary classification: {}",
                     y_true.get(i)
                 );
             }
 
-            if y_pred.get(i) != &T::zero() && y_pred.get(i) != &T::one() {
+            if *y_pred.get(i) != T::zero() && *y_pred.get(i) != T::one() {
                 panic!(
                     "Precision can only be applied to binary classification: {}",
                     y_pred.get(i)
                 );
             }
 
-            if y_pred.get(i) == &T::one() {
+            if *y_pred.get(i) == T::one() {
                 p += 1;
 
-                if y_true.get(i) == &T::one() {
+                if *y_true.get(i) == T::one() {
                     tp += 1;
                 }
             }
         }
 
-        tp as f64 / p as f64
+        T::from_i64(tp).unwrap() / T::from_i64(p).unwrap()
     }
 }
 

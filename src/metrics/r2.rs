@@ -33,7 +33,7 @@ impl R2 {
     /// Computes R2 score
     /// * `y_true` - Ground truth (correct) target values.
     /// * `y_pred` - Estimated target values.
-    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -55,7 +55,7 @@ impl R2 {
             ss_res += (y_i - f_i) * (y_i - f_i);
         }
 
-        1f64 - (ss_res / ss_tot)
+        T::one() - (T::from_f64(ss_res).unwrap() / T::from_f64(ss_tot).unwrap())
     }
 }
 

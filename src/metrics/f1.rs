@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use crate::linalg::basic::arrays::Array1;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
-use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// F-measure
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -38,7 +38,7 @@ impl F1 {
     /// Computes F1 score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: Number, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> f64 {
+    pub fn get_score<T: RealNumber, V: Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -51,7 +51,7 @@ impl F1 {
         let p = Precision {}.get_score(y_true, y_pred);
         let r = Recall {}.get_score(y_true, y_pred);
 
-        (1f64 + beta2) * (p * r) / (beta2 * p + r)
+        (T::one() + T::from_f64(beta2).unwrap()) * (p * r) / (T::from_f64(beta2).unwrap() * p + r)
     }
 }
 

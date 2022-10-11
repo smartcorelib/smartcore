@@ -136,8 +136,8 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Mahalanobis<T, DenseMatrix<f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::base::ArrayView2;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::arrays::ArrayView2;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
