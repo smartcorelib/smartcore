@@ -65,7 +65,7 @@ use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
 use crate::metrics::distance::euclidian::*;
 use crate::numbers::basenum::Number;
-use crate::rand::get_rng_impl;
+use crate::rand_custom::get_rng_impl;
 
 /// K-Means clustering algorithm
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

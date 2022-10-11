@@ -62,8 +62,6 @@ impl AUC {
 
         let label_idx = y_pred.argsort_mut();
 
-        let two = T::from(2).unwrap();
-
         let mut rank = vec![0f64; n];
         let mut i = 0;
         while i < n {

@@ -55,7 +55,6 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Minkowski<T> {
             panic!("p must be at least 1");
         }
 
-        let mut dist = 0f64;
         let p_t = self.p as f64;
 
         let dist: f64 = x

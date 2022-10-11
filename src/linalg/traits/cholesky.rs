@@ -34,7 +34,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::{Array, Array2};
+use crate::linalg::basic::arrays::Array2;
 use crate::numbers::floatnum::FloatNumber;
 
 #[derive(Debug, Clone)]
@@ -87,8 +87,7 @@ impl<T: FloatNumber, M: Array2<T>> Cholesky<T, M> {
         if bn != rn {
             return Err(Failed::because(
                 FailedError::SolutionFailed,
-                &"Can\'t solve Ax = b for x. FloatNumber of rows in b != number of rows in R."
-                    .to_string(),
+                "Can\'t solve Ax = b for x. FloatNumber of rows in b != number of rows in R.",
             ));
         }
 
@@ -128,7 +127,7 @@ pub trait CholeskyDecomposable<T: FloatNumber>: Array2<T> {
         if m != n {
             return Err(Failed::because(
                 FailedError::DecompositionFailed,
-                &"Can\'t do Cholesky decomposition on a non-square matrix".to_string(),
+                "Can\'t do Cholesky decomposition on a non-square matrix",
             ));
         }
 
@@ -148,7 +147,7 @@ pub trait CholeskyDecomposable<T: FloatNumber>: Array2<T> {
             if d < T::zero() {
                 return Err(Failed::because(
                     FailedError::DecompositionFailed,
-                    &"The matrix is not positive definite.".to_string(),
+                    "The matrix is not positive definite.",
                 ));
             }
 

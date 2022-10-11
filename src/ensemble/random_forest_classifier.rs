@@ -58,7 +58,7 @@ use crate::error::Failed;
 use crate::linalg::base::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::rand::get_rng_impl;
+use crate::rand_custom::get_rng_impl;
 use crate::tree::decision_tree_classifier::{
     which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,
 };

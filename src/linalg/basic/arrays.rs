@@ -72,28 +72,28 @@ pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
     where
         T: Number,
     {
-        self.iterator_mut(0).for_each(|v| *v = *v - x);
+        self.iterator_mut(0).for_each(|v| *v -= x);
     }
     /// add  a given value to all the elements
     fn add_scalar_mut(&mut self, x: T)
     where
         T: Number,
     {
-        self.iterator_mut(0).for_each(|v| *v = *v + x);
+        self.iterator_mut(0).for_each(|v| *v += x);
     }
     /// multiply a given value to all the elements
     fn mul_scalar_mut(&mut self, x: T)
     where
         T: Number,
     {
-        self.iterator_mut(0).for_each(|v| *v = *v * x);
+        self.iterator_mut(0).for_each(|v| *v *= x);
     }
     /// divide a given value to all the elements
     fn div_scalar_mut(&mut self, x: T)
     where
         T: Number,
     {
-        self.iterator_mut(0).for_each(|v| *v = *v / x);
+        self.iterator_mut(0).for_each(|v| *v /= x);
     }
     /// add values from another array to the values of initial array
     fn add_mut(&mut self, other: &dyn Array<T, S>)
@@ -299,7 +299,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         self.iterator(0)
             .zip(other.iterator(0))
             .map(|(&a, &b)| (a - b).abs())
-            .fold(T::min_value(), |max, x| max_f(max, x))
+            .fold(T::min_value(), max_f)
     }
     /// return array variance
     fn var(&self) -> f64
@@ -720,7 +720,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
             *v = (*v - max).exp();
             z += *v;
         });
-        self.iterator_mut(0).for_each(|v| *v = *v / z);
+        self.iterator_mut(0).for_each(|v| *v /= z);
     }
 }
 
@@ -792,7 +792,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     ///
     fn from_vec_slice(slice: &[T]) -> Self;
     ///
-    fn from_slice<'a>(slice: &'a dyn ArrayView1<T>) -> Self;
+    fn from_slice<'a>(slice: &'_ dyn ArrayView1<T>) -> Self;
     ///
     fn zeros(len: usize) -> Self
     where

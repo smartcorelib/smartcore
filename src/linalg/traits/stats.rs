@@ -3,7 +3,7 @@
 //! This module provides reference implementations for  various statistical functions.
 //! Concrete implementations of the `BaseMatrix` trait are free to override these methods for better performance.
 
-use crate::linalg::basic::arrays::{ArrayView2, MutArrayView2};
+use crate::linalg::basic::arrays::ArrayView2;
 use crate::numbers::realnum::RealNumber;
 
 /// Defines baseline implementations for various statistical functions

@@ -84,7 +84,7 @@ use crate::error::Failed;
 use crate::linalg::BaseVector;
 use crate::linalg::Matrix;
 use crate::math::num::RealNumber;
-use crate::rand::get_rng_impl;
+use crate::rand_custom::get_rng_impl;
 use crate::svm::{Kernel, Kernels, LinearKernel};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -105,14 +105,13 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
                 m.ncols,
             )
         };
-        let view = DenseMatrixMutView {
+        DenseMatrixMutView {
             values: &mut m.values[start..end],
-            stride: stride,
+            stride,
             nrows: rows.end - rows.start,
             ncols: cols.end - cols.start,
             column_major: m.column_major,
-        };
-        view
+        }
     }
 
     fn iter<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -199,7 +198,7 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     }
 
     /// Iterate over values of matrix
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.values.iter()
     }
 }

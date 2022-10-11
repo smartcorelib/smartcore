@@ -2,7 +2,6 @@ use std::fmt::{Debug, Display};
 use std::ops::Range;
 
 use crate::linalg::basic::arrays::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
-use crate::numbers::basenum::Number;
 
 /// Provide mutable window on array
 #[derive(Debug)]
@@ -156,6 +155,7 @@ impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'a, T> {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::numbers::basenum::Number;
 
     fn dot_product<T: Number, V: Array1<T>>(v: &V) -> T {
         let vv = V::zeros(10);

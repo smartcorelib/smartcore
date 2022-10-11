@@ -44,7 +44,7 @@ impl R2 {
 
         let n = y_true.shape();
 
-        let mut mean = y_true.mean();
+        let mean = y_true.mean();
         let mut ss_tot = 0f64;
         let mut ss_res = 0f64;
 

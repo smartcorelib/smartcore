@@ -108,4 +108,4 @@ pub(crate) mod optimization;
 #[cfg(test)]
 pub mod utils;
 
-pub(crate) mod rand;
+pub(crate) mod rand_custom;

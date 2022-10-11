@@ -2,11 +2,7 @@
 //! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
-use num_traits::{Float, FromPrimitive};
-use std::fmt::{Debug, Display};
-use std::iter::{Product, Sum};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-use std::str::FromStr;
+use num_traits::Float;
 
 use crate::numbers::basenum::Number;
 
@@ -134,6 +130,7 @@ impl RealNumber for f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn sigmoid() {
