@@ -1,3 +1,5 @@
+// TODO: missing documentation
+
 use std::default::Default;
 
 use crate::linalg::basic::arrays::Array1;
@@ -6,12 +8,17 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
+///
 pub struct GradientDescent {
+    ///
     pub max_iter: usize,
+    ///
     pub g_rtol: f64,
+    ///
     pub g_atol: f64,
 }
 
+///
 impl Default for GradientDescent {
     fn default() -> Self {
         GradientDescent {
@@ -22,7 +29,9 @@ impl Default for GradientDescent {
     }
 }
 
+///
 impl<T: FloatNumber> FirstOrderOptimizer<T> for GradientDescent {
+    ///
     fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,

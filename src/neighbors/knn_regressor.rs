@@ -180,7 +180,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 
         let data = x
             .row_iter()
-            .map(|row| row.iterator(0).map(|&v| v).collect())
+            .map(|row| row.iterator(0).copied().collect())
             .collect();
 
         if x_n != y_n {

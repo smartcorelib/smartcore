@@ -19,9 +19,9 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::basic::arrays::{ArrayView1, Array1};
-use crate::numbers::realnum::RealNumber;
+use crate::linalg::basic::arrays::{Array1, ArrayView1};
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Accuracy metric.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -32,7 +32,11 @@ impl Accuracy {
     /// Function that calculated accuracy score.
     /// * `y_true` - cround truth (correct) labels
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: Number + RealNumber, V: ArrayView1<T> + Array1<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    pub fn get_score<T: Number + RealNumber, V: ArrayView1<T> + Array1<T>>(
+        &self,
+        y_true: &V,
+        y_pred: &V,
+    ) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",

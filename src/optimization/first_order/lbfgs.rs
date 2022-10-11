@@ -1,4 +1,6 @@
 #![allow(clippy::suspicious_operation_groupings)]
+
+// TODO: Add documentation
 use std::default::Default;
 use std::fmt::Debug;
 
@@ -9,19 +11,31 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
+///
 pub struct LBFGS {
+    ///
     pub max_iter: usize,
+    ///
     pub g_rtol: f64,
+    ///
     pub g_atol: f64,
+    ///
     pub x_atol: f64,
+    ///
     pub x_rtol: f64,
+    ///
     pub f_abstol: f64,
+    ///
     pub f_reltol: f64,
+    ///
     pub successive_f_tol: usize,
+    ///
     pub m: usize,
 }
 
+///
 impl Default for LBFGS {
+    ///
     fn default() -> Self {
         LBFGS {
             max_iter: 1000,
@@ -37,7 +51,9 @@ impl Default for LBFGS {
     }
 }
 
+///
 impl LBFGS {
+    ///
     fn two_loops<T: FloatNumber + RealNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) {
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;
@@ -79,6 +95,7 @@ impl LBFGS {
         state.s.mul_scalar_mut(-T::one());
     }
 
+    ///
     fn init_state<T: FloatNumber + RealNumber, X: Array1<T>>(&self, x: &X) -> LBFGSState<T, X> {
         LBFGSState {
             x: x.clone(),
@@ -102,6 +119,7 @@ impl LBFGS {
         }
     }
 
+    ///
     fn update_state<'a, T: FloatNumber + RealNumber, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,
@@ -143,6 +161,7 @@ impl LBFGS {
         df(&mut state.x_df, &state.x);
     }
 
+    ///
     fn assess_convergence<T: FloatNumber, X: Array1<T>>(
         &self,
         state: &mut LBFGSState<T, X>,
@@ -176,6 +195,7 @@ impl LBFGS {
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
+    ///
     fn update_hessian<'a, T: FloatNumber, X: Array1<T>>(
         &self,
         _: &'a DF<'_, X>,
@@ -192,6 +212,7 @@ impl LBFGS {
     }
 }
 
+///
 #[derive(Debug)]
 struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     x: X,
@@ -213,7 +234,9 @@ struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     alpha: T,
 }
 
+///
 impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
+    ///
     fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &F<'_, T, X>,

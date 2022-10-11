@@ -178,14 +178,20 @@ pub fn roc_auc_score<T: RealNumber + PartialOrd, V: ArrayView1<T> + Array1<T> + 
 /// Computes mean squared error, see [mean squared error](mean_squared_error/index.html).
 /// * `y_true` - Ground truth (correct) target values.
 /// * `y_pred` - Estimated target values.
-pub fn mean_squared_error<T: RealNumber, V: ArrayView1<T> + Array1<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn mean_squared_error<T: RealNumber, V: ArrayView1<T> + Array1<T>>(
+    y_true: &V,
+    y_pred: &V,
+) -> T {
     RegressionMetrics::mean_squared_error().get_score(y_true, y_pred)
 }
 
 /// Computes mean absolute error, see [mean absolute error](mean_absolute_error/index.html).
 /// * `y_true` - Ground truth (correct) target values.
 /// * `y_pred` - Estimated target values.
-pub fn mean_absolute_error<T: RealNumber, V: ArrayView1<T> + Array1<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn mean_absolute_error<T: RealNumber, V: ArrayView1<T> + Array1<T>>(
+    y_true: &V,
+    y_pred: &V,
+) -> T {
     RegressionMetrics::mean_absolute_error().get_score(y_true, y_pred)
 }
 
@@ -225,7 +231,10 @@ pub fn completeness_score<T: RealNumber + Ord, V: ArrayView1<T> + Array1<T>>(
 /// The harmonic mean between homogeneity and completeness.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn v_measure_score<T: RealNumber + Ord, V: ArrayView1<T> + Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
+pub fn v_measure_score<T: RealNumber + Ord, V: ArrayView1<T> + Array1<T>>(
+    labels_true: &V,
+    labels_pred: &V,
+) -> f64 {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .2

@@ -191,7 +191,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 
         let data = x
             .row_iter()
-            .map(|row| row.iterator(0).map(|&v| v).collect())
+            .map(|row| row.iterator(0).copied().collect())
             .collect();
 
         let mut yi: Vec<usize> = vec![0; y_n];

@@ -64,8 +64,8 @@ use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use rand::Rng;
 use rand::seq::SliceRandom;
+use rand::Rng;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -284,7 +284,7 @@ impl Default for DecisionTreeRegressorSearchParameters {
 impl Node {
     fn new(index: usize, output: f64) -> Self {
         Node {
-            index: index,
+            index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -426,7 +426,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut order: Vec<Vec<usize>> = Vec::new();
 
         for i in 0..num_attributes {
-            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).map(|v| *v).collect();
+            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
             order.push(col_i.argsort_mut());
         }
 
@@ -440,7 +440,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, samples, &order, &x, &y_m, 1);
+        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, samples, &order, x, &y_m, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
 

@@ -81,7 +81,6 @@ use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
 
-
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// Parameters of Decision Tree
@@ -388,7 +387,7 @@ impl Default for DecisionTreeClassifierSearchParameters {
 impl Node {
     fn new(index: usize, output: usize) -> Self {
         Node {
-            index: index,
+            index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -554,7 +553,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let mut order: Vec<Vec<usize>> = Vec::new();
 
         for i in 0..num_attributes {
-            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).map(|v| *v).collect();
+            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
             order.push(col_i.argsort_mut());
         }
 
@@ -569,7 +568,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor = NodeVisitor::<TX, X>::new(0, samples, &order, &x, &yi, 1);
+        let mut visitor = NodeVisitor::<TX, X>::new(0, samples, &order, x, &yi, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, X>> = LinkedList::new();
 
@@ -628,7 +627,12 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         result
     }
 
-    fn find_best_cutoff(&mut self, visitor: &mut NodeVisitor<'_, TX, X>, mtry: usize, rng: &mut impl Rng) -> bool {
+    fn find_best_cutoff(
+        &mut self,
+        visitor: &mut NodeVisitor<'_, TX, X>,
+        mtry: usize,
+        rng: &mut impl Rng,
+    ) -> bool {
         let (n_rows, n_attr) = visitor.x.shape();
 
         let mut label = Option::None;
@@ -726,7 +730,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let false_label = which_max(false_count);
                 let gain = parent_impurity
                     - tc as f64 / n as f64 * impurity(&self.parameters.criterion, &true_count, tc)
-                    - fc as f64 / n as f64 * impurity(&self.parameters.criterion, &false_count, fc);
+                    - fc as f64 / n as f64 * impurity(&self.parameters.criterion, false_count, fc);
 
                 if self.nodes[visitor.node].split_score == Option::None
                     || gain > self.nodes[visitor.node].split_score.unwrap()

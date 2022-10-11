@@ -388,15 +388,8 @@ mod tests {
             ..KFold::default()
         };
 
-        let results = cross_validate(
-            BiasedEstimator::fit,
-            &x,
-            &y,
-            NoParameters {},
-            cv,
-            &accuracy,
-        )
-        .unwrap();
+        let results =
+            cross_validate(BiasedEstimator::fit, &x, &y, NoParameters {}, cv, &accuracy).unwrap();
 
         assert_eq!(0.4, results.mean_test_score());
         assert_eq!(0.4, results.mean_train_score());
