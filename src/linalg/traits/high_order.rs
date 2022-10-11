@@ -5,7 +5,7 @@ use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 
 /// High order matrix operations.
-pub trait HighOrderOperations<T: Number >: Array2<T> {
+pub trait HighOrderOperations<T: Number>: Array2<T> {
     /// Y = AB
     /// ```
     /// use smartcore::linalg::basic::matrix::*;
@@ -27,7 +27,6 @@ pub trait HighOrderOperations<T: Number >: Array2<T> {
         }
     }
 }
-
 
 mod tests {
     /* TODO: Add tests  */

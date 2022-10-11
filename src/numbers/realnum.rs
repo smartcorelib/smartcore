@@ -10,13 +10,9 @@ use std::str::FromStr;
 
 use crate::numbers::basenum::Number;
 
-
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
-pub trait RealNumber:
-    Number
-    + Float
-{
+pub trait RealNumber: Number + Float {
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
 
@@ -139,7 +135,6 @@ impl RealNumber for f32 {
 mod tests {
     use super::*;
 
-    
     #[test]
     fn sigmoid() {
         assert_eq!(1.0.sigmoid(), 0.7310585786300049);

@@ -5,7 +5,9 @@ use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
 
-use crate::linalg::basic::arrays::{Array,  Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2};
+use crate::linalg::basic::arrays::{
+    Array, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
+};
 use crate::linalg::traits::cholesky::CholeskyDecomposable;
 use crate::linalg::traits::evd::EVDDecomposable;
 use crate::linalg::traits::lu::LUDecomposable;

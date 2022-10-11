@@ -6,7 +6,6 @@ use std::ops::Range;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-
 use num_traits::Signed;
 
 /// Abstract methods for Array
@@ -1526,9 +1525,9 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::linalg::basic::arrays::{Array, Array2, ArrayView2, MutArrayView2};
     use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
-    use crate::linalg::basic::arrays::{Array, Array2, ArrayView2, MutArrayView2};
 
     #[test]
     fn test_dot() {

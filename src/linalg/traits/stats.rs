@@ -6,9 +6,8 @@
 use crate::linalg::basic::arrays::{ArrayView2, MutArrayView2};
 use crate::numbers::realnum::RealNumber;
 
-
 /// Defines baseline implementations for various statistical functions
-pub trait MatrixStats<T: RealNumber >: ArrayView2<T> {
+pub trait MatrixStats<T: RealNumber>: ArrayView2<T> {
     /// Computes the arithmetic mean along the specified axis.
     fn mean(&self, axis: u8) -> Vec<T> {
         let (n, m) = match axis {
@@ -151,9 +150,9 @@ pub trait MatrixStats<T: RealNumber >: ArrayView2<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::basic::matrix::DenseMatrix;
     use crate::linalg::basic::arrays::ArrayView2;
-    
+    use crate::linalg::basic::matrix::DenseMatrix;
+
     #[test]
     fn mean() {
         let m = DenseMatrix::from_2d_array(&[
@@ -167,7 +166,7 @@ mod tests {
         assert_eq!(m.mean(0), expected_0);
         assert_eq!(m.mean(1), expected_1);
     }
-    
+
     // #[test]
     // fn std() {
     //     let m = DenseMatrix::from_2d_array(&[
@@ -183,7 +182,7 @@ mod tests {
     //     assert_eq!(m.mean(0), expected_0);
     //     assert_eq!(m.mean(1), expected_1);
     // }
-    
+
     // #[test]
     // fn var() {
     //     let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);

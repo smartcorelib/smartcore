@@ -126,7 +126,6 @@ impl LinearRegressionParameters {
     }
 }
 
-
 /// Linear Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -171,7 +170,6 @@ impl Iterator for LinearRegressionSearchParametersIterator {
         Some(next)
     }
 }
-
 
 impl Default for LinearRegressionSearchParameters {
     fn default() -> Self {
@@ -336,7 +334,7 @@ mod tests {
         ]);
 
         let y: Vec<f64> = vec![
-            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8,
         ];
 
         let y_hat_qr = LinearRegression::fit(

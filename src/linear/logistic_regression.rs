@@ -550,8 +550,8 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 mod tests {
     use super::*;
     use crate::dataset::generator::make_blobs;
-    use crate::linalg::basic::matrix::*;
     use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::*;
     use crate::metrics::accuracy;
 
     #[test]

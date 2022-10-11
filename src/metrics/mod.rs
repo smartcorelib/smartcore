@@ -74,8 +74,8 @@ pub mod r2;
 pub mod recall;
 
 use crate::linalg::basic::arrays::Array1;
-use crate::numbers::realnum::RealNumber;
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Use these metrics to compare classification models.
 pub struct ClassificationMetrics {}
@@ -200,7 +200,10 @@ pub fn r2<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
 /// A cluster result satisfies homogeneity if all of its clusters contain only data points which are members of a single class.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn homogeneity_score<T: RealNumber + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
+pub fn homogeneity_score<T: RealNumber + Ord, V: Array1<T>>(
+    labels_true: &V,
+    labels_pred: &V,
+) -> f64 {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .0
@@ -210,7 +213,10 @@ pub fn homogeneity_score<T: RealNumber + Ord, V: Array1<T>>(labels_true: &V, lab
 /// Completeness metric of a cluster labeling given a ground truth (range is between 0.0 and 1.0).
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn completeness_score<T: RealNumber + Ord, V: Array1<T>>(labels_true: &V, labels_pred: &V) -> f64 {
+pub fn completeness_score<T: RealNumber + Ord, V: Array1<T>>(
+    labels_true: &V,
+    labels_pred: &V,
+) -> f64 {
     ClusterMetrics::hcv_score()
         .get_score(labels_true, labels_pred)
         .1

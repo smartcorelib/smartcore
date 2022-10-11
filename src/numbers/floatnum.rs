@@ -1,7 +1,7 @@
 extern crate rand;
 use rand::Rng;
 
-use num_traits::{Float, Signed };
+use num_traits::{Float, Signed};
 
 use crate::numbers::basenum::Number;
 
@@ -34,7 +34,6 @@ pub trait FloatNumber: Number + Float + Signed {
     /// Raw transmutation to u64
     fn to_f32_bits(self) -> u32;
 }
-
 
 impl FloatNumber for f64 {
     fn copysign(self, sign: Self) -> Self {

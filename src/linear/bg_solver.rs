@@ -1,5 +1,5 @@
 //! This is a generic solver for Ax = b type of equation
-//! 
+//!
 //! Example:
 //! ```
 //! use smartcore::linalg::basic::arrays::Array1;
@@ -8,10 +8,10 @@
 //! use smartcore::linear::bg_solver::*;
 //! use smartcore::numbers::floatnum::FloatNumber;
 //! use smartcore::linear::bg_solver::BiconjugateGradientSolver;
-//! 
+//!
 //! pub struct BGSolver {}
 //! impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}
-//! 
+//!
 //! let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
 //! let b = vec![40., 51., 28.];
 //! let expected = vec![1.0, 2.0, 3.0];
