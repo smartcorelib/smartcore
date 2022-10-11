@@ -41,6 +41,12 @@ impl<T: Number> Hamming<T> {
     }
 }
 
+impl<T: Number> Default for Hamming<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Number, A: ArrayView1<T>> Distance<A> for Hamming<T> {
     fn distance(&self, x: &A, y: &A) -> f64 {
         if x.shape() != y.shape() {

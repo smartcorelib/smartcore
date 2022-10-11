@@ -40,6 +40,12 @@ impl<T: Number> Manhattan<T> {
     }
 }
 
+impl<T: Number> Default for Manhattan<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Number, A: ArrayView1<T>> Distance<A> for Manhattan<T> {
     fn distance(&self, x: &A, y: &A) -> f64 {
         if x.shape() != y.shape() {

@@ -34,6 +34,12 @@ pub struct Euclidian<T> {
     _t: PhantomData<T>,
 }
 
+impl<T: Number> Default for Euclidian<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Number> Euclidian<T> {
     /// instatiate the initial structure
     pub fn new() -> Euclidian<T> {
