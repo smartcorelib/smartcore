@@ -26,7 +26,9 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array, Array1, Array2, ArrayView1, MutArrayView1};
 use crate::numbers::floatnum::FloatNumber;
 
+///
 pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
+    ///
     fn solve_mut(
         &self,
         a: &X,
@@ -108,6 +110,7 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
         Ok(err)
     }
 
+    ///
     fn solve_preconditioner(&self, a: &X, b: &Vec<T>, x: &mut Vec<T>) {
         let diag = Self::diag(a);
         let n = diag.len();
@@ -121,16 +124,17 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
         }
     }
 
-    // y = Ax
+    /// y = Ax
     fn mat_vec_mul(&self, a: &X, x: &Vec<T>, y: &mut Vec<T>) {
         y.copy_from(&x.xa(false, a));
     }
 
-    // y = Atx
+    /// y = Atx
     fn mat_t_vec_mul(&self, a: &X, x: &Vec<T>, y: &mut Vec<T>) {
         y.copy_from(&x.xa(true, a));
     }
 
+    ///
     fn diag(a: &X) -> Vec<T> {
         let (nrows, ncols) = a.shape();
         let n = nrows.min(ncols);

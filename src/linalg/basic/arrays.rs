@@ -1181,7 +1181,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
-        assert!(arrays.len() > 0, "Can't concatenate an empty array");
+        assert!(!arrays.is_empty(), "Can't concatenate an empty array");
         assert!(
             arrays.windows(2).all(|w| w[0].shape() == w[1].shape()),
             "Can't concatenate arrays of different sizes"
@@ -1219,7 +1219,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
-        assert!(arrays.len() > 0, "Can't concatenate an empty array");
+        assert!(!arrays.is_empty(), "Can't concatenate an empty array");
         if axis == 0 {
             assert!(
                 arrays.windows(2).all(|w| w[0].shape().1 == w[1].shape().1),
@@ -1276,7 +1276,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
-        assert!(arrays.len() > 0, "Can't merge with an empty array");
+        assert!(!arrays.is_empty(), "Can't merge with an empty array");
 
         let first = &arrays[0];
         let tail = &arrays[1..];
