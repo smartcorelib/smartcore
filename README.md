@@ -16,3 +16,6 @@
 </p>
 
 -----
+
+
+Contributions welcome, please start from [CONTRIBUTING and other relevant files](.github/CONTRIBUTING.md).

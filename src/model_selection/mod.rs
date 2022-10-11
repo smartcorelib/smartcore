@@ -112,8 +112,10 @@ use crate::linalg::base::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::rand::get_rng_impl;
 
+pub(crate) mod hyper_tuning;
 pub(crate) mod kfold;
 
+pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
 pub use kfold::{KFold, KFoldIter};
 
 /// An interface for the K-Folds cross-validator
