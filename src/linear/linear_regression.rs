@@ -19,7 +19,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -336,8 +336,7 @@ mod tests {
         ]);
 
         let y: Vec<f64> = vec![
-            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
-            114.2, 115.7, 116.9,
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8
         ];
 
         let y_hat_qr = LinearRegression::fit(

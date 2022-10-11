@@ -18,6 +18,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::collections::HashSet;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -43,34 +44,33 @@ impl Precision {
             );
         }
 
+        let mut classes = HashSet::new();
+        for i in 0..y_true.shape() {
+            classes.insert(y_true.get(i).to_f64_bits());
+        }
+        let classes = classes.len();
+
         let mut tp = 0;
-        let mut p = 0;
-        let n = y_true.shape();
-        for i in 0..n {
-            if *y_true.get(i) != T::zero() && *y_true.get(i) != T::one() {
-                panic!(
-                    "Precision can only be applied to binary classification: {}",
-                    y_true.get(i)
-                );
-            }
-
-            if *y_pred.get(i) != T::zero() && *y_pred.get(i) != T::one() {
-                panic!(
-                    "Precision can only be applied to binary classification: {}",
-                    y_pred.get(i)
-                );
-            }
-
-            if *y_pred.get(i) == T::one() {
-                p += 1;
-
-                if *y_true.get(i) == T::one() {
+        let mut fp = 0;
+        for i in 0..y_true.shape() {
+            if y_pred.get(i) == y_true.get(i) {
+                if classes == 2 {
+                    if *y_true.get(i) == T::one() {
+                        tp += 1;
+                    }
+                } else {
                     tp += 1;
                 }
+            } else if classes == 2 {
+                if *y_true.get(i) == T::one() {
+                    fp += 1;
+                }
+            } else {
+                fp += 1;
             }
         }
 
-        T::from_i64(tp).unwrap() / T::from_i64(p).unwrap()
+        T::from_i64(tp).unwrap() / (T::from_i64(tp).unwrap() + T::from_i64(fp).unwrap())
     }
 }
 

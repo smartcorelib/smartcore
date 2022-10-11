@@ -6,7 +6,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::naive_bayes::categorical::CategoricalNB;
 //!
 //! let x = DenseMatrix::from_2d_array(&[
@@ -392,7 +392,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
     fn search_parameters() {

@@ -16,7 +16,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::cluster::kmeans::*;
 //!
 //! // Iris data
@@ -416,7 +416,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

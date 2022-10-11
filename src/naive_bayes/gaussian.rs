@@ -6,7 +6,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::naive_bayes::gaussian::GaussianNB;
 //!
 //! let x = DenseMatrix::from_2d_array(&[
@@ -320,7 +320,7 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
     fn search_parameters() {

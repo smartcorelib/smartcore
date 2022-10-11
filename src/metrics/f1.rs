@@ -51,7 +51,7 @@ impl F1 {
         let p = Precision {}.get_score(y_true, y_pred);
         let r = Recall {}.get_score(y_true, y_pred);
 
-        (T::one() + T::from_f64(beta2).unwrap()) * (p * r) / (T::from_f64(beta2).unwrap() * p + r)
+        (T::one() + T::from_f64(beta2).unwrap()) * (p * r) / ((T::from_f64(beta2).unwrap() * p) + r)
     }
 }
 
@@ -67,6 +67,9 @@ mod tests {
 
         let score1: f64 = F1 { beta: 1.0 }.get_score(&y_pred, &y_true);
         let score2: f64 = F1 { beta: 1.0 }.get_score(&y_true, &y_true);
+
+        println!("{:?}", score1);
+        println!("{:?}", score2);
 
         assert!((score1 - 0.57142857).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);

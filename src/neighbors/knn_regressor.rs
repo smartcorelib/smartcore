@@ -14,7 +14,7 @@
 //! To fit the model to a 4 x 2 matrix with 4 training samples, 2 features per sample:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::neighbors::knn_regressor::*;
 //! use smartcore::metrics::distance::*;
 //!
@@ -245,7 +245,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::distance::Distances;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

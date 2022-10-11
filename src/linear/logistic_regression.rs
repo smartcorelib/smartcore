@@ -10,7 +10,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::logistic_regression::*;
 //!
 //! //Iris data
@@ -732,7 +732,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        assert!(accuracy(&y_hat, &y) > 0.9);
+        assert!(accuracy(&y_hat, &y) as f32 > 0.9);
 
         let lr_reg = LogisticRegression::fit(
             &x,
@@ -759,7 +759,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        assert!(accuracy(&y_hat, &y) > 0.9);
+        assert!(accuracy(&y_hat, &y) as f32 > 0.9);
 
         let lr_reg = LogisticRegression::fit(
             &x,

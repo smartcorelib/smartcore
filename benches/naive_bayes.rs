@@ -4,7 +4,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::DMatrix;
 use ndarray::Array2;
 use smartcore::linalg::base::Array2 as BaseArray2;
-use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+use smartcore::linalg::basic::matrix::DenseMatrix;
 use smartcore::naive_bayes::gaussian::GaussianNB;
 
 pub fn gaussian_naive_bayes_fit_benchmark(c: &mut Criterion) {

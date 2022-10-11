@@ -19,7 +19,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linalg::base::Array2;
 //! use smartcore::cluster::dbscan::*;
 //! use smartcore::metrics::distance::Distances;
@@ -398,7 +398,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     #[cfg(feature = "serde")]
     use crate::metrics::distance::euclidian::Euclidian;
 

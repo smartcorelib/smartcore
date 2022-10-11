@@ -7,7 +7,7 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::decomposition::svd::*;
 //!
 //! // Iris data
@@ -219,7 +219,7 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> SVD
 mod tests {
     use super::*;
     use crate::linalg::base::Array;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
     #[test]

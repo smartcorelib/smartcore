@@ -95,8 +95,7 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 
         let score3: f64 = Recall {}.get_score(&y_pred, &y_true);
-        println!("{:?}", score3);
-        assert!((score3 - 0.5).abs() < 1e-8);
+        assert!((score3 - 0.6666666666666666).abs() < 1e-8);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

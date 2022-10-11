@@ -10,7 +10,7 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::decomposition::pca::*;
 //!
 //! // Iris data
@@ -365,7 +365,7 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PCA
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::dense::matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
     #[test]

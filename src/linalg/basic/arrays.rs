@@ -1528,6 +1528,7 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
+    use crate::linalg::basic::arrays::{Array, Array2, ArrayView2, MutArrayView2};
 
     #[test]
     fn test_dot() {

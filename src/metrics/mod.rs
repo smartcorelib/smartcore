@@ -12,7 +12,7 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::logistic_regression::LogisticRegression;
 //! use smartcore::metrics::*;
 //!
@@ -75,6 +75,7 @@ pub mod recall;
 
 use crate::linalg::basic::arrays::Array1;
 use crate::numbers::realnum::RealNumber;
+use crate::numbers::basenum::Number;
 
 /// Use these metrics to compare classification models.
 pub struct ClassificationMetrics {}
@@ -139,7 +140,7 @@ impl ClusterMetrics {
 /// Function that calculated accuracy score, see [accuracy](accuracy/index.html).
 /// * `y_true` - cround truth (correct) labels
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn accuracy<T: RealNumber, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn accuracy<T: Number, V: Array1<T>>(y_true: &V, y_pred: &V) -> T {
     ClassificationMetrics::accuracy().get_score(y_true, y_pred)
 }
 
