@@ -30,6 +30,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::Array2;
 use crate::metrics::distance::euclidian::Euclidian;
 use crate::numbers::realnum::RealNumber;
+use crate::numbers::floatnum::FloatNumber;
 
 ///
 /// Inspired by Python implementation:
@@ -39,7 +40,7 @@ use crate::numbers::realnum::RealNumber;
 /// affinity used is Euclidean so to allow linkage with single, ward, complete and average
 ///
 #[derive(Debug, Clone)]
-pub struct FastPair<'a, T: RealNumber, M: Array2<T>> {
+pub struct FastPair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
     /// initial matrix
     samples: &'a M,
     /// closest pair hashmap (connectivity matrix for closest pairs)
@@ -48,7 +49,7 @@ pub struct FastPair<'a, T: RealNumber, M: Array2<T>> {
     pub neighbours: Vec<usize>,
 }
 
-impl<'a, T: RealNumber, M: Array2<T>> FastPair<'a, T, M> {
+impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     ///
     /// Constructor
     /// Instantiate and inizialise the algorithm
@@ -97,7 +98,7 @@ impl<'a, T: RealNumber, M: Array2<T>> FastPair<'a, T, M> {
                 PairwiseDistance {
                     node: index_row_i,
                     neighbour: None,
-                    distance: Some(T::max_value()),
+                    distance: Some(T::MAX),
                 },
             );
         }

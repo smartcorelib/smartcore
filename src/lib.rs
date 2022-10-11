@@ -70,7 +70,7 @@
 pub mod numbers;
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
-// pub mod algorithm;
+pub mod algorithm;
 pub mod api;
 
 // /// Algorithms for clustering of unlabeled data
@@ -93,8 +93,8 @@ pub mod metrics;
 // pub mod model_selection;
 // ///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
 // pub mod naive_bayes;
-// /// Supervised neighbors-based learning methods
-// pub mod neighbors;
+/// Supervised neighbors-based learning methods
+pub mod neighbors;
 
 pub(crate) mod optimization;
 // /// Preprocessing utilities
