@@ -32,53 +32,53 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+// #[cfg(feature = "serde")]
+// use serde::{Deserialize, Serialize};
 
-/// K Nearest Neighbors Classifier
-pub mod knn_classifier;
-/// K Nearest Neighbors Regressor
-pub mod knn_regressor;
+// /// K Nearest Neighbors Classifier
+// pub mod knn_classifier;
+// /// K Nearest Neighbors Regressor
+// pub mod knn_regressor;
 
-/// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
-#[deprecated(
-    since = "0.2.0",
-    note = "please use `smartcore::algorithm::neighbour::KNNAlgorithmName` instead"
-)]
-pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
+// /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
+// #[deprecated(
+//     since = "0.2.0",
+//     note = "please use `smartcore::algorithm::neighbour::KNNAlgorithmName` instead"
+// )]
+// pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
 
-/// Weight function that is used to determine estimated value.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
-pub enum KNNWeightFunction {
-    /// All k nearest points are weighted equally
-    Uniform,
-    /// k nearest points are weighted by the inverse of their distance. Closer neighbors will have a greater influence than neighbors which are further away.
-    Distance,
-}
+// /// Weight function that is used to determine estimated value.
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+// #[derive(Debug, Clone)]
+// pub enum KNNWeightFunction {
+//     /// All k nearest points are weighted equally
+//     Uniform,
+//     /// k nearest points are weighted by the inverse of their distance. Closer neighbors will have a greater influence than neighbors which are further away.
+//     Distance,
+// }
 
-impl Default for KNNWeightFunction {
-    fn default() -> Self {
-        KNNWeightFunction::Uniform
-    }
-}
+// impl Default for KNNWeightFunction {
+//     fn default() -> Self {
+//         KNNWeightFunction::Uniform
+//     }
+// }
 
-impl KNNWeightFunction {
-    fn calc_weights(&self, distances: Vec<f64>) -> std::vec::Vec<f64> {
-        match *self {
-            KNNWeightFunction::Distance => {
-                // if there are any points that has zero distance from one or more training points,
-                // those training points are weighted as 1.0 and the other points as 0.0
-                if distances.iter().any(|&e| e == 0f64) {
-                    distances
-                        .iter()
-                        .map(|e| if *e == 0f64 { 1f64 } else { 0f64 })
-                        .collect()
-                } else {
-                    distances.iter().map(|e| 1f64 / *e).collect()
-                }
-            }
-            KNNWeightFunction::Uniform => vec![1f64; distances.len()],
-        }
-    }
-}
+// impl KNNWeightFunction {
+//     fn calc_weights(&self, distances: Vec<f64>) -> std::vec::Vec<f64> {
+//         match *self {
+//             KNNWeightFunction::Distance => {
+//                 // if there are any points that has zero distance from one or more training points,
+//                 // those training points are weighted as 1.0 and the other points as 0.0
+//                 if distances.iter().any(|&e| e == 0f64) {
+//                     distances
+//                         .iter()
+//                         .map(|e| if *e == 0f64 { 1f64 } else { 0f64 })
+//                         .collect()
+//                 } else {
+//                     distances.iter().map(|e| 1f64 / *e).collect()
+//                 }
+//             }
+//             KNNWeightFunction::Uniform => vec![1f64; distances.len()],
+//         }
+//     }
+// }

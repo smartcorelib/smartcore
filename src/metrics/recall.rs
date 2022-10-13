@@ -45,6 +45,11 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
             _phantom: PhantomData
         }
     }
+    fn new_with(_parameter: T) -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
     /// Calculated recall score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.

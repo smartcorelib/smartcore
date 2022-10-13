@@ -1,28 +1,54 @@
+use std::marker::PhantomData;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::cluster_helpers::*;
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
+use crate::numbers::floatnum::FloatNumber;
+
+use crate::metrics::Metrics;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 /// Homogeneity, completeness and V-Measure scores.
-pub struct HCVScore {}
+pub struct HCVScore<T> {
+    _phantom: PhantomData<T>,
+    homogeneity: Option<f64>,
+    completeness: Option<f64>,
+    v_measure: Option<f64>
+}
 
-impl HCVScore {
-    /// Computes Homogeneity, completeness and V-Measure scores at once.
-    /// * `labels_true` - ground truth class labels to be used as a reference.
-    /// * `labels_pred` - cluster labels to evaluate.    
-    pub fn get_score<T: Number + Ord, V: ArrayView1<T>>(
-        &self,
-        labels_true: &V,
-        labels_pred: &V,
-    ) -> (f64, f64, f64) {
-        let entropy_c = entropy(labels_true);
-        let entropy_k = entropy(labels_pred);
-        let contingency = contingency_matrix(labels_true, labels_pred);
+impl<T: Number + Ord> HCVScore<T> {
+    /// return homogenity score
+    pub fn homogeneity(&self) -> Option<f64> {
+        self.homogeneity
+    }
+    /// return completeness score
+    pub fn completeness(&self) -> Option<f64> {
+        self.completeness
+    }
+    /// return v_measure score
+    pub fn v_measure(&self) -> Option<f64> {
+        self.v_measure
+    }
+    /// run computation for measures
+    pub fn compute(&mut self,
+        y_true: &dyn ArrayView1<T>,
+        y_pred: &dyn ArrayView1<T>
+    ) -> () {
+        let entropy_c: Option<f64> = entropy(y_true);
+        let entropy_k: Option<f64> = entropy(y_pred);
+        let contingency = contingency_matrix(y_true, y_pred);
         let mi = mutual_info_score(&contingency);
+
+        println!("{:?}", entropy_c);
+        println!("{:?}", entropy_k);
+        println!("{:?}", contingency);
+        println!("{:?}", mi);
+        
 
         let homogeneity = entropy_c.map(|e| mi / e).unwrap_or(0f64);
         let completeness = entropy_k.map(|e| mi / e).unwrap_or(0f64);
@@ -30,11 +56,46 @@ impl HCVScore {
         let v_measure_score = if homogeneity + completeness == 0f64 {
             0f64
         } else {
-            2f64 * homogeneity * completeness / (1f64 * homogeneity + completeness)
+            2.0f64 * homogeneity * completeness / (1.0f64 * homogeneity + completeness)
         };
 
-        (homogeneity, completeness, v_measure_score)
+        self.homogeneity = Some(homogeneity);
+        self.completeness = Some(completeness);
+        self.v_measure = Some(v_measure_score);
     }
+}
+
+impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
+    /// create a typed object to call HCVScore functions
+    fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+            homogeneity: None,
+            completeness: None,
+            v_measure: None
+        }
+    }
+    fn new_with(_parameter: T) -> Self {
+        Self {
+            _phantom: PhantomData,
+            homogeneity: None,
+            completeness: None,
+            v_measure: None
+        }
+    }
+    /// Computes Homogeneity, completeness and V-Measure scores at once.
+    /// * `y_true` - ground truth class labels to be used as a reference.
+    /// * `y_pred` - cluster labels to evaluate.    
+    fn get_score(&self,
+        y_true: &dyn ArrayView1<T>, 
+        y_pred: &dyn ArrayView1<T>
+    ) -> T {
+        // this functions should not be used for this struct
+        // use homogeneity(), completeness(), v_measure()
+        // TODO: implement Metrics -> Result<T, Failed>
+        T::zero()
+    }
+
 }
 
 #[cfg(test)]
@@ -46,10 +107,11 @@ mod tests {
     fn homogeneity_score() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];
         let v2 = vec![1, 0, 0, 0, 0, 1, 0];
-        let scores = HCVScore {}.get_score(&v1, &v2);
+        let mut scores = HCVScore::new();
+        scores.compute(&v1, &v2);
 
-        assert!((0.2548 - scores.0).abs() < 1e-4);
-        assert!((0.5440 - scores.1).abs() < 1e-4);
-        assert!((0.3471 - scores.2).abs() < 1e-4);
+        assert!((0.2548 - scores.homogeneity.unwrap() as f64).abs() < 1e-4);
+        assert!((0.5440 - scores.completeness.unwrap() as f64).abs() < 1e-4);
+        assert!((0.3471 - scores.v_measure.unwrap() as f64).abs() < 1e-4);
     }
 }

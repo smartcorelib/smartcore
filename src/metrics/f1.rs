@@ -25,20 +25,37 @@ use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
 use crate::numbers::realnum::RealNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
+
+use crate::metrics::Metrics;
 
 /// F-measure
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct F1 {
+pub struct F1<T> {
     /// a positive real factor
-    pub beta: f64,
+    pub beta: T,
 }
 
-impl F1 {
+impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
+    fn new() -> Self {
+        let beta: T = T::from(1f64).unwrap();
+        Self { beta }
+    }
+    /// create a typed object to call Recall functions
+    fn new_with(beta: T) -> Self {
+        Self {
+            beta
+        }
+    }
     /// Computes F1 score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<T: RealNumber, V: ArrayView1<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    fn get_score(&self,
+        y_true: &dyn ArrayView1<T>, 
+        y_pred: &dyn ArrayView1<T>
+    ) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -48,10 +65,10 @@ impl F1 {
         }
         let beta2 = self.beta * self.beta;
 
-        let p = Precision {}.get_score(y_true, y_pred);
-        let r = Recall {}.get_score(y_true, y_pred);
+        let p = Precision::new().get_score(y_true, y_pred);
+        let r = Recall::new().get_score(y_true, y_pred);
 
-        (T::one() + T::from_f64(beta2).unwrap()) * (p * r) / ((T::from_f64(beta2).unwrap() * p) + r)
+        (T::one() + beta2) * (p * r) / ((beta2 * p) + r)
     }
 }
 

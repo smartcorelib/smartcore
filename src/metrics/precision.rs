@@ -37,8 +37,13 @@ pub struct Precision<T> {
 }
 
 impl<T: RealNumber> Metrics<T> for Precision<T> {
-    /// create a typed object to call Recall functions
+    /// create a typed object to call Precision functions
     fn new() -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
+    fn new_with(_parameter: T) -> Self {
         Self {
             _phantom: PhantomData
         }

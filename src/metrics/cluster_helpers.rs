@@ -3,8 +3,9 @@ use std::collections::HashMap;
 
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
-pub fn contingency_matrix<T: Number + Ord, V: ArrayView1<T>>(
+pub fn contingency_matrix<T: Number + Ord, V: ArrayView1<T> + ?Sized>(
     labels_true: &V,
     labels_pred: &V,
 ) -> Vec<Vec<usize>> {
@@ -24,7 +25,7 @@ pub fn contingency_matrix<T: Number + Ord, V: ArrayView1<T>>(
     contingency_matrix
 }
 
-pub fn entropy<T: Number, V: ArrayView1<T>>(data: &V) -> Option<f64> {
+pub fn entropy<T:  Number + Ord, V: ArrayView1<T> + ?Sized>(data: &V) -> Option<f64> {
     let mut bincounts = HashMap::with_capacity(data.shape());
 
     for e in data.iterator(0) {
@@ -38,7 +39,9 @@ pub fn entropy<T: Number, V: ArrayView1<T>>(data: &V) -> Option<f64> {
     for &c in bincounts.values() {
         if c > 0 {
             let pi = c as f64;
-            entropy -= (pi / sum as f64) * (pi.ln() - (sum as f64).ln());
+            let pi_ln = pi.ln();
+            let sum_ln = (sum as f64).ln();
+            entropy -= (pi / sum as f64) * (pi_ln - sum_ln);
         }
     }
 
@@ -117,7 +120,7 @@ mod tests {
     fn entropy_test() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];
 
-        assert!((1.2770 - entropy(&v1).unwrap()).abs() < 1e-4);
+        assert!((1.2770 - entropy(&v1).unwrap() as f64).abs() < 1e-4);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]

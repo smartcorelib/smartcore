@@ -18,22 +18,43 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::marker::PhantomData;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
+
+use crate::metrics::Metrics;
 
 /// Coefficient of Determination (R2)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct R2 {}
+pub struct R2<T> {
+    _phantom: PhantomData<T>
+}
 
-impl R2 {
+impl<T: Number + FloatNumber> Metrics<T> for R2<T> {
+    /// create a typed object to call R2 functions
+    fn new() -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
+    fn new_with(_parameter: T) -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
     /// Computes R2 score
     /// * `y_true` - Ground truth (correct) target values.
     /// * `y_pred` - Estimated target values.
-    pub fn get_score<T: Number, V: ArrayView1<T>>(&self, y_true: &V, y_pred: &V) -> T {
+    fn get_score(&self,
+        y_true: &dyn ArrayView1<T>, 
+        y_pred: &dyn ArrayView1<T>
+    ) -> T {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -44,18 +65,18 @@ impl R2 {
 
         let n = y_true.shape();
 
-        let mean = y_true.mean();
-        let mut ss_tot = 0f64;
-        let mut ss_res = 0f64;
+        let mean: f64 = y_true.mean();
+        let mut ss_tot = T::zero();
+        let mut ss_res = T::zero();
 
         for i in 0..n {
-            let y_i = y_true.get(i).to_f64().unwrap();
-            let f_i = y_pred.get(i).to_f64().unwrap();
-            ss_tot += (y_i - mean) * (y_i - mean);
+            let y_i = *y_true.get(i);
+            let f_i = *y_pred.get(i);
+            ss_tot += (y_i - T::from(mean).unwrap()) * (y_i - T::from(mean).unwrap());
             ss_res += (y_i - f_i) * (y_i - f_i);
         }
 
-        T::one() - (T::from_f64(ss_res).unwrap() / T::from_f64(ss_tot).unwrap())
+        T::one() - ss_res / ss_tot
     }
 }
 
@@ -69,8 +90,8 @@ mod tests {
         let y_true: Vec<f64> = vec![3., -0.5, 2., 7.];
         let y_pred: Vec<f64> = vec![2.5, 0.0, 2., 8.];
 
-        let score1: f64 = R2 {}.get_score(&y_true, &y_pred);
-        let score2: f64 = R2 {}.get_score(&y_true, &y_true);
+        let score1: f64 = R2::new().get_score(&y_true, &y_pred);
+        let score2: f64 = R2::new().get_score(&y_true, &y_true);
 
         assert!((score1 - 0.948608137).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);

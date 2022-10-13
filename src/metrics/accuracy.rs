@@ -43,9 +43,14 @@ pub struct Accuracy<T> {
 }
 
 
-impl<T: RealNumber + Number> Metrics<T> for Accuracy<T> {
+impl<T: Number> Metrics<T> for Accuracy<T> {
     /// create a typed object to call Accuracy functions
     fn new() -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
+    fn new_with(_parameter: T) -> Self {
         Self {
             _phantom: PhantomData
         }
