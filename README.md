@@ -17,5 +17,9 @@
 
 -----
 
-
+## Developers
 Contributions welcome, please start from [CONTRIBUTING and other relevant files](.github/CONTRIBUTING.md).
+
+## Current status
+* Current working branch is `development` (if you want something that you can test right away).
+* Breaking changes are undergoing development at [`v0.5-wip`](https://github.com/smartcorelib/smartcore/tree/v0.5-wip#readme) (if you are a newcomer better to start from [this README](https://github.com/smartcorelib/smartcore/tree/v0.5-wip#readme) as this will be the next major release).
