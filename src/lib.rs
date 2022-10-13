@@ -78,8 +78,8 @@ pub mod api;
 /// Various datasets
 #[cfg(feature = "datasets")]
 pub mod dataset;
-// /// Matrix decomposition algorithms
-// pub mod decomposition;
+/// Matrix decomposition algorithms
+pub mod decomposition;
 // /// Ensemble methods, including Random Forest classifier and regressor
 // pub mod ensemble;
 
