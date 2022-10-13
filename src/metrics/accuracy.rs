@@ -8,6 +8,7 @@
 //!
 //! ```
 //! use smartcore::metrics::accuracy::Accuracy;
+//! use smartcore::metrics::Metrics;
 //! let y_pred: Vec<f64> = vec![0., 2., 1., 3.];
 //! let y_true: Vec<f64> = vec![0., 1., 2., 3.];
 //!
@@ -16,6 +17,7 @@
 //! With integers:
 //! ```
 //! use smartcore::metrics::accuracy::Accuracy;
+//! use smartcore::metrics::Metrics;
 //! let y_pred: Vec<i64> = vec![0, 2, 1, 3];
 //! let y_true: Vec<i64> = vec![0, 1, 2, 3];
 //!

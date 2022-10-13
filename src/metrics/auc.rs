@@ -7,11 +7,12 @@
 //! Example:
 //! ```
 //! use smartcore::metrics::auc::AUC;
+//! use smartcore::metrics::Metrics;
 //!
 //! let y_true: Vec<f64> = vec![0., 0., 1., 1.];
 //! let y_pred: Vec<f64> = vec![0.1, 0.4, 0.35, 0.8];
 //!
-//! let score1: f64 = AUC {}.get_score(&y_true, &y_pred);
+//! let score1: f64 = AUC::new().get_score(&y_true, &y_pred);
 //! ```
 //!
 //! ## References:
@@ -20,25 +21,42 @@
 //! * ["The ROC-AUC and the Mann-Whitney U-test", Haupt, J.](https://johaupt.github.io/roc-auc/model%20evaluation/Area_under_ROC_curve.html)
 #![allow(non_snake_case)]
 
+use std::marker::PhantomData;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::basic::arrays::{Array1, ArrayView1};
+use crate::linalg::basic::arrays::{Array1, ArrayView1, MutArrayView1};
 use crate::numbers::basenum::Number;
+
+use crate::metrics::Metrics;
 
 /// Area Under the Receiver Operating Characteristic Curve (ROC AUC)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct AUC {}
+pub struct AUC<T> {
+    _phantom: PhantomData<T>
+}
 
-impl AUC {
+impl<T: Number + Ord> Metrics<T> for AUC<T> {
+    /// create a typed object to call AUC functions
+    fn new() -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
+    fn new_with(_parameter: T) -> Self {
+        Self {
+            _phantom: PhantomData
+        }
+    }
     /// AUC score.
-    /// * `y_true` - cround truth (correct) labels.
-    /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
-    pub fn get_score<T: Number + PartialOrd, V: ArrayView1<T> + Array1<T>>(
+    /// * `y_true` - ground truth (correct) labels.
+    /// * `y_pred_prob` - probability estimates, as returned by a classifier.
+    fn get_score(
         &self,
-        y_true: &V,
-        y_pred_prob: &V,
+        y_true: &dyn ArrayView1<T>,
+        y_pred_prob: &dyn ArrayView1<T>,
     ) -> T {
         let mut pos = T::zero();
         let mut neg = T::zero();
@@ -104,8 +122,8 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 0., 1., 1.];
         let y_pred: Vec<f64> = vec![0.1, 0.4, 0.35, 0.8];
 
-        let score1: f64 = AUC {}.get_score(&y_true, &y_pred);
-        let score2: f64 = AUC {}.get_score(&y_true, &y_true);
+        let score1: f64 = AUC::new().get_score(&y_true, &y_pred);
+        let score2: f64 = AUC::new().get_score(&y_true, &y_true);
 
         assert!((score1 - 0.75).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);

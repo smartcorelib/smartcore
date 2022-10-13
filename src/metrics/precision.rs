@@ -10,6 +10,7 @@
 //!
 //! ```
 //! use smartcore::metrics::precision::Precision;
+//! use smartcore::metrics::Metrics;
 //! let y_pred: Vec<f64> = vec![0., 1., 1., 0.];
 //! let y_true: Vec<f64> = vec![0., 0., 1., 1.];
 //!
