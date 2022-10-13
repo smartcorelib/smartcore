@@ -99,24 +99,15 @@ pub struct ClassificationMetrics<T> {
     phantom: PhantomData<T>
 }
 
-// /// Classification Score holds scoring methods for `ClassificationMetrics`
-// pub trait ClassificationScore<T>: ClassificationMetrics<T> {}
-
 /// Metrics for regression models.
 pub struct RegressionMetrics<T> {
     phantom: PhantomData<T>
 }
 
-// /// Classification Score holds scoring methods for `RegressionMetrics`
-// pub trait RegressionScore<T>: RegressionMetrics<T> {}
-
 /// Cluster metrics.
 pub struct ClusterMetrics<T> {
     phantom: PhantomData<T>
 }
-
-// /// Classification Score holds scoring methods for `ClusterMetrics`
-// pub trait ClusterScore<T>: ClusterMetrics<T> {}
 
 impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
     /// Accuracy score, see [accuracy](accuracy/index.html).
