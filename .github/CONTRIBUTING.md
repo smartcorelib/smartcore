@@ -11,6 +11,12 @@ Please note we have a [code of conduct](CODE_OF_CONDUCT.md), please follow it in
 2. Update the CHANGELOG.md with details of changes to the interface if they are breaking changes, this includes new environment variables, exposed ports useful file locations and container parameters.
 3. Pull Request can be merged in once you have the sign-off of one other developer, or if you do not have permission to do that you may request the reviewer to merge it for you.
 
+### generic guidelines
+Take a look to the conventions established by existing code:
+* Every module should come with some reference to scientific literature that allows relating the code to research. Use the `//!` comments at the top of the module to tell readers about the basics of the procedure you are implementing.
+* Every module should provide a Rust doctest, a brief test embedded with the documentation that explains how to use the procedure implemented.
+* Every module should provide comprehensive tests at the end, in its `mod tests {}` sub-module. These tests can be flagged or not with configuration flags to allow WebAssembly target.
+
 ## Issue Report Process
 
 1. Go to the project's issues.
