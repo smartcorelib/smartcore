@@ -87,7 +87,7 @@ pub mod error;
 /// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.
-// pub mod linear;
+pub mod linear;
 /// Functions for assessing prediction error.
 pub mod metrics;
 // pub mod model_selection;
