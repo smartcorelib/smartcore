@@ -20,6 +20,8 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::marker::PhantomData;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -37,18 +39,23 @@ use crate::metrics::Metrics;
 #[derive(Debug)]
 pub struct F1<T> {
     /// a positive real factor
-    pub beta: T,
+    pub beta: f64,
+    _phantom: PhantomData<T>
 }
 
 impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
     fn new() -> Self {
-        let beta: T = T::from(1f64).unwrap();
-        Self { beta }
+        let beta: f64 = 1f64;
+        Self {
+            beta,
+            _phantom: PhantomData
+        }
     }
     /// create a typed object to call Recall functions
-    fn new_with(beta: T) -> Self {
+    fn new_with(beta: f64) -> Self {
         Self {
-            beta
+            beta,
+            _phantom: PhantomData
         }
     }
     /// Computes F1 score
@@ -70,7 +77,7 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
         let p = Precision::new().get_score(y_true, y_pred);
         let r = Recall::new().get_score(y_true, y_pred);
 
-        (T::one() + beta2).to_f64().unwrap() * (p * r) / ((beta2.to_f64().unwrap() * p) + r)
+        (1f64 + beta2) * (p * r) / ((beta2 * p) + r)
     }
 }
 
@@ -84,8 +91,9 @@ mod tests {
         let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
         let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 
-        let score1: f64 = F1 { beta: 1.0 }.get_score(&y_pred, &y_true);
-        let score2: f64 = F1 { beta: 1.0 }.get_score(&y_true, &y_true);
+        let beta = 1.0;
+        let score1: f64 = F1::new_with(beta).get_score(&y_pred, &y_true);
+        let score2: f64 = F1::new_with(beta).get_score(&y_true, &y_true);
 
         println!("{:?}", score1);
         println!("{:?}", score2);

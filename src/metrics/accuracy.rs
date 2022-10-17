@@ -21,7 +21,7 @@
 //! let y_pred: Vec<i64> = vec![0, 2, 1, 3];
 //! let y_true: Vec<i64> = vec![0, 1, 2, 3];
 //!
-//! let score: i64 = Accuracy::new().get_score(&y_pred, &y_true);
+//! let score: f64 = Accuracy::new().get_score(&y_pred, &y_true);
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -52,7 +52,7 @@ impl<T: Number> Metrics<T> for Accuracy<T> {
             _phantom: PhantomData
         }
     }
-    fn new_with(_parameter: T) -> Self {
+    fn new_with(_parameter: f64) -> Self {
         Self {
             _phantom: PhantomData
         }
@@ -82,7 +82,7 @@ impl<T: Number> Metrics<T> for Accuracy<T> {
             }
         }
 
-        (positive / n as i32).into()
+        positive as f64 / n as f64
     }
 }
 
@@ -112,7 +112,7 @@ mod tests {
         let score1: f64 = Accuracy::<i32>::new().get_score(&y_pred, &y_true);
         let score2: f64 = Accuracy::<i32>::new().get_score(&y_true, &y_true);
 
-        assert_eq!(score1, 0.0);
+        assert_eq!(score1, 0.5);
         assert_eq!(score2, 1.0);
     }
 }

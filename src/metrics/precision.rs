@@ -44,7 +44,7 @@ impl<T: RealNumber> Metrics<T> for Precision<T> {
             _phantom: PhantomData
         }
     }
-    fn new_with(_parameter: T) -> Self {
+    fn new_with(_parameter: f64) -> Self {
         Self {
             _phantom: PhantomData
         }

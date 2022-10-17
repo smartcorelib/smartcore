@@ -46,7 +46,7 @@
 //!
 //! let y_hat = lr.predict(&x).unwrap();
 //!
-//! let acc = ClassificationMetrics::accuracy().get_score(&y, &y_hat);
+//! let acc = ClassificationMetricsOrd::accuracy().get_score(&y, &y_hat);
 //! // or
 //! let acc = accuracy(&y, &y_hat);
 //! ```
@@ -87,7 +87,7 @@ pub trait Metrics<T> {
     /// https://doc.rust-lang.org/error-index.html#E0038
     fn new() -> Self where Self: Sized;
     /// used to instantiate metric with a paramenter
-    fn new_with(_parameter: T) -> Self where Self: Sized;
+    fn new_with(_parameter: f64) -> Self where Self: Sized;
     /// compute score realated to this metric
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>,
@@ -128,8 +128,8 @@ impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
     }
 
     /// F1 score, also known as balanced F-score or F-measure, see [F1](f1/index.html).
-    pub fn f1(beta: T) -> f1::F1<T> {
-        f1::F1 { beta }
+    pub fn f1(beta: f64) -> f1::F1<T> {
+        f1::F1::new_with(beta)
     }
 
     // /// Area Under the Receiver Operating Characteristic Curve (ROC AUC), see [AUC](auc/index.html).
@@ -196,7 +196,7 @@ pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true:
 /// Computes F1 score, see [F1](f1/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: T) -> f64 {
+pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: f64) -> f64 {
     let obj = ClassificationMetrics::<T>::f1(beta);
     obj.get_score(y_true, y_pred)
 }
