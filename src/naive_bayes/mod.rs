@@ -36,7 +36,7 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2, ArrayView1};
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
