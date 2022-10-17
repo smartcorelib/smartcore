@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::cluster_helpers::*;
 use crate::numbers::basenum::Number;
-use crate::numbers::realnum::RealNumber;
 use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 use crate::metrics::Metrics;
 
@@ -18,7 +18,7 @@ pub struct HCVScore<T> {
     _phantom: PhantomData<T>,
     homogeneity: Option<f64>,
     completeness: Option<f64>,
-    v_measure: Option<f64>
+    v_measure: Option<f64>,
 }
 
 impl<T: Number + Ord> HCVScore<T> {
@@ -35,20 +35,11 @@ impl<T: Number + Ord> HCVScore<T> {
         self.v_measure
     }
     /// run computation for measures
-    pub fn compute(&mut self,
-        y_true: &dyn ArrayView1<T>,
-        y_pred: &dyn ArrayView1<T>
-    ) -> () {
+    pub fn compute(&mut self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> () {
         let entropy_c: Option<f64> = entropy(y_true);
         let entropy_k: Option<f64> = entropy(y_pred);
         let contingency = contingency_matrix(y_true, y_pred);
         let mi = mutual_info_score(&contingency);
-
-        println!("{:?}", entropy_c);
-        println!("{:?}", entropy_k);
-        println!("{:?}", contingency);
-        println!("{:?}", mi);
-        
 
         let homogeneity = entropy_c.map(|e| mi / e).unwrap_or(0f64);
         let completeness = entropy_k.map(|e| mi / e).unwrap_or(0f64);
@@ -72,7 +63,7 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
             _phantom: PhantomData,
             homogeneity: None,
             completeness: None,
-            v_measure: None
+            v_measure: None,
         }
     }
     fn new_with(_parameter: f64) -> Self {
@@ -80,22 +71,18 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
             _phantom: PhantomData,
             homogeneity: None,
             completeness: None,
-            v_measure: None
+            v_measure: None,
         }
     }
     /// Computes Homogeneity, completeness and V-Measure scores at once.
     /// * `y_true` - ground truth class labels to be used as a reference.
     /// * `y_pred` - cluster labels to evaluate.    
-    fn get_score(&self,
-        y_true: &dyn ArrayView1<T>, 
-        y_pred: &dyn ArrayView1<T>
-    ) -> f64 {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
         // this functions should not be used for this struct
         // use homogeneity(), completeness(), v_measure()
         // TODO: implement Metrics -> Result<T, Failed>
         0f64
     }
-
 }
 
 #[cfg(test)]

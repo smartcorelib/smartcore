@@ -29,42 +29,35 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use std::marker::PhantomData;
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
-
+use std::marker::PhantomData;
 
 use crate::metrics::Metrics;
-
 
 /// Accuracy metric.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct Accuracy<T> {
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
-
 
 impl<T: Number> Metrics<T> for Accuracy<T> {
     /// create a typed object to call Accuracy functions
     fn new() -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     fn new_with(_parameter: f64) -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     /// Function that calculated accuracy score.
     /// * `y_true` - cround truth (correct) labels
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    fn get_score(
-        &self,
-        y_true: &dyn ArrayView1<T>,
-        y_pred: &dyn ArrayView1<T>,
-    ) -> f64 {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",

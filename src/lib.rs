@@ -82,7 +82,6 @@ pub mod dataset;
 pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor
 // pub mod ensemble;
-
 pub mod error;
 /// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
 pub mod linalg;
@@ -95,9 +94,9 @@ pub mod metrics;
 // pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
-/// 
+/// Optimization procedures
 pub mod optimization;
-// /// Preprocessing utilities
+/// Preprocessing utilities
 pub mod preprocessing;
 // /// Reading in Data.
 // pub mod readers;

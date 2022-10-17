@@ -67,21 +67,22 @@ pub struct StandardScaler<T: Number + RealNumber> {
     means: Vec<f64>,
     stds: Vec<f64>,
     parameters: StandardScalerParameters,
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
 
 impl<T: Number + RealNumber> StandardScaler<T> {
-    fn new(parameters: StandardScalerParameters) -> Self 
-    where T: Number + RealNumber
+    fn new(parameters: StandardScalerParameters) -> Self
+    where
+        T: Number + RealNumber,
     {
         Self {
             means: vec![],
             stds: vec![],
             parameters: StandardScalerParameters {
                 with_mean: parameters.with_mean,
-                with_std: parameters.with_std
+                with_std: parameters.with_std,
             },
-            _phantom: PhantomData       
+            _phantom: PhantomData,
         }
     }
     /// When the mean should be adjusted, the column mean
@@ -116,14 +117,16 @@ fn ensure_std_valid<T: Number + RealNumber>(value: T) -> T {
 impl<T: Number + RealNumber, M: Array2<T>> UnsupervisedEstimator<M, StandardScalerParameters>
     for StandardScaler<T>
 {
-    fn fit(x: &M, parameters: StandardScalerParameters) -> Result<Self, Failed> 
-    where T: Number + RealNumber, M: Array2<T>
+    fn fit(x: &M, parameters: StandardScalerParameters) -> Result<Self, Failed>
+    where
+        T: Number + RealNumber,
+        M: Array2<T>,
     {
         Ok(Self {
             means: x.column_mean(),
             stds: x.std(0),
             parameters,
-            _phantom: Default::default()
+            _phantom: Default::default(),
         })
     }
 }
@@ -220,18 +223,15 @@ mod tests {
         use crate::api::{Transformer, UnsupervisedEstimator};
         use crate::linalg::basic::arrays::Array2;
         use crate::linalg::basic::matrix::DenseMatrix;
-        use crate::numbers::realnum::RealNumber;
         use crate::linalg::basic::vector::*;
 
         #[test]
         fn dont_adjust_mean_if_used() {
             assert_eq!(
-                (StandardScaler::<f64>::new(
-                    StandardScalerParameters {
-                        with_mean: true,
-                        with_std: true
-                    })
-                )
+                (StandardScaler::<f64>::new(StandardScalerParameters {
+                    with_mean: true,
+                    with_std: true
+                }))
                 .adjust_column_mean(1.0),
                 1.0
             )
@@ -239,11 +239,10 @@ mod tests {
         #[test]
         fn replace_mean_with_zero_if_not_used() {
             assert_eq!(
-                (StandardScaler::<f64>::new(
-                    StandardScalerParameters {
-                        with_mean: false,
-                        with_std: true
-                    }))
+                (StandardScaler::<f64>::new(StandardScalerParameters {
+                    with_mean: false,
+                    with_std: true
+                }))
                 .adjust_column_mean(1.0),
                 0.0
             )
@@ -251,12 +250,10 @@ mod tests {
         #[test]
         fn dont_adjust_std_if_used() {
             assert_eq!(
-                (StandardScaler::<f64>::new(
-                    StandardScalerParameters {
-                        with_mean: true,
-                        with_std: true
-                    })
-                )
+                (StandardScaler::<f64>::new(StandardScalerParameters {
+                    with_mean: true,
+                    with_std: true
+                }))
                 .adjust_column_std(10.0),
                 10.0
             )
@@ -264,12 +261,10 @@ mod tests {
         #[test]
         fn replace_std_with_one_if_not_used() {
             assert_eq!(
-                (StandardScaler::<f64>::new(
-                    StandardScalerParameters {
-                        with_mean: true,
-                        with_std: false
-                    })
-                )
+                (StandardScaler::<f64>::new(StandardScalerParameters {
+                    with_mean: true,
+                    with_std: false
+                }))
                 .adjust_column_std(10.0),
                 1.0
             )
@@ -346,7 +341,7 @@ mod tests {
                         with_mean: true,
                         with_std: true
                     },
-                    _phantom: Default::default()
+                    _phantom: Default::default(),
                 })
             )
         }
@@ -393,7 +388,7 @@ mod tests {
                     with_mean: true,
                     with_std: false,
                 },
-                _phantom: Default::default()
+                _phantom: Default::default(),
             };
 
             assert_eq!(
@@ -413,7 +408,7 @@ mod tests {
                     with_mean: false,
                     with_std: true,
                 },
-                _phantom: Default::default()
+                _phantom: Default::default(),
             };
 
             assert_eq!(

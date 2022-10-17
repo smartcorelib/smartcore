@@ -35,19 +35,19 @@ use crate::metrics::Metrics;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct AUC<T> {
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
 
 impl<T: Number + Ord> Metrics<T> for AUC<T> {
     /// create a typed object to call AUC functions
     fn new() -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     fn new_with(_parameter: T) -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     /// AUC score.

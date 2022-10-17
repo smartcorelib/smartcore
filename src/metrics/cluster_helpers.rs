@@ -25,7 +25,7 @@ pub fn contingency_matrix<T: Number + Ord, V: ArrayView1<T> + ?Sized>(
     contingency_matrix
 }
 
-pub fn entropy<T:  Number + Ord, V: ArrayView1<T> + ?Sized>(data: &V) -> Option<f64> {
+pub fn entropy<T: Number + Ord, V: ArrayView1<T> + ?Sized>(data: &V) -> Option<f64> {
     let mut bincounts = HashMap::with_capacity(data.shape());
 
     for e in data.iterator(0) {

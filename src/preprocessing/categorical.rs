@@ -29,8 +29,8 @@ use std::iter;
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
 
-use crate::preprocessing::traits::{CategoricalFloat, Categorizable};
 use crate::preprocessing::series_encoder::CategoryMapper;
+use crate::preprocessing::traits::{CategoricalFloat, Categorizable};
 
 /// OneHotEncoder Parameters
 #[derive(Debug, Clone)]

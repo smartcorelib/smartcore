@@ -74,46 +74,47 @@ pub mod r2;
 /// Computes the recall.
 pub mod recall;
 
-use std::marker::PhantomData;
-
 use crate::linalg::basic::arrays::{Array1, ArrayView1};
-use crate::numbers::basenum::{Number, IntNumber};
-use crate::numbers::realnum::RealNumber;
+use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
+
+use std::marker::PhantomData;
 
 /// A trait to be implemented by all metrics
 pub trait Metrics<T> {
     /// instantiate a new Metrics trait-object
     /// https://doc.rust-lang.org/error-index.html#E0038
-    fn new() -> Self where Self: Sized;
+    fn new() -> Self
+    where
+        Self: Sized;
     /// used to instantiate metric with a paramenter
-    fn new_with(_parameter: f64) -> Self where Self: Sized;
+    fn new_with(_parameter: f64) -> Self
+    where
+        Self: Sized;
     /// compute score realated to this metric
-    fn get_score(&self,
-        y_true: &dyn ArrayView1<T>,
-        y_pred: &dyn ArrayView1<T>
-    ) -> f64; 
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64;
 }
 
 /// Use these metrics to compare classification models.
 pub struct ClassificationMetrics<T> {
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 /// Use these metrics to compare classification models for
 /// numbers that require `Ord`.
 pub struct ClassificationMetricsOrd<T> {
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 /// Metrics for regression models.
 pub struct RegressionMetrics<T> {
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 /// Cluster metrics.
 pub struct ClusterMetrics<T> {
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
@@ -180,7 +181,10 @@ pub fn accuracy<T: Number + Ord, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f6
 /// Calculated recall score, see [recall](recall/index.html)
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
+    y_true: &V,
+    y_pred: &V,
+) -> f64 {
     let obj = ClassificationMetrics::<T>::recall();
     obj.get_score(y_true, y_pred)
 }
@@ -188,7 +192,10 @@ pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V
 /// Calculated precision score, see [precision](precision/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
+    y_true: &V,
+    y_pred: &V,
+) -> f64 {
     let obj = ClassificationMetrics::<T>::precision();
     obj.get_score(y_true, y_pred)
 }
@@ -196,7 +203,11 @@ pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true:
 /// Computes F1 score, see [F1](f1/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: f64) -> f64 {
+pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
+    y_true: &V,
+    y_pred: &V,
+    beta: f64,
+) -> f64 {
     let obj = ClassificationMetrics::<T>::f1(beta);
     obj.get_score(y_true, y_pred)
 }
@@ -243,7 +254,10 @@ pub fn r2<T: Number + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> 
 /// A cluster result satisfies homogeneity if all of its clusters contain only data points which are members of a single class.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn homogeneity_score<T: Number + FloatNumber + RealNumber + Ord, V: ArrayView1<T> + Array1<T>>(
+pub fn homogeneity_score<
+    T: Number + FloatNumber + RealNumber + Ord,
+    V: ArrayView1<T> + Array1<T>,
+>(
     y_true: &V,
     y_pred: &V,
 ) -> f64 {
@@ -256,7 +270,10 @@ pub fn homogeneity_score<T: Number + FloatNumber + RealNumber + Ord, V: ArrayVie
 /// Completeness metric of a cluster labeling given a ground truth (range is between 0.0 and 1.0).
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn completeness_score<T: Number + FloatNumber + RealNumber + Ord, V: ArrayView1<T> + Array1<T>>(
+pub fn completeness_score<
+    T: Number + FloatNumber + RealNumber + Ord,
+    V: ArrayView1<T> + Array1<T>,
+>(
     y_true: &V,
     y_pred: &V,
 ) -> f64 {

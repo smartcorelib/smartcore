@@ -979,9 +979,9 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     }
 
     ///
-    fn approximate_eq(&self, other: &Self, error: T) -> bool 
+    fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
-        T: Number + RealNumber
+        T: Number + RealNumber,
     {
         (self.sub(other)).iterator(0).all(|v| v.abs() <= error)
     }
@@ -1535,13 +1535,13 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     }
 
     /// compute mean for each column
-    fn column_mean(&self) -> Vec<f64> 
+    fn column_mean(&self) -> Vec<f64>
     where
-        T: Number + ToPrimitive
+        T: Number + ToPrimitive,
     {
         let mut mean = vec![0f64; self.shape().1];
 
-        for r in 0.. self.shape().0 {
+        for r in 0..self.shape().0 {
             for (c, mean_c) in mean.iter_mut().enumerate().take(self.shape().1) {
                 let value: f64 = self.get((r, c)).to_f64().unwrap();
                 *mean_c += value;
@@ -1563,12 +1563,12 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     }
 
     /// appriximate equality of the elements of a matrix according to a given error
-    fn approximate_eq(&self, other: &Self, error: T) -> bool 
+    fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
-        T: Number + RealNumber
+        T: Number + RealNumber,
     {
-        (self.sub(other)).iterator(0).all(|v| v.abs() <= error) && 
-          (self.sub(other)).iterator(1).all(|v| v.abs() <= error)
+        (self.sub(other)).iterator(0).all(|v| v.abs() <= error)
+            && (self.sub(other)).iterator(1).all(|v| v.abs() <= error)
     }
 }
 

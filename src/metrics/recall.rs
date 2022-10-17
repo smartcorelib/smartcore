@@ -36,28 +36,25 @@ use crate::metrics::Metrics;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct Recall<T> {
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
 
 impl<T: RealNumber> Metrics<T> for Recall<T> {
     /// create a typed object to call Recall functions
     fn new() -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     fn new_with(_parameter: f64) -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     /// Calculated recall score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    fn get_score(&self,
-        y_true: &dyn ArrayView1<T>,
-        y_pred: &dyn ArrayView1<T>,
-    ) -> f64 {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -68,9 +65,7 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
 
         let mut classes = HashSet::new();
         for i in 0..y_true.shape() {
-            classes.insert(
-                y_true.get(i).to_f64_bits()
-            );
+            classes.insert(y_true.get(i).to_f64_bits());
         }
         let classes: i64 = classes.len().try_into().unwrap();
 

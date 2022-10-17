@@ -35,23 +35,6 @@ impl Number for u32 {}
 impl Number for u64 {}
 impl Number for usize {}
 
-/// Integers represented as ordered numbers, mostly used for labels (y)
-pub trait IntNumber:
-    Number
-    + Ord
-{}
-
-impl IntNumber for i8 {}
-impl IntNumber for i16 {}
-impl IntNumber for i32 {}
-impl IntNumber for i64 {}
-impl IntNumber for u8 {}
-impl IntNumber for u16 {}
-impl IntNumber for u32 {}
-impl IntNumber for u64 {}
-impl IntNumber for usize {}
-
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;

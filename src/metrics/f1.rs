@@ -28,9 +28,9 @@ use serde::{Deserialize, Serialize};
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
-use crate::numbers::realnum::RealNumber;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 use crate::metrics::Metrics;
 
@@ -40,7 +40,7 @@ use crate::metrics::Metrics;
 pub struct F1<T> {
     /// a positive real factor
     pub beta: f64,
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
 
 impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
@@ -48,23 +48,20 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
         let beta: f64 = 1f64;
         Self {
             beta,
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     /// create a typed object to call Recall functions
     fn new_with(beta: f64) -> Self {
         Self {
             beta,
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     /// Computes F1 score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    fn get_score(&self,
-        y_true: &dyn ArrayView1<T>, 
-        y_pred: &dyn ArrayView1<T>
-    ) -> f64 {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",

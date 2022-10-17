@@ -34,28 +34,25 @@ use crate::metrics::Metrics;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct R2<T> {
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<T>,
 }
 
 impl<T: Number> Metrics<T> for R2<T> {
     /// create a typed object to call R2 functions
     fn new() -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     fn new_with(_parameter: f64) -> Self {
         Self {
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
     /// Computes R2 score
     /// * `y_true` - Ground truth (correct) target values.
     /// * `y_pred` - Estimated target values.
-    fn get_score(&self,
-        y_true: &dyn ArrayView1<T>, 
-        y_pred: &dyn ArrayView1<T>
-    ) -> f64 {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
