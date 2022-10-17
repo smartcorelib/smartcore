@@ -55,9 +55,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
+
 use crate::rand_custom::get_rng_impl;
 use crate::tree::decision_tree_classifier::{
     which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,
@@ -98,7 +99,7 @@ pub struct RandomForestClassifierParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct RandomForestClassifier<
-    TX: Number + PartialOrd,
+    TX: Number + FloatNumber + PartialOrd,
     TY: Number + Ord,
     X: Array2<TX>,
     Y: Array1<TY>,
@@ -153,7 +154,7 @@ impl RandomForestClassifierParameters {
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
     for RandomForestClassifier<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -197,7 +198,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     for RandomForestClassifier<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
@@ -643,64 +644,12 @@ mod tests {
         .unwrap();
 
         // TODO: fix later, when accuracy is updated
-        // assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
+        assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
     }
-
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // fn fit_predict_iris_oob() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[5.1, 3.5, 1.4, 0.2],
-    //         &[4.9, 3.0, 1.4, 0.2],
-    //         &[4.7, 3.2, 1.3, 0.2],
-    //         &[4.6, 3.1, 1.5, 0.2],
-    //         &[5.0, 3.6, 1.4, 0.2],
-    //         &[5.4, 3.9, 1.7, 0.4],
-    //         &[4.6, 3.4, 1.4, 0.3],
-    //         &[5.0, 3.4, 1.5, 0.2],
-    //         &[4.4, 2.9, 1.4, 0.2],
-    //         &[4.9, 3.1, 1.5, 0.1],
-    //         &[7.0, 3.2, 4.7, 1.4],
-    //         &[6.4, 3.2, 4.5, 1.5],
-    //         &[6.9, 3.1, 4.9, 1.5],
-    //         &[5.5, 2.3, 4.0, 1.3],
-    //         &[6.5, 2.8, 4.6, 1.5],
-    //         &[5.7, 2.8, 4.5, 1.3],
-    //         &[6.3, 3.3, 4.7, 1.6],
-    //         &[4.9, 2.4, 3.3, 1.0],
-    //         &[6.6, 2.9, 4.6, 1.3],
-    //         &[5.2, 2.7, 3.9, 1.4],
-    //     ]);
-    //     let y = vec![
-    //         0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-    //     ];
-
-    //     let classifier = RandomForestClassifier::fit(
-    //         &x,
-    //         &y,
-    //         RandomForestClassifierParameters {
-    //             criterion: SplitCriterion::Gini,
-    //             max_depth: None,
-    //             min_samples_leaf: 1,
-    //             min_samples_split: 2,
-    //             n_trees: 100,
-    //             m: Option::None,
-    //             keep_samples: true,
-    //             seed: 87,
-    //         },
-    //     )
-    //     .unwrap();
-
-    //     assert!(
-    //         accuracy(&y, &classifier.predict_oob(&x).unwrap())
-    //             < accuracy(&y, &classifier.predict(&x).unwrap())
-    //     );
-    // }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
-    #[cfg(feature = "serde")]
-    fn serde() {
+    fn fit_predict_iris_oob() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
@@ -723,13 +672,65 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        let y = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ];
 
-        let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
+        let classifier = RandomForestClassifier::fit(
+            &x,
+            &y,
+            RandomForestClassifierParameters {
+                criterion: SplitCriterion::Gini,
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 100,
+                m: Option::None,
+                keep_samples: true,
+                seed: 87,
+            },
+        )
+        .unwrap();
 
-        let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
-            bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
-
-        assert_eq!(forest, deserialized_forest);
+        assert!(
+            accuracy(&y, &classifier.predict_oob(&x).unwrap())
+                < accuracy(&y, &classifier.predict(&x).unwrap())
+        );
     }
+
+    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // #[cfg(feature = "serde")]
+    // fn serde() {
+    //     let x = DenseMatrix::from_2d_array(&[
+    //         &[5.1, 3.5, 1.4, 0.2],
+    //         &[4.9, 3.0, 1.4, 0.2],
+    //         &[4.7, 3.2, 1.3, 0.2],
+    //         &[4.6, 3.1, 1.5, 0.2],
+    //         &[5.0, 3.6, 1.4, 0.2],
+    //         &[5.4, 3.9, 1.7, 0.4],
+    //         &[4.6, 3.4, 1.4, 0.3],
+    //         &[5.0, 3.4, 1.5, 0.2],
+    //         &[4.4, 2.9, 1.4, 0.2],
+    //         &[4.9, 3.1, 1.5, 0.1],
+    //         &[7.0, 3.2, 4.7, 1.4],
+    //         &[6.4, 3.2, 4.5, 1.5],
+    //         &[6.9, 3.1, 4.9, 1.5],
+    //         &[5.5, 2.3, 4.0, 1.3],
+    //         &[6.5, 2.8, 4.6, 1.5],
+    //         &[5.7, 2.8, 4.5, 1.3],
+    //         &[6.3, 3.3, 4.7, 1.6],
+    //         &[4.9, 2.4, 3.3, 1.0],
+    //         &[6.6, 2.9, 4.6, 1.3],
+    //         &[5.2, 2.7, 3.9, 1.4],
+    //     ]);
+    //     let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+    //     let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
+
+    //     let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
+    //         bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
+
+    //     assert_eq!(forest, deserialized_forest);
+    // }
 }

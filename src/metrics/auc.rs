@@ -57,7 +57,7 @@ impl<T: Number + Ord> Metrics<T> for AUC<T> {
         &self,
         y_true: &dyn ArrayView1<T>,
         y_pred_prob: &dyn ArrayView1<T>,
-    ) -> T {
+    ) -> f64 {
         let mut pos = T::zero();
         let mut neg = T::zero();
 

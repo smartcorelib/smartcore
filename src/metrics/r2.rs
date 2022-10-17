@@ -37,7 +37,7 @@ pub struct R2<T> {
     _phantom: PhantomData<T>
 }
 
-impl<T: Number + FloatNumber> Metrics<T> for R2<T> {
+impl<T: Number> Metrics<T> for R2<T> {
     /// create a typed object to call R2 functions
     fn new() -> Self {
         Self {
@@ -55,7 +55,7 @@ impl<T: Number + FloatNumber> Metrics<T> for R2<T> {
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>, 
         y_pred: &dyn ArrayView1<T>
-    ) -> T {
+    ) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -77,7 +77,7 @@ impl<T: Number + FloatNumber> Metrics<T> for R2<T> {
             ss_res += (y_i - f_i) * (y_i - f_i);
         }
 
-        T::one() - ss_res / ss_tot
+        (T::one() - ss_res / ss_tot).to_f64().unwrap()
     }
 }
 

@@ -92,11 +92,17 @@ pub trait Metrics<T> {
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>,
         y_pred: &dyn ArrayView1<T>
-    ) -> T; 
+    ) -> f64; 
 }
 
 /// Use these metrics to compare classification models.
 pub struct ClassificationMetrics<T> {
+    phantom: PhantomData<T>
+}
+
+/// Use these metrics to compare classification models for
+/// numbers that require `Ord`.
+pub struct ClassificationMetricsOrd<T> {
     phantom: PhantomData<T>
 }
 
@@ -111,11 +117,6 @@ pub struct ClusterMetrics<T> {
 }
 
 impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
-    /// Accuracy score, see [accuracy](accuracy/index.html).
-    pub fn accuracy() -> accuracy::Accuracy<T> {
-        accuracy::Accuracy::new()
-    }
-
     /// Recall, see [recall](recall/index.html).
     pub fn recall() -> recall::Recall<T> {
         recall::Recall::new()
@@ -135,6 +136,13 @@ impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
     // pub fn roc_auc_score() -> auc::AUC<T> {
     //     auc::AUC::<T>::new()
     // }
+}
+
+impl<T: Number + Ord> ClassificationMetricsOrd<T> {
+    /// Accuracy score, see [accuracy](accuracy/index.html).
+    pub fn accuracy() -> accuracy::Accuracy<T> {
+        accuracy::Accuracy::new()
+    }
 }
 
 impl<T: Number + FloatNumber> RegressionMetrics<T> {
@@ -164,15 +172,15 @@ impl<T: Number + Ord> ClusterMetrics<T> {
 /// Function that calculated accuracy score, see [accuracy](accuracy/index.html).
 /// * `y_true` - cround truth (correct) labels
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn accuracy<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> T {
-    let obj = ClassificationMetrics::<T>::accuracy();
+pub fn accuracy<T: Number + Ord, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+    let obj = ClassificationMetricsOrd::<T>::accuracy();
     obj.get_score(y_true, y_pred)
 }
 
 /// Calculated recall score, see [recall](recall/index.html)
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
     let obj = ClassificationMetrics::<T>::recall();
     obj.get_score(y_true, y_pred)
 }
@@ -180,7 +188,7 @@ pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V
 /// Calculated precision score, see [precision](precision/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
     let obj = ClassificationMetrics::<T>::precision();
     obj.get_score(y_true, y_pred)
 }
@@ -188,7 +196,7 @@ pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true:
 /// Computes F1 score, see [F1](f1/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: T) -> T {
+pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: T) -> f64 {
     let obj = ClassificationMetrics::<T>::f1(beta);
     obj.get_score(y_true, y_pred)
 }
@@ -210,7 +218,7 @@ pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_
 pub fn mean_squared_error<T: Number + FloatNumber, V: ArrayView1<T>>(
     y_true: &V,
     y_pred: &V,
-) -> T {
+) -> f64 {
     RegressionMetrics::<T>::mean_squared_error().get_score(y_true, y_pred)
 }
 
@@ -220,14 +228,14 @@ pub fn mean_squared_error<T: Number + FloatNumber, V: ArrayView1<T>>(
 pub fn mean_absolute_error<T: Number + FloatNumber, V: ArrayView1<T>>(
     y_true: &V,
     y_pred: &V,
-) -> T {
+) -> f64 {
     RegressionMetrics::<T>::mean_absolute_error().get_score(y_true, y_pred)
 }
 
 /// Computes R2 score, see [R2](r2/index.html).
 /// * `y_true` - Ground truth (correct) target values.
 /// * `y_pred` - Estimated target values.
-pub fn r2<T: Number + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> T {
+pub fn r2<T: Number + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
     RegressionMetrics::<T>::r2().get_score(y_true, y_pred)
 }
 

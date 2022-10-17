@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
-use crate::numbers::realnum::RealNumber;
+
 
 use crate::metrics::Metrics;
 
@@ -64,7 +64,7 @@ impl<T: Number> Metrics<T> for Accuracy<T> {
         &self,
         y_true: &dyn ArrayView1<T>,
         y_pred: &dyn ArrayView1<T>,
-    ) -> T {
+    ) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -75,14 +75,14 @@ impl<T: Number> Metrics<T> for Accuracy<T> {
 
         let n = y_true.shape();
 
-        let mut positive = 0;
+        let mut positive: i32 = 0;
         for i in 0..n {
-            if y_true.get(i) == y_pred.get(i) {
+            if *y_true.get(i) == *y_pred.get(i) {
                 positive += 1;
             }
         }
 
-        T::from_usize(positive).unwrap() / T::from_usize(n).unwrap()
+        (positive / n as i32).into()
     }
 }
 
@@ -106,13 +106,13 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn accuracy_int() {
-        let y_pred: Vec<i64> = vec![0, 2, 1, 3];
-        let y_true: Vec<i64> = vec![0, 1, 2, 3];
+        let y_pred: Vec<i32> = vec![0, 2, 1, 3];
+        let y_true: Vec<i32> = vec![0, 1, 2, 3];
 
-        let score1: i64 = Accuracy::<i64>::new().get_score(&y_pred, &y_true);
-        let score2: i64 = Accuracy::<i64>::new().get_score(&y_true, &y_true);
+        let score1: f64 = Accuracy::<i32>::new().get_score(&y_pred, &y_true);
+        let score2: f64 = Accuracy::<i32>::new().get_score(&y_true, &y_true);
 
-        assert_eq!(score1, 0);
-        assert_eq!(score2, 1);
+        assert_eq!(score1, 0.0);
+        assert_eq!(score2, 1.0);
     }
 }

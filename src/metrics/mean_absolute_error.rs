@@ -55,7 +55,7 @@ impl<T: Number + FloatNumber> Metrics<T> for MeanAbsoluteError<T> {
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>, 
         y_pred: &dyn ArrayView1<T>
-    ) -> T {
+    ) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -71,7 +71,7 @@ impl<T: Number + FloatNumber> Metrics<T> for MeanAbsoluteError<T> {
             ras += res.abs();
         }
 
-        ras / T::from_usize(n).unwrap()
+        ras.to_f64().unwrap() / n as f64
     }
 }
 

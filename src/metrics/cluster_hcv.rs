@@ -89,11 +89,11 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>, 
         y_pred: &dyn ArrayView1<T>
-    ) -> T {
+    ) -> f64 {
         // this functions should not be used for this struct
         // use homogeneity(), completeness(), v_measure()
         // TODO: implement Metrics -> Result<T, Failed>
-        T::zero()
+        0f64
     }
 
 }

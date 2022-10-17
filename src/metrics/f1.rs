@@ -57,7 +57,7 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>, 
         y_pred: &dyn ArrayView1<T>
-    ) -> T {
+    ) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -70,7 +70,7 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
         let p = Precision::new().get_score(y_true, y_pred);
         let r = Recall::new().get_score(y_true, y_pred);
 
-        (T::one() + beta2) * (p * r) / ((beta2 * p) + r)
+        (T::one() + beta2).to_f64().unwrap() * (p * r) / ((beta2.to_f64().unwrap() * p) + r)
     }
 }
 

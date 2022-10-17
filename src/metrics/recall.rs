@@ -57,7 +57,7 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
     fn get_score(&self,
         y_true: &dyn ArrayView1<T>,
         y_pred: &dyn ArrayView1<T>,
-    ) -> T {
+    ) -> f64 {
         if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
@@ -93,7 +93,7 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
                 fne += 1;
             }
         }
-        T::from_i64(tp).unwrap() / (T::from_i64(tp).unwrap() + T::from_i64(fne).unwrap())
+        tp as f64 / (tp as f64 + fne as f64)
     }
 }
 
