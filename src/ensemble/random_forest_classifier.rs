@@ -643,7 +643,6 @@ mod tests {
         )
         .unwrap();
 
-        // TODO: fix later, when accuracy is updated
         assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
     }
 

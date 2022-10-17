@@ -65,11 +65,16 @@ impl<T: Number + FloatNumber> Metrics<T> for MeanAbsoluteError<T> {
         }
 
         let n = y_true.shape();
+        println!("{:?}", n);
         let mut ras: T = T::zero();
         for i in 0..n {
+            println!("y_true {:?}", *y_true.get(i));
+            println!("y_pred {:?}", *y_pred.get(i));
             let res: T = *y_true.get(i) - *y_pred.get(i);
+            println!("res {:?}", res.to_f64().unwrap());
             ras += res.abs();
         }
+        println!("{:?}", ras.to_f64().unwrap());
 
         ras.to_f64().unwrap() / n as f64
     }

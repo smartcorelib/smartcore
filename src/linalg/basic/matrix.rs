@@ -4,6 +4,7 @@ use std::ops::Range;
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
+use num::ToPrimitive;
 
 use crate::linalg::basic::arrays::{
     Array, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
@@ -595,7 +596,7 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let x = DenseMatrix::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"]]);
+        let x = DenseMatrix::<&str>::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"]]);
 
         println!("{:?}", x);
         println!("{:?}", x.transpose());

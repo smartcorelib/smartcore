@@ -6,6 +6,7 @@ use std::ops::Range;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
+use num::ToPrimitive;
 use num_traits::Signed;
 
 /// Abstract methods for Array
@@ -976,6 +977,14 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         }
         result
     }
+
+    ///
+    fn approximate_eq(&self, other: &Self, error: T) -> bool 
+    where
+        T: Number + RealNumber
+    {
+        (self.sub(other)).iterator(0).all(|v| v.abs() <= error)
+    }
 }
 
 /// Trait for mutable 2D-array view
@@ -1421,6 +1430,10 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
+    /// Take an individual column from the matrix.
+    fn take_column(&self, column_index: usize) -> Self {
+        self.take(&[column_index], 1)
+    }
     ///
     fn add_scalar(&self, x: T) -> Self
     where
@@ -1519,6 +1532,43 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         let mut result = self.clone();
         result.pow_mut(p);
         result
+    }
+
+    /// compute mean for each column
+    fn column_mean(&self) -> Vec<f64> 
+    where
+        T: Number + ToPrimitive
+    {
+        let mut mean = vec![0f64; self.shape().1];
+
+        for r in 0.. self.shape().0 {
+            for (c, mean_c) in mean.iter_mut().enumerate().take(self.shape().1) {
+                let value: f64 = self.get((r, c)).to_f64().unwrap();
+                *mean_c += value;
+            }
+        }
+
+        for mean_i in mean.iter_mut() {
+            *mean_i /= self.shape().0 as f64;
+        }
+
+        mean
+    }
+
+    /// copy coumn as a vector
+    fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
+        for (r, result_r) in result.iter_mut().enumerate().take(self.shape().0) {
+            *result_r = *self.get((r, col));
+        }
+    }
+
+    /// appriximate equality of the elements of a matrix according to a given error
+    fn approximate_eq(&self, other: &Self, error: T) -> bool 
+    where
+        T: Number + RealNumber
+    {
+        (self.sub(other)).iterator(0).all(|v| v.abs() <= error) && 
+          (self.sub(other)).iterator(1).all(|v| v.abs() <= error)
     }
 }
 

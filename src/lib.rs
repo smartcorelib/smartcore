@@ -81,7 +81,7 @@ pub mod dataset;
 /// Matrix decomposition algorithms
 pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor
-pub mod ensemble;
+// pub mod ensemble;
 
 pub mod error;
 /// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
@@ -98,7 +98,7 @@ pub mod neighbors;
 /// 
 pub mod optimization;
 // /// Preprocessing utilities
-// pub mod preprocessing;
+pub mod preprocessing;
 // /// Reading in Data.
 // pub mod readers;
 // /// Support Vector Machines

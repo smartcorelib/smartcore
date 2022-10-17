@@ -4,7 +4,7 @@
 //! ### Usage Example
 //! ```
 //! use smartcore::api::{Transformer, UnsupervisedEstimator};
-//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::preprocessing::numerical;
 //! let data = DenseMatrix::from_2d_vec(&vec![
 //!     vec![0.0, 0.0],
@@ -27,10 +27,13 @@
 //!     ])
 //! );
 //! ```
+use std::marker::PhantomData;
+
 use crate::api::{Transformer, UnsupervisedEstimator};
 use crate::error::{Failed, FailedError};
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -59,29 +62,44 @@ impl Default for StandardScalerParameters {
 /// scaling sensitive models like neural network or nearest
 /// neighbors based models.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct StandardScaler<T: RealNumber> {
-    means: Vec<T>,
-    stds: Vec<T>,
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StandardScaler<T: Number + RealNumber> {
+    means: Vec<f64>,
+    stds: Vec<f64>,
     parameters: StandardScalerParameters,
+    _phantom: PhantomData<T>
 }
-impl<T: RealNumber> StandardScaler<T> {
+
+impl<T: Number + RealNumber> StandardScaler<T> {
+    fn new(parameters: StandardScalerParameters) -> Self 
+    where T: Number + RealNumber
+    {
+        Self {
+            means: vec![],
+            stds: vec![],
+            parameters: StandardScalerParameters {
+                with_mean: parameters.with_mean,
+                with_std: parameters.with_std
+            },
+            _phantom: PhantomData       
+        }
+    }
     /// When the mean should be adjusted, the column mean
     /// should be kept. Otherwise, replace it by zero.
-    fn adjust_column_mean(&self, mean: T) -> T {
+    fn adjust_column_mean(&self, mean: f64) -> f64 {
         if self.parameters.with_mean {
             mean
         } else {
-            T::zero()
+            0f64
         }
     }
     /// When the standard-deviation should be adjusted, the column
     /// standard-deviation should be kept. Otherwise, replace it by one.
-    fn adjust_column_std(&self, std: T) -> T {
+    fn adjust_column_std(&self, std: f64) -> f64 {
         if self.parameters.with_std {
             ensure_std_valid(std)
         } else {
-            T::one()
+            1f64
         }
     }
 }
@@ -90,19 +108,22 @@ impl<T: RealNumber> StandardScaler<T> {
 /// negative or zero, it should replaced by the smallest
 /// positive value the type can have. That way we can savely
 /// divide the columns with the resulting scalar.
-fn ensure_std_valid<T: RealNumber>(value: T) -> T {
+fn ensure_std_valid<T: Number + RealNumber>(value: T) -> T {
     value.max(T::min_positive_value())
 }
 
 /// During `fit` the `StandardScaler` computes the column means and standard deviation.
-impl<T: RealNumber, M: Matrix<T>> UnsupervisedEstimator<M, StandardScalerParameters>
+impl<T: Number + RealNumber, M: Array2<T>> UnsupervisedEstimator<M, StandardScalerParameters>
     for StandardScaler<T>
 {
-    fn fit(x: &M, parameters: StandardScalerParameters) -> Result<Self, Failed> {
+    fn fit(x: &M, parameters: StandardScalerParameters) -> Result<Self, Failed> 
+    where T: Number + RealNumber, M: Array2<T>
+    {
         Ok(Self {
             means: x.column_mean(),
             stds: x.std(0),
             parameters,
+            _phantom: Default::default()
         })
     }
 }
@@ -110,7 +131,7 @@ impl<T: RealNumber, M: Matrix<T>> UnsupervisedEstimator<M, StandardScalerParamet
 /// During `transform` the `StandardScaler` applies the summary statistics
 /// computed during `fit` to set the mean of each column to zero and the
 /// standard deviation to one.
-impl<T: RealNumber, M: Matrix<T>> Transformer<M> for StandardScaler<T> {
+impl<T: Number + RealNumber, M: Array2<T>> Transformer<M> for StandardScaler<T> {
     fn transform(&self, x: &M) -> Result<M, Failed> {
         let (_, n_cols) = x.shape();
         if n_cols != self.means.len() {
@@ -131,8 +152,8 @@ impl<T: RealNumber, M: Matrix<T>> Transformer<M> for StandardScaler<T> {
                 .enumerate()
                 .map(|(column_index, (column_mean, column_std))| {
                     x.take_column(column_index)
-                        .sub_scalar(self.adjust_column_mean(*column_mean))
-                        .div_scalar(self.adjust_column_std(*column_std))
+                        .sub_scalar(T::from(self.adjust_column_mean(*column_mean)).unwrap())
+                        .div_scalar(T::from(self.adjust_column_std(*column_std)).unwrap())
                 })
                 .collect(),
         )
@@ -144,8 +165,8 @@ impl<T: RealNumber, M: Matrix<T>> Transformer<M> for StandardScaler<T> {
 /// a matrix by stacking the columns horizontally.
 fn build_matrix_from_columns<T, M>(columns: Vec<M>) -> Option<M>
 where
-    T: RealNumber,
-    M: Matrix<T>,
+    T: Number + RealNumber,
+    M: Array2<T>,
 {
     if let Some(output_matrix) = columns.first().cloned() {
         return Some(
@@ -166,7 +187,7 @@ mod tests {
 
     mod helper_functionality {
         use super::super::{build_matrix_from_columns, ensure_std_valid};
-        use crate::linalg::naive::dense_matrix::DenseMatrix;
+        use crate::linalg::basic::matrix::DenseMatrix;
 
         #[test]
         fn combine_three_columns() {
@@ -197,20 +218,20 @@ mod tests {
     mod standard_scaler {
         use super::super::{StandardScaler, StandardScalerParameters};
         use crate::api::{Transformer, UnsupervisedEstimator};
-        use crate::linalg::naive::dense_matrix::DenseMatrix;
-        use crate::linalg::BaseMatrix;
+        use crate::linalg::basic::arrays::Array2;
+        use crate::linalg::basic::matrix::DenseMatrix;
+        use crate::numbers::realnum::RealNumber;
+        use crate::linalg::basic::vector::*;
 
         #[test]
         fn dont_adjust_mean_if_used() {
             assert_eq!(
-                (StandardScaler {
-                    means: vec![],
-                    stds: vec![],
-                    parameters: StandardScalerParameters {
+                (StandardScaler::<f64>::new(
+                    StandardScalerParameters {
                         with_mean: true,
                         with_std: true
-                    }
-                })
+                    })
+                )
                 .adjust_column_mean(1.0),
                 1.0
             )
@@ -218,14 +239,11 @@ mod tests {
         #[test]
         fn replace_mean_with_zero_if_not_used() {
             assert_eq!(
-                (StandardScaler {
-                    means: vec![],
-                    stds: vec![],
-                    parameters: StandardScalerParameters {
+                (StandardScaler::<f64>::new(
+                    StandardScalerParameters {
                         with_mean: false,
                         with_std: true
-                    }
-                })
+                    }))
                 .adjust_column_mean(1.0),
                 0.0
             )
@@ -233,14 +251,12 @@ mod tests {
         #[test]
         fn dont_adjust_std_if_used() {
             assert_eq!(
-                (StandardScaler {
-                    means: vec![],
-                    stds: vec![],
-                    parameters: StandardScalerParameters {
+                (StandardScaler::<f64>::new(
+                    StandardScalerParameters {
                         with_mean: true,
                         with_std: true
-                    }
-                })
+                    })
+                )
                 .adjust_column_std(10.0),
                 10.0
             )
@@ -248,14 +264,12 @@ mod tests {
         #[test]
         fn replace_std_with_one_if_not_used() {
             assert_eq!(
-                (StandardScaler {
-                    means: vec![],
-                    stds: vec![],
-                    parameters: StandardScalerParameters {
+                (StandardScaler::<f64>::new(
+                    StandardScalerParameters {
                         with_mean: true,
                         with_std: false
-                    }
-                })
+                    })
+                )
                 .adjust_column_std(10.0),
                 1.0
             )
@@ -331,7 +345,8 @@ mod tests {
                     parameters: StandardScalerParameters {
                         with_mean: true,
                         with_std: true
-                    }
+                    },
+                    _phantom: Default::default()
                 })
             )
         }
@@ -355,7 +370,7 @@ mod tests {
             );
 
             assert!(
-                &DenseMatrix::from_2d_vec(&vec![fitted_scaler.stds]).approximate_eq(
+                &DenseMatrix::<f64>::from_2d_vec(&vec![fitted_scaler.stds]).approximate_eq(
                     &DenseMatrix::from_2d_array(&[&[
                         0.29426447500954,
                         0.16758497615485,
@@ -378,6 +393,7 @@ mod tests {
                     with_mean: true,
                     with_std: false,
                 },
+                _phantom: Default::default()
             };
 
             assert_eq!(
@@ -397,6 +413,7 @@ mod tests {
                     with_mean: false,
                     with_std: true,
                 },
+                _phantom: Default::default()
             };
 
             assert_eq!(

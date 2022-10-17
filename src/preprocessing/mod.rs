@@ -1,6 +1,6 @@
 /// Transform a data matrix by replacing all categorical variables with their one-hot vector equivalents
 pub mod categorical;
-mod data_traits;
+mod traits;
 /// Preprocess numerical matrices.
 pub mod numerical;
 /// Encode a series (column, array) of categorical variables as one-hot vectors

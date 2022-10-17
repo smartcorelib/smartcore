@@ -54,6 +54,8 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
+
 use crate::rand_custom::get_rng_impl;
 use crate::tree::decision_tree_regressor::{
     DecisionTreeRegressor, DecisionTreeRegressorParameters,
@@ -90,10 +92,11 @@ pub struct RandomForestRegressorParameters {
 /// Random Forest Regressor
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct RandomForestRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+pub struct RandomForestRegressor<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     parameters: RandomForestRegressorParameters,
     trees: Vec<DecisionTreeRegressor<TX, TY, X, Y>>,
+    samples:  Option<Vec<Vec<usize>>>
 }
 
 impl RandomForestRegressorParameters {
@@ -149,7 +152,7 @@ impl Default for RandomForestRegressorParameters {
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
+impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
     for RandomForestRegressor<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -164,7 +167,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialE
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, RandomForestRegressorParameters>
     for RandomForestRegressor<TX, TY, X, Y>
 {
@@ -173,7 +176,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     for RandomForestRegressor<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
@@ -373,7 +376,7 @@ impl Default for RandomForestRegressorSearchParameters {
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     RandomForestRegressor<TX, TY, X, Y>
 {
     /// Build a forest of trees from the training set.
@@ -393,16 +396,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut rng = get_rng_impl(Some(parameters.seed));
         let mut trees: Vec<DecisionTreeRegressor<TX, TY, X, Y>> = Vec::new();
 
-        let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
-        if parameters.keep_samples {
-            maybe_all_samples = Some(Vec::new());
-        }
+        let mut maybe_all_samples: Vec<Vec<usize>> = Vec::new();     
 
         for _ in 0..parameters.n_trees {
             let samples = RandomForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
                 n_rows,
                 &mut rng,
             );
+
+            // keep samples is flag is on
+            if parameters.keep_samples {
+                maybe_all_samples.push(samples);
+            }
+
             let params = DecisionTreeRegressorParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
@@ -413,9 +419,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             trees.push(tree);
         }
 
+        let samples;
+        if maybe_all_samples.len() == 0 {
+            samples = Option::None;
+        } else {
+            samples = Some(maybe_all_samples)
+        }
+
         Ok(RandomForestRegressor {
             parameters: parameters,
             trees,
+            samples
         })
     }
 
@@ -459,7 +473,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 FailedError::PredictFailed,
                 "Prediction matrix must match matrix used in training for OOB predictions.",
             ))
-        } else { */
+        } else { 
         let mut result = Y::zeros(n);
 
         for i in 0..n {
@@ -467,20 +481,22 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         Ok(result)
-        // }
+        }*/
+        let result = Y::zeros(n);
+        Ok(result)
     }
 
+    //TODo: fix this
     fn predict_for_row_oob(&self, x: &X, row: usize) -> TY {
         let mut n_trees = 0;
         let mut result = TY::zero();
 
-        // TODO: FIX
-	// for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
-        //    if !samples[row] {
-        //        result += tree.predict_for_row(x, row);
-        //        n_trees += 1;
-        //    }
-        // }
+	    for (tree, samples) in self.trees.iter().zip(self.samples.as_ref().unwrap()) {
+           if !samples[row] {
+               result += tree.predict_for_row(x, row);
+               n_trees += 1;
+           }
+        }
 
         // TODO: What to do if there are no oob trees?
         result / TY::from(n_trees).unwrap()
@@ -613,6 +629,9 @@ mod tests {
 
         let y_hat = regressor.predict(&x).unwrap();
         let y_hat_oob = regressor.predict_oob(&x).unwrap();
+
+        println!("{:?}", mean_absolute_error(&y, &y_hat));
+        println!("{:?}", mean_absolute_error(&y, &y_hat_oob));
 
         assert!(mean_absolute_error(&y, &y_hat) < mean_absolute_error(&y, &y_hat_oob));
     }
