@@ -19,13 +19,13 @@ use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
 
 /// Get dataset
-pub fn load_dataset() -> Dataset<f32, i32> {
+pub fn load_dataset() -> Dataset<f32, u32> {
     let (x, y, num_samples, num_features):
-        (Vec<f32>, Vec<i32>, usize, usize)
+        (Vec<f32>, Vec<u32>, usize, usize)
     = match deserialize_data(std::include_bytes!("iris.xy")) {
         Err(why) => panic!("Can't deserialize iris.xy. {}", why),
         Ok((x, y, num_samples, num_features)
-    ) => (x, y.into_iter().map(|x| x as i32).collect(), num_samples, num_features),
+    ) => (x, y.into_iter().map(|x| x as u32).collect(), num_samples, num_features),
     };
 
     Dataset {
