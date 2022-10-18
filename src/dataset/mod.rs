@@ -8,6 +8,7 @@ pub mod digits;
 pub mod generator;
 pub mod iris;
 
+use crate::numbers::basenum::Number;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::numbers::realnum::RealNumber;
 #[cfg(not(target_arch = "wasm32"))]
@@ -55,7 +56,7 @@ impl<X, Y> Dataset<X, Y> {
 // Running this in wasm throws: operation not supported on this platform.
 #[cfg(not(target_arch = "wasm32"))]
 #[allow(dead_code)]
-pub(crate) fn serialize_data<X: RealNumber, Y: RealNumber>(
+pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
     dataset: &Dataset<X, Y>,
     filename: &str,
 ) -> Result<(), io::Error> {
