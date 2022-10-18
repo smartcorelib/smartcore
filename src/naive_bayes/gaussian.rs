@@ -215,8 +215,6 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
             })
             .collect();
 
-        println!("{:?}", subdataset);
-
         let (var, theta): (Vec<Vec<f64>>, Vec<Vec<f64>>) = subdataset
             .iter()
             .map(|data| (data.var(0), data.mean(0)))

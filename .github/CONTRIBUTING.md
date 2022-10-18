@@ -16,6 +16,7 @@ Take a look to the conventions established by existing code:
 * Every module should come with some reference to scientific literature that allows relating the code to research. Use the `//!` comments at the top of the module to tell readers about the basics of the procedure you are implementing.
 * Every module should provide a Rust doctest, a brief test embedded with the documentation that explains how to use the procedure implemented.
 * Every module should provide comprehensive tests at the end, in its `mod tests {}` sub-module. These tests can be flagged or not with configuration flags to allow WebAssembly target.
+* Run `cargo doc --no-deps --open` and read the generated documentation in the browser to be sure that your changes reflects in the documentation and new code is documented.
 
 ## Issue Report Process
 
