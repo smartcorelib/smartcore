@@ -21,7 +21,7 @@
 * Current working branch is `development` (if you want something that you can test right away).
 * Breaking changes are undergoing development at [`v0.5-wip`](https://github.com/smartcorelib/smartcore/tree/v0.5-wip#readme) (if you are a newcomer better to start from [this README](https://github.com/smartcorelib/smartcore/tree/v0.5-wip#readme) as this will be the next major release).
 
-To start getting familiar with Smartcore v0.5, there is now available a [**Jupyter Notebook environment repository**](https://github.com/smartcorelib/smartcore-jupyter).
+To start getting familiar with the new Smartcore v0.5 API, there is now available a [**Jupyter Notebook environment repository**](https://github.com/smartcorelib/smartcore-jupyter). Please see instructions there, your feedback is valuable for the future of the library.
 
 ## Developers
 Contributions welcome, please start from [CONTRIBUTING and other relevant files](.github/CONTRIBUTING.md).
@@ -62,4 +62,3 @@ let results =
 
 
 TODO: complete for all modules
-
