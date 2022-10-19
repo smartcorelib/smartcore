@@ -30,11 +30,12 @@ use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
 
 /// Get dataset
-pub fn load_dataset() -> Dataset<f32, f32> {
+pub fn load_dataset() -> Dataset<f32, u32> {
     let (x, y, num_samples, num_features) =
         match deserialize_data(std::include_bytes!("breast_cancer.xy")) {
             Err(why) => panic!("Can't deserialize breast_cancer.xy. {}", why),
-            Ok((x, y, num_samples, num_features)) => (x, y, num_samples, num_features),
+            Ok((x, y, num_samples, num_features)
+        ) => (x, y.into_iter().map(|x| x as u32).collect(), num_samples, num_features),
         };
 
     Dataset {
@@ -70,14 +71,15 @@ mod tests {
     use super::super::*;
     use super::*;
 
-    #[test]
-    #[ignore]
-    #[cfg(not(target_arch = "wasm32"))]
-    fn refresh_cancer_dataset() {
-        // run this test to generate breast_cancer.xy file.
-        let dataset = load_dataset();
-        assert!(serialize_data(&dataset, "breast_cancer.xy").is_ok());
-    }
+    // TODO: implement serialization
+    // #[test]
+    // #[ignore]
+    // #[cfg(not(target_arch = "wasm32"))]
+    // fn refresh_cancer_dataset() {
+    //     // run this test to generate breast_cancer.xy file.
+    //     let dataset = load_dataset();
+    //     assert!(serialize_data(&dataset, "breast_cancer.xy").is_ok());
+    // }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

@@ -23,11 +23,12 @@ use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
 
 /// Get dataset
-pub fn load_dataset() -> Dataset<f32, f32> {
+pub fn load_dataset() -> Dataset<f32, u32> {
     let (x, y, num_samples, num_features) =
         match deserialize_data(std::include_bytes!("diabetes.xy")) {
             Err(why) => panic!("Can't deserialize diabetes.xy. {}", why),
-            Ok((x, y, num_samples, num_features)) => (x, y, num_samples, num_features),
+            Ok((x, y, num_samples, num_features)
+        )=> (x, y.into_iter().map(|x| x as u32).collect(), num_samples, num_features),
         };
 
     Dataset {
@@ -51,17 +52,17 @@ pub fn load_dataset() -> Dataset<f32, f32> {
 mod tests {
 
     #[cfg(not(target_arch = "wasm32"))]
-    use super::super::*;
     use super::*;
 
-    #[cfg(not(target_arch = "wasm32"))]
-    #[test]
-    #[ignore]
-    fn refresh_diabetes_dataset() {
-        // run this test to generate diabetes.xy file.
-        let dataset = load_dataset();
-        assert!(serialize_data(&dataset, "diabetes.xy").is_ok());
-    }
+    // TODO: fix serialization
+    // #[cfg(not(target_arch = "wasm32"))]
+    // #[test]
+    // #[ignore]
+    // fn refresh_diabetes_dataset() {
+    //     // run this test to generate diabetes.xy file.
+    //     let dataset = load_dataset();
+    //     assert!(serialize_data(&dataset, "diabetes.xy").is_ok());
+    // }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

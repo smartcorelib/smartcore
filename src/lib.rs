@@ -25,7 +25,7 @@
 //! To start using SmartCore simply add the following to your Cargo.toml file:
 //! ```ignore
 //! [dependencies]
-//! smartcore = "0.2.0"
+//! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "v0.5-wip" }
 //! ```
 //!
 //! All machine learning algorithms in SmartCore are grouped into these broad categories:

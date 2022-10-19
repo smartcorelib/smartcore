@@ -210,6 +210,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     where
         T: Number + PartialOrd,
     {
+        // TODO: add check on shape, axis shall be axis < 1
         let mut max = T::min_value();
         let mut max_pos = 0usize;
         for (i, v) in self.iterator(0).enumerate() {
@@ -402,6 +403,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
     where
         T: Number + PartialOrd,
     {
+        // TODO: add check on shape, axis value shall be < 2
         let max_f = |max: (T, usize), v: (T, usize)| -> (T, usize) {
             match T::gt(&v.0, &max.0) {
                 true => v,
