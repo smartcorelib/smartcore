@@ -88,6 +88,30 @@ pub struct KNNClassifier<
     _phantom_y: PhantomData<Y>,
 }
 
+impl<
+TX: Number,
+TY: Number + Ord,
+X: Array2<TX>,
+Y: Array1<TY>,
+D: Distance<Vec<TX>>,
+> KNNClassifier<TX, TY, X, Y, D> {
+    fn classes(&self) -> &Vec<TY> {
+        self.classes.as_ref().unwrap()
+    }
+    fn y(&self) -> &Vec<usize> {
+        self.y.as_ref().unwrap()
+    }
+    fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
+        self.knn_algorithm.as_ref().unwrap()
+    }
+    fn weight(&self) -> &KNNWeightFunction {
+        self.weight.as_ref().unwrap()
+    }
+    fn k(&self) -> usize {
+        self.k.unwrap().clone()
+    }
+}
+
 impl<T: Number, D: Distance<Vec<T>>> KNNClassifierParameters<T, D> {
     /// number of training samples to consider when estimating class for new point. Default value is 3.
     pub fn with_k(mut self, k: usize) -> Self {
@@ -137,19 +161,19 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     for KNNClassifier<TX, TY, X, Y, D>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.classes.unwrap().len() != other.classes.unwrap().len()
-            || self.k != other.k
-            || self.y.unwrap().len() != other.y.unwrap().len()
+        if self.classes().len() != other.classes().len()
+            || self.k() != other.k()
+            || self.y().len() != other.y().len()
         {
             false
         } else {
-            for i in 0..self.classes.unwrap().len() {
-                if self.classes.unwrap()[i] != other.classes.unwrap()[i] {
+            for i in 0..self.classes().len() {
+                if self.classes()[i] != other.classes()[i] {
                     return false;
                 }
             }
-            for i in 0..self.y.unwrap().len() {
-                if self.y.unwrap().get(i) != other.y.unwrap().get(i) {
+            for i in 0..self.y().len() {
+                if self.y().get(i) != other.y().get(i) {
                     return false;
                 }
             }
@@ -251,28 +275,28 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
             row.iterator(0)
                 .zip(row_vec.iter_mut())
                 .for_each(|(&s, v)| *v = s);
-            result.set(i, self.classes.unwrap()[self.predict_for_row(&row_vec)?]);
+            result.set(i, self.classes()[self.predict_for_row(&row_vec)?]);
         }
 
         Ok(result)
     }
 
     fn predict_for_row(&self, row: &Vec<TX>) -> Result<usize, Failed> {
-        let search_result = self.knn_algorithm.unwrap().find(row, self.k.unwrap())?;
+        let search_result = self.knn_algorithm().find(row, self.k())?;
 
         let weights = self
-            .weight.unwrap()
+            .weight()
             .calc_weights(search_result.iter().map(|v| v.1).collect());
         let w_sum: f64 = weights.iter().copied().sum();
 
-        let mut c = vec![0f64; self.classes.unwrap().len()];
+        let mut c = vec![0f64; self.classes().len()];
         let mut max_c = 0f64;
         let mut max_i = 0;
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            c[self.y.unwrap()[r.0]] += *w / w_sum;
-            if c[self.y.unwrap()[r.0]] > max_c {
-                max_c = c[self.y.unwrap()[r.0]];
-                max_i = self.y.unwrap()[r.0];
+            c[self.y()[r.0]] += *w / w_sum;
+            if c[self.y()[r.0]] > max_c {
+                max_c = c[self.y()[r.0]];
+                max_i = self.y()[r.0];
             }
         }
 

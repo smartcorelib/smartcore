@@ -85,6 +85,27 @@ pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D:
     _phantom_x: PhantomData<X>,
 }
 
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>> KNNRegressor<TX, TY, X, Y, D> {
+    ///
+    pub fn y(&self) -> &Y {
+        self.y.as_ref().unwrap()
+    }
+
+    ///
+    pub fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
+        self.knn_algorithm.as_ref().unwrap()
+    }
+
+    ///
+    pub fn weight(&self) -> &KNNWeightFunction {
+        self.weight.as_ref().unwrap()
+    }
+
+    pub fn k(&self) -> usize {
+        self.k.unwrap().clone()
+    }
+}
+
 impl<T: Number, D: Distance<Vec<T>>> KNNRegressorParameters<T, D> {
     /// number of training samples to consider when estimating class for new point. Default value is 3.
     pub fn with_k(mut self, k: usize) -> Self {
@@ -134,11 +155,11 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     for KNNRegressor<TX, TY, X, Y, D>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.k != other.k || self.y.unwrap().shape() != other.y.unwrap().shape() {
+        if self.k != other.k || self.y().shape() != other.y().shape() {
             false
         } else {
-            for i in 0..self.y.unwrap().shape() {
-                if self.y.unwrap().get(i) != other.y.unwrap().get(i) {
+            for i in 0..self.y().shape() {
+                if self.y().get(i) != other.y().get(i) {
                     return false;
                 }
             }
@@ -239,16 +260,16 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     }
 
     fn predict_for_row(&self, row: &Vec<TX>) -> Result<TY, Failed> {
-        let search_result = self.knn_algorithm.unwrap().find(row, self.k.unwrap())?;
+        let search_result = self.knn_algorithm().find(row, self.k.unwrap())?;
         let mut result = TY::zero();
 
         let weights = self
-            .weight.unwrap()
+            .weight()
             .calc_weights(search_result.iter().map(|v| v.1).collect());
         let w_sum: f64 = weights.iter().copied().sum();
 
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            result += *self.y.unwrap().get(r.0) * TY::from_f64(*w / w_sum).unwrap();
+            result += *self.y().get(r.0) * TY::from_f64(*w / w_sum).unwrap();
         }
 
         Ok(result)
