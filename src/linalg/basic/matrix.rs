@@ -4,7 +4,6 @@ use std::ops::Range;
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
-use num::ToPrimitive;
 
 use crate::linalg::basic::arrays::{
     Array, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
@@ -247,6 +246,7 @@ where
         T::default_epsilon()
     }
 
+    // equality in differences in absolute values, according to an epsilon
     fn abs_diff_eq(&self, other: &Self, epsilon: T::Epsilon) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             false

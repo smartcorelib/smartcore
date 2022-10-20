@@ -78,11 +78,11 @@ pub struct KNNClassifier<
     Y: Array1<TY>,
     D: Distance<Vec<TX>>,
 > {
-    classes: Vec<TY>,
-    y: Vec<usize>,
-    knn_algorithm: KNNAlgorithm<TX, D>,
-    weight: KNNWeightFunction,
-    k: usize,
+    classes: Option<Vec<TY>>,
+    y: Option<Vec<usize>>,
+    knn_algorithm: Option<KNNAlgorithm<TX, D>>,
+    weight: Option<KNNWeightFunction>,
+    k: Option<usize>,
     _phantom_tx: PhantomData<TX>,
     _phantom_x: PhantomData<X>,
     _phantom_y: PhantomData<Y>,
@@ -137,19 +137,19 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     for KNNClassifier<TX, TY, X, Y, D>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.classes.len() != other.classes.len()
+        if self.classes.unwrap().len() != other.classes.unwrap().len()
             || self.k != other.k
-            || self.y.len() != other.y.len()
+            || self.y.unwrap().len() != other.y.unwrap().len()
         {
             false
         } else {
-            for i in 0..self.classes.len() {
-                if self.classes[i] != other.classes[i] {
+            for i in 0..self.classes.unwrap().len() {
+                if self.classes.unwrap()[i] != other.classes.unwrap()[i] {
                     return false;
                 }
             }
-            for i in 0..self.y.len() {
-                if self.y.get(i) != other.y.get(i) {
+            for i in 0..self.y.unwrap().len() {
+                if self.y.unwrap().get(i) != other.y.unwrap().get(i) {
                     return false;
                 }
             }
@@ -161,6 +161,18 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     SupervisedEstimator<X, Y, KNNClassifierParameters<TX, D>> for KNNClassifier<TX, TY, X, Y, D>
 {
+    fn new() -> Self {
+        Self {
+            classes: None,
+            y: None,
+            knn_algorithm: None,
+            weight: None,
+            k: None,
+            _phantom_tx: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
+        }
+    }
     fn fit(x: &X, y: &Y, parameters: KNNClassifierParameters<TX, D>) -> Result<Self, Failed> {
         KNNClassifier::fit(x, y, parameters)
     }
@@ -217,11 +229,11 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
         }
 
         Ok(KNNClassifier {
-            classes,
-            y: yi,
-            k: parameters.k,
-            knn_algorithm: parameters.algorithm.fit(data, parameters.distance)?,
-            weight: parameters.weight,
+            classes: Some(classes),
+            y: Some(yi),
+            k: Some(parameters.k),
+            knn_algorithm: Some(parameters.algorithm.fit(data, parameters.distance)?),
+            weight: Some(parameters.weight),
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -239,28 +251,28 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
             row.iterator(0)
                 .zip(row_vec.iter_mut())
                 .for_each(|(&s, v)| *v = s);
-            result.set(i, self.classes[self.predict_for_row(&row_vec)?]);
+            result.set(i, self.classes.unwrap()[self.predict_for_row(&row_vec)?]);
         }
 
         Ok(result)
     }
 
     fn predict_for_row(&self, row: &Vec<TX>) -> Result<usize, Failed> {
-        let search_result = self.knn_algorithm.find(row, self.k)?;
+        let search_result = self.knn_algorithm.unwrap().find(row, self.k.unwrap())?;
 
         let weights = self
-            .weight
+            .weight.unwrap()
             .calc_weights(search_result.iter().map(|v| v.1).collect());
         let w_sum: f64 = weights.iter().copied().sum();
 
-        let mut c = vec![0f64; self.classes.len()];
+        let mut c = vec![0f64; self.classes.unwrap().len()];
         let mut max_c = 0f64;
         let mut max_i = 0;
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            c[self.y[r.0]] += *w / w_sum;
-            if c[self.y[r.0]] > max_c {
-                max_c = c[self.y[r.0]];
-                max_i = self.y[r.0];
+            c[self.y.unwrap()[r.0]] += *w / w_sum;
+            if c[self.y.unwrap()[r.0]] > max_c {
+                max_c = c[self.y.unwrap()[r.0]];
+                max_i = self.y.unwrap()[r.0];
             }
         }
 

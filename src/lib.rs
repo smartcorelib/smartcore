@@ -70,7 +70,7 @@
 pub mod numbers;
 
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
-// pub mod algorithm;
+pub mod algorithm;
 pub mod api;
 
 // /// Algorithms for clustering of unlabeled data
@@ -90,7 +90,7 @@ pub mod linear;
 /// Functions for assessing prediction error.
 pub mod metrics;
 /// TODO: add docstring for model_selection
-// pub mod model_selection;
+pub mod model_selection;
 ///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
 pub mod naive_bayes;
 /// Supervised neighbors-based learning methods

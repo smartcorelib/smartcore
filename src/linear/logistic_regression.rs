@@ -87,7 +87,7 @@ impl Default for LogisticRegressionSolverName {
 /// Logistic Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct LogisticRegressionParameters<T: FloatNumber> {
+pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: LogisticRegressionSolverName,
@@ -115,7 +115,7 @@ pub struct LogisticRegressionSearchParametersIterator<T: Number> {
     current_alpha: usize,
 }
 
-impl<T: FloatNumber> IntoIterator for LogisticRegressionSearchParameters<T> {
+impl<T: Number + FloatNumber> IntoIterator for LogisticRegressionSearchParameters<T> {
     type Item = LogisticRegressionParameters<T>;
     type IntoIter = LogisticRegressionSearchParametersIterator<T>;
 
@@ -128,7 +128,7 @@ impl<T: FloatNumber> IntoIterator for LogisticRegressionSearchParameters<T> {
     }
 }
 
-impl<T: FloatNumber> Iterator for LogisticRegressionSearchParametersIterator<T> {
+impl<T: Number + FloatNumber> Iterator for LogisticRegressionSearchParametersIterator<T> {
     type Item = LogisticRegressionParameters<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -158,7 +158,7 @@ impl<T: FloatNumber> Iterator for LogisticRegressionSearchParametersIterator<T> 
     }
 }
 
-impl<T: FloatNumber> Default for LogisticRegressionSearchParameters<T> {
+impl<T: Number + FloatNumber> Default for LogisticRegressionSearchParameters<T> {
     fn default() -> Self {
         let default_params = LogisticRegressionParameters::default();
 
@@ -172,17 +172,17 @@ impl<T: FloatNumber> Default for LogisticRegressionSearchParameters<T> {
 /// Logistic Regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct LogisticRegression<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
-    coefficients: X,
-    intercept: X,
-    classes: Vec<TY>,
+pub struct LogisticRegression<TX: Number + FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
+    coefficients: Option<X>,
+    intercept: Option<X>,
+    classes: Option<Vec<TY>>,
     num_attributes: usize,
     num_classes: usize,
     _phantom_tx: PhantomData<TX>,
     _phantom_y: PhantomData<Y>,
 }
 
-trait ObjectiveFunction<T: FloatNumber, X: Array2<T>> {
+trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
     fn f(&self, w_bias: &Vec<T>) -> T;
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
 
@@ -197,14 +197,14 @@ trait ObjectiveFunction<T: FloatNumber, X: Array2<T>> {
     }
 }
 
-struct BinaryObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
+struct BinaryObjectiveFunction<'a, T: Number + FloatNumber, X: Array2<T>> {
     x: &'a X,
     y: Vec<usize>,
     alpha: T,
     _phantom_t: PhantomData<T>,
 }
 
-impl<T: FloatNumber> LogisticRegressionParameters<T> {
+impl<T: Number + FloatNumber> LogisticRegressionParameters<T> {
     /// Solver to use for estimation of regression coefficients.
     pub fn with_solver(mut self, solver: LogisticRegressionSolverName) -> Self {
         self.solver = solver;
@@ -217,7 +217,7 @@ impl<T: FloatNumber> LogisticRegressionParameters<T> {
     }
 }
 
-impl<T: FloatNumber> Default for LogisticRegressionParameters<T> {
+impl<T: Number + FloatNumber> Default for LogisticRegressionParameters<T> {
     fn default() -> Self {
         LogisticRegressionParameters {
             solver: LogisticRegressionSolverName::default(),
@@ -226,36 +226,36 @@ impl<T: FloatNumber> Default for LogisticRegressionParameters<T> {
     }
 }
 
-impl<TX: FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+impl<TX: Number + FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
     for LogisticRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.num_classes != other.num_classes
             || self.num_attributes != other.num_attributes
-            || self.classes.len() != other.classes.len()
+            || self.classes.unwrap().len() != other.classes.unwrap().len()
         {
             false
         } else {
-            for i in 0..self.classes.len() {
-                if self.classes[i] != other.classes[i] {
+            for i in 0..self.classes.unwrap().len() {
+                if self.classes.unwrap()[i] != other.classes.unwrap()[i] {
                     return false;
                 }
             }
 
-            self.coefficients
+            self.coefficients.unwrap()
                 .iterator(0)
-                .zip(other.coefficients.iterator(0))
+                .zip(other.coefficients.unwrap().iterator(0))
                 .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
                 && self
-                    .intercept
+                    .intercept.unwrap()
                     .iterator(0)
-                    .zip(other.intercept.iterator(0))
+                    .zip(other.intercept.unwrap().iterator(0))
                     .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
         }
     }
 }
 
-impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
+impl<'a, T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
     for BinaryObjectiveFunction<'a, T, X>
 {
     fn f(&self, w_bias: &Vec<T>) -> T {
@@ -303,7 +303,7 @@ impl<'a, T: FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
     }
 }
 
-struct MultiClassObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
+struct MultiClassObjectiveFunction<'a, T: Number + FloatNumber, X: Array2<T>> {
     x: &'a X,
     y: Vec<usize>,
     k: usize,
@@ -311,7 +311,7 @@ struct MultiClassObjectiveFunction<'a, T: FloatNumber, X: Array2<T>> {
     _phantom_t: PhantomData<T>,
 }
 
-impl<'a, T: FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T, X>
+impl<'a, T: Number + FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T, X>
     for MultiClassObjectiveFunction<'a, T, X>
 {
     fn f(&self, w_bias: &Vec<T>) -> T {
@@ -376,16 +376,28 @@ impl<'a, T: FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T, X>
     }
 }
 
-impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, LogisticRegressionParameters<TX>>
     for LogisticRegression<TX, TY, X, Y>
 {
+    fn new() -> Self {
+        Self {
+            coefficients: None,
+            intercept: None,
+            classes: None,
+            num_attributes: 0,
+            num_classes: 0,
+            _phantom_tx: PhantomData,
+            _phantom_y: PhantomData,
+        }
+    }
+
     fn fit(x: &X, y: &Y, parameters: LogisticRegressionParameters<TX>) -> Result<Self, Failed> {
         LogisticRegression::fit(x, y, parameters)
     }
 }
 
-impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     for LogisticRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
@@ -393,7 +405,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     }
 }
 
-impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     LogisticRegression<TX, TY, X, Y>
 {
     /// Fits Logistic Regression to your data.
@@ -447,9 +459,9 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
                 let intercept = weights.slice(0..1, num_attributes..num_attributes + 1);
 
                 Ok(LogisticRegression {
-                    coefficients: X::from_slice(coefficients.as_ref()),
-                    intercept: X::from_slice(intercept.as_ref()),
-                    classes,
+                    coefficients: Some(X::from_slice(coefficients.as_ref())),
+                    intercept: Some(X::from_slice(intercept.as_ref())),
+                    classes: Some(classes),
                     num_attributes,
                     num_classes: k,
                     _phantom_tx: PhantomData,
@@ -473,9 +485,9 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
                 let intercept = weights.slice(0..k, num_attributes..num_attributes + 1);
 
                 Ok(LogisticRegression {
-                    coefficients: X::from_slice(coefficients.as_ref()),
-                    intercept: X::from_slice(intercept.as_ref()),
-                    classes,
+                    coefficients: Some(X::from_slice(coefficients.as_ref())),
+                    intercept: Some(X::from_slice(intercept.as_ref())),
+                    classes: Some(classes),
                     num_attributes,
                     num_classes: k,
                     _phantom_tx: PhantomData,
@@ -491,12 +503,12 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         let n = x.shape().0;
         let mut result = Y::zeros(n);
         if self.num_classes == 2 {
-            let y_hat = x.ab(false, &self.coefficients, true);
-            let intercept = *self.intercept.get((0, 0));
+            let y_hat = x.ab(false, &self.coefficients.unwrap(), true);
+            let intercept = *self.intercept.unwrap().get((0, 0));
             for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
                 result.set(
                     i,
-                    self.classes[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half() {
+                    self.classes.unwrap()[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half() {
                         1
                     } else {
                         0
@@ -504,15 +516,15 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
                 );
             }
         } else {
-            let mut y_hat = x.matmul(&self.coefficients.transpose());
+            let mut y_hat = x.matmul(&self.coefficients.unwrap().transpose());
             for r in 0..n {
                 for c in 0..self.num_classes {
-                    y_hat.set((r, c), *y_hat.get((r, c)) + *self.intercept.get((c, 0)));
+                    y_hat.set((r, c), *y_hat.get((r, c)) + *self.intercept.unwrap().get((c, 0)));
                 }
             }
             let class_idxs = y_hat.argmax(1);
             for (i, class_i) in class_idxs.iter().enumerate().take(n) {
-                result.set(i, self.classes[*class_i]);
+                result.set(i, self.classes.unwrap()[*class_i]);
             }
         }
         Ok(result)
@@ -520,12 +532,12 @@ impl<TX: FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
     /// Get estimates regression coefficients
     pub fn coefficients(&self) -> &X {
-        &self.coefficients
+        &self.coefficients.unwrap()
     }
 
     /// Get estimate of intercept
     pub fn intercept(&self) -> &X {
-        &self.intercept
+        &self.intercept.unwrap()
     }
 
     fn minimize(

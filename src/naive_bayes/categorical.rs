@@ -316,12 +316,18 @@ impl Default for CategoricalNBSearchParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct CategoricalNB<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> {
-    inner: BaseNaiveBayes<T, T, X, Y, CategoricalNBDistribution<T>>,
+    inner: Option<BaseNaiveBayes<T, T, X, Y, CategoricalNBDistribution<T>>>,
 }
 
 impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
     SupervisedEstimator<X, Y, CategoricalNBParameters> for CategoricalNB<T, X, Y>
 {
+    fn new() -> Self {
+        Self {
+            inner: None
+        }
+    }
+
     fn fit(x: &X, y: &Y, parameters: CategoricalNBParameters) -> Result<Self, Failed> {
         CategoricalNB::fit(x, y, parameters)
     }
@@ -343,49 +349,49 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
         let alpha = parameters.alpha;
         let distribution = CategoricalNBDistribution::fit(x, y, alpha)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner })
+        Ok(Self { inner: Some(inner) })
     }
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.predict(x)
+        self.inner.unwrap().predict(x)
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
     pub fn classes(&self) -> &Vec<T> {
-        &self.inner.distribution.class_labels
+        &self.inner.unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
     pub fn class_count(&self) -> &Vec<usize> {
-        &self.inner.distribution.class_count
+        &self.inner.unwrap().distribution.class_count
     }
 
     /// Number of features of each sample
     pub fn n_features(&self) -> usize {
-        self.inner.distribution.n_features
+        self.inner.unwrap().distribution.n_features
     }
 
     /// Number of features of each sample
     pub fn n_categories(&self) -> &Vec<usize> {
-        &self.inner.distribution.n_categories
+        &self.inner.unwrap().distribution.n_categories
     }
 
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the number of samples
     /// encountered for each class and category of the specific feature.
     pub fn category_count(&self) -> &Vec<Vec<Vec<usize>>> {
-        &self.inner.distribution.category_count
+        &self.inner.unwrap().distribution.category_count
     }
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the empirical log probability
     /// of categories given the respective feature and class, ``P(x_i|y)``.
     pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<f64>>> {
-        &self.inner.distribution.coefficients
+        &self.inner.unwrap().distribution.coefficients
     }
 }
 

@@ -72,6 +72,7 @@ pub(crate) enum KNNAlgorithm<T: Number, D: Distance<Vec<T>>> {
     CoverTree(CoverTree<Vec<T>, D>),
 }
 
+// TODO: missing documentation
 impl KNNAlgorithmName {
     pub(crate) fn fit<T: Number, D: Distance<Vec<T>>>(
         &self,

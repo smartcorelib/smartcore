@@ -111,11 +111,11 @@ pub struct DecisionTreeClassifier<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    nodes: Vec<Node>,
-    parameters: DecisionTreeClassifierParameters,
-    num_classes: usize,
-    classes: Vec<TY>,
-    depth: u16,
+    nodes: Option<Vec<Node>>,
+    parameters: Option<DecisionTreeClassifierParameters>,
+    num_classes: Option<usize>,
+    classes: Option<Vec<TY>>,
+    depth: Option<u16>,
     _phantom_tx: PhantomData<TX>,
     _phantom_x: PhantomData<X>,
     _phantom_y: PhantomData<Y>,
@@ -157,7 +157,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Pa
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth
             || self.num_classes != other.num_classes
-            || self.nodes.len() != other.nodes.len()
+            || self.nodes.unwrap().len() != other.nodes.unwrap().len()
         {
             false
         } else {
@@ -486,6 +486,19 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, DecisionTreeClassifierParameters>
     for DecisionTreeClassifier<TX, TY, X, Y>
 {
+    fn new() -> Self {
+         Self {
+            nodes: None,
+            parameters: None,
+            num_classes: None,
+            classes: None,
+            depth: None,
+            _phantom_tx: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
+         }
+    }
+
     fn fit(x: &X, y: &Y, parameters: DecisionTreeClassifierParameters) -> Result<Self, Failed> {
         DecisionTreeClassifier::fit(x, y, parameters)
     }
@@ -558,11 +571,11 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         let mut tree = DecisionTreeClassifier {
-            nodes,
-            parameters,
-            num_classes: k,
-            classes,
-            depth: 0,
+            nodes: Some(nodes),
+            parameters: Some(parameters),
+            num_classes: Some(k),
+            classes: Some(classes),
+            depth: Some(0),
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -576,7 +589,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth < tree.parameters.max_depth.unwrap_or(std::u16::MAX) {
+        while tree.depth.unwrap() < tree.parameters.unwrap().max_depth.unwrap_or(std::u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -594,7 +607,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let (n, _) = x.shape();
 
         for i in 0..n {
-            result.set(i, self.classes[self.predict_for_row(x, i)]);
+            result.set(i, self.classes.unwrap()[self.predict_for_row(x, i)]);
         }
 
         Ok(result)
@@ -609,7 +622,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         while !queue.is_empty() {
             match queue.pop_front() {
                 Some(node_id) => {
-                    let node = &self.nodes[node_id];
+                    let node = &self.nodes.unwrap()[node_id];
                     if node.true_child == None && node.false_child == None {
                         result = node.output;
                     } else if x.get((row, node.split_feature)).to_f64().unwrap()
@@ -654,19 +667,19 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         let n = visitor.samples.iter().sum();
 
-        if n <= self.parameters.min_samples_split {
+        if n <= self.parameters.unwrap().min_samples_split {
             return false;
         }
 
-        let mut count = vec![0; self.num_classes];
-        let mut false_count = vec![0; self.num_classes];
+        let mut count = vec![0; self.num_classes.unwrap()];
+        let mut false_count = vec![0; self.num_classes.unwrap()];
         for i in 0..n_rows {
             if visitor.samples[i] > 0 {
                 count[visitor.y[i]] += visitor.samples[i];
             }
         }
 
-        let parent_impurity = impurity(&self.parameters.criterion, &count, n);
+        let parent_impurity = impurity(&self.parameters.unwrap().criterion, &count, n);
 
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
@@ -685,7 +698,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             );
         }
 
-        self.nodes[visitor.node].split_score != Option::None
+        self.nodes.unwrap()[visitor.node].split_score != Option::None
     }
 
     fn find_best_split(
@@ -697,7 +710,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         parent_impurity: f64,
         j: usize,
     ) {
-        let mut true_count = vec![0; self.num_classes];
+        let mut true_count = vec![0; self.num_classes.unwrap()];
         let mut prevx = Option::None;
         let mut prevy = 0;
 
@@ -715,30 +728,30 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let tc = true_count.iter().sum();
                 let fc = n - tc;
 
-                if tc < self.parameters.min_samples_leaf || fc < self.parameters.min_samples_leaf {
+                if tc < self.parameters.unwrap().min_samples_leaf || fc < self.parameters.unwrap().min_samples_leaf {
                     prevx = Some(x_ij);
                     prevy = visitor.y[*i];
                     true_count[visitor.y[*i]] += visitor.samples[*i];
                     continue;
                 }
 
-                for l in 0..self.num_classes {
+                for l in 0..self.num_classes.unwrap() {
                     false_count[l] = count[l] - true_count[l];
                 }
 
                 let true_label = which_max(&true_count);
                 let false_label = which_max(false_count);
                 let gain = parent_impurity
-                    - tc as f64 / n as f64 * impurity(&self.parameters.criterion, &true_count, tc)
-                    - fc as f64 / n as f64 * impurity(&self.parameters.criterion, false_count, fc);
+                    - tc as f64 / n as f64 * impurity(&self.parameters.unwrap().criterion, &true_count, tc)
+                    - fc as f64 / n as f64 * impurity(&self.parameters.unwrap().criterion, false_count, fc);
 
-                if self.nodes[visitor.node].split_score == Option::None
-                    || gain > self.nodes[visitor.node].split_score.unwrap()
+                if self.nodes.unwrap()[visitor.node].split_score == Option::None
+                    || gain > self.nodes.unwrap()[visitor.node].split_score.unwrap()
                 {
-                    self.nodes[visitor.node].split_feature = j;
-                    self.nodes[visitor.node].split_value =
+                    self.nodes.unwrap()[visitor.node].split_feature = j;
+                    self.nodes.unwrap()[visitor.node].split_value =
                         Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
-                    self.nodes[visitor.node].split_score = Option::Some(gain);
+                    self.nodes.unwrap()[visitor.node].split_score = Option::Some(gain);
                     visitor.true_child_output = true_label;
                     visitor.false_child_output = false_label;
                 }
@@ -766,10 +779,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             if visitor.samples[i] > 0 {
                 if visitor
                     .x
-                    .get((i, self.nodes[visitor.node].split_feature))
+                    .get((i, self.nodes.unwrap()[visitor.node].split_feature))
                     .to_f64()
                     .unwrap()
-                    <= self.nodes[visitor.node]
+                    <= self.nodes.unwrap()[visitor.node]
                         .split_value
                         .unwrap_or(std::f64::NAN)
                 {
@@ -782,24 +795,24 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        if tc < self.parameters.min_samples_leaf || fc < self.parameters.min_samples_leaf {
-            self.nodes[visitor.node].split_feature = 0;
-            self.nodes[visitor.node].split_value = Option::None;
-            self.nodes[visitor.node].split_score = Option::None;
+        if tc < self.parameters.unwrap().min_samples_leaf || fc < self.parameters.unwrap().min_samples_leaf {
+            self.nodes.unwrap()[visitor.node].split_feature = 0;
+            self.nodes.unwrap()[visitor.node].split_value = Option::None;
+            self.nodes.unwrap()[visitor.node].split_score = Option::None;
             return false;
         }
 
-        let true_child_idx = self.nodes.len();
-        self.nodes
+        let true_child_idx = self.nodes.unwrap().len();
+        self.nodes.unwrap()
             .push(Node::new(true_child_idx, visitor.true_child_output));
-        let false_child_idx = self.nodes.len();
-        self.nodes
+        let false_child_idx = self.nodes.unwrap().len();
+        self.nodes.unwrap()
             .push(Node::new(false_child_idx, visitor.false_child_output));
 
-        self.nodes[visitor.node].true_child = Some(true_child_idx);
-        self.nodes[visitor.node].false_child = Some(false_child_idx);
+        self.nodes.unwrap()[visitor.node].true_child = Some(true_child_idx);
+        self.nodes.unwrap()[visitor.node].false_child = Some(false_child_idx);
 
-        self.depth = u16::max(self.depth, visitor.level + 1);
+        self.depth = Some(u16::max(self.depth.unwrap(), visitor.level + 1));
 
         let mut true_visitor = NodeVisitor::<TX, X>::new(
             true_child_idx,

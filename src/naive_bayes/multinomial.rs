@@ -292,12 +292,18 @@ pub struct MultinomialNB<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    inner: BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>,
+    inner: Option<BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>>,
 }
 
 impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
 {
+    fn new() -> Self {
+       Self {
+           inner: None
+       }
+    }
+
     fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         MultinomialNB::fit(x, y, parameters)
     }
@@ -324,43 +330,43 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
         let distribution =
             MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner })
+        Ok(Self { inner: Some(inner) })
     }
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.predict(x)
+        self.inner.unwrap().predict(x)
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
     pub fn classes(&self) -> &Vec<TY> {
-        &self.inner.distribution.class_labels
+        &self.inner.unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
     pub fn class_count(&self) -> &Vec<usize> {
-        &self.inner.distribution.class_count
+        &self.inner.unwrap().distribution.class_count
     }
 
     /// Empirical log probability of features given a class, P(x_i|y).
     /// Returns a 2d vector of shape (n_classes, n_features)
     pub fn feature_log_prob(&self) -> &Vec<Vec<f64>> {
-        &self.inner.distribution.feature_log_prob
+        &self.inner.unwrap().distribution.feature_log_prob
     }
 
     /// Number of features of each sample
     pub fn n_features(&self) -> usize {
-        self.inner.distribution.n_features
+        self.inner.unwrap().distribution.n_features
     }
 
     /// Number of samples encountered for each (class, feature)
     /// Returns a 2d vector of shape (n_classes, n_features)
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
-        &self.inner.distribution.feature_count
+        &self.inner.unwrap().distribution.feature_count
     }
 }
 

@@ -244,12 +244,18 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct GaussianNB<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> {
-    inner: BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>,
+    inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
 }
 
 impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
+    fn new() -> Self {
+        Self {
+            inner: None         
+        }
+    }
+
     fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
         GaussianNB::fit(x, y, parameters)
     }
@@ -274,44 +280,44 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     pub fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
         let distribution = GaussianNBDistribution::fit(x, y, parameters.priors)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner })
+        Ok(Self { inner: Some(inner) })
     }
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.predict(x)
+        self.inner.unwrap().predict(x)
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
     pub fn classes(&self) -> &Vec<TY> {
-        &self.inner.distribution.class_labels
+        &self.inner.unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
     pub fn class_count(&self) -> &Vec<usize> {
-        &self.inner.distribution.class_count
+        &self.inner.unwrap().distribution.class_count
     }
 
     /// Probability of each class
     /// Returns a vector of size n_classes.
     pub fn class_priors(&self) -> &Vec<f64> {
-        &self.inner.distribution.class_priors
+        &self.inner.unwrap().distribution.class_priors
     }
 
     /// Mean of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
     pub fn theta(&self) -> &Vec<Vec<f64>> {
-        &self.inner.distribution.theta
+        &self.inner.unwrap().distribution.theta
     }
 
     /// Variance of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
     pub fn var(&self) -> &Vec<Vec<f64>> {
-        &self.inner.distribution.var
+        &self.inner.unwrap().distribution.var
     }
 }
 

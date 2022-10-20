@@ -3,6 +3,8 @@
 //! This module provides interfaces and uniform API with simple conventions
 //! that are used in other modules for supervised and unsupervised learning.
 
+use std::any::Any;
+
 use crate::error::Failed;
 
 /// An estimator for unsupervised learning, that provides method `fit` to learn from data
@@ -17,7 +19,10 @@ pub trait UnsupervisedEstimator<X, P> {
 }
 
 /// An estimator for supervised learning, , that provides method `fit` to learn from data and training values
-pub trait SupervisedEstimator<X, Y, P> {
+pub trait SupervisedEstimator<X, Y, P>: Predictor<X, Y> {
+    /// constructor, instantiate an empty supervisor. Object can be later propulated
+    /// by calling `::fit()`. mostly used to be used with `model_selection::cross_validate(...)`
+    fn new() -> Self;
     /// Fit a model to a training dataset, estimate model's parameters.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target training values of size _N_.
@@ -41,3 +46,6 @@ pub trait Transformer<X> {
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     fn transform(&self, x: &X) -> Result<X, Failed>;
 }
+
+/// empty parameters for an estimator, see `BiasedEstimator`
+pub trait NoParameters {}

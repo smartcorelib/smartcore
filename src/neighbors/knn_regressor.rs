@@ -76,10 +76,10 @@ pub struct KNNRegressorParameters<T: Number, D: Distance<Vec<T>>> {
 #[derive(Debug)]
 pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 {
-    y: Y,
-    knn_algorithm: KNNAlgorithm<TX, D>,
-    weight: KNNWeightFunction,
-    k: usize,
+    y: Option<Y>,
+    knn_algorithm: Option<KNNAlgorithm<TX, D>>,
+    weight: Option<KNNWeightFunction>,
+    k: Option<usize>,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
@@ -134,11 +134,11 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     for KNNRegressor<TX, TY, X, Y, D>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.k != other.k || self.y.shape() != other.y.shape() {
+        if self.k != other.k || self.y.unwrap().shape() != other.y.unwrap().shape() {
             false
         } else {
-            for i in 0..self.y.shape() {
-                if self.y.get(i) != other.y.get(i) {
+            for i in 0..self.y.unwrap().shape() {
+                if self.y.unwrap().get(i) != other.y.unwrap().get(i) {
                     return false;
                 }
             }
@@ -150,6 +150,19 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     SupervisedEstimator<X, Y, KNNRegressorParameters<TX, D>> for KNNRegressor<TX, TY, X, Y, D>
 {
+    fn new() -> Self {
+        Self {
+            y: None,
+            knn_algorithm: None,
+            weight: None,
+            k: None,
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
+        } 
+
+    }
+
     fn fit(x: &X, y: &Y, parameters: KNNRegressorParameters<TX, D>) -> Result<Self, Failed> {
         KNNRegressor::fit(x, y, parameters)
     }
@@ -198,10 +211,10 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         }
 
         Ok(KNNRegressor {
-            y: y.clone(),
-            k: parameters.k,
-            knn_algorithm: parameters.algorithm.fit(data, parameters.distance)?,
-            weight: parameters.weight,
+            y: Some(y.clone()),
+            k: Some(parameters.k),
+            knn_algorithm: Some(parameters.algorithm.fit(data, parameters.distance)?),
+            weight: Some(parameters.weight),
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -226,16 +239,16 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     }
 
     fn predict_for_row(&self, row: &Vec<TX>) -> Result<TY, Failed> {
-        let search_result = self.knn_algorithm.find(row, self.k)?;
+        let search_result = self.knn_algorithm.unwrap().find(row, self.k.unwrap())?;
         let mut result = TY::zero();
 
         let weights = self
-            .weight
+            .weight.unwrap()
             .calc_weights(search_result.iter().map(|v| v.1).collect());
         let w_sum: f64 = weights.iter().copied().sum();
 
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            result += *self.y.get(r.0) * TY::from_f64(*w / w_sum).unwrap();
+            result += *self.y.unwrap().get(r.0) * TY::from_f64(*w / w_sum).unwrap();
         }
 
         Ok(result)
