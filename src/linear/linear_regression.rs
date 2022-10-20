@@ -190,11 +190,11 @@ impl<
 {
     fn eq(&self, other: &Self) -> bool {
         self.intercept == other.intercept
-            && self.coefficients.unwrap().shape() == other.coefficients.unwrap().shape()
+            && self.coefficients().shape() == other.coefficients().shape()
             && self
-                .coefficients.unwrap()
+                .coefficients()
                 .iterator(0)
-                .zip(other.coefficients.unwrap().iterator(0))
+                .zip(other.coefficients().iterator(0))
                 .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
@@ -286,8 +286,8 @@ impl<
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
-        let bias = X::fill(nrows, 1, self.intercept.unwrap());
-        let mut y_hat = x.matmul(&self.coefficients.unwrap());
+        let bias = X::fill(nrows, 1, *self.intercept());
+        let mut y_hat = x.matmul(self.coefficients());
         y_hat.add_mut(&bias);
         Ok(Y::from_iterator(
             y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
@@ -297,12 +297,12 @@ impl<
 
     /// Get estimates regression coefficients
     pub fn coefficients(&self) -> &X {
-        &self.coefficients.unwrap()
+        self.coefficients.as_ref().unwrap()
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> TX {
-        self.intercept.unwrap()
+    pub fn intercept(&self) -> &TX {
+        self.intercept.as_ref().unwrap()
     }
 }
 

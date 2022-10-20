@@ -58,8 +58,8 @@ pub struct LassoParameters {
 #[derive(Debug)]
 /// Lasso regressor
 pub struct Lasso<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
-    coefficients: X,
-    intercept: TX,
+    coefficients: Option<X>,
+    intercept: Option<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -101,11 +101,11 @@ impl Default for LassoParameters {
 impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for Lasso<TX, TY, X, Y> {
     fn eq(&self, other: &Self) -> bool {
         self.intercept == other.intercept
-            && self.coefficients.shape() == other.coefficients.shape()
+            && self.coefficients().shape() == other.coefficients().shape()
             && self
-                .coefficients
+                .coefficients()
                 .iterator(0)
-                .zip(other.coefficients.iterator(0))
+                .zip(other.coefficients().iterator(0))
                 .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
@@ -113,6 +113,15 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for La
 impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, LassoParameters> for Lasso<TX, TY, X, Y>
 {
+    fn new() -> Self {
+        Self {
+            coefficients: None,
+            intercept: None,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
+        }
+    }
+
     fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Self, Failed> {
         Lasso::fit(x, y, parameters)
     }
@@ -300,8 +309,8 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X,
         };
 
         Ok(Lasso {
-            intercept: b,
-            coefficients: w,
+            intercept: Some(b),
+            coefficients: Some(w),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
@@ -311,8 +320,8 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X,
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
-        let mut y_hat = x.matmul(&self.coefficients);
-        let bias = X::fill(nrows, 1, self.intercept);
+        let mut y_hat = x.matmul(self.coefficients());
+        let bias = X::fill(nrows, 1, self.intercept.unwrap());
         y_hat.add_mut(&bias);
         Ok(Y::from_iterator(
             y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
@@ -322,12 +331,12 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X,
 
     /// Get estimates regression coefficients
     pub fn coefficients(&self) -> &X {
-        &self.coefficients
+        self.coefficients.as_ref().unwrap()
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> TX {
-        self.intercept
+    pub fn intercept(&self) -> &TX {
+        self.intercept.as_ref().unwrap()
     }
 
     fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {

@@ -172,7 +172,7 @@ impl<T: Number + FloatNumber> Default for LogisticRegressionSearchParameters<T> 
 /// Logistic Regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct LogisticRegression<TX: Number + FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
+pub struct LogisticRegression<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     coefficients: Option<X>,
     intercept: Option<X>,
     classes: Option<Vec<TY>>,
@@ -226,30 +226,30 @@ impl<T: Number + FloatNumber> Default for LogisticRegressionParameters<T> {
     }
 }
 
-impl<TX: Number + FloatNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
     for LogisticRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.num_classes != other.num_classes
             || self.num_attributes != other.num_attributes
-            || self.classes.unwrap().len() != other.classes.unwrap().len()
+            || self.classes().len() != other.classes().len()
         {
             false
         } else {
-            for i in 0..self.classes.unwrap().len() {
-                if self.classes.unwrap()[i] != other.classes.unwrap()[i] {
+            for i in 0..self.classes().len() {
+                if self.classes()[i] != other.classes()[i] {
                     return false;
                 }
             }
 
-            self.coefficients.unwrap()
+            self.coefficients()
                 .iterator(0)
-                .zip(other.coefficients.unwrap().iterator(0))
+                .zip(other.coefficients().iterator(0))
                 .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
                 && self
-                    .intercept.unwrap()
+                    .intercept()
                     .iterator(0)
-                    .zip(other.intercept.unwrap().iterator(0))
+                    .zip(other.intercept().iterator(0))
                     .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
         }
     }
@@ -503,12 +503,12 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
         let n = x.shape().0;
         let mut result = Y::zeros(n);
         if self.num_classes == 2 {
-            let y_hat = x.ab(false, &self.coefficients.unwrap(), true);
-            let intercept = *self.intercept.unwrap().get((0, 0));
+            let y_hat = x.ab(false, self.coefficients(), true);
+            let intercept = *self.intercept().get((0, 0));
             for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
                 result.set(
                     i,
-                    self.classes.unwrap()[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half() {
+                    self.classes()[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half() {
                         1
                     } else {
                         0
@@ -516,28 +516,33 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
                 );
             }
         } else {
-            let mut y_hat = x.matmul(&self.coefficients.unwrap().transpose());
+            let mut y_hat = x.matmul(&self.coefficients().transpose());
             for r in 0..n {
                 for c in 0..self.num_classes {
-                    y_hat.set((r, c), *y_hat.get((r, c)) + *self.intercept.unwrap().get((c, 0)));
+                    y_hat.set((r, c), *y_hat.get((r, c)) + *self.intercept().get((c, 0)));
                 }
             }
             let class_idxs = y_hat.argmax(1);
             for (i, class_i) in class_idxs.iter().enumerate().take(n) {
-                result.set(i, self.classes.unwrap()[*class_i]);
+                result.set(i, self.classes()[*class_i]);
             }
         }
         Ok(result)
     }
 
-    /// Get estimates regression coefficients
+    /// Get estimates regression coefficients, this create a sharable reference
     pub fn coefficients(&self) -> &X {
-        &self.coefficients.unwrap()
+        self.coefficients.as_ref().unwrap()
     }
 
-    /// Get estimate of intercept
+    /// Get estimate of intercept, this create a sharable reference
     pub fn intercept(&self) -> &X {
-        &self.intercept.unwrap()
+        self.intercept.as_ref().unwrap()
+    }
+
+    /// Get classes, this create a sharable reference
+    pub fn classes(&self) -> &Vec<TY> {
+        self.classes.as_ref().unwrap()
     }
 
     fn minimize(

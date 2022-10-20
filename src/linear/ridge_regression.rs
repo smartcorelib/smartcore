@@ -195,9 +195,9 @@ pub struct RidgeRegression<
     X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
     Y: Array1<TY>,
 > {
-    coefficients: X,
-    intercept: TX,
-    solver: RidgeRegressionSolverName,
+    coefficients: Option<X>,
+    intercept: Option<TX>,
+    solver: Option<RidgeRegressionSolverName>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -238,12 +238,12 @@ impl<
     > PartialEq for RidgeRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.intercept == other.intercept
-            && self.coefficients.shape() == other.coefficients.shape()
+        self.intercept() == other.intercept()
+            && self.coefficients().shape() == other.coefficients().shape()
             && self
-                .coefficients
+                .coefficients()
                 .iterator(0)
-                .zip(other.coefficients.iterator(0))
+                .zip(other.coefficients().iterator(0))
                 .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
@@ -255,6 +255,16 @@ impl<
         Y: Array1<TY>,
     > SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
 {
+    fn new() -> Self {
+        Self {
+            coefficients: None,
+            intercept: None,
+            solver: None,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,   
+        }
+    }
+
     fn fit(x: &X, y: &Y, parameters: RidgeRegressionParameters<TX>) -> Result<Self, Failed> {
         RidgeRegression::fit(x, y, parameters)
     }
@@ -355,9 +365,9 @@ impl<
         };
 
         Ok(RidgeRegression {
-            intercept: b,
-            coefficients: w,
-            solver: parameters.solver,
+            intercept: Some(b),
+            coefficients: Some(w),
+            solver: Some(parameters.solver),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
@@ -389,8 +399,8 @@ impl<
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
-        let mut y_hat = x.matmul(&self.coefficients);
-        y_hat.add_mut(&X::fill(nrows, 1, self.intercept));
+        let mut y_hat = x.matmul(self.coefficients());
+        y_hat.add_mut(&X::fill(nrows, 1, self.intercept.unwrap()));
         Ok(Y::from_iterator(
             y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
             nrows,
@@ -399,12 +409,12 @@ impl<
 
     /// Get estimates regression coefficients
     pub fn coefficients(&self) -> &X {
-        &self.coefficients
+        self.coefficients.as_ref().unwrap()
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> TX {
-        self.intercept
+    pub fn intercept(&self) -> &TX {
+        self.intercept.as_ref().unwrap()
     }
 }
 
