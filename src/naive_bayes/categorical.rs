@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for categorical features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct CategoricalNBDistribution<T: Number + Unsigned> {
     /// number of training samples observed in each class
     class_count: Vec<usize>,
@@ -324,7 +324,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
 {
     fn new() -> Self {
         Self {
-            inner: None
+            inner: Option::None
         }
     }
 

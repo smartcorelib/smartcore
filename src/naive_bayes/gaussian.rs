@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier using Gaussian distribution
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct GaussianNBDistribution<T: Number> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -92,7 +92,7 @@ impl GaussianNBParameters {
 
 impl GaussianNBParameters {
     fn default() -> Self {
-        Self { priors: None }
+        Self { priors: Option::None }
     }
 }
 
@@ -252,7 +252,7 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new() -> Self {
         Self {
-            inner: None         
+            inner: Option::None         
         }
     }
 

@@ -46,7 +46,7 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Bearnoulli features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct BernoulliNBDistribution<T: Number + Ord + Unsigned> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -148,7 +148,7 @@ impl<T: Number + PartialOrd> Default for BernoulliNBParameters<T> {
     fn default() -> Self {
         Self {
             alpha: 1f64,
-            priors: None,
+            priors: Option::None,
             binarize: Some(T::zero()),
         }
     }
@@ -355,8 +355,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 {
     fn new() -> Self {
         Self {
-            inner: None,
-            binarize: None
+            inner: Option::None,
+            binarize: Option::None
         }
     }
 
@@ -502,7 +502,9 @@ mod tests {
         let y: Vec<u32> = vec![0, 0, 0, 1];
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 
-        assert_eq!(bnb.inner.distribution.class_priors, &[0.75, 0.25]);
+        let distribution = bnb.inner.clone().unwrap().distribution;
+
+        assert_eq!(&distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
             bnb.feature_log_prob(),
             &[
@@ -570,8 +572,10 @@ mod tests {
             ]
         );
 
+        let distribution = bnb.inner.clone().unwrap().distribution;
+
         assert!(approx_eq(
-            &bnb.inner.distribution.class_priors,
+            &distribution.class_priors,
             &vec!(0.46, 0.2, 0.33),
             1e-2
         ));

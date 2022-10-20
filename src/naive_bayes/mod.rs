@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
-pub(crate) trait NBDistribution<X: Number, Y: Number> {
+pub(crate) trait NBDistribution<X: Number, Y: Number>: Clone {
     /// Prior of class at the given index.
     fn prior(&self, class_index: usize) -> f64;
 
@@ -56,7 +56,7 @@ pub(crate) trait NBDistribution<X: Number, Y: Number> {
 
 /// Base struct for the Naive Bayes classifier.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct BaseNaiveBayes<
     TX: Number,
     TY: Number,

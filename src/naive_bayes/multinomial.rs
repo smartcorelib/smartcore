@@ -46,7 +46,7 @@ use serde::{Deserialize, Serialize};
 
 /// Naive Bayes classifier for Multinomial features
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct MultinomialNBDistribution<T: Number> {
     /// class labels known to the classifier
     class_labels: Vec<T>,
@@ -112,7 +112,7 @@ impl Default for MultinomialNBParameters {
     fn default() -> Self {
         Self {
             alpha: 1f64,
-            priors: None,
+            priors: Option::None,
         }
     }
 }
@@ -300,7 +300,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
 {
     fn new() -> Self {
        Self {
-           inner: None
+           inner: Option::None
        }
     }
 
@@ -415,7 +415,9 @@ mod tests {
         assert_eq!(mnb.classes(), &[0, 1]);
         assert_eq!(mnb.class_count(), &[3, 1]);
 
-        assert_eq!(mnb.inner.distribution.class_priors, &[0.75, 0.25]);
+        let distribution = mnb.inner.clone().unwrap().distribution;
+
+        assert_eq!(&distribution.class_priors, &[0.75, 0.25]);
         assert_eq!(
             mnb.feature_log_prob(),
             &[
@@ -481,8 +483,10 @@ mod tests {
 
         let y_hat = nb.predict(&x).unwrap();
 
+        let distribution = nb.inner.clone().unwrap().distribution;
+
         assert!(approx_eq(
-            &nb.inner.distribution.class_priors,
+            &distribution.class_priors,
             &vec!(0.46, 0.2, 0.33),
             1e-2
         ));
