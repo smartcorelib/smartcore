@@ -406,38 +406,38 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         if let Some(threshold) = self.binarize {
-            self.inner.unwrap().predict(&Self::binarize(x, threshold))
+            self.inner.as_ref().unwrap().predict(&Self::binarize(x, threshold))
         } else {
-            self.inner.unwrap().predict(x)
+            self.inner.as_ref().unwrap().predict(x)
         }
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
     pub fn classes(&self) -> &Vec<TY> {
-        &self.inner.unwrap().distribution.class_labels
+        &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
     pub fn class_count(&self) -> &Vec<usize> {
-        &self.inner.unwrap().distribution.class_count
+        &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Number of features of each sample
     pub fn n_features(&self) -> usize {
-        self.inner.unwrap().distribution.n_features
+        self.inner.as_ref().unwrap().distribution.n_features
     }
 
     /// Number of samples encountered for each (class, feature)
     /// Returns a 2d vector of shape (n_classes, n_features)
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
-        &self.inner.unwrap().distribution.feature_count
+        &self.inner.as_ref().unwrap().distribution.feature_count
     }
 
     /// Empirical log probability of features given a class
     pub fn feature_log_prob(&self) -> &Vec<Vec<f64>> {
-        &self.inner.unwrap().distribution.feature_log_prob
+        &self.inner.as_ref().unwrap().distribution.feature_log_prob
     }
 
     fn binarize_mut(x: &mut X, threshold: TX) {

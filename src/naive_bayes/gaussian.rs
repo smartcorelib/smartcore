@@ -287,37 +287,37 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.unwrap().predict(x)
+        self.inner.as_ref().unwrap().predict(x)
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
     pub fn classes(&self) -> &Vec<TY> {
-        &self.inner.unwrap().distribution.class_labels
+        &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
     pub fn class_count(&self) -> &Vec<usize> {
-        &self.inner.unwrap().distribution.class_count
+        &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Probability of each class
     /// Returns a vector of size n_classes.
     pub fn class_priors(&self) -> &Vec<f64> {
-        &self.inner.unwrap().distribution.class_priors
+        &self.inner.as_ref().unwrap().distribution.class_priors
     }
 
     /// Mean of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
     pub fn theta(&self) -> &Vec<Vec<f64>> {
-        &self.inner.unwrap().distribution.theta
+        &self.inner.as_ref().unwrap().distribution.theta
     }
 
     /// Variance of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
     pub fn var(&self) -> &Vec<Vec<f64>> {
-        &self.inner.unwrap().distribution.var
+        &self.inner.as_ref().unwrap().distribution.var
     }
 }
 

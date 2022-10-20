@@ -356,42 +356,42 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.unwrap().predict(x)
+        self.inner.as_ref().unwrap().predict(x)
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
     pub fn classes(&self) -> &Vec<T> {
-        &self.inner.unwrap().distribution.class_labels
+        &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
     pub fn class_count(&self) -> &Vec<usize> {
-        &self.inner.unwrap().distribution.class_count
+        &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Number of features of each sample
     pub fn n_features(&self) -> usize {
-        self.inner.unwrap().distribution.n_features
+        self.inner.as_ref().unwrap().distribution.n_features
     }
 
     /// Number of features of each sample
     pub fn n_categories(&self) -> &Vec<usize> {
-        &self.inner.unwrap().distribution.n_categories
+        &self.inner.as_ref().unwrap().distribution.n_categories
     }
 
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the number of samples
     /// encountered for each class and category of the specific feature.
     pub fn category_count(&self) -> &Vec<Vec<Vec<usize>>> {
-        &self.inner.unwrap().distribution.category_count
+        &self.inner.as_ref().unwrap().distribution.category_count
     }
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the empirical log probability
     /// of categories given the respective feature and class, ``P(x_i|y)``.
     pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<f64>>> {
-        &self.inner.unwrap().distribution.coefficients
+        &self.inner.as_ref().unwrap().distribution.coefficients
     }
 }
 
