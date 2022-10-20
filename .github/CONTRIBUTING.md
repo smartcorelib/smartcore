@@ -5,9 +5,16 @@ email, or any other method with the owners of this repository before making a ch
 
 Please note we have a [code of conduct](CODE_OF_CONDUCT.md), please follow it in all your interactions with the project.
 
+## Background
+
+We try to follow these principles:
+* follow as much as possible the sklearn API to give a frictionless user experience for practitioners already familiar with it
+* use only pure-Rust implementations for safety and future-proofing
+* do not use macros in the library code to allow readability and transparent behavior.
+
 ## Pull Request Process
 
-1. Open a PR following the template.
+1. Open a PR following the template (erase the part of the template you don't need).
 2. Update the CHANGELOG.md with details of changes to the interface if they are breaking changes, this includes new environment variables, exposed ports useful file locations and container parameters.
 3. Pull Request can be merged in once you have the sign-off of one other developer, or if you do not have permission to do that you may request the reviewer to merge it for you.
 
