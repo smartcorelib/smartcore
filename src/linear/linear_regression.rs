@@ -208,8 +208,8 @@ impl<
 {
     fn new() -> Self {
         Self {
-            coefficients: None,
-            intercept: None,
+            coefficients: Option::None,
+            intercept: Option::None,
             solver: LinearRegressionParameters::default().solver,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,

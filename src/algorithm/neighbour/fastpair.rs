@@ -97,7 +97,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
                 index_row_i,
                 PairwiseDistance {
                     node: index_row_i,
-                    neighbour: None,
+                    neighbour: Option::None,
                     distance: Some(T::MAX),
                 },
             );
@@ -181,7 +181,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
         let mut closest_pair = PairwiseDistance {
             node: 0,
-            neighbour: None,
+            neighbour: Option::None,
             distance: Some(T::max_value()),
         };
         for pair in (0..m).combinations(2) {
@@ -550,7 +550,7 @@ mod tests_fastpair {
 
         let mut min_dissimilarity = PairwiseDistance {
             node: 0,
-            neighbour: None,
+            neighbour: Option::None,
             distance: Some(f64::MAX),
         };
         for p in dissimilarities.iter() {

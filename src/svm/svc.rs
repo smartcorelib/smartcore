@@ -327,7 +327,7 @@ impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, LinearKernel> 
             tol: T::from_f64(1e-3).unwrap(),
             kernel: Kernels::linear(),
             m: PhantomData,
-            seed: None,
+            seed: Option::None,
         }
     }
 }

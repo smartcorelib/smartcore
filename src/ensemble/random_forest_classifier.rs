@@ -178,7 +178,7 @@ impl Default for RandomForestClassifierParameters {
     fn default() -> Self {
         RandomForestClassifierParameters {
             criterion: SplitCriterion::Gini,
-            max_depth: None,
+            max_depth: Option::None,
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 100,
@@ -632,7 +632,7 @@ mod tests {
             &y,
             RandomForestClassifierParameters {
                 criterion: SplitCriterion::Gini,
-                max_depth: None,
+                max_depth: Option::None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 100,
@@ -680,7 +680,7 @@ mod tests {
             &y,
             RandomForestClassifierParameters {
                 criterion: SplitCriterion::Gini,
-                max_depth: None,
+                max_depth: Option::None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 100,

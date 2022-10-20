@@ -74,7 +74,7 @@ impl Default for KFold {
         KFold {
             n_splits: 3,
             shuffle: true,
-            seed: None,
+            seed: Option::None,
         }
     }
 }
@@ -165,7 +165,7 @@ mod tests {
         let k = KFold {
             n_splits: 3,
             shuffle: false,
-            seed: None,
+            seed: Option::None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(33, 100);
         let test_indices = k.test_indices(&x);
@@ -181,7 +181,7 @@ mod tests {
         let k = KFold {
             n_splits: 3,
             shuffle: false,
-            seed: None,
+            seed: Option::None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(34, 100);
         let test_indices = k.test_indices(&x);
@@ -197,7 +197,7 @@ mod tests {
         let k = KFold {
             n_splits: 2,
             shuffle: false,
-            seed: None,
+            seed: Option::None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
         let test_masks = k.test_masks(&x);
@@ -224,7 +224,7 @@ mod tests {
         let k = KFold {
             n_splits: 2,
             shuffle: false,
-            seed: None,
+            seed: Option::None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(22, 100);
         let train_test_splits: Vec<(Vec<usize>, Vec<usize>)> = k.split(&x).collect();
@@ -257,7 +257,7 @@ mod tests {
         let k = KFold {
             n_splits: 3,
             shuffle: false,
-            seed: None,
+            seed: Option::None,
         };
         let x: DenseMatrix<f64> = DenseMatrix::rand(10, 4);
         let expected: Vec<(Vec<usize>, Vec<usize>)> = vec![

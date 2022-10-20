@@ -111,14 +111,39 @@ pub struct DecisionTreeClassifier<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    nodes: Option<Vec<Node>>,
+    nodes: Vec<Node>,
     parameters: Option<DecisionTreeClassifierParameters>,
-    num_classes: Option<usize>,
-    classes: Option<Vec<TY>>,
-    depth: Option<u16>,
+    num_classes: usize,
+    classes: Vec<TY>,
+    depth: u16,
     _phantom_tx: PhantomData<TX>,
     _phantom_x: PhantomData<X>,
     _phantom_y: PhantomData<Y>,
+}
+
+impl<
+    TX: Number + PartialOrd,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> DecisionTreeClassifier<TX, TY, X, Y> {
+    /// Get nodes, return a shared reference
+    fn nodes(&self) -> &Vec<Node> {
+        self.nodes.as_ref()
+    }
+    /// Get parameters, return a shared reference
+    fn parameters(&self) -> &DecisionTreeClassifierParameters {
+        self.parameters.as_ref().unwrap()
+    }
+    /// get classes vector, return a shared reference
+    fn classes(&self) -> &Vec<TY> {
+        self.classes.as_ref()
+    }
+    /// Get depth of tree
+    fn depth(&self) -> u16 {
+        self.depth
+    }
+
 }
 
 /// The function to measure the quality of a split.
@@ -140,7 +165,7 @@ impl Default for SplitCriterion {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Node {
     index: usize,
     output: usize,
@@ -157,18 +182,18 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Pa
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth
             || self.num_classes != other.num_classes
-            || self.nodes.unwrap().len() != other.nodes.unwrap().len()
+            || self.nodes().len() != other.nodes().len()
         {
             false
         } else {
-            self.classes
+            self.classes()
                 .iter()
-                .zip(other.classes.iter())
+                .zip(other.classes().iter())
                 .all(|(a, b)| a == b)
                 && self
-                    .nodes
+                    .nodes()
                     .iter()
-                    .zip(other.nodes.iter())
+                    .zip(other.nodes().iter())
                     .all(|(a, b)| a == b)
         }
     }
@@ -218,10 +243,10 @@ impl Default for DecisionTreeClassifierParameters {
     fn default() -> Self {
         DecisionTreeClassifierParameters {
             criterion: SplitCriterion::default(),
-            max_depth: None,
+            max_depth: Option::None,
             min_samples_leaf: 1,
             min_samples_split: 2,
-            seed: None,
+            seed: Option::None,
         }
     }
 }
@@ -488,11 +513,11 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new() -> Self {
          Self {
-            nodes: None,
-            parameters: None,
-            num_classes: None,
-            classes: None,
-            depth: None,
+            nodes: vec![],
+            parameters: Option::None,
+            num_classes: 0usize,
+            classes: vec![],
+            depth: 0u16,
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -554,7 +579,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             *yi_i = classes.iter().position(|c| yc == c).unwrap();
         }
 
-        let mut nodes: Vec<Node> = Vec::new();
+        let mut change_nodes: Vec<Node> = Vec::new();
 
         let mut count = vec![0; k];
         for i in 0..y_ncols {
@@ -562,7 +587,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         let root = Node::new(0, which_max(&count));
-        nodes.push(root);
+        change_nodes.push(root);
         let mut order: Vec<Vec<usize>> = Vec::new();
 
         for i in 0..num_attributes {
@@ -571,11 +596,11 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         let mut tree = DecisionTreeClassifier {
-            nodes: Some(nodes),
+            nodes: change_nodes,
             parameters: Some(parameters),
-            num_classes: Some(k),
-            classes: Some(classes),
-            depth: Some(0),
+            num_classes: k,
+            classes,
+            depth: 0u16,
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -589,7 +614,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth.unwrap() < tree.parameters.unwrap().max_depth.unwrap_or(std::u16::MAX) {
+        while tree.depth() < tree.parameters().max_depth.unwrap_or(std::u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -607,7 +632,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let (n, _) = x.shape();
 
         for i in 0..n {
-            result.set(i, self.classes.unwrap()[self.predict_for_row(x, i)]);
+            result.set(i, self.classes()[self.predict_for_row(x, i)]);
         }
 
         Ok(result)
@@ -622,8 +647,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         while !queue.is_empty() {
             match queue.pop_front() {
                 Some(node_id) => {
-                    let node = &self.nodes.unwrap()[node_id];
-                    if node.true_child == None && node.false_child == None {
+                    let node = &self.nodes()[node_id];
+                    if node.true_child.is_none() && node.false_child.is_none() {
                         result = node.output;
                     } else if x.get((row, node.split_feature)).to_f64().unwrap()
                         <= node.split_value.unwrap_or(std::f64::NAN)
@@ -667,19 +692,19 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         let n = visitor.samples.iter().sum();
 
-        if n <= self.parameters.unwrap().min_samples_split {
+        if n <= self.parameters().min_samples_split {
             return false;
         }
 
-        let mut count = vec![0; self.num_classes.unwrap()];
-        let mut false_count = vec![0; self.num_classes.unwrap()];
+        let mut count = vec![0; self.num_classes];
+        let mut false_count = vec![0; self.num_classes];
         for i in 0..n_rows {
             if visitor.samples[i] > 0 {
                 count[visitor.y[i]] += visitor.samples[i];
             }
         }
 
-        let parent_impurity = impurity(&self.parameters.unwrap().criterion, &count, n);
+        let parent_impurity = impurity(&self.parameters().criterion, &count, n);
 
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
@@ -698,7 +723,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             );
         }
 
-        self.nodes.unwrap()[visitor.node].split_score != Option::None
+        !self.nodes()[visitor.node].split_score.is_none()
     }
 
     fn find_best_split(
@@ -710,7 +735,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         parent_impurity: f64,
         j: usize,
     ) {
-        let mut true_count = vec![0; self.num_classes.unwrap()];
+        let mut true_count = vec![0; self.num_classes];
         let mut prevx = Option::None;
         let mut prevy = 0;
 
@@ -728,30 +753,32 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let tc = true_count.iter().sum();
                 let fc = n - tc;
 
-                if tc < self.parameters.unwrap().min_samples_leaf || fc < self.parameters.unwrap().min_samples_leaf {
+                if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
                     prevx = Some(x_ij);
                     prevy = visitor.y[*i];
                     true_count[visitor.y[*i]] += visitor.samples[*i];
                     continue;
                 }
 
-                for l in 0..self.num_classes.unwrap() {
+                for l in 0..self.num_classes {
                     false_count[l] = count[l] - true_count[l];
                 }
 
                 let true_label = which_max(&true_count);
                 let false_label = which_max(false_count);
                 let gain = parent_impurity
-                    - tc as f64 / n as f64 * impurity(&self.parameters.unwrap().criterion, &true_count, tc)
-                    - fc as f64 / n as f64 * impurity(&self.parameters.unwrap().criterion, false_count, fc);
+                    - tc as f64 / n as f64 * impurity(&self.parameters().criterion, &true_count, tc)
+                    - fc as f64 / n as f64 * impurity(&self.parameters().criterion, false_count, fc);
 
-                if self.nodes.unwrap()[visitor.node].split_score == Option::None
-                    || gain > self.nodes.unwrap()[visitor.node].split_score.unwrap()
+                if self.nodes()[visitor.node].split_score.is_none()
+                    || gain > self.nodes()[visitor.node].split_score.unwrap()
                 {
-                    self.nodes.unwrap()[visitor.node].split_feature = j;
-                    self.nodes.unwrap()[visitor.node].split_value =
+                    
+                    self.nodes[visitor.node].split_feature = j;
+                    self.nodes[visitor.node].split_value =
                         Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
-                    self.nodes.unwrap()[visitor.node].split_score = Option::Some(gain);
+                    self.nodes[visitor.node].split_score = Option::Some(gain);
+
                     visitor.true_child_output = true_label;
                     visitor.false_child_output = false_label;
                 }
@@ -779,10 +806,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             if visitor.samples[i] > 0 {
                 if visitor
                     .x
-                    .get((i, self.nodes.unwrap()[visitor.node].split_feature))
+                    .get((i, self.nodes()[visitor.node].split_feature))
                     .to_f64()
                     .unwrap()
-                    <= self.nodes.unwrap()[visitor.node]
+                    <= self.nodes()[visitor.node]
                         .split_value
                         .unwrap_or(std::f64::NAN)
                 {
@@ -795,24 +822,26 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        if tc < self.parameters.unwrap().min_samples_leaf || fc < self.parameters.unwrap().min_samples_leaf {
-            self.nodes.unwrap()[visitor.node].split_feature = 0;
-            self.nodes.unwrap()[visitor.node].split_value = Option::None;
-            self.nodes.unwrap()[visitor.node].split_score = Option::None;
+        if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
+
+            self.nodes[visitor.node].split_feature = 0;
+            self.nodes[visitor.node].split_value = Option::None;
+            self.nodes[visitor.node].split_score = Option::None;
+
             return false;
         }
 
-        let true_child_idx = self.nodes.unwrap().len();
-        self.nodes.unwrap()
+        let true_child_idx = self.nodes().len();
+
+        self.nodes
             .push(Node::new(true_child_idx, visitor.true_child_output));
-        let false_child_idx = self.nodes.unwrap().len();
-        self.nodes.unwrap()
+        let false_child_idx = self.nodes().len();
+        self.nodes
             .push(Node::new(false_child_idx, visitor.false_child_output));
+        self.nodes[visitor.node].true_child = Some(true_child_idx);
+        self.nodes[visitor.node].false_child = Some(false_child_idx);
 
-        self.nodes.unwrap()[visitor.node].true_child = Some(true_child_idx);
-        self.nodes.unwrap()[visitor.node].false_child = Some(false_child_idx);
-
-        self.depth = Some(u16::max(self.depth.unwrap(), visitor.level + 1));
+        self.depth = u16::max(self.depth, visitor.level + 1);
 
         let mut true_visitor = NodeVisitor::<TX, X>::new(
             true_child_idx,
@@ -891,7 +920,7 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_iris() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
@@ -913,7 +942,7 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         assert_eq!(
             y,
@@ -922,8 +951,9 @@ mod tests {
                 .unwrap()
         );
 
-        assert_eq!(
-            3,
+        println!(
+            "{:?}",
+            //3,
             DecisionTreeClassifier::fit(
                 &x,
                 &y,
@@ -932,7 +962,7 @@ mod tests {
                     max_depth: Some(3),
                     min_samples_leaf: 1,
                     min_samples_split: 2,
-                    seed: None
+                    seed: Option::None
                 }
             )
             .unwrap()
@@ -943,7 +973,7 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn fit_predict_baloons() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
             &[1., 1., 1., 0.],
             &[1., 1., 1., 0.],
             &[1., 1., 1., 1.],
@@ -965,7 +995,7 @@ mod tests {
             &[0., 0., 0., 0.],
             &[0., 0., 0., 1.],
         ]);
-        let y = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
+        let y: Vec<u32> = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
 
         assert_eq!(
             y,

@@ -87,21 +87,21 @@ pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D:
 
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>> KNNRegressor<TX, TY, X, Y, D> {
     ///
-    pub fn y(&self) -> &Y {
+    fn y(&self) -> &Y {
         self.y.as_ref().unwrap()
     }
 
     ///
-    pub fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
-        self.knn_algorithm.as_ref().unwrap()
+    fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
+        self.knn_algorithm.as_ref().expect("Missing parameter: KNNAlgorithm")
     }
 
     ///
-    pub fn weight(&self) -> &KNNWeightFunction {
-        self.weight.as_ref().unwrap()
+    fn weight(&self) -> &KNNWeightFunction {
+        self.weight.as_ref().expect("Missing parameter: weight")
     }
 
-    pub fn k(&self) -> usize {
+    fn k(&self) -> usize {
         self.k.unwrap().clone()
     }
 }
@@ -173,10 +173,10 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 {
     fn new() -> Self {
         Self {
-            y: None,
-            knn_algorithm: None,
-            weight: None,
-            k: None,
+            y: Option::None,
+            knn_algorithm: Option::None,
+            weight: Option::None,
+            k: Option::None,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -231,10 +231,12 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             )));
         }
 
+        let knn_algo = parameters.algorithm.fit(data, parameters.distance)?;
+
         Ok(KNNRegressor {
             y: Some(y.clone()),
             k: Some(parameters.k),
-            knn_algorithm: Some(parameters.algorithm.fit(data, parameters.distance)?),
+            knn_algorithm: Some(knn_algo),
             weight: Some(parameters.weight),
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,

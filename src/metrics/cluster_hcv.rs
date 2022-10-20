@@ -61,17 +61,17 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
     fn new() -> Self {
         Self {
             _phantom: PhantomData,
-            homogeneity: None,
-            completeness: None,
-            v_measure: None,
+            homogeneity: Option::None,
+            completeness: Option::None,
+            v_measure: Option::None,
         }
     }
     fn new_with(_parameter: f64) -> Self {
         Self {
             _phantom: PhantomData,
-            homogeneity: None,
-            completeness: None,
-            v_measure: None,
+            homogeneity: Option::None,
+            completeness: Option::None,
+            v_measure: Option::None,
         }
     }
     /// Computes Homogeneity, completeness and V-Measure scores at once.

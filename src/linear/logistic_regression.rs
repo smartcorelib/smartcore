@@ -382,9 +382,9 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
 {
     fn new() -> Self {
         Self {
-            coefficients: None,
-            intercept: None,
-            classes: None,
+            coefficients: Option::None,
+            intercept: Option::None,
+            classes: Option::None,
             num_attributes: 0,
             num_classes: 0,
             _phantom_tx: PhantomData,

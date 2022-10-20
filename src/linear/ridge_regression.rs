@@ -257,9 +257,9 @@ impl<
 {
     fn new() -> Self {
         Self {
-            coefficients: None,
-            intercept: None,
-            solver: None,
+            coefficients: Option::None,
+            intercept: Option::None,
+            solver: Option::None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,   
         }

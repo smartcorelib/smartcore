@@ -187,11 +187,11 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 {
     fn new() -> Self {
         Self {
-            classes: None,
-            y: None,
-            knn_algorithm: None,
-            weight: None,
-            k: None,
+            classes: Option::None,
+            y: Option::None,
+            knn_algorithm: Option::None,
+            weight: Option::None,
+            k: Option::None,
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,

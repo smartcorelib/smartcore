@@ -141,7 +141,7 @@ impl RandomForestRegressorParameters {
 impl Default for RandomForestRegressorParameters {
     fn default() -> Self {
         RandomForestRegressorParameters {
-            max_depth: None,
+            max_depth: Option::None,
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
@@ -571,7 +571,7 @@ mod tests {
             &x,
             &y,
             RandomForestRegressorParameters {
-                max_depth: None,
+                max_depth: Option::None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 1000,
@@ -616,7 +616,7 @@ mod tests {
             &x,
             &y,
             RandomForestRegressorParameters {
-                max_depth: None,
+                max_depth: Option::None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 1000,

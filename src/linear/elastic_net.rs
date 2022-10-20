@@ -286,8 +286,8 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new() -> Self {
         Self {
-            coefficients: None,
-            intercept: None,
+            coefficients: Option::None,
+            intercept: Option::None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }

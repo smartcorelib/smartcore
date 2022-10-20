@@ -140,7 +140,7 @@ impl Default for KMeansParameters {
         KMeansParameters {
             k: 2,
             max_iter: 100,
-            seed: None,
+            seed: Option::None,
         }
     }
 }

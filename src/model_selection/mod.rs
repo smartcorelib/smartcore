@@ -57,8 +57,9 @@
 //! ```
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::model_selection::{KFold, cross_validate};
-//! use smartcore::metrics::accuracy::Accuracy;
+//! use smartcore::metrics::accuracy;
 //! use smartcore::linear::logistic_regression::LogisticRegression;
+//! use smartcore::api::SupervisedEstimator;
 //! use smartcore::linalg::basic::arrays::Array;
 //!
 //! //Iris data
@@ -90,11 +91,12 @@
 //!
 //! let cv = KFold::default().with_n_splits(3);
 //!
-//! let results = cross_validate(LogisticRegression::fit,   //estimator
-//!                                 &x, &y,                 //data
-//!                                 Default::default(),     //hyperparameters
-//!                                 cv,                     //cross validation split
-//!                                 Accuracy::new()).unwrap();    //metric
+//! let results = cross_validate(
+//!     LogisticRegression::new(),   //estimator
+//!     &x, &y,                 //data
+//!     Default::default(),     //hyperparameters
+//!     cv,                     //cross validation split
+//!     &accuracy).unwrap();    //metric
 //!
 //! println!("Training accuracy: {}, test accuracy: {}",
 //!     results.mean_test_score(), results.mean_train_score());
@@ -218,8 +220,8 @@ impl<T: Number + RealNumber> CrossValidationResult<T> {
 /// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
 /// * `score` - a metric to use for evaluation, see [metrics](../metrics/index.html)
-pub fn cross_validate<TX, TY, X, Y, H, E, K, P, S>(
-    estimator: E,
+pub fn cross_validate<TX, TY, X, Y, H, E, K, S>(
+    _estimator: E,
     x: &X,
     y: &Y,
     parameters: H,
@@ -232,7 +234,6 @@ where
     X: Array2<TX>,
     Y: Array1<TY>,
     H: Clone,
-    P: Predictor<X, Y>,
     K: BaseKFold,
     E: SupervisedEstimator<X, Y, H>,
     S: Fn(&Y, &Y) -> f64,
@@ -247,10 +248,10 @@ where
         let test_x = x.take(&test_idx, 0);
         let test_y = y.take(&test_idx);
 
-        <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
+        let computed = <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
 
-        train_score.push(score(&train_y, &estimator.predict(&train_x)?));
-        test_score.push(score(&test_y, &estimator.predict(&test_x)?));
+        train_score.push(score(&train_y, &computed.predict(&train_x)?));
+        test_score.push(score(&test_y, &computed.predict(&test_x)?));
     }
 
     Ok(CrossValidationResult {
@@ -266,8 +267,8 @@ where
 /// * `y` - target values, should be of size _N_
 /// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
-pub fn cross_val_predict<TX, TY, X, Y, H, E, K, P>(
-    estimator: E,
+pub fn cross_val_predict<TX, TY, X, Y, H, E, K>(
+    _estimator: E,
     x: &X,
     y: &Y,
     parameters: H,
@@ -279,7 +280,6 @@ where
     X: Array2<TX>,
     Y: Array1<TY>,
     H: Clone,
-    P: Predictor<X, Y>,
     K: BaseKFold,
     E: SupervisedEstimator<X, Y, H>,
 {
@@ -290,9 +290,9 @@ where
         let train_y = y.take(&train_idx);
         let test_x = x.take(&test_idx, 0);
 
-        <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
+        let computed = <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
 
-        let y_test_hat = estimator.predict(&test_x)?;
+        let y_test_hat = computed.predict(&test_x)?;
         for (i, &idx) in test_idx.iter().enumerate() {
             y_hat.set(idx, *y_test_hat.get(i));
         }
@@ -308,11 +308,14 @@ mod tests {
     use crate::api::NoParameters;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::metrics::distance::Distances;
     use crate::metrics::{accuracy, mean_absolute_error};
     use crate::model_selection::kfold::KFold;
     use crate::model_selection::cross_validate;
-    use crate::neighbors::knn_regressor::KNNRegressor;
-    use smartcore::linear::logistic_regression::LogisticRegression;
+    use crate::algorithm::neighbour::KNNAlgorithmName;
+    use crate::neighbors::KNNWeightFunction;
+    use crate::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
+    use crate::linear::logistic_regression::LogisticRegression;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -345,6 +348,7 @@ mod tests {
         struct BiasedEstimator {}
 
         impl<X: Array2<f32>, Y: Array1<u32>, P: NoParameters> SupervisedEstimator<X, Y, P> for BiasedEstimator {
+            fn new() -> Self { Self {} }
             fn fit(
                 _: &X,
                 _: &Y,
@@ -361,7 +365,7 @@ mod tests {
             }
         }
 
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f32> = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
@@ -383,7 +387,7 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y = vec![
+        let y: Vec<u32> = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         ];
 
@@ -453,7 +457,7 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_cross_val_predict_knn() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],
             &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
             &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
@@ -471,17 +475,26 @@ mod tests {
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
         ]);
-        let y = vec![
+        let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
             114.2, 115.7, 116.9,
         ];
 
-        let cv = KFold {
+        let cv: KFold = KFold {
             n_splits: 2,
             ..KFold::default()
         };
 
-        let y_hat = cross_val_predict(KNNRegressor::fit, &x, &y, Default::default(), cv).unwrap();
+        let y_hat: Vec<f64> = cross_val_predict(
+            KNNRegressor::new(),
+            &x, &y, 
+            KNNRegressorParameters::default()
+                .with_k(3)
+                .with_distance(Distances::euclidian())
+                .with_algorithm(KNNAlgorithmName::LinearSearch)
+                .with_weight(KNNWeightFunction::Distance),
+            cv
+        ).unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 10.0);
     }
