@@ -92,10 +92,10 @@
 //! let cv = KFold::default().with_n_splits(3);
 //!
 //! let results = cross_validate(
-//!     LogisticRegression::new(),   //estimator
+//!     &LogisticRegression::new(),   //estimator
 //!     &x, &y,                 //data
 //!     Default::default(),     //hyperparameters
-//!     cv,                     //cross validation split
+//!     &cv,                     //cross validation split
 //!     &accuracy).unwrap();    //metric
 //!
 //! println!("Training accuracy: {}, test accuracy: {}",
@@ -187,29 +187,29 @@ pub fn train_test_split<
 
 /// Cross validation results.
 #[derive(Clone, Debug)]
-pub struct CrossValidationResult<T: Number + RealNumber> {
+pub struct CrossValidationResult {
     /// Vector with test scores on each cv split
-    pub test_score: Vec<T>,
+    pub test_score: Vec<f64>,
     /// Vector with training scores on each cv split
-    pub train_score: Vec<T>,
+    pub train_score: Vec<f64>,
 }
 
-impl<T: Number + RealNumber> CrossValidationResult<T> {
+impl CrossValidationResult {
     /// Average test score
-    pub fn mean_test_score(&self) -> T {
-        let mut sum = T::zero();
+    pub fn mean_test_score(&self) -> f64 {
+        let mut sum = 0f64;
         for s in self.test_score.iter() {
             sum += *s;
         }
-        sum / T::from(self.test_score.len()).unwrap()
+        sum / self.test_score.len() as f64
     }
     /// Average training score
-    pub fn mean_train_score(&self) -> T {
-        let mut sum = T::zero();
+    pub fn mean_train_score(&self) -> f64 {
+        let mut sum = 0f64;
         for s in self.train_score.iter() {
             sum += *s;
         }
-        sum / T::from(self.train_score.len()).unwrap()
+        sum / self.train_score.len() as f64
     }
 }
 
@@ -221,13 +221,13 @@ impl<T: Number + RealNumber> CrossValidationResult<T> {
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
 /// * `score` - a metric to use for evaluation, see [metrics](../metrics/index.html)
 pub fn cross_validate<TX, TY, X, Y, H, E, K, S>(
-    _estimator: E,
+    _estimator: &E,
     x: &X,
     y: &Y,
     parameters: H,
-    cv: K,
-    score: S,
-) -> Result<CrossValidationResult<f64>, Failed>
+    cv: &K,
+    score: &S,
+) -> Result<CrossValidationResult, Failed>
 where
     TX: Number + RealNumber,
     TY: Number,
@@ -268,11 +268,11 @@ where
 /// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
 pub fn cross_val_predict<TX, TY, X, Y, H, E, K>(
-    _estimator: E,
+    _estimator: &E,
     x: &X,
     y: &Y,
     parameters: H,
-    cv: K,
+    cv: &K,
 ) -> Result<Y, Failed>
 where
     TX: Number,
@@ -398,10 +398,10 @@ mod tests {
 
         let results =
             cross_validate(
-                BiasedEstimator {},
+                &BiasedEstimator {},
                 &x, &y, 
                 BiasedParameters {},
-                cv,
+                &cv,
                 &accuracy
             ).unwrap();
 
@@ -441,11 +441,11 @@ mod tests {
         };
 
         let results = cross_validate(
-            KNNRegressor::new(),
+            &KNNRegressor::new(),
             &x,
             &y,
             Default::default(),
-            cv,
+            &cv,
             &mean_absolute_error,
         )
         .unwrap();
@@ -486,14 +486,14 @@ mod tests {
         };
 
         let y_hat: Vec<f64> = cross_val_predict(
-            KNNRegressor::new(),
+            &KNNRegressor::new(),
             &x, &y, 
             KNNRegressorParameters::default()
                 .with_k(3)
                 .with_distance(Distances::euclidian())
                 .with_algorithm(KNNAlgorithmName::LinearSearch)
                 .with_weight(KNNWeightFunction::Distance),
-            cv
+            &cv
         ).unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 10.0);
@@ -530,11 +530,11 @@ mod tests {
         let cv = KFold::default().with_n_splits(3);
 
         let results = cross_validate(
-            LogisticRegression::new(),
+            &LogisticRegression::new(),
             &x,
             &y,
             Default::default(),
-            cv,
+            &cv,
             &accuracy
         ).unwrap();
         println!("{:?}", results);
