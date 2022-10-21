@@ -324,7 +324,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
 {
     fn new() -> Self {
         Self {
-            inner: Option::None
+            inner: Option::None,
         }
     }
 

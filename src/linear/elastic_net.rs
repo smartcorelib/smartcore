@@ -268,13 +268,12 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
 {
     fn eq(&self, other: &Self) -> bool {
         if self.intercept() != other.intercept() {
-            return false
+            return false;
         }
         if self.coefficients().shape() != other.coefficients().shape() {
-            return false
+            return false;
         }
-        self
-            .coefficients()
+        self.coefficients()
             .iterator(0)
             .zip(other.coefficients().iterator(0))
             .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())

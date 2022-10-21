@@ -88,13 +88,9 @@ pub struct KNNClassifier<
     _phantom_y: PhantomData<Y>,
 }
 
-impl<
-TX: Number,
-TY: Number + Ord,
-X: Array2<TX>,
-Y: Array1<TY>,
-D: Distance<Vec<TX>>,
-> KNNClassifier<TX, TY, X, Y, D> {
+impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    KNNClassifier<TX, TY, X, Y, D>
+{
     fn classes(&self) -> &Vec<TY> {
         self.classes.as_ref().unwrap()
     }

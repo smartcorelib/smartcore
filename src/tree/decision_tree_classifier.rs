@@ -121,12 +121,9 @@ pub struct DecisionTreeClassifier<
     _phantom_y: PhantomData<Y>,
 }
 
-impl<
-    TX: Number + PartialOrd,
-    TY: Number + Ord,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> DecisionTreeClassifier<TX, TY, X, Y> {
+impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    DecisionTreeClassifier<TX, TY, X, Y>
+{
     /// Get nodes, return a shared reference
     fn nodes(&self) -> &Vec<Node> {
         self.nodes.as_ref()
@@ -143,7 +140,6 @@ impl<
     fn depth(&self) -> u16 {
         self.depth
     }
-
 }
 
 /// The function to measure the quality of a split.
@@ -512,7 +508,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     for DecisionTreeClassifier<TX, TY, X, Y>
 {
     fn new() -> Self {
-         Self {
+        Self {
             nodes: vec![],
             parameters: Option::None,
             num_classes: 0usize,
@@ -521,7 +517,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
-         }
+        }
     }
 
     fn fit(x: &X, y: &Y, parameters: DecisionTreeClassifierParameters) -> Result<Self, Failed> {
@@ -753,7 +749,9 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let tc = true_count.iter().sum();
                 let fc = n - tc;
 
-                if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
+                if tc < self.parameters().min_samples_leaf
+                    || fc < self.parameters().min_samples_leaf
+                {
                     prevx = Some(x_ij);
                     prevy = visitor.y[*i];
                     true_count[visitor.y[*i]] += visitor.samples[*i];
@@ -767,13 +765,14 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let true_label = which_max(&true_count);
                 let false_label = which_max(false_count);
                 let gain = parent_impurity
-                    - tc as f64 / n as f64 * impurity(&self.parameters().criterion, &true_count, tc)
-                    - fc as f64 / n as f64 * impurity(&self.parameters().criterion, false_count, fc);
+                    - tc as f64 / n as f64
+                        * impurity(&self.parameters().criterion, &true_count, tc)
+                    - fc as f64 / n as f64
+                        * impurity(&self.parameters().criterion, false_count, fc);
 
                 if self.nodes()[visitor.node].split_score.is_none()
                     || gain > self.nodes()[visitor.node].split_score.unwrap()
                 {
-                    
                     self.nodes[visitor.node].split_feature = j;
                     self.nodes[visitor.node].split_value =
                         Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
@@ -823,7 +822,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
-
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
             self.nodes[visitor.node].split_score = Option::None;

@@ -172,7 +172,12 @@ impl<T: Number + FloatNumber> Default for LogisticRegressionSearchParameters<T> 
 /// Logistic Regression
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct LogisticRegression<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
+pub struct LogisticRegression<
+    TX: Number + FloatNumber + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> {
     coefficients: Option<X>,
     intercept: Option<X>,
     classes: Option<Vec<TY>>,
@@ -226,8 +231,8 @@ impl<T: Number + FloatNumber> Default for LogisticRegressionParameters<T> {
     }
 }
 
-impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
-    for LogisticRegression<TX, TY, X, Y>
+impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    PartialEq for LogisticRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.num_classes != other.num_classes
@@ -397,8 +402,8 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     }
 }
 
-impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
-    for LogisticRegression<TX, TY, X, Y>
+impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    Predictor<X, Y> for LogisticRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
@@ -508,7 +513,8 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
             for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
                 result.set(
                     i,
-                    self.classes()[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half() {
+                    self.classes()[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half()
+                    {
                         1
                     } else {
                         0

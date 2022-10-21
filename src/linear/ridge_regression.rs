@@ -261,7 +261,7 @@ impl<
             intercept: Option::None,
             solver: Option::None,
             _phantom_ty: PhantomData,
-            _phantom_y: PhantomData,   
+            _phantom_y: PhantomData,
         }
     }
 

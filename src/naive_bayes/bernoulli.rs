@@ -356,7 +356,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     fn new() -> Self {
         Self {
             inner: Option::None,
-            binarize: Option::None
+            binarize: Option::None,
         }
     }
 
@@ -406,7 +406,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         if let Some(threshold) = self.binarize {
-            self.inner.as_ref().unwrap().predict(&Self::binarize(x, threshold))
+            self.inner
+                .as_ref()
+                .unwrap()
+                .predict(&Self::binarize(x, threshold))
         } else {
             self.inner.as_ref().unwrap().predict(x)
         }

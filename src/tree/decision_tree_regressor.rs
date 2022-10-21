@@ -108,7 +108,9 @@ pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<
     _phantom_y: PhantomData<Y>,
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> DecisionTreeRegressor<TX, TY, X, Y> {
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    DecisionTreeRegressor<TX, TY, X, Y>
+{
     /// Get nodes, return a shared reference
     fn nodes(&self) -> &Vec<Node> {
         self.nodes.as_ref()
@@ -121,7 +123,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> Decision
     fn depth(&self) -> u16 {
         self.depth
     }
-
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -603,7 +604,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 if self.nodes()[visitor.node].split_score.is_none()
                     || gain > self.nodes()[visitor.node].split_score.unwrap()
                 {
-
                     self.nodes[visitor.node].split_feature = j;
                     self.nodes[visitor.node].split_value =
                         Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
@@ -653,7 +653,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
-
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
             self.nodes[visitor.node].split_score = Option::None;

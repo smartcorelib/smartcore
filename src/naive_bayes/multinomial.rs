@@ -299,9 +299,9 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
 {
     fn new() -> Self {
-       Self {
-           inner: Option::None
-       }
+        Self {
+            inner: Option::None,
+        }
     }
 
     fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {

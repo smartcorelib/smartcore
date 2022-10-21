@@ -92,7 +92,9 @@ impl GaussianNBParameters {
 
 impl GaussianNBParameters {
     fn default() -> Self {
-        Self { priors: Option::None }
+        Self {
+            priors: Option::None,
+        }
     }
 }
 
@@ -252,7 +254,7 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new() -> Self {
         Self {
-            inner: Option::None         
+            inner: Option::None,
         }
     }
 
