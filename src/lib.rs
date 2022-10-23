@@ -73,8 +73,8 @@ pub mod numbers;
 pub mod algorithm;
 pub mod api;
 
-// /// Algorithms for clustering of unlabeled data
-// pub mod cluster;
+/// Algorithms for clustering of unlabeled data
+pub mod cluster;
 /// Various datasets
 #[cfg(feature = "datasets")]
 pub mod dataset;

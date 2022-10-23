@@ -62,7 +62,7 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::bbd_tree::BBDTree;
 use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::metrics::distance::euclidian::*;
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;

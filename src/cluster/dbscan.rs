@@ -20,7 +20,7 @@
 //!
 //! ```
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
-//! use smartcore::linalg::base::Array2;
+//! use smartcore::linalg::basic::arrays::Array2;
 //! use smartcore::cluster::dbscan::*;
 //! use smartcore::metrics::distance::Distances;
 //! use smartcore::neighbors::KNNAlgorithmName;
@@ -50,7 +50,7 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, UnsupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::base::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::metrics::distance::euclidian::Euclidian;
 use crate::metrics::distance::{Distance, Distances};
 use crate::numbers::basenum::Number;

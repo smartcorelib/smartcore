@@ -108,7 +108,7 @@
 use rand::seq::SliceRandom;
 use std::fmt::{Debug, Display};
 
-use crate::api::{SupervisedEstimator, Predictor};
+use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
@@ -248,7 +248,8 @@ where
         let test_x = x.take(&test_idx, 0);
         let test_y = y.take(&test_idx);
 
-        let computed = <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
+        let computed =
+            <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
 
         train_score.push(score(&train_y, &computed.predict(&train_x)?));
         test_score.push(score(&test_y, &computed.predict(&test_x)?));
@@ -290,7 +291,8 @@ where
         let train_y = y.take(&train_idx);
         let test_x = x.take(&test_idx, 0);
 
-        let computed = <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
+        let computed =
+            <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
 
         let y_test_hat = computed.predict(&test_x)?;
         for (i, &idx) in test_idx.iter().enumerate() {
@@ -305,17 +307,17 @@ where
 mod tests {
 
     use super::*;
+    use crate::algorithm::neighbour::KNNAlgorithmName;
     use crate::api::NoParameters;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::linear::logistic_regression::LogisticRegression;
     use crate::metrics::distance::Distances;
     use crate::metrics::{accuracy, mean_absolute_error};
-    use crate::model_selection::kfold::KFold;
     use crate::model_selection::cross_validate;
-    use crate::algorithm::neighbour::KNNAlgorithmName;
-    use crate::neighbors::KNNWeightFunction;
+    use crate::model_selection::kfold::KFold;
     use crate::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
-    use crate::linear::logistic_regression::LogisticRegression;
+    use crate::neighbors::KNNWeightFunction;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -347,13 +349,13 @@ mod tests {
     fn test_cross_validate_biased() {
         struct BiasedEstimator {}
 
-        impl<X: Array2<f32>, Y: Array1<u32>, P: NoParameters> SupervisedEstimator<X, Y, P> for BiasedEstimator {
-            fn new() -> Self { Self {} }
-            fn fit(
-                _: &X,
-                _: &Y,
-                _: P,
-            ) -> Result<BiasedEstimator, Failed> {
+        impl<X: Array2<f32>, Y: Array1<u32>, P: NoParameters> SupervisedEstimator<X, Y, P>
+            for BiasedEstimator
+        {
+            fn new() -> Self {
+                Self {}
+            }
+            fn fit(_: &X, _: &Y, _: P) -> Result<BiasedEstimator, Failed> {
                 Ok(BiasedEstimator {})
             }
         }
@@ -387,23 +389,22 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y: Vec<u32> = vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        ];
+        let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let cv = KFold {
             n_splits: 5,
             ..KFold::default()
         };
 
-        let results =
-            cross_validate(
-                &BiasedEstimator {},
-                &x, &y, 
-                BiasedParameters {},
-                &cv,
-                &accuracy
-            ).unwrap();
+        let results = cross_validate(
+            &BiasedEstimator {},
+            &x,
+            &y,
+            BiasedParameters {},
+            &cv,
+            &accuracy,
+        )
+        .unwrap();
 
         assert_eq!(0.4, results.mean_test_score());
         assert_eq!(0.4, results.mean_train_score());
@@ -487,14 +488,16 @@ mod tests {
 
         let y_hat: Vec<f64> = cross_val_predict(
             &KNNRegressor::new(),
-            &x, &y, 
+            &x,
+            &y,
             KNNRegressorParameters::default()
                 .with_k(3)
                 .with_distance(Distances::euclidian())
                 .with_algorithm(KNNAlgorithmName::LinearSearch)
                 .with_weight(KNNWeightFunction::Distance),
-            &cv
-        ).unwrap();
+            &cv,
+        )
+        .unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 10.0);
     }
@@ -502,30 +505,28 @@ mod tests {
     #[test]
     fn test_cross_validation_accuracy() {
         let x = DenseMatrix::from_2d_array(&[
-           &[5.1, 3.5, 1.4, 0.2],
-           &[4.9, 3.0, 1.4, 0.2],
-           &[4.7, 3.2, 1.3, 0.2],
-           &[4.6, 3.1, 1.5, 0.2],
-           &[5.0, 3.6, 1.4, 0.2],
-           &[5.4, 3.9, 1.7, 0.4],
-           &[4.6, 3.4, 1.4, 0.3],
-           &[5.0, 3.4, 1.5, 0.2],
-           &[4.4, 2.9, 1.4, 0.2],
-           &[4.9, 3.1, 1.5, 0.1],
-           &[7.0, 3.2, 4.7, 1.4],
-           &[6.4, 3.2, 4.5, 1.5],
-           &[6.9, 3.1, 4.9, 1.5],
-           &[5.5, 2.3, 4.0, 1.3],
-           &[6.5, 2.8, 4.6, 1.5],
-           &[5.7, 2.8, 4.5, 1.3],
-           &[6.3, 3.3, 4.7, 1.6],
-           &[4.9, 2.4, 3.3, 1.0],
-           &[6.6, 2.9, 4.6, 1.3],
-           &[5.2, 2.7, 3.9, 1.4],
-           ]);
-        let y: Vec<i32> = vec![
-           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        ];
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
+        let y: Vec<i32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let cv = KFold::default().with_n_splits(3);
 
@@ -535,8 +536,9 @@ mod tests {
             &y,
             Default::default(),
             &cv,
-            &accuracy
-        ).unwrap();
+            &accuracy,
+        )
+        .unwrap();
         println!("{:?}", results);
     }
 }
