@@ -789,17 +789,18 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     ///
     fn slice_mut<'a>(&'a mut self, range: Range<usize>) -> Box<dyn MutArrayView1<T> + 'a>;
     ///
-    fn fill(len: usize, value: T) -> Self;
+    fn fill(len: usize, value: T) -> Self where Self: Sized;
     ///
-    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self;
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self where Self: Sized;
     ///
-    fn from_vec_slice(slice: &[T]) -> Self;
+    fn from_vec_slice(slice: &[T]) -> Self where Self: Sized;
     ///
-    fn from_slice<'a>(slice: &'_ dyn ArrayView1<T>) -> Self;
+    fn from_slice<'a>(slice: &'_ dyn ArrayView1<T>) -> Self where Self: Sized;
     ///
     fn zeros(len: usize) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         Self::fill(len, T::zero())
     }
@@ -807,6 +808,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn ones(len: usize) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         Self::fill(len, T::one())
     }
@@ -814,6 +816,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn rand(len: usize) -> Self
     where
         T: RealNumber,
+        Self: Sized,
     {
         Self::from_iterator((0..len).map(|_| T::rand()), len)
     }
@@ -821,6 +824,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn add_scalar(&self, x: T) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.add_scalar_mut(x);
@@ -830,6 +834,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn sub_scalar(&self, x: T) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.sub_scalar_mut(x);
@@ -839,6 +844,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn div_scalar(&self, x: T) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.div_scalar_mut(x);
@@ -848,6 +854,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn mul_scalar(&self, x: T) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.mul_scalar_mut(x);
@@ -857,15 +864,17 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn add(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.add_mut(other);
         result
     }
     ///
-    fn sub(&self, other: &dyn Array<T, usize>) -> Self
+    fn sub(&self, other: &impl Array1<T>) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.sub_mut(other);
@@ -875,6 +884,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn mul(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.mul_mut(other);
@@ -884,13 +894,14 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn div(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.div_mut(other);
         result
     }
     ///
-    fn take(&self, index: &[usize]) -> Self {
+    fn take(&self, index: &[usize]) -> Self where Self: Sized {
         let len = self.shape();
         assert!(
             index.iter().all(|&i| i < len),
@@ -903,6 +914,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn abs(&self) -> Self
     where
         T: Number + Signed,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.abs_mut();
@@ -912,6 +924,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn neg(&self) -> Self
     where
         T: Number + Neg<Output = T>,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.neg_mut();
@@ -921,6 +934,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn pow(&self, p: T) -> Self
     where
         T: RealNumber,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.pow_mut(p);
@@ -943,6 +957,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn softmax(&self) -> Self
     where
         T: RealNumber,
+        Self: Sized,
     {
         let mut result = self.clone();
         result.softmax_mut();
@@ -952,6 +967,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn xa(&self, a_transpose: bool, a: &dyn ArrayView2<T>) -> Self
     where
         T: Number,
+        Self: Sized,
     {
         let (nrows, ncols) = a.shape();
         let len = self.shape();
@@ -984,6 +1000,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,
+        Self: Sized,
     {
         (self.sub(other)).iterator(0).all(|v| v.abs() <= error)
     }
@@ -2117,5 +2134,34 @@ mod tests {
         a.cov(&mut result);
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let vec_a = Vec::from([64, 580, 29, 66, 570, 33]);
+        let vec_a_len = vec_a.len();
+        let mut a: Vec<i32> = Array1::<i32>::from_iterator(vec_a.into_iter(), vec_a_len);
+
+        let vec_b = vec![1, 1, 1, 1, 1, 1];
+        a.sub_mut(&vec_b);
+
+        assert_eq!(
+            a,
+            [63, 579, 28, 65, 569, 32]
+        )
+    }
+
+    #[test]
+    fn test_from_vec_slice() {
+        let vec_a = Vec::from([64, 580, 29, 66, 570, 33]);
+        let a: Vec<i32> = Array1::<i32>::from_vec_slice(&vec_a[0..3]);
+
+        let vec_b = vec![1, 1, 1];
+        let result = a.add(&vec_b);
+
+        assert_eq!(
+            result,
+            [65, 581, 30]
+        )
     }
 }
