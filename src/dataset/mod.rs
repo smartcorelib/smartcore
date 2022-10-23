@@ -84,6 +84,7 @@ pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn deserialize_data(
     bytes: &[u8],
 ) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {

@@ -101,8 +101,8 @@ pub mod optimization;
 pub mod preprocessing;
 // /// Reading in Data.
 // pub mod readers;
-// /// Support Vector Machines
-// pub mod svm;
+/// Support Vector Machines
+pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
 #[cfg(test)]

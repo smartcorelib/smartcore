@@ -23,19 +23,20 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-pub mod svc;
-pub mod svr;
+// pub mod svc;
+// pub mod svr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array1;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Defines a kernel function
-pub trait Kernel<T: RealNumber, V: BaseVector<T>>: Clone {
+pub trait Kernel<T: Number + RealNumber>: Clone {
     /// Apply kernel function to x_i and x_j
-    fn apply(&self, x_i: &V, x_j: &V) -> T;
+    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> T;
 }
 
 /// Pre-defined kernel functions
@@ -48,7 +49,7 @@ impl Kernels {
     }
 
     /// Radial basis function kernel (Gaussian)
-    pub fn rbf<T: RealNumber>(gamma: T) -> RBFKernel<T> {
+    pub fn rbf<T: Number + RealNumber>(gamma: T) -> RBFKernel<T> {
         RBFKernel { gamma }
     }
 
@@ -56,7 +57,7 @@ impl Kernels {
     /// * `degree` - degree of the polynomial
     /// * `gamma` - kernel coefficient
     /// * `coef0` - independent term in kernel function
-    pub fn polynomial<T: RealNumber>(degree: T, gamma: T, coef0: T) -> PolynomialKernel<T> {
+    pub fn polynomial<T: Number + RealNumber>(degree: T, gamma: T, coef0: T) -> PolynomialKernel<T> {
         PolynomialKernel {
             degree,
             gamma,
@@ -67,7 +68,7 @@ impl Kernels {
     /// Polynomial kernel
     /// * `degree` - degree of the polynomial
     /// * `n_features` - number of features in vector
-    pub fn polynomial_with_degree<T: RealNumber>(
+    pub fn polynomial_with_degree<T: Number + RealNumber>(
         degree: T,
         n_features: usize,
     ) -> PolynomialKernel<T> {
@@ -79,13 +80,13 @@ impl Kernels {
     /// Sigmoid kernel    
     /// * `gamma` - kernel coefficient
     /// * `coef0` - independent term in kernel function
-    pub fn sigmoid<T: RealNumber>(gamma: T, coef0: T) -> SigmoidKernel<T> {
+    pub fn sigmoid<T: Number + RealNumber>(gamma: T, coef0: T) -> SigmoidKernel<T> {
         SigmoidKernel { gamma, coef0 }
     }
 
     /// Sigmoid kernel    
     /// * `gamma` - kernel coefficient    
-    pub fn sigmoid_with_gamma<T: RealNumber>(gamma: T) -> SigmoidKernel<T> {
+    pub fn sigmoid_with_gamma<T: Number + RealNumber>(gamma: T) -> SigmoidKernel<T> {
         SigmoidKernel {
             gamma,
             coef0: T::one(),
@@ -101,7 +102,7 @@ pub struct LinearKernel {}
 /// Radial basis function (Gaussian) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RBFKernel<T: RealNumber> {
+pub struct RBFKernel<T: Number + RealNumber> {
     /// kernel coefficient
     pub gamma: T,
 }
@@ -109,7 +110,7 @@ pub struct RBFKernel<T: RealNumber> {
 /// Polynomial kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PolynomialKernel<T: RealNumber> {
+pub struct PolynomialKernel<T: Number + RealNumber> {
     /// degree of the polynomial
     pub degree: T,
     /// kernel coefficient
@@ -121,35 +122,35 @@ pub struct PolynomialKernel<T: RealNumber> {
 /// Sigmoid (hyperbolic tangent) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SigmoidKernel<T: RealNumber> {
+pub struct SigmoidKernel<T: Number + RealNumber> {
     /// kernel coefficient
     pub gamma: T,
     /// independent term in kernel function
     pub coef0: T,
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for LinearKernel {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+impl<T: Number + RealNumber> Kernel<T> for LinearKernel {
+    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> T {
         x_i.dot(x_j)
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for RBFKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+impl<T: Number + RealNumber> Kernel<T> for RBFKernel<T> {
+    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> T {
         let v_diff = x_i.sub(x_j);
         (-self.gamma * v_diff.mul(&v_diff).sum()).exp()
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for PolynomialKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+impl<T: Number + RealNumber> Kernel<T> for PolynomialKernel<T> {
+    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> T {
         let dot = x_i.dot(x_j);
         (self.gamma * dot + self.coef0).powf(self.degree)
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for SigmoidKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+impl<T: Number + RealNumber> Kernel<T> for SigmoidKernel<T> {
+    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> T {
         let dot = x_i.dot(x_j);
         (self.gamma * dot + self.coef0).tanh()
     }
