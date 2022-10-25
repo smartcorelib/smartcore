@@ -32,17 +32,18 @@ use std::fmt::Debug;
 
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 #[derive(Debug, Clone)]
 /// Results of QR decomposition.
-pub struct QR<T: FloatNumber, M: Array2<T>> {
+pub struct QR<T: Number + RealNumber, M: Array2<T>> {
     QR: M,
     tau: Vec<T>,
     singular: bool,
 }
 
-impl<T: FloatNumber, M: Array2<T>> QR<T, M> {
+impl<T: Number + RealNumber, M: Array2<T>> QR<T, M> {
     pub(crate) fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
         let mut singular = false;
         for tau_elem in tau.iter() {
@@ -141,7 +142,7 @@ impl<T: FloatNumber, M: Array2<T>> QR<T, M> {
 }
 
 /// Trait that implements QR decomposition routine for any matrix.
-pub trait QRDecomposable<T: FloatNumber>: Array2<T> {
+pub trait QRDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the QR decomposition of a matrix.
     fn qr(&self) -> Result<QR<T, Self>, Failed> {
         self.clone().qr_mut()

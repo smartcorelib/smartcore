@@ -3,3 +3,6 @@ pub mod basic;
 
 /// traits associated to algebraic constructs
 pub mod traits;
+
+#[cfg(feature = "ndarray-bindings")]
+pub mod ndarray;

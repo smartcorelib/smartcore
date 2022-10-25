@@ -55,12 +55,13 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
 use crate::linalg::traits::evd::EVDDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Principal components analysis algorithm
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct PCA<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> {
+pub struct PCA<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> {
     eigenvectors: X,
     eigenvalues: Vec<T>,
     projection: X,
@@ -68,7 +69,7 @@ pub struct PCA<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposab
     pmu: Vec<T>,
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PartialEq
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PartialEq
     for PCA<T, X>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -204,7 +205,7 @@ impl Default for PCASearchParameters {
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>>
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>>
     UnsupervisedEstimator<X, PCAParameters> for PCA<T, X>
 {
     fn fit(x: &X, parameters: PCAParameters) -> Result<Self, Failed> {
@@ -212,7 +213,7 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>>
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Transformer<X>
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Transformer<X>
     for PCA<T, X>
 {
     fn transform(&self, x: &X) -> Result<X, Failed> {
@@ -220,7 +221,7 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Tra
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PCA<T, X> {
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PCA<T, X> {
     /// Fits PCA to your data.
     /// * `data` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `n_components` - number of components to keep.

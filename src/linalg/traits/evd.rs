@@ -36,13 +36,14 @@
 
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 use num::complex::Complex;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 /// Results of eigen decomposition
-pub struct EVD<T: FloatNumber, M: Array2<T>> {
+pub struct EVD<T: Number + RealNumber, M: Array2<T>> {
     /// Real part of eigenvalues.
     pub d: Vec<T>,
     /// Imaginary part of eigenvalues.
@@ -52,7 +53,7 @@ pub struct EVD<T: FloatNumber, M: Array2<T>> {
 }
 
 /// Trait that implements EVD decomposition routine for any matrix.
-pub trait EVDDecomposable<T: FloatNumber>: Array2<T> {
+pub trait EVDDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the eigen decomposition of a square matrix.
     /// * `symmetric` - whether the matrix is symmetric
     fn evd(&self, symmetric: bool) -> Result<EVD<T, Self>, Failed> {
@@ -97,7 +98,7 @@ pub trait EVDDecomposable<T: FloatNumber>: Array2<T> {
     }
 }
 
-fn tred2<T: FloatNumber, M: Array2<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tred2<T: Number + RealNumber, M: Array2<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = V.shape();
     for (i, d_i) in d.iter_mut().enumerate().take(n) {
         *d_i = *V.get((n - 1, i));
@@ -195,7 +196,7 @@ fn tred2<T: FloatNumber, M: Array2<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>
     e[0] = T::zero();
 }
 
-fn tql2<T: FloatNumber, M: Array2<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn tql2<T: Number + RealNumber, M: Array2<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = V.shape();
     for i in 1..n {
         e[i - 1] = e[i];
@@ -303,7 +304,7 @@ fn tql2<T: FloatNumber, M: Array2<T>>(V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>)
     }
 }
 
-fn balance<T: FloatNumber, M: Array2<T>>(A: &mut M) -> Vec<T> {
+fn balance<T: Number + RealNumber, M: Array2<T>>(A: &mut M) -> Vec<T> {
     let radix = T::two();
     let sqrdx = radix * radix;
 
@@ -356,7 +357,7 @@ fn balance<T: FloatNumber, M: Array2<T>>(A: &mut M) -> Vec<T> {
     scale
 }
 
-fn elmhes<T: FloatNumber, M: Array2<T>>(A: &mut M) -> Vec<usize> {
+fn elmhes<T: Number + RealNumber, M: Array2<T>>(A: &mut M) -> Vec<usize> {
     let (n, _) = A.shape();
     let mut perm = vec![0; n];
 
@@ -398,7 +399,7 @@ fn elmhes<T: FloatNumber, M: Array2<T>>(A: &mut M) -> Vec<usize> {
     perm
 }
 
-fn eltran<T: FloatNumber, M: Array2<T>>(A: &M, V: &mut M, perm: &[usize]) {
+fn eltran<T: Number + RealNumber, M: Array2<T>>(A: &M, V: &mut M, perm: &[usize]) {
     let (n, _) = A.shape();
     for mp in (1..n - 1).rev() {
         for k in mp + 1..n {
@@ -415,7 +416,7 @@ fn eltran<T: FloatNumber, M: Array2<T>>(A: &M, V: &mut M, perm: &[usize]) {
     }
 }
 
-fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn hqr2<T: Number + RealNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
     let (n, _) = A.shape();
     let mut z = T::zero();
     let mut s = T::zero();
@@ -467,7 +468,7 @@ fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &
                     A.set((nn, nn), x);
                     A.set((nn - 1, nn - 1), y + t);
                     if q >= T::zero() {
-                        z = p + FloatNumber::copysign(z, p);
+                        z = p + <T as RealNumber>::copysign(z, p);
                         d[nn - 1] = x + z;
                         d[nn] = x + z;
                         if z != T::zero() {
@@ -566,7 +567,7 @@ fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &
                                 r /= x;
                             }
                         }
-                        let s = FloatNumber::copysign((p * p + q * q + r * r).sqrt(), p);
+                        let s = <T as RealNumber>::copysign((p * p + q * q + r * r).sqrt(), p);
                         if s != T::zero() {
                             if k == m {
                                 if l != m {
@@ -769,7 +770,7 @@ fn hqr2<T: FloatNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &
     }
 }
 
-fn balbak<T: FloatNumber, M: Array2<T>>(V: &mut M, scale: &[T]) {
+fn balbak<T: Number + RealNumber, M: Array2<T>>(V: &mut M, scale: &[T]) {
     let (n, _) = V.shape();
     for (i, scale_i) in scale.iter().enumerate().take(n) {
         for j in 0..n {
@@ -778,7 +779,7 @@ fn balbak<T: FloatNumber, M: Array2<T>>(V: &mut M, scale: &[T]) {
     }
 }
 
-fn sort<T: FloatNumber, M: Array2<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut M) {
+fn sort<T: Number + RealNumber, M: Array2<T>>(d: &mut Vec<T>, e: &mut Vec<T>, V: &mut M) {
     let n = d.len();
     let mut temp = vec![T::zero(); n];
     for j in 1..n {

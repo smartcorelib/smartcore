@@ -39,10 +39,11 @@ use std::marker::PhantomData;
 
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 #[derive(Debug, Clone)]
 /// Result of LU decomposition.
-pub struct LU<T: FloatNumber, M: Array2<T>> {
+pub struct LU<T: Number + RealNumber, M: Array2<T>> {
     LU: M,
     pivot: Vec<usize>,
     pivot_sign: i8,
@@ -50,7 +51,7 @@ pub struct LU<T: FloatNumber, M: Array2<T>> {
     phantom: PhantomData<T>,
 }
 
-impl<T: FloatNumber, M: Array2<T>> LU<T, M> {
+impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
     pub(crate) fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
         let (_, n) = LU.shape();
 
@@ -190,7 +191,7 @@ impl<T: FloatNumber, M: Array2<T>> LU<T, M> {
 }
 
 /// Trait that implements LU decomposition routine for any matrix.
-pub trait LUDecomposable<T: FloatNumber>: Array2<T> {
+pub trait LUDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the LU decomposition of a square matrix.
     fn lu(&self) -> Result<LU<T, Self>, Failed> {
         self.clone().lu_mut()

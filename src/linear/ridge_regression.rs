@@ -68,6 +68,7 @@ use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::linalg::traits::cholesky::CholeskyDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 use crate::numbers::floatnum::FloatNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -89,7 +90,7 @@ impl Default for RidgeRegressionSolverName {
 /// Ridge Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RidgeRegressionParameters<T: FloatNumber> {
+pub struct RidgeRegressionParameters<T: Number + RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
     /// Controls the strength of the penalty to the loss function.
@@ -102,7 +103,7 @@ pub struct RidgeRegressionParameters<T: FloatNumber> {
 /// Ridge Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RidgeRegressionSearchParameters<T: FloatNumber> {
+pub struct RidgeRegressionSearchParameters<T: Number + RealNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
     pub solver: Vec<RidgeRegressionSolverName>,
@@ -116,14 +117,14 @@ pub struct RidgeRegressionSearchParameters<T: FloatNumber> {
 }
 
 /// Ridge Regression grid search iterator
-pub struct RidgeRegressionSearchParametersIterator<T: FloatNumber> {
+pub struct RidgeRegressionSearchParametersIterator<T: Number + RealNumber> {
     ridge_regression_search_parameters: RidgeRegressionSearchParameters<T>,
     current_solver: usize,
     current_alpha: usize,
     current_normalize: usize,
 }
 
-impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
+impl<T: Number + RealNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
     type Item = RidgeRegressionParameters<T>;
     type IntoIter = RidgeRegressionSearchParametersIterator<T>;
 
@@ -137,7 +138,7 @@ impl<T: FloatNumber> IntoIterator for RidgeRegressionSearchParameters<T> {
     }
 }
 
-impl<T: FloatNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
+impl<T: Number + RealNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
     type Item = RidgeRegressionParameters<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -174,7 +175,7 @@ impl<T: FloatNumber> Iterator for RidgeRegressionSearchParametersIterator<T> {
     }
 }
 
-impl<T: FloatNumber> Default for RidgeRegressionSearchParameters<T> {
+impl<T: Number + RealNumber> Default for RidgeRegressionSearchParameters<T> {
     fn default() -> Self {
         let default_params = RidgeRegressionParameters::default();
 
@@ -190,7 +191,7 @@ impl<T: FloatNumber> Default for RidgeRegressionSearchParameters<T> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct RidgeRegression<
-    TX: FloatNumber,
+    TX: Number + RealNumber,
     TY: Number,
     X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
     Y: Array1<TY>,
@@ -202,7 +203,7 @@ pub struct RidgeRegression<
     _phantom_y: PhantomData<Y>,
 }
 
-impl<T: FloatNumber> RidgeRegressionParameters<T> {
+impl<T: Number + RealNumber> RidgeRegressionParameters<T> {
     /// Regularization parameter.
     pub fn with_alpha(mut self, alpha: T) -> Self {
         self.alpha = alpha;
@@ -220,7 +221,7 @@ impl<T: FloatNumber> RidgeRegressionParameters<T> {
     }
 }
 
-impl<T: FloatNumber> Default for RidgeRegressionParameters<T> {
+impl<T: Number + RealNumber> Default for RidgeRegressionParameters<T> {
     fn default() -> Self {
         RidgeRegressionParameters {
             solver: RidgeRegressionSolverName::default(),
@@ -231,7 +232,7 @@ impl<T: FloatNumber> Default for RidgeRegressionParameters<T> {
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
@@ -249,7 +250,7 @@ impl<
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
@@ -271,7 +272,7 @@ impl<
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
@@ -283,7 +284,7 @@ impl<
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,

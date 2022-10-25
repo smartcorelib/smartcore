@@ -2,16 +2,17 @@ use std::fmt;
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
-use crate::linalg::base::{
+use crate::linalg::basic::arrays::{
     Array as BaseArray, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
 };
 
-use crate::linalg::cholesky_n::CholeskyDecomposable;
-use crate::linalg::evd_n::EVDDecomposable;
-use crate::linalg::lu_n::LUDecomposable;
-use crate::linalg::qr_n::QRDecomposable;
-use crate::linalg::svd_n::SVDDecomposable;
-use crate::num::FloatNumber;
+use crate::linalg::traits::cholesky::CholeskyDecomposable;
+use crate::linalg::traits::evd::EVDDecomposable;
+use crate::linalg::traits::lu::LUDecomposable;
+use crate::linalg::traits::qr::QRDecomposable;
+use crate::linalg::traits::svd::SVDDecomposable;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 use ndarray::ScalarOperand;
 use ndarray::{
@@ -141,11 +142,11 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 }
 
-impl<T: FloatNumber> QRDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
-impl<T: FloatNumber> CholeskyDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
-impl<T: FloatNumber> EVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
-impl<T: FloatNumber> LUDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
-impl<T: FloatNumber> SVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: Number + RealNumber> QRDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: Number + RealNumber> CholeskyDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: Number + RealNumber> EVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: Number + RealNumber> LUDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: Number + RealNumber> SVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
 impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayView<'a, T, Ix2> {}
 

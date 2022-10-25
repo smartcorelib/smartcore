@@ -35,16 +35,17 @@ use std::marker::PhantomData;
 
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::Array2;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 #[derive(Debug, Clone)]
 /// Results of Cholesky decomposition.
-pub struct Cholesky<T: FloatNumber, M: Array2<T>> {
+pub struct Cholesky<T: Number + RealNumber, M: Array2<T>> {
     R: M,
     t: PhantomData<T>,
 }
 
-impl<T: FloatNumber, M: Array2<T>> Cholesky<T, M> {
+impl<T: Number + RealNumber, M: Array2<T>> Cholesky<T, M> {
     pub(crate) fn new(R: M) -> Cholesky<T, M> {
         Cholesky { R, t: PhantomData }
     }
@@ -113,7 +114,7 @@ impl<T: FloatNumber, M: Array2<T>> Cholesky<T, M> {
 }
 
 /// Trait that implements Cholesky decomposition routine for any matrix.
-pub trait CholeskyDecomposable<T: FloatNumber>: Array2<T> {
+pub trait CholeskyDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the Cholesky decomposition of a matrix.
     fn cholesky(&self) -> Result<Cholesky<T, Self>, Failed> {
         self.clone().cholesky_mut()

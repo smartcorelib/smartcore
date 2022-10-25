@@ -35,12 +35,13 @@
 
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 use std::fmt::Debug;
 
 /// Results of SVD decomposition
 #[derive(Debug, Clone)]
-pub struct SVD<T: FloatNumber, M: SVDDecomposable<T>> {
+pub struct SVD<T: Number + RealNumber, M: SVDDecomposable<T>> {
     /// Left-singular vectors of _A_
     pub U: M,
     /// Right-singular vectors of _A_
@@ -53,7 +54,7 @@ pub struct SVD<T: FloatNumber, M: SVDDecomposable<T>> {
     tol: T,
 }
 
-impl<T: FloatNumber, M: SVDDecomposable<T>> SVD<T, M> {
+impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
     /// Diagonal matrix with singular values
     pub fn S(&self) -> M {
         let mut s = M::zeros(self.U.shape().1, self.V.shape().0);
@@ -67,7 +68,7 @@ impl<T: FloatNumber, M: SVDDecomposable<T>> SVD<T, M> {
 }
 
 /// Trait that implements SVD decomposition routine for any matrix.
-pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
+pub trait SVDDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Solves Ax = b. Overrides original matrix in the process.
     fn svd_solve_mut(self, b: Self) -> Result<Self, Failed> {
         self.svd_mut().and_then(|svd| svd.solve(b))
@@ -116,7 +117,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
                     }
 
                     let mut f = *U.get((i, i));
-                    g = -FloatNumber::copysign(s.sqrt(), f);
+                    g = -<T as RealNumber>::copysign(s.sqrt(), f);
                     let h = f * g - s;
                     U.set((i, i), f - g);
                     for j in l - 1..n {
@@ -152,7 +153,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
                     }
 
                     let f = *U.get((i, l - 1));
-                    g = -FloatNumber::copysign(s.sqrt(), f);
+                    g = -<T as RealNumber>::copysign(s.sqrt(), f);
                     let h = f * g - s;
                     U.set((i, l - 1), f - g);
 
@@ -299,7 +300,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
                 let mut h = rv1[k];
                 let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (T::two() * h * y);
                 g = f.hypot(T::one());
-                f = ((x - z) * (x + z) + h * ((y / (f + FloatNumber::copysign(g, f))) - h)) / x;
+                f = ((x - z) * (x + z) + h * ((y / (f + <T as RealNumber>::copysign(g, f))) - h)) / x;
                 let mut c = T::one();
                 let mut s = T::one();
 
@@ -424,7 +425,7 @@ pub trait SVDDecomposable<T: FloatNumber>: Array2<T> {
     }
 }
 
-impl<T: FloatNumber, M: SVDDecomposable<T>> SVD<T, M> {
+impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
     pub(crate) fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;

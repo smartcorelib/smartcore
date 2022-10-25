@@ -72,7 +72,7 @@ use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::linalg::traits::qr::QRDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -106,7 +106,7 @@ impl Default for LinearRegressionParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct LinearRegression<
-    TX: FloatNumber,
+    TX: Number + RealNumber,
     TY: Number,
     X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
     Y: Array1<TY>,
@@ -182,7 +182,7 @@ impl Default for LinearRegressionSearchParameters {
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
@@ -200,7 +200,7 @@ impl<
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
@@ -222,7 +222,7 @@ impl<
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,
@@ -234,7 +234,7 @@ impl<
 }
 
 impl<
-        TX: FloatNumber,
+        TX: Number + RealNumber,
         TY: Number,
         X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
         Y: Array1<TY>,

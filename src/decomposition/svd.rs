@@ -54,17 +54,18 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
 use crate::linalg::traits::evd::EVDDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// SVD
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct SVD<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> {
+pub struct SVD<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> {
     components: X,
     phantom: PhantomData<T>,
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PartialEq
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> PartialEq
     for SVD<T, X>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -153,7 +154,7 @@ impl Default for SVDSearchParameters {
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>>
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>>
     UnsupervisedEstimator<X, SVDParameters> for SVD<T, X>
 {
     fn fit(x: &X, parameters: SVDParameters) -> Result<Self, Failed> {
@@ -161,7 +162,7 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>>
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Transformer<X>
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Transformer<X>
     for SVD<T, X>
 {
     fn transform(&self, x: &X) -> Result<X, Failed> {
@@ -169,7 +170,7 @@ impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> Tra
     }
 }
 
-impl<T: FloatNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> SVD<T, X> {
+impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> SVD<T, X> {
     /// Fits SVD to your data.
     /// * `data` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `n_components` - number of components to keep.

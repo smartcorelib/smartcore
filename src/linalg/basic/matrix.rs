@@ -13,7 +13,8 @@ use crate::linalg::traits::evd::EVDDecomposable;
 use crate::linalg::traits::lu::LUDecomposable;
 use crate::linalg::traits::qr::QRDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
-use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 /// Dense matrix
 #[derive(Debug, Clone)]
@@ -236,7 +237,7 @@ impl<T: Debug + Display + Copy + Sized + PartialEq> PartialEq for DenseMatrix<T>
     }
 }
 
-impl<T: FloatNumber + AbsDiffEq> AbsDiffEq for DenseMatrix<T>
+impl<T: Number + RealNumber + AbsDiffEq> AbsDiffEq for DenseMatrix<T>
 where
     T::Epsilon: Copy,
 {
@@ -259,7 +260,7 @@ where
     }
 }
 
-impl<T: FloatNumber + RelativeEq> RelativeEq for DenseMatrix<T>
+impl<T: Number + RealNumber + RelativeEq> RelativeEq for DenseMatrix<T>
 where
     T::Epsilon: Copy,
 {
@@ -404,11 +405,11 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
     }
 }
 
-impl<T: FloatNumber> QRDecomposable<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> CholeskyDecomposable<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> EVDDecomposable<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> LUDecomposable<T> for DenseMatrix<T> {}
-impl<T: FloatNumber> SVDDecomposable<T> for DenseMatrix<T> {}
+impl<T: Number + RealNumber> QRDecomposable<T> for DenseMatrix<T> {}
+impl<T: Number + RealNumber> CholeskyDecomposable<T> for DenseMatrix<T> {}
+impl<T: Number + RealNumber> EVDDecomposable<T> for DenseMatrix<T> {}
+impl<T: Number + RealNumber> LUDecomposable<T> for DenseMatrix<T> {}
+impl<T: Number + RealNumber> SVDDecomposable<T> for DenseMatrix<T> {}
 
 impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixView<'a, T> {
     fn get(&self, pos: (usize, usize)) -> &T {
