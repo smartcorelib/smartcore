@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 - Seeds to multiple algorithims that depend on random number generation.
 - Added feature `js` to use WASM in browser
+- Drop `nalgebra-bindings` feature
 - Complete refactoring with *extensive API changes* that includes:
     * moving to a new traits system, less structs more traits
     * adapting all the modules to the new traits system

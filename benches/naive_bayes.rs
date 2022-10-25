@@ -1,7 +1,6 @@
 use criterion::BenchmarkId;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use nalgebra::DMatrix;
 use ndarray::Array2;
 use smartcore::linalg::base::Array2 as BaseArray2;
 use smartcore::linalg::basic::matrix::DenseMatrix;

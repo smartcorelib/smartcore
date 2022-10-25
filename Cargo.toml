@@ -15,7 +15,6 @@ categories = ["science"]
 [features]
 default = ["datasets", "serde"]
 ndarray-bindings = ["ndarray"]
-nalgebra-bindings = ["nalgebra"]
 datasets = ["rand_distr", "std"]
 fp_bench = ["itertools"]
 std = ["rand/std", "rand/std_rng"]
@@ -27,7 +26,6 @@ approx = "0.5.1"
 cfg-if = "1.0.0"
 itertools = { version = "0.10.3", optional = true }
 ndarray = { version = "0.15", optional = true }
-nalgebra = { version = "0.31", optional = true }
 num-traits = "0.2.12"
 num = "0.4"
 rand = { version = "0.8", default-features = false, features = ["small_rng"] }
@@ -53,7 +51,7 @@ harness = false
 [[bench]]
 name = "naive_bayes"
 harness = false
-required-features = ["ndarray-bindings", "nalgebra-bindings"]
+required-features = ["ndarray-bindings"]
 
 [[bench]]
 name = "fastpair"

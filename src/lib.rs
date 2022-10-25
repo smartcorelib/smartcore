@@ -18,7 +18,6 @@
 //! SmartCore is well integrated with a with wide variaty of libraries that provide support for large, multi-dimensional arrays and matrices. At this moment,
 //! all Smartcore's algorithms work with ordinary Rust vectors, as well as matrices and vectors defined in these packages:
 //! * [ndarray](https://docs.rs/ndarray)
-//! * [nalgebra](https://docs.rs/nalgebra/)
 //!
 //! ## Getting Started
 //!
