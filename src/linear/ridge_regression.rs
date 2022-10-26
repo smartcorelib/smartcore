@@ -68,8 +68,8 @@ use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::linalg::traits::cholesky::CholeskyDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
-use crate::numbers::realnum::RealNumber;
 use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq)]

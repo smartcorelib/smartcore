@@ -789,13 +789,21 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     ///
     fn slice_mut<'a>(&'a mut self, range: Range<usize>) -> Box<dyn MutArrayView1<T> + 'a>;
     ///
-    fn fill(len: usize, value: T) -> Self where Self: Sized;
+    fn fill(len: usize, value: T) -> Self
+    where
+        Self: Sized;
     ///
-    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self where Self: Sized;
+    fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
+    where
+        Self: Sized;
     ///
-    fn from_vec_slice(slice: &[T]) -> Self where Self: Sized;
+    fn from_vec_slice(slice: &[T]) -> Self
+    where
+        Self: Sized;
     ///
-    fn from_slice<'a>(slice: &'_ dyn ArrayView1<T>) -> Self where Self: Sized;
+    fn from_slice<'a>(slice: &'_ dyn ArrayView1<T>) -> Self
+    where
+        Self: Sized;
     ///
     fn zeros(len: usize) -> Self
     where
@@ -901,7 +909,10 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result
     }
     ///
-    fn take(&self, index: &[usize]) -> Self where Self: Sized {
+    fn take(&self, index: &[usize]) -> Self
+    where
+        Self: Sized,
+    {
         let len = self.shape();
         assert!(
             index.iter().all(|&i| i < len),
@@ -2145,10 +2156,7 @@ mod tests {
         let vec_b = vec![1, 1, 1, 1, 1, 1];
         a.sub_mut(&vec_b);
 
-        assert_eq!(
-            a,
-            [63, 579, 28, 65, 569, 32]
-        )
+        assert_eq!(a, [63, 579, 28, 65, 569, 32])
     }
 
     #[test]
@@ -2159,9 +2167,6 @@ mod tests {
         let vec_b = vec![1, 1, 1];
         let result = a.add(&vec_b);
 
-        assert_eq!(
-            result,
-            [65, 581, 30]
-        )
+        assert_eq!(result, [65, 581, 30])
     }
 }

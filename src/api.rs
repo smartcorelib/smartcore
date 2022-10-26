@@ -20,7 +20,8 @@ pub trait UnsupervisedEstimator<X, P> {
 
 /// An estimator for supervised learning, , that provides method `fit` to learn from data and training values
 pub trait SupervisedEstimator<X, Y, P>: Predictor<X, Y> {
-    /// constructor, instantiate an empty supervisor. Object can be later propulated
+    /// Empty constructor, instantiate an empty estimator. Object is dropped as soon as `fit()` is called.
+    /// used to pass around the correct `fit()` implementation.
     /// by calling `::fit()`. mostly used to be used with `model_selection::cross_validate(...)`
     fn new() -> Self;
     /// Fit a model to a training dataset, estimate model's parameters.

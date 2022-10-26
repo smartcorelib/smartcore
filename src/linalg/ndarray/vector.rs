@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
-use crate::linalg::basic::arrays::{Array as BaseArray, Array1, ArrayView1, MutArray, MutArrayView1};
+use crate::linalg::basic::arrays::{
+    Array as BaseArray, Array1, ArrayView1, MutArray, MutArrayView1,
+};
 
 use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix1, OwnedRepr};
 

@@ -300,7 +300,8 @@ pub trait SVDDecomposable<T: Number + RealNumber>: Array2<T> {
                 let mut h = rv1[k];
                 let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (T::two() * h * y);
                 g = f.hypot(T::one());
-                f = ((x - z) * (x + z) + h * ((y / (f + <T as RealNumber>::copysign(g, f))) - h)) / x;
+                f = ((x - z) * (x + z) + h * ((y / (f + <T as RealNumber>::copysign(g, f))) - h))
+                    / x;
                 let mut c = T::one();
                 let mut s = T::one();
 

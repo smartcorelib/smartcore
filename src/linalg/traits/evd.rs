@@ -416,7 +416,12 @@ fn eltran<T: Number + RealNumber, M: Array2<T>>(A: &M, V: &mut M, perm: &[usize]
     }
 }
 
-fn hqr2<T: Number + RealNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut Vec<T>, e: &mut Vec<T>) {
+fn hqr2<T: Number + RealNumber, M: Array2<T>>(
+    A: &mut M,
+    V: &mut M,
+    d: &mut Vec<T>,
+    e: &mut Vec<T>,
+) {
     let (n, _) = A.shape();
     let mut z = T::zero();
     let mut s = T::zero();

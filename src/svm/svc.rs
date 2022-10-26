@@ -81,31 +81,36 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
-use crate::svm::{Kernel, Kernels, LinearKernel};
+use crate::svm::{Kernel, Kernels, KernelName};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVC Parameters
-pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+pub struct SVCParameters<
+    TX: Number + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>
+> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
-    pub c: T,
+    pub c: TX,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
-    pub tol: T,
+    pub tol: TX,
     #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
-    pub kernel: K,
+    pub kernel: KernelName,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
-    m: PhantomData<M>,
+    m: PhantomData<(X, Y, TY)>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Option<u64>,
@@ -114,30 +119,40 @@ pub struct SVCParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>
 /// SVC grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct SVCSearchParameters<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+pub struct SVCSearchParameters<
+    TX: Number + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: Vec<usize>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
-    pub c: Vec<T>,
+    pub c: Vec<TX>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping epoch.
-    pub tol: Vec<T>,
+    pub tol: Vec<TX>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
-    pub kernel: Vec<K>,
+    pub kernel: Vec<KernelName>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
-    m: PhantomData<M>,
+    m: PhantomData<(X, Y, TY)>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Vec<Option<u64>>,
 }
 
 /// SVC grid search iterator
-pub struct SVCSearchParametersIterator<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-    svc_search_parameters: SVCSearchParameters<T, M, K>,
+pub struct SVCSearchParametersIterator<
+    TX: Number + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> {
+    svc_search_parameters: SVCSearchParameters<TX, TY, X, Y>,
     current_epoch: usize,
     current_c: usize,
     current_tol: usize,
@@ -145,11 +160,11 @@ pub struct SVCSearchParametersIterator<T: RealNumber, M: Matrix<T>, K: Kernel<T,
     current_seed: usize,
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
-    for SVCSearchParameters<T, M, K>
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    IntoIterator for SVCSearchParameters<TX, TY, X, Y>
 {
-    type Item = SVCParameters<T, M, K>;
-    type IntoIter = SVCSearchParametersIterator<T, M, K>;
+    type Item = SVCParameters<TX, TY, X, Y>;
+    type IntoIter = SVCSearchParametersIterator<TX, TY, X, Y>;
 
     fn into_iter(self) -> Self::IntoIter {
         SVCSearchParametersIterator {
@@ -163,10 +178,10 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
-    for SVCSearchParametersIterator<T, M, K>
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    Iterator for SVCSearchParametersIterator<TX, TY, X, Y>
 {
-    type Item = SVCParameters<T, M, K>;
+    type Item = SVCParameters<TX, TY, X, Y>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_epoch == self.svc_search_parameters.epoch.len()
@@ -178,7 +193,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
             return None;
         }
 
-        let next = SVCParameters::<T, M, K> {
+        let next = SVCParameters {
             epoch: self.svc_search_parameters.epoch[self.current_epoch],
             c: self.svc_search_parameters.c[self.current_c],
             tol: self.svc_search_parameters.tol[self.current_tol],
@@ -219,9 +234,11 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVCSearchParameters<T, M, LinearKernel> {
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
+    for SVCSearchParameters<TX, TY, X, Y>
+{
     fn default() -> Self {
-        let default_params: SVCParameters<T, M, LinearKernel> = SVCParameters::default();
+        let default_params: SVCParameters<TX, TY, X, Y> = SVCParameters::default();
 
         SVCSearchParameters {
             epoch: vec![default_params.epoch],
@@ -234,29 +251,36 @@ impl<T: RealNumber, M: Matrix<T>> Default for SVCSearchParameters<T, M, LinearKe
     }
 }
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(
-        serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-        deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-    ))
-)]
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+// #[derive(Debug)]
+// #[cfg_attr(
+//     feature = "serde",
+//     serde(bound(
+//         serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
+//         deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
+//     ))
+// )]
 /// Support Vector Classifier
-pub struct SVC<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-    classes: Vec<T>,
+pub struct SVC<
+    TX: Number + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    K: Kernel<TX>,
+> {
+    classes: Y,
     kernel: K,
-    instances: Vec<M::RowVector>,
-    w: Vec<T>,
-    b: T,
+    instances: Vec<X>,
+    w: Vec<TX>,
+    b: TX,
+    phantomdata: PhantomData<TY>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-struct SupportVector<T: RealNumber, V: BaseVector<T>> {
+struct SupportVector<T: Number + RealNumber> {
     index: usize,
-    x: V,
+    x: Vec<T>,
     alpha: T,
     grad: T,
     cmin: T,
@@ -264,44 +288,60 @@ struct SupportVector<T: RealNumber, V: BaseVector<T>> {
     k: T,
 }
 
-struct Cache<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
+struct Cache<
+    'a,
+    TX: Number + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    K: Kernel<TX>,
+> {
     kernel: &'a K,
-    data: HashMap<(usize, usize), T>,
-    phantom: PhantomData<M>,
+    data: HashMap<(usize, usize), TX>,
+    phantom: PhantomData<(X, Y, TY)>,
 }
 
-struct Optimizer<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-    x: &'a M,
-    y: &'a M::RowVector,
-    parameters: &'a SVCParameters<T, M, K>,
+struct Optimizer<
+    'a,
+    TX: Number + RealNumber,
+    TY: Number + Ord,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    K: Kernel<TX>,
+> {
+    x: &'a X,
+    y: &'a Y,
+    parameters: &'a SVCParameters<TX, TY, X, Y>,
     svmin: usize,
     svmax: usize,
-    gmin: T,
-    gmax: T,
-    tau: T,
-    sv: Vec<SupportVector<T, M::RowVector>>,
+    gmin: TX,
+    gmax: TX,
+    tau: TX,
+    sv: Vec<SupportVector<TX>>,
     kernel: &'a K,
     recalculate_minmax_grad: bool,
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M, K> {
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    SVCParameters<TX, TY, X, Y>
+{
     /// Number of epochs.
     pub fn with_epoch(mut self, epoch: usize) -> Self {
         self.epoch = epoch;
         self
     }
     /// Regularization parameter.
-    pub fn with_c(mut self, c: T) -> Self {
+    pub fn with_c(mut self, c: TX) -> Self {
         self.c = c;
         self
     }
     /// Tolerance for stopping criterion.
-    pub fn with_tol(mut self, tol: T) -> Self {
+    pub fn with_tol(mut self, tol: TX) -> Self {
         self.tol = tol;
         self
     }
     /// The kernel function.
-    pub fn with_kernel<KK: Kernel<T, M::RowVector>>(&self, kernel: KK) -> SVCParameters<T, M, KK> {
+    pub fn with_kernel(&self, kernel: KernelName) -> SVCParameters<TX, TY, X, Y> {
         SVCParameters {
             epoch: self.epoch,
             c: self.c,
@@ -319,48 +359,62 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVCParameters<T, M
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Default for SVCParameters<T, M, LinearKernel> {
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
+    for SVCParameters<TX, TY, X, Y>
+{
     fn default() -> Self {
         SVCParameters {
             epoch: 2,
-            c: T::one(),
-            tol: T::from_f64(1e-3).unwrap(),
-            kernel: Kernels::linear(),
+            c: TX::one(),
+            tol: TX::from_f64(1e-3).unwrap(),
+            kernel: KernelName::LinearKernel,
             m: PhantomData,
             seed: Option::None,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>>
-    SupervisedEstimator<M, M::RowVector, SVCParameters<T, M, K>> for SVC<T, M, K>
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
+    SupervisedEstimator<X, Y, SVCParameters<TX, TY, X, Y>> for SVC<TX, TY, X, Y, K>
 {
-    fn fit(x: &M, y: &M::RowVector, parameters: SVCParameters<T, M, K>) -> Result<Self, Failed> {
+    fn new() -> Self {
+        SVC {
+            classes: Y::from_vec_slice(&vec![TY::zero()]),
+            kernel: Kernels::linear(),
+            instances: Option::None,
+            w: Option::None,
+            b: Option::None,
+            phantomdata: PhantomData,
+        } 
+    }
+    fn fit(x: &X, y: &Y, parameters: SVCParameters<TX, TY, X, Y>) -> Result<Self, Failed> {
         SVC::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Predictor<M, M::RowVector>
-    for SVC<T, M, K>
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
+    Predictor<X, Y> for SVC<TX, TY, X, Y, K>
 {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
+    SVC<TX, TY, X, Y, K>
+{
     /// Fits SVC to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - class labels
     /// * `parameters` - optional parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: SVCParameters<T, M, K>,
-    ) -> Result<SVC<T, M, K>, Failed> {
+        x: &X,
+        y: &Y,
+        parameters: SVCParameters<TX, TY, X, Y>,
+    ) -> Result<SVC<TX, TY, X, Y, K>, Failed> {
         let (n, _) = x.shape();
 
-        if n != y.len() {
+        if n != y.shape().0 {
             return Err(Failed::fit(
                 "Number of rows of X doesn\'t match number of rows of Y",
             ));
@@ -379,34 +433,36 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         let mut y = y.clone();
         for i in 0..y.len() {
             let y_v = y.get(i);
-            if y_v != -T::one() || y_v != T::one() {
+            if y_v != -TX::one() || y_v != TX::one() {
                 match y_v == classes[0] {
-                    true => y.set(i, -T::one()),
-                    false => y.set(i, T::one()),
+                    true => y.set(i, -TX::one()),
+                    false => y.set(i, TX::one()),
                 }
             }
         }
 
-        let optimizer = Optimizer::new(x, &y, &parameters.kernel, &parameters);
+        let optimizer: Optimizer<_, TX, TY, X, Y, K> =
+            Optimizer::new(x, &y, &parameters.kernel, &parameters);
 
         let (support_vectors, weight, b) = optimizer.optimize();
 
         Ok(SVC {
             classes,
-            kernel: parameters.kernel,
+            kernel: <<< parameters.kernel should return the Kernel from a KernelName>>>,
             instances: support_vectors,
             w: weight,
             b,
+            phantomdata: PhantomData,
         })
     }
 
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let mut y_hat = self.decision_function(x)?;
 
         for i in 0..y_hat.len() {
-            let cls_idx = match y_hat.get(i) > T::zero() {
+            let cls_idx = match *y_hat.get(i) > TX::zero() {
                 false => self.classes[0],
                 true => self.classes[1],
             };
@@ -419,9 +475,9 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
 
     /// Evaluates the decision function for the rows in `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn decision_function(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn decision_function(&self, x: &X) -> Result<Y, Failed> {
         let (n, _) = x.shape();
-        let mut y_hat = M::RowVector::zeros(n);
+        let mut y_hat = Array1::zeros(n);
 
         for i in 0..n {
             y_hat.set(i, self.predict_for_row(x.get_row(i)));
@@ -430,7 +486,7 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
         Ok(y_hat)
     }
 
-    fn predict_for_row(&self, x: M::RowVector) -> T {
+    fn predict_for_row(&self, x: Y) -> TX {
         let mut f = self.b;
 
         for i in 0..self.instances.len() {
@@ -441,21 +497,23 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> SVC<T, M, K> {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<T, M, K> {
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
+    PartialEq for SVC<TX, TY, X, Y, K>
+{
     fn eq(&self, other: &Self) -> bool {
-        if (self.b - other.b).abs() > T::epsilon() * T::two()
+        if (self.b - other.b).abs() > TX::epsilon() * TX::two()
             || self.w.len() != other.w.len()
             || self.instances.len() != other.instances.len()
         {
             false
         } else {
             for i in 0..self.w.len() {
-                if (self.w[i] - other.w[i]).abs() > T::epsilon() {
+                if (self.w[i] - other.w[i]).abs() > TX::epsilon() {
                     return false;
                 }
             }
             for i in 0..self.instances.len() {
-                if !self.instances[i].approximate_eq(&other.instances[i], T::epsilon()) {
+                if !self.instances[i].approximate_eq(&other.instances[i], TX::epsilon()) {
                     return false;
                 }
             }
@@ -464,8 +522,8 @@ impl<T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> PartialEq for SVC<
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
-    fn new<K: Kernel<T, V>>(i: usize, x: V, y: T, g: T, c: T, k: &K) -> SupportVector<T, V> {
+impl<'a, T: Number + RealNumber> SupportVector<T> {
+    fn new<K: Kernel<T>>(i: usize, x: Vec<T>, y: T, g: T, c: T, k: &K) -> SupportVector<T> {
         let k_v = k.apply(&x, &x);
         let (cmin, cmax) = if y > T::zero() {
             (T::zero(), c)
@@ -474,7 +532,7 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
         };
         SupportVector {
             index: i,
-            x,
+            x: &x,
             grad: g,
             k: k_v,
             alpha: T::zero(),
@@ -484,8 +542,16 @@ impl<T: RealNumber, V: BaseVector<T>> SupportVector<T, V> {
     }
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M, K> {
-    fn new(kernel: &'a K) -> Cache<'a, T, M, K> {
+impl<
+        'a,
+        TX: Number + RealNumber,
+        TY: Number + Ord,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+        K: Kernel<TX>,
+    > Cache<'a, TX, TY, X, Y, K>
+{
+    fn new(kernel: &'a K) -> Cache<'a, TX, TY, X, Y, K> {
         Cache {
             kernel,
             data: HashMap::new(),
@@ -493,7 +559,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M
         }
     }
 
-    fn get(&mut self, i: &SupportVector<T, M::RowVector>, j: &SupportVector<T, M::RowVector>) -> T {
+    fn get(&mut self, i: &SupportVector<TX>, j: &SupportVector<TX>) -> TX {
         let idx_i = i.index;
         let idx_j = j.index;
         #[allow(clippy::or_fun_call)]
@@ -504,7 +570,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M
         *entry
     }
 
-    fn insert(&mut self, key: (usize, usize), value: T) {
+    fn insert(&mut self, key: (usize, usize), value: TX) {
         self.data.insert(key, value);
     }
 
@@ -513,13 +579,21 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Cache<'a, T, M
     }
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, T, M, K> {
+impl<
+        'a,
+        TX: Number + RealNumber,
+        TY: Number + Ord,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+        K: Kernel<TX>,
+    > Optimizer<'a, TX, TY, X, Y, K>
+{
     fn new(
-        x: &'a M,
-        y: &'a M::RowVector,
+        x: &'a X,
+        y: &'a Y,
         kernel: &'a K,
-        parameters: &'a SVCParameters<T, M, K>,
-    ) -> Optimizer<'a, T, M, K> {
+        parameters: &'a SVCParameters<TX, TY, X, Y>,
+    ) -> Optimizer<'a, TX, TY, X, Y, K> {
         let (n, _) = x.shape();
 
         Optimizer {
@@ -528,24 +602,24 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             parameters,
             svmin: 0,
             svmax: 0,
-            gmin: T::max_value(),
-            gmax: T::min_value(),
-            tau: T::from_f64(1e-12).unwrap(),
+            gmin: TX::max_value(),
+            gmax: TX::min_value(),
+            tau: TX::from_f64(1e-12).unwrap(),
             sv: Vec::with_capacity(n),
             kernel,
             recalculate_minmax_grad: true,
         }
     }
 
-    fn optimize(mut self) -> (Vec<M::RowVector>, Vec<T>, T) {
+    fn optimize(mut self) -> (Vec<Y>, Vec<TX>, TX) {
         let (n, _) = self.x.shape();
 
-        let mut cache = Cache::new(self.kernel);
+        let mut cache: Cache<'a, TX, X, Y, K> = Cache::new(self.kernel);
 
         self.initialize(&mut cache);
 
         let tol = self.parameters.tol;
-        let good_enough = T::from_i32(1000).unwrap();
+        let good_enough = TX::from_i32(1000).unwrap();
 
         for _ in 0..self.parameters.epoch {
             for i in self.permutate(n) {
@@ -562,10 +636,10 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 
         self.finish(&mut cache);
 
-        let mut support_vectors: Vec<M::RowVector> = Vec::new();
-        let mut w: Vec<T> = Vec::new();
+        let mut support_vectors: Vec<Y> = Vec::new();
+        let mut w: Vec<TX> = Vec::new();
 
-        let b = (self.gmax + self.gmin) / T::two();
+        let b = (self.gmax + self.gmin) / TX::two();
 
         for v in self.sv {
             support_vectors.push(v.x);
@@ -575,18 +649,18 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         (support_vectors, w, b)
     }
 
-    fn initialize(&mut self, cache: &mut Cache<'_, T, M, K>) {
+    fn initialize(&mut self, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
         let (n, _) = self.x.shape();
         let few = 5;
         let mut cp = 0;
         let mut cn = 0;
 
         for i in self.permutate(n) {
-            if self.y.get(i) == T::one() && cp < few {
+            if self.y.get(i) == TX::one() && cp < few {
                 if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
                     cp += 1;
                 }
-            } else if self.y.get(i) == -T::one()
+            } else if self.y.get(i) == -TX::one()
                 && cn < few
                 && self.process(i, self.x.get_row(i), self.y.get(i), cache)
             {
@@ -599,7 +673,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         }
     }
 
-    fn process(&mut self, i: usize, x: M::RowVector, y: T, cache: &mut Cache<'_, T, M, K>) -> bool {
+    fn process(&mut self, i: usize, x: Y, y: TX, cache: &mut Cache<'_, TX, TY, X, Y, K>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
@@ -608,7 +682,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 
         let mut g = y;
 
-        let mut cache_values: Vec<((usize, usize), T)> = Vec::new();
+        let mut cache_values: Vec<((usize, usize), TX)> = Vec::new();
 
         for v in self.sv.iter() {
             let k = self.kernel.apply(&v.x, &x);
@@ -619,7 +693,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         self.find_min_max_gradient();
 
         if self.gmin < self.gmax
-            && ((y > T::zero() && g < self.gmin) || (y < T::zero() && g > self.gmax))
+            && ((y > TX::zero() && g < self.gmin) || (y < TX::zero() && g > self.gmax))
         {
             return false;
         }
@@ -633,22 +707,22 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             SupportVector::new(i, x, y, g, self.parameters.c, self.kernel),
         );
 
-        if y > T::zero() {
-            self.smo(None, Some(0), T::zero(), cache);
+        if y > TX::zero() {
+            self.smo(None, Some(0), TX::zero(), cache);
         } else {
-            self.smo(Some(0), None, T::zero(), cache);
+            self.smo(Some(0), None, TX::zero(), cache);
         }
 
         true
     }
 
-    fn reprocess(&mut self, tol: T, cache: &mut Cache<'_, T, M, K>) -> bool {
+    fn reprocess(&mut self, tol: TX, cache: &mut Cache<'_, TX, TY, X, Y, K>) -> bool {
         let status = self.smo(None, None, tol, cache);
         self.clean(cache);
         status
     }
 
-    fn finish(&mut self, cache: &mut Cache<'_, T, M, K>) {
+    fn finish(&mut self, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
         let mut max_iter = self.sv.len();
 
         while self.smo(None, None, self.parameters.tol, cache) && max_iter > 0 {
@@ -663,8 +737,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
             return;
         }
 
-        self.gmin = T::max_value();
-        self.gmax = T::min_value();
+        self.gmin = TX::max_value();
+        self.gmax = TX::min_value();
 
         for i in 0..self.sv.len() {
             let v = &self.sv[i];
@@ -683,7 +757,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         self.recalculate_minmax_grad = false
     }
 
-    fn clean(&mut self, cache: &mut Cache<'_, T, M, K>) {
+    fn clean(&mut self, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
         self.find_min_max_gradient();
 
         let gmax = self.gmax;
@@ -692,9 +766,9 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         let mut idxs_to_drop: HashSet<usize> = HashSet::new();
 
         self.sv.retain(|v| {
-            if v.alpha == T::zero()
-                && ((v.grad >= gmax && T::zero() >= v.cmax)
-                    || (v.grad <= gmin && T::zero() <= v.cmin))
+            if v.alpha == TX::zero()
+                && ((v.grad >= gmax && TX::zero() >= v.cmax)
+                    || (v.grad <= gmin && TX::zero() <= v.cmin))
             {
                 idxs_to_drop.insert(v.index);
                 return false;
@@ -717,8 +791,8 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         &mut self,
         idx_1: Option<usize>,
         idx_2: Option<usize>,
-        cache: &mut Cache<'_, T, M, K>,
-    ) -> Option<(usize, usize, T)> {
+        cache: &mut Cache<'_, TX, TY, X, Y, K>,
+    ) -> Option<(usize, usize, TX)> {
         match (idx_1, idx_2) {
             (None, None) => {
                 if self.gmax > -self.gmin {
@@ -733,17 +807,18 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 let mut k_v_12 = None;
                 let km = sv1.k;
                 let gm = sv1.grad;
-                let mut best = T::zero();
+                let mut best = TX::zero();
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = v.grad - gm;
                     let k = cache.get(sv1, v);
-                    let mut curv = km + v.k - T::two() * k;
-                    if curv <= T::zero() {
+                    let mut curv = km + v.k - TX::two() * k;
+                    if curv <= TX::zero() {
                         curv = self.tau;
                     }
                     let mu = z / curv;
-                    if (mu > T::zero() && v.alpha < v.cmax) || (mu < T::zero() && v.alpha > v.cmin)
+                    if (mu > TX::zero() && v.alpha < v.cmax)
+                        || (mu < TX::zero() && v.alpha > v.cmin)
                     {
                         let gain = z * mu;
                         if gain > best {
@@ -770,18 +845,19 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
                 let mut k_v_12 = None;
                 let km = sv2.k;
                 let gm = sv2.grad;
-                let mut best = T::zero();
+                let mut best = TX::zero();
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = gm - v.grad;
                     let k = cache.get(sv2, v);
-                    let mut curv = km + v.k - T::two() * k;
-                    if curv <= T::zero() {
+                    let mut curv = km + v.k - TX::two() * k;
+                    if curv <= TX::zero() {
                         curv = self.tau;
                     }
 
                     let mu = z / curv;
-                    if (mu > T::zero() && v.alpha > v.cmin) || (mu < T::zero() && v.alpha < v.cmax)
+                    if (mu > TX::zero() && v.alpha > v.cmin)
+                        || (mu < TX::zero() && v.alpha < v.cmax)
                     {
                         let gain = z * mu;
                         if gain > best {
@@ -814,19 +890,19 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         &mut self,
         idx_1: Option<usize>,
         idx_2: Option<usize>,
-        tol: T,
-        cache: &mut Cache<'_, T, M, K>,
+        tol: TX,
+        cache: &mut Cache<'_, TX, TY, X, Y, K>,
     ) -> bool {
         match self.select_pair(idx_1, idx_2, cache) {
             Some((idx_1, idx_2, k_v_12)) => {
-                let mut curv = self.sv[idx_1].k + self.sv[idx_2].k - T::two() * k_v_12;
-                if curv <= T::zero() {
+                let mut curv = self.sv[idx_1].k + self.sv[idx_2].k - TX::two() * k_v_12;
+                if curv <= TX::zero() {
                     curv = self.tau;
                 }
 
                 let mut step = (self.sv[idx_2].grad - self.sv[idx_1].grad) / curv;
 
-                if step >= T::zero() {
+                if step >= TX::zero() {
                     let mut ostep = self.sv[idx_1].alpha - self.sv[idx_1].cmin;
                     if ostep < step {
                         step = ostep;
@@ -854,7 +930,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
         }
     }
 
-    fn update(&mut self, v1: usize, v2: usize, step: T, cache: &mut Cache<'_, T, M, K>) {
+    fn update(&mut self, v1: usize, v2: usize, step: TX, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
         self.sv[v1].alpha -= step;
         self.sv[v2].alpha += step;
 
@@ -872,7 +948,7 @@ impl<'a, T: RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Optimizer<'a, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::accuracy;
     #[cfg(feature = "serde")]
     use crate::svm::*;
