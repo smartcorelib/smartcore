@@ -467,7 +467,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
-    use crate::utils::vec_utils::approx_eq;
 
     #[test]
     fn search_parameters() {
@@ -577,27 +576,25 @@ mod tests {
 
         let distribution = bnb.inner.clone().unwrap().distribution;
 
-        assert!(approx_eq(
+        assert_eq!(
             &distribution.class_priors,
-            &vec!(0.46, 0.2, 0.33),
-            1e-2
-        ));
-        assert!(approx_eq(
+            &vec!(0.4666666666666667, 0.2, 0.3333333333333333)
+        );
+        assert_eq!(
             &bnb.feature_log_prob()[1],
             &vec![
-                -0.22314355,
-                -0.22314355,
-                -0.22314355,
-                -0.91629073,
-                -0.22314355,
-                -0.51082562,
-                -0.22314355,
-                -0.51082562,
-                -0.51082562,
-                -0.22314355
-            ],
-            1e-1
-        ));
+                -0.2231435513142097,
+                -0.2231435513142097,
+                -0.2231435513142097,
+                -0.916290731874155,
+                -0.2231435513142097,
+                -0.5108256237659907,
+                -0.2231435513142097,
+                -0.5108256237659907,
+                -0.5108256237659907,
+                -0.2231435513142097
+            ]
+        );
         assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0));
     }
 

@@ -104,7 +104,5 @@ pub mod preprocessing;
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
-#[cfg(test)]
-pub mod utils;
 
 pub(crate) mod rand_custom;
