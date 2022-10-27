@@ -23,7 +23,7 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-// pub mod svc;
+pub mod svc;
 // pub mod svr;
 
 use std::marker::PhantomData;
@@ -32,14 +32,14 @@ use std::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::Array1;
+use crate::linalg::basic::arrays::{Array1, ArrayView1};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
 /// Defines a kernel function
 pub trait Kernel<T: Number + RealNumber>: Clone {
     /// Apply kernel function to x_i and x_j
-    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> Result<T, Failed>;
+    fn apply(&self, x_i: &Vec<T>, x_j: &Vec<T>) -> Result<T, Failed>;
 }
 
 /// Pre-defined kernel functions
@@ -176,13 +176,13 @@ impl<T: Number + RealNumber> SigmoidKernel<T> {
 }
 
 impl<T: Number + RealNumber> Kernel<T> for LinearKernel {
-    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> Result<T, Failed> {
+    fn apply(&self, x_i: &Vec<T>, x_j: &Vec<T>) -> Result<T, Failed> {
         Ok(x_i.dot(x_j))
     }
 }
 
 impl<T: Number + RealNumber> Kernel<T> for RBFKernel<T> {
-    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> Result<T, Failed> {
+    fn apply(&self, x_i: &Vec<T>, x_j: &Vec<T>) -> Result<T, Failed> {
         if self.gamma.is_none() {
             return Err(Failed::because(
                 FailedError::ParametersError,
@@ -195,7 +195,7 @@ impl<T: Number + RealNumber> Kernel<T> for RBFKernel<T> {
 }
 
 impl<T: Number + RealNumber> Kernel<T> for PolynomialKernel<T> {
-    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> Result<T, Failed> {
+    fn apply(&self, x_i: &Vec<T>, x_j: &Vec<T>) -> Result<T, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() || self.degree.is_none() {
             return Err(Failed::because(
                 FailedError::ParametersError, "gamma, coef0, degree should be set, 
@@ -211,7 +211,7 @@ impl<T: Number + RealNumber> Kernel<T> for PolynomialKernel<T> {
 }
 
 impl<T: Number + RealNumber> Kernel<T> for SigmoidKernel<T> {
-    fn apply(&self, x_i: &impl Array1<T>, x_j: &impl Array1<T>) -> Result<T, Failed> {
+    fn apply(&self, x_i: &Vec<T>, x_j: &Vec<T>) -> Result<T, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() {
             return Err(Failed::because(
                 FailedError::ParametersError, "gamma, coef0, degree should be set, 
