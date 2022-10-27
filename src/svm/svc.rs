@@ -72,8 +72,10 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::iter::FromIterator;
 use std::marker::PhantomData;
 
+use num::Bounded;
 use rand::seq::SliceRandom;
 
 #[cfg(feature = "serde")]
@@ -81,175 +83,178 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
-use crate::svm::{Kernel, Kernels, KernelName};
+use crate::svm::{Kernel, Kernels, LinearKernel};
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+// #[derive(Debug, Clone)]
 /// SVC Parameters
 pub struct SVCParameters<
+    'a,
     TX: Number + RealNumber,
     TY: Number + Ord,
     X: Array2<TX>,
-    Y: Array1<TY>
+    Y: Array1<TY>,
 > {
-    #[cfg_attr(feature = "serde", serde(default))]
+    // #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
-    #[cfg_attr(feature = "serde", serde(default))]
+    // #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: TX,
-    #[cfg_attr(feature = "serde", serde(default))]
+    // #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
     pub tol: TX,
-    #[cfg_attr(feature = "serde", serde(default))]
+    // #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
-    pub kernel: KernelName,
-    #[cfg_attr(feature = "serde", serde(default))]
+    pub kernel: &'a dyn Kernel<'a>,
+    // #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
-    #[cfg_attr(feature = "serde", serde(default))]
+    // #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Option<u64>,
 }
 
-/// SVC grid search parameters
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
-pub struct SVCSearchParameters<
-    TX: Number + RealNumber,
-    TY: Number + Ord,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> {
-    #[cfg_attr(feature = "serde", serde(default))]
-    /// Number of epochs.
-    pub epoch: Vec<usize>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    /// Regularization parameter.
-    pub c: Vec<TX>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    /// Tolerance for stopping epoch.
-    pub tol: Vec<TX>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    /// The kernel function.
-    pub kernel: Vec<KernelName>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    /// Unused parameter.
-    m: PhantomData<(X, Y, TY)>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    /// Controls the pseudo random number generation for shuffling the data for probability estimates
-    seed: Vec<Option<u64>>,
-}
+// /// SVC grid search parameters
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+// #[derive(Debug, Clone)]
+// pub struct SVCSearchParameters<
+//     TX: Number + RealNumber,
+//     TY: Number + Ord,
+//     X: Array2<TX>,
+//     Y: Array1<TY>,
+//     K: Kernel,
+// > {
+//     #[cfg_attr(feature = "serde", serde(default))]
+//     /// Number of epochs.
+//     pub epoch: Vec<usize>,
+//     #[cfg_attr(feature = "serde", serde(default))]
+//     /// Regularization parameter.
+//     pub c: Vec<TX>,
+//     #[cfg_attr(feature = "serde", serde(default))]
+//     /// Tolerance for stopping epoch.
+//     pub tol: Vec<TX>,
+//     #[cfg_attr(feature = "serde", serde(default))]
+//     /// The kernel function.
+//     pub kernel: Vec<K>,
+//     #[cfg_attr(feature = "serde", serde(default))]
+//     /// Unused parameter.
+//     m: PhantomData<(X, Y, TY)>,
+//     #[cfg_attr(feature = "serde", serde(default))]
+//     /// Controls the pseudo random number generation for shuffling the data for probability estimates
+//     seed: Vec<Option<u64>>,
+// }
 
-/// SVC grid search iterator
-pub struct SVCSearchParametersIterator<
-    TX: Number + RealNumber,
-    TY: Number + Ord,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> {
-    svc_search_parameters: SVCSearchParameters<TX, TY, X, Y>,
-    current_epoch: usize,
-    current_c: usize,
-    current_tol: usize,
-    current_kernel: usize,
-    current_seed: usize,
-}
+// /// SVC grid search iterator
+// pub struct SVCSearchParametersIterator<
+//     TX: Number + RealNumber,
+//     TY: Number + Ord,
+//     X: Array2<TX>,
+//     Y: Array1<TY>,
+//     K: Kernel,
+// > {
+//     svc_search_parameters: SVCSearchParameters<TX, TY, X, Y, K>,
+//     current_epoch: usize,
+//     current_c: usize,
+//     current_tol: usize,
+//     current_kernel: usize,
+//     current_seed: usize,
+// }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    IntoIterator for SVCSearchParameters<TX, TY, X, Y>
-{
-    type Item = SVCParameters<TX, TY, X, Y>;
-    type IntoIter = SVCSearchParametersIterator<TX, TY, X, Y>;
+// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel>
+//     IntoIterator for SVCSearchParameters<TX, TY, X, Y, K>
+// {
+//     type Item = SVCParameters<'a, TX, TY, X, Y>;
+//     type IntoIter = SVCSearchParametersIterator<TX, TY, X, Y, K>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        SVCSearchParametersIterator {
-            svc_search_parameters: self,
-            current_epoch: 0,
-            current_c: 0,
-            current_tol: 0,
-            current_kernel: 0,
-            current_seed: 0,
-        }
-    }
-}
+//     fn into_iter(self) -> Self::IntoIter {
+//         SVCSearchParametersIterator {
+//             svc_search_parameters: self,
+//             current_epoch: 0,
+//             current_c: 0,
+//             current_tol: 0,
+//             current_kernel: 0,
+//             current_seed: 0,
+//         }
+//     }
+// }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    Iterator for SVCSearchParametersIterator<TX, TY, X, Y>
-{
-    type Item = SVCParameters<TX, TY, X, Y>;
+// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel>
+//     Iterator for SVCSearchParametersIterator<TX, TY, X, Y, K>
+// {
+//     type Item = SVCParameters<TX, TY, X, Y>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_epoch == self.svc_search_parameters.epoch.len()
-            && self.current_c == self.svc_search_parameters.c.len()
-            && self.current_tol == self.svc_search_parameters.tol.len()
-            && self.current_kernel == self.svc_search_parameters.kernel.len()
-            && self.current_seed == self.svc_search_parameters.seed.len()
-        {
-            return None;
-        }
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if self.current_epoch == self.svc_search_parameters.epoch.len()
+//             && self.current_c == self.svc_search_parameters.c.len()
+//             && self.current_tol == self.svc_search_parameters.tol.len()
+//             && self.current_kernel == self.svc_search_parameters.kernel.len()
+//             && self.current_seed == self.svc_search_parameters.seed.len()
+//         {
+//             return None;
+//         }
 
-        let next = SVCParameters {
-            epoch: self.svc_search_parameters.epoch[self.current_epoch],
-            c: self.svc_search_parameters.c[self.current_c],
-            tol: self.svc_search_parameters.tol[self.current_tol],
-            kernel: self.svc_search_parameters.kernel[self.current_kernel].clone(),
-            m: PhantomData,
-            seed: self.svc_search_parameters.seed[self.current_seed],
-        };
+//         let next = SVCParameters {
+//             epoch: self.svc_search_parameters.epoch[self.current_epoch],
+//             c: self.svc_search_parameters.c[self.current_c],
+//             tol: self.svc_search_parameters.tol[self.current_tol],
+//             kernel: self.svc_search_parameters.kernel[self.current_kernel].clone(),
+//             m: PhantomData,
+//             seed: self.svc_search_parameters.seed[self.current_seed],
+//         };
 
-        if self.current_epoch + 1 < self.svc_search_parameters.epoch.len() {
-            self.current_epoch += 1;
-        } else if self.current_c + 1 < self.svc_search_parameters.c.len() {
-            self.current_epoch = 0;
-            self.current_c += 1;
-        } else if self.current_tol + 1 < self.svc_search_parameters.tol.len() {
-            self.current_epoch = 0;
-            self.current_c = 0;
-            self.current_tol += 1;
-        } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
-            self.current_epoch = 0;
-            self.current_c = 0;
-            self.current_tol = 0;
-            self.current_kernel += 1;
-        } else if self.current_seed + 1 < self.svc_search_parameters.seed.len() {
-            self.current_epoch = 0;
-            self.current_c = 0;
-            self.current_tol = 0;
-            self.current_kernel = 0;
-            self.current_seed += 1;
-        } else {
-            self.current_epoch += 1;
-            self.current_c += 1;
-            self.current_tol += 1;
-            self.current_kernel += 1;
-            self.current_seed += 1;
-        }
+//         if self.current_epoch + 1 < self.svc_search_parameters.epoch.len() {
+//             self.current_epoch += 1;
+//         } else if self.current_c + 1 < self.svc_search_parameters.c.len() {
+//             self.current_epoch = 0;
+//             self.current_c += 1;
+//         } else if self.current_tol + 1 < self.svc_search_parameters.tol.len() {
+//             self.current_epoch = 0;
+//             self.current_c = 0;
+//             self.current_tol += 1;
+//         } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
+//             self.current_epoch = 0;
+//             self.current_c = 0;
+//             self.current_tol = 0;
+//             self.current_kernel += 1;
+//         } else if self.current_seed + 1 < self.svc_search_parameters.seed.len() {
+//             self.current_epoch = 0;
+//             self.current_c = 0;
+//             self.current_tol = 0;
+//             self.current_kernel = 0;
+//             self.current_seed += 1;
+//         } else {
+//             self.current_epoch += 1;
+//             self.current_c += 1;
+//             self.current_tol += 1;
+//             self.current_kernel += 1;
+//             self.current_seed += 1;
+//         }
 
-        Some(next)
-    }
-}
+//         Some(next)
+//     }
+// }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
-    for SVCSearchParameters<TX, TY, X, Y>
-{
-    fn default() -> Self {
-        let default_params: SVCParameters<TX, TY, X, Y> = SVCParameters::default();
+// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel> Default
+//     for SVCSearchParameters<TX, TY, X, Y, K>
+// {
+//     fn default() -> Self {
+//         let default_params: SVCParameters<TX, TY, X, Y> = SVCParameters::default();
 
-        SVCSearchParameters {
-            epoch: vec![default_params.epoch],
-            c: vec![default_params.c],
-            tol: vec![default_params.tol],
-            kernel: vec![default_params.kernel],
-            m: PhantomData,
-            seed: vec![default_params.seed],
-        }
-    }
-}
+//         SVCSearchParameters {
+//             epoch: vec![default_params.epoch],
+//             c: vec![default_params.c],
+//             tol: vec![default_params.tol],
+//             kernel: vec![default_params.kernel],
+//             m: PhantomData,
+//             seed: vec![default_params.seed],
+//         }
+//     }
+// }
 
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 // #[derive(Debug)]
@@ -261,69 +266,47 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> De
 //     ))
 // )]
 /// Support Vector Classifier
-pub struct SVC<
-    TX: Number + RealNumber,
-    TY: Number + Ord,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-    K: Kernel<TX>,
-> {
-    classes: Y,
-    kernel: K,
-    instances: Vec<X>,
-    w: Vec<TX>,
-    b: TX,
-    phantomdata: PhantomData<TY>,
+pub struct SVC<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
+    classes: Option<Vec<TY>>,
+    instances: Option<Vec<Vec<TX>>>,
+    parameters: Option<SVCParameters<'a, TX, TY, X, Y>>,
+    w: Option<Vec<TX>>,
+    b: Option<TX>,
+    phantomdata: PhantomData<(X, Y)>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-struct SupportVector<T: Number + RealNumber> {
+struct SupportVector<TX: Number + RealNumber> {
     index: usize,
-    x: Vec<T>,
-    alpha: T,
-    grad: T,
-    cmin: T,
-    cmax: T,
-    k: T,
+    x: Vec<TX>,
+    alpha: f64,
+    grad: f64,
+    cmin: f64,
+    cmax: f64,
+    k: f64,
 }
 
-struct Cache<
-    'a,
-    TX: Number + RealNumber,
-    TY: Number + Ord,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-    K: Kernel<TX>,
-> {
-    kernel: &'a K,
-    data: HashMap<(usize, usize), TX>,
-    phantom: PhantomData<(X, Y, TY)>,
+struct Cache<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
+    data: HashMap<(usize, usize), f64>,
+    phantom: PhantomData<(X, Y, TY, TX)>,
 }
 
-struct Optimizer<
-    'a,
-    TX: Number + RealNumber,
-    TY: Number + Ord,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-    K: Kernel<TX>,
-> {
+struct Optimizer<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     x: &'a X,
     y: &'a Y,
-    parameters: &'a SVCParameters<TX, TY, X, Y>,
+    parameters: &'a SVCParameters<'a, TX, TY, X, Y>,
     svmin: usize,
     svmax: usize,
     gmin: TX,
     gmax: TX,
     tau: TX,
     sv: Vec<SupportVector<TX>>,
-    kernel: &'a K,
     recalculate_minmax_grad: bool,
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    SVCParameters<TX, TY, X, Y>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    SVCParameters<'a, TX, TY, X, Y>
 {
     /// Number of epochs.
     pub fn with_epoch(mut self, epoch: usize) -> Self {
@@ -341,12 +324,12 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         self
     }
     /// The kernel function.
-    pub fn with_kernel(&self, kernel: KernelName) -> SVCParameters<TX, TY, X, Y> {
-        SVCParameters {
+    pub fn with_kernel(&self, kernel: &'a (dyn Kernel<'a>)) -> SVCParameters<'a, TX, TY, X, Y> {
+        SVCParameters::<'a> {
             epoch: self.epoch,
             c: self.c,
             tol: self.tol,
-            kernel,
+            kernel: kernel,
             m: PhantomData,
             seed: self.seed,
         }
@@ -359,49 +342,51 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     }
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
-    for SVCParameters<TX, TY, X, Y>
-{
-    fn default() -> Self {
-        SVCParameters {
-            epoch: 2,
-            c: TX::one(),
-            tol: TX::from_f64(1e-3).unwrap(),
-            kernel: KernelName::LinearKernel,
-            m: PhantomData,
-            seed: Option::None,
-        }
-    }
-}
+// impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
+//     for SVCParameters<'a, TX, TY, X, Y>
+// {
+//     fn default() -> Self {
+//         SVCParameters {
+//             epoch: 2,
+//             c: TX::one(),
+//             tol: TX::from_f64(1e-3).unwrap(),
+//             kernel: &Kernels::linear(),
+//             m: PhantomData,
+//             seed: Option::None,
+//         }
+//     }
+// }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
-    SupervisedEstimator<X, Y, SVCParameters<TX, TY, X, Y>> for SVC<TX, TY, X, Y, K>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, SVCParameters<'a, TX, TY, X, Y>> for SVC<'a, TX, TY, X, Y>
 {
     fn new() -> Self {
-        SVC {
-            classes: Y::from_vec_slice(&vec![TY::zero()]),
-            kernel: Kernels::linear(),
+        Self {
+            classes: Option::None,
             instances: Option::None,
+            parameters: Option::None,
             w: Option::None,
             b: Option::None,
             phantomdata: PhantomData,
-        } 
+        }       
     }
-    fn fit(x: &X, y: &Y, parameters: SVCParameters<TX, TY, X, Y>) -> Result<Self, Failed> {
+    fn fit(x: &X, y: &Y, parameters: &SVCParameters<'a, TX, TY, X, Y>) -> Result<Self, Failed> {
         SVC::fit(x, y, parameters)
     }
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
-    Predictor<X, Y> for SVC<TX, TY, X, Y, K>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for SVC<'a, TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.predict(x)
+        let predictions: Vec<TY> = self.predict(x).unwrap();
+        let n = predictions.len();
+        Ok(Array1::<TY>::from_iterator(predictions.into_iter(), n))
     }
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
-    SVC<TX, TY, X, Y, K>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    SVC<'a, TX, TY, X, Y>
 {
     /// Fits SVC to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
@@ -410,11 +395,11 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K:
     pub fn fit(
         x: &X,
         y: &Y,
-        parameters: SVCParameters<TX, TY, X, Y>,
-    ) -> Result<SVC<TX, TY, X, Y, K>, Failed> {
+        parameters: &SVCParameters<'a, TX, TY, X, Y>,
+    ) -> Result<SVC<'a, TX, TY, X, Y>, Failed> {
         let (n, _) = x.shape();
 
-        if n != y.shape().0 {
+        if n != y.shape() {
             return Err(Failed::fit(
                 "Number of rows of X doesn\'t match number of rows of Y",
             ));
@@ -431,40 +416,40 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K:
 
         // Make sure class labels are either 1 or -1
         let mut y = y.clone();
-        for i in 0..y.len() {
-            let y_v = y.get(i);
-            if y_v != -TX::one() || y_v != TX::one() {
+        for i in 0..y.shape() {
+            let y_v = *y.get(i);
+            if y_v != TY::from_i32(-1).unwrap() || y_v != TY::one() {
                 match y_v == classes[0] {
-                    true => y.set(i, -TX::one()),
-                    false => y.set(i, TX::one()),
+                    true => y.set(i, TY::from_i32(-1).unwrap()),
+                    false => y.set(i, TY::one()),
                 }
             }
         }
 
-        let optimizer: Optimizer<_, TX, TY, X, Y, K> =
-            Optimizer::new(x, &y, &parameters.kernel, &parameters);
+        let optimizer: Optimizer<'a, TX, TY, X, Y> =
+            Optimizer::new(x, &y, parameters);
 
         let (support_vectors, weight, b) = optimizer.optimize();
 
         Ok(SVC {
-            classes,
-            kernel: <<< parameters.kernel should return the Kernel from a KernelName>>>,
-            instances: support_vectors,
-            w: weight,
-            b,
+            classes: Some(classes),
+            instances: Some(support_vectors),
+            parameters: Some(*parameters),
+            w: Some(weight),
+            b: Some(b),
             phantomdata: PhantomData,
         })
     }
 
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Vec<TY>, Failed> {
         let mut y_hat = self.decision_function(x)?;
 
         for i in 0..y_hat.len() {
-            let cls_idx = match *y_hat.get(i) > TX::zero() {
-                false => self.classes[0],
-                true => self.classes[1],
+            let cls_idx = match *y_hat.get(i).unwrap() > TY::zero() {
+                false => self.classes.unwrap()[0],
+                true => self.classes.unwrap()[1],
             };
 
             y_hat.set(i, cls_idx);
@@ -475,45 +460,58 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K:
 
     /// Evaluates the decision function for the rows in `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn decision_function(&self, x: &X) -> Result<Y, Failed> {
+    pub fn decision_function(&self, x: &X) -> Result<Vec<TY>, Failed> {
         let (n, _) = x.shape();
-        let mut y_hat = Array1::zeros(n);
+        let mut y_hat: Vec<TY> = Array1::zeros(n);
 
         for i in 0..n {
-            y_hat.set(i, self.predict_for_row(x.get_row(i)));
+            y_hat.set(
+                i,
+                TY::from(
+                    self.predict_for_row(
+                        x.get_row(i).iterator(0)
+                    )).unwrap()
+            );
         }
 
         Ok(y_hat)
     }
 
-    fn predict_for_row(&self, x: Y) -> TX {
-        let mut f = self.b;
+    fn predict_for_row(&self, x: Box<dyn Iterator<Item = &TX>>) -> TY {
+        let mut f = self.b.unwrap();
+        let n = self.instances.unwrap().len();
 
-        for i in 0..self.instances.len() {
-            f += self.w[i] * self.kernel.apply(&x, &self.instances[i]);
+        for i in 0..n {
+            f += self.w.unwrap()[i] * TX::from(self.parameters.unwrap().kernel.apply(
+                &x.map(|e| e.to_f64().unwrap()).collect(),
+                &self.instances.unwrap()[i].iter().map(|e| e.to_f64().unwrap()).collect()
+            ).unwrap()).unwrap();
         }
 
-        f
+        TY::from(f).unwrap()
     }
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel<TX>>
-    PartialEq for SVC<TX, TY, X, Y, K>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for SVC<'a, TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        if (self.b - other.b).abs() > TX::epsilon() * TX::two()
-            || self.w.len() != other.w.len()
-            || self.instances.len() != other.instances.len()
+        if (self.b.unwrap().sub(other.b.unwrap())).abs() > TX::epsilon() * TX::two()
+            || self.w.unwrap().len() != other.w.unwrap().len()
+            || self.instances.unwrap().len() != other.instances.unwrap().len()
         {
             false
         } else {
-            for i in 0..self.w.len() {
-                if (self.w[i] - other.w[i]).abs() > TX::epsilon() {
+            if !self.w.unwrap().approximate_eq(&other.w.unwrap(), TX::epsilon()) {
+                return false
+            }
+            for i in 0..self.w.unwrap().len() {
+                if (self.w.unwrap()[i].sub(other.w.unwrap()[i])).abs() > TX::epsilon() {
                     return false;
                 }
             }
-            for i in 0..self.instances.len() {
-                if !self.instances[i].approximate_eq(&other.instances[i], TX::epsilon()) {
+            for i in 0..self.instances.unwrap().len() {
+                if !(self.instances.unwrap()[i] == other.instances.unwrap()[i]) {
                     return false;
                 }
             }
@@ -522,55 +520,47 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K:
     }
 }
 
-impl<'a, T: Number + RealNumber> SupportVector<T> {
-    fn new<K: Kernel<T>>(i: usize, x: Vec<T>, y: T, g: T, c: T, k: &K) -> SupportVector<T> {
-        let k_v = k.apply(&x, &x);
-        let (cmin, cmax) = if y > T::zero() {
-            (T::zero(), c)
+impl<'a, TX: Number + RealNumber> SupportVector<TX> {
+    fn new(i: usize, x: Box<dyn Iterator<Item = &TX>>, y: TX, g: f64, c: f64, k_v: f64) -> SupportVector<TX> {
+        let (cmin, cmax) = if y > TX::zero() {
+            (0f64, c)
         } else {
-            (-c, T::zero())
+            (-c, 0f64)
         };
         SupportVector {
             index: i,
-            x: &x,
+            x: x.map(|e| *e).collect(),
             grad: g,
             k: k_v,
-            alpha: T::zero(),
+            alpha: 0f64,
             cmin,
             cmax,
         }
     }
 }
 
-impl<
-        'a,
-        TX: Number + RealNumber,
-        TY: Number + Ord,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-        K: Kernel<TX>,
-    > Cache<'a, TX, TY, X, Y, K>
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    Cache<TX, TY, X, Y>
 {
-    fn new(kernel: &'a K) -> Cache<'a, TX, TY, X, Y, K> {
+    fn new() -> Cache<TX, TY, X, Y> {
         Cache {
-            kernel,
             data: HashMap::new(),
             phantom: PhantomData,
         }
     }
 
-    fn get(&mut self, i: &SupportVector<TX>, j: &SupportVector<TX>) -> TX {
+    fn get(&mut self, i: &SupportVector<TX>, j: &SupportVector<TX>, or_insert: f64) -> f64 {
         let idx_i = i.index;
         let idx_j = j.index;
         #[allow(clippy::or_fun_call)]
         let entry = self
             .data
             .entry((idx_i, idx_j))
-            .or_insert(self.kernel.apply(&i.x, &j.x));
+            .or_insert(or_insert);
         *entry
     }
 
-    fn insert(&mut self, key: (usize, usize), value: TX) {
+    fn insert(&mut self, key: (usize, usize), value: f64) {
         self.data.insert(key, value);
     }
 
@@ -579,22 +569,17 @@ impl<
     }
 }
 
-impl<
-        'a,
-        TX: Number + RealNumber,
-        TY: Number + Ord,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-        K: Kernel<TX>,
-    > Optimizer<'a, TX, TY, X, Y, K>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    Optimizer<'a, TX, TY, X, Y>
 {
     fn new(
         x: &'a X,
         y: &'a Y,
-        kernel: &'a K,
         parameters: &'a SVCParameters<TX, TY, X, Y>,
-    ) -> Optimizer<'a, TX, TY, X, Y, K> {
+    ) -> Optimizer<'a, TX, TY, X, Y> {
         let (n, _) = x.shape();
+        // clone the kernel to be used in the optimizer
+        let knl = Box::new(parameters.kernel.clone());
 
         Optimizer {
             x,
@@ -602,19 +587,18 @@ impl<
             parameters,
             svmin: 0,
             svmax: 0,
-            gmin: TX::max_value(),
-            gmax: TX::min_value(),
+            gmin: <TX as Bounded>::max_value(),
+            gmax: <TX as Bounded>::min_value(),
             tau: TX::from_f64(1e-12).unwrap(),
             sv: Vec::with_capacity(n),
-            kernel,
             recalculate_minmax_grad: true,
         }
     }
 
-    fn optimize(mut self) -> (Vec<Y>, Vec<TX>, TX) {
+    fn optimize(mut self) -> (Vec<Vec<TX>>, Vec<TX>, TX) {
         let (n, _) = self.x.shape();
 
-        let mut cache: Cache<'a, TX, X, Y, K> = Cache::new(self.kernel);
+        let mut cache: Cache<TX, TY, X, Y> = Cache::new();
 
         self.initialize(&mut cache);
 
@@ -623,7 +607,11 @@ impl<
 
         for _ in 0..self.parameters.epoch {
             for i in self.permutate(n) {
-                self.process(i, self.x.get_row(i), self.y.get(i), &mut cache);
+                self.process(i,
+                    self.x.get_row(i).iterator(0),
+                    *self.y.get(i),
+                    &mut cache
+                );
                 loop {
                     self.reprocess(tol, &mut cache);
                     self.find_min_max_gradient();
@@ -636,33 +624,41 @@ impl<
 
         self.finish(&mut cache);
 
-        let mut support_vectors: Vec<Y> = Vec::new();
+        let mut support_vectors: Vec<Vec<TX>> = Vec::new();
         let mut w: Vec<TX> = Vec::new();
 
         let b = (self.gmax + self.gmin) / TX::two();
 
         for v in self.sv {
             support_vectors.push(v.x);
-            w.push(v.alpha);
+            w.push(TX::from(v.alpha).unwrap());
         }
 
         (support_vectors, w, b)
     }
 
-    fn initialize(&mut self, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
+    fn initialize(&mut self, cache: &mut Cache<TX, TY, X, Y>) {
         let (n, _) = self.x.shape();
         let few = 5;
         let mut cp = 0;
         let mut cn = 0;
 
         for i in self.permutate(n) {
-            if self.y.get(i) == TX::one() && cp < few {
-                if self.process(i, self.x.get_row(i), self.y.get(i), cache) {
+            if *self.y.get(i) == TY::one() && cp < few {
+                if self.process(i,
+                    self.x.get_row(i).iterator(0),
+                    *self.y.get(i),
+                    &mut cache
+                ) {
                     cp += 1;
                 }
-            } else if self.y.get(i) == -TX::one()
+            } else if *self.y.get(i) == TY::from(-1).unwrap()
                 && cn < few
-                && self.process(i, self.x.get_row(i), self.y.get(i), cache)
+                && self.process(i,
+                    self.x.get_row(i).iterator(0),
+                    *self.y.get(i),
+                    &mut cache
+                )
             {
                 cn += 1;
             }
@@ -673,41 +669,54 @@ impl<
         }
     }
 
-    fn process(&mut self, i: usize, x: Y, y: TX, cache: &mut Cache<'_, TX, TY, X, Y, K>) -> bool {
+    fn process(&mut self, i: usize, x: Box<dyn Iterator<Item = &TX>>, y: TY, cache: &mut Cache<TX, TY, X, Y>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
             }
         }
 
-        let mut g = y;
+        let mut g: f64 = y.to_f64().unwrap();
 
         let mut cache_values: Vec<((usize, usize), TX)> = Vec::new();
 
         for v in self.sv.iter() {
-            let k = self.kernel.apply(&v.x, &x);
-            cache_values.push(((i, v.index), k));
+            let k = self.parameters.kernel.apply(
+                &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                &x.map(|e| e.to_f64().unwrap()).collect()
+            ).unwrap();
+            cache_values.push(((i, v.index), TX::from(k).unwrap()));
             g -= v.alpha * k;
         }
 
         self.find_min_max_gradient();
 
         if self.gmin < self.gmax
-            && ((y > TX::zero() && g < self.gmin) || (y < TX::zero() && g > self.gmax))
+            && ((y > TY::zero() && g < self.gmin.to_f64().unwrap()) || (y < TY::zero() && g > self.gmax.to_f64().unwrap()))
         {
             return false;
         }
 
         for v in cache_values {
-            cache.insert(v.0, v.1);
+            cache.insert(v.0, v.1.to_f64().unwrap());
         }
+
+        let x_f64 = x.map(|e| e.to_f64().unwrap()).collect();
+        let k_v = self.parameters.kernel.apply(
+            &x_f64,
+            &x_f64,
+        ).unwrap();
 
         self.sv.insert(
             0,
-            SupportVector::new(i, x, y, g, self.parameters.c, self.kernel),
+            SupportVector::<TX>::new(i,
+                x, TX::from(y).unwrap(), g,
+                self.parameters.c.to_f64().unwrap(),
+                k_v
+            ),
         );
 
-        if y > TX::zero() {
+        if y > TY::zero() {
             self.smo(None, Some(0), TX::zero(), cache);
         } else {
             self.smo(Some(0), None, TX::zero(), cache);
@@ -716,13 +725,13 @@ impl<
         true
     }
 
-    fn reprocess(&mut self, tol: TX, cache: &mut Cache<'_, TX, TY, X, Y, K>) -> bool {
+    fn reprocess(&mut self, tol: TX, cache: &mut Cache<TX, TY, X, Y>) -> bool {
         let status = self.smo(None, None, tol, cache);
         self.clean(cache);
         status
     }
 
-    fn finish(&mut self, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
+    fn finish(&mut self, cache: &mut Cache<TX, TY, X, Y>) {
         let mut max_iter = self.sv.len();
 
         while self.smo(None, None, self.parameters.tol, cache) && max_iter > 0 {
@@ -737,19 +746,19 @@ impl<
             return;
         }
 
-        self.gmin = TX::max_value();
-        self.gmax = TX::min_value();
+        self.gmin = <TX as Bounded>::max_value();
+        self.gmax = <TX as Bounded>::min_value();
 
         for i in 0..self.sv.len() {
             let v = &self.sv[i];
             let g = v.grad;
             let a = v.alpha;
-            if g < self.gmin && a > v.cmin {
-                self.gmin = g;
+            if g < self.gmin.to_f64().unwrap() && a > v.cmin {
+                self.gmin = TX::from(g).unwrap();
                 self.svmin = i;
             }
-            if g > self.gmax && a < v.cmax {
-                self.gmax = g;
+            if g > self.gmax.to_f64().unwrap() && a < v.cmax {
+                self.gmax = TX::from(g).unwrap();
                 self.svmax = i;
             }
         }
@@ -757,7 +766,7 @@ impl<
         self.recalculate_minmax_grad = false
     }
 
-    fn clean(&mut self, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
+    fn clean(&mut self, cache: &mut Cache<TX, TY, X, Y>) {
         self.find_min_max_gradient();
 
         let gmax = self.gmax;
@@ -766,9 +775,9 @@ impl<
         let mut idxs_to_drop: HashSet<usize> = HashSet::new();
 
         self.sv.retain(|v| {
-            if v.alpha == TX::zero()
-                && ((v.grad >= gmax && TX::zero() >= v.cmax)
-                    || (v.grad <= gmin && TX::zero() <= v.cmin))
+            if v.alpha == 0f64
+                && ((TX::from(v.grad).unwrap() >= gmax && TX::zero() >= TX::from(v.cmax).unwrap())
+                    || (TX::from(v.grad).unwrap() <= gmin && TX::zero() <= TX::from(v.cmin).unwrap()))
             {
                 idxs_to_drop.insert(v.index);
                 return false;
@@ -791,8 +800,8 @@ impl<
         &mut self,
         idx_1: Option<usize>,
         idx_2: Option<usize>,
-        cache: &mut Cache<'_, TX, TY, X, Y, K>,
-    ) -> Option<(usize, usize, TX)> {
+        cache: &mut Cache<TX, TY, X, Y>,
+    ) -> Option<(usize, usize, f64)> {
         match (idx_1, idx_2) {
             (None, None) => {
                 if self.gmax > -self.gmin {
@@ -807,18 +816,23 @@ impl<
                 let mut k_v_12 = None;
                 let km = sv1.k;
                 let gm = sv1.grad;
-                let mut best = TX::zero();
+                let mut best = 0f64;
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = v.grad - gm;
-                    let k = cache.get(sv1, v);
-                    let mut curv = km + v.k - TX::two() * k;
-                    if curv <= TX::zero() {
-                        curv = self.tau;
+                    let k = cache.get(sv1, v,
+                        self.parameters.kernel.apply(
+                            &sv1.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                            &v.x.iter().map(|e| e.to_f64().unwrap()).collect()
+                        ).unwrap()
+                    );
+                    let mut curv = km + v.k - 2f64 * k;
+                    if curv <= 0f64 {
+                        curv = self.tau.to_f64().unwrap();
                     }
                     let mu = z / curv;
-                    if (mu > TX::zero() && v.alpha < v.cmax)
-                        || (mu < TX::zero() && v.alpha > v.cmin)
+                    if (mu > 0f64 && v.alpha < v.cmax)
+                        || (mu < 0f64 && v.alpha > v.cmin)
                     {
                         let gain = z * mu;
                         if gain > best {
@@ -834,7 +848,10 @@ impl<
                         idx_1,
                         idx_2,
                         k_v_12.unwrap_or_else(|| {
-                            self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)
+                            self.parameters.kernel.apply(
+                                &self.sv[idx_1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                                &self.sv[idx_2].x.iter().map(|e| e.to_f64().unwrap()).collect()
+                            ).unwrap()
                         }),
                     )
                 })
@@ -845,19 +862,24 @@ impl<
                 let mut k_v_12 = None;
                 let km = sv2.k;
                 let gm = sv2.grad;
-                let mut best = TX::zero();
+                let mut best = 0f64;
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = gm - v.grad;
-                    let k = cache.get(sv2, v);
-                    let mut curv = km + v.k - TX::two() * k;
-                    if curv <= TX::zero() {
-                        curv = self.tau;
+                    let k = cache.get(sv2, v,
+                        self.parameters.kernel.apply(
+                            &sv2.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                            &v.x.iter().map(|e| e.to_f64().unwrap()).collect()
+                        ).unwrap()
+                    );
+                    let mut curv = km + v.k - 2f64 * k;
+                    if curv <= 0f64 {
+                        curv = self.tau.to_f64().unwrap();
                     }
 
                     let mu = z / curv;
-                    if (mu > TX::zero() && v.alpha > v.cmin)
-                        || (mu < TX::zero() && v.alpha < v.cmax)
+                    if (mu > 0f64 && v.alpha > v.cmin)
+                        || (mu < 0f64 && v.alpha < v.cmax)
                     {
                         let gain = z * mu;
                         if gain > best {
@@ -873,7 +895,10 @@ impl<
                         idx_1,
                         idx_2,
                         k_v_12.unwrap_or_else(|| {
-                            self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x)
+                            self.parameters.kernel.apply(
+                                &self.sv[idx_1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                                &self.sv[idx_2].x.iter().map(|e| e.to_f64().unwrap()).collect()
+                            ).unwrap()
                         }),
                     )
                 })
@@ -881,7 +906,10 @@ impl<
             (Some(idx_1), Some(idx_2)) => Some((
                 idx_1,
                 idx_2,
-                self.kernel.apply(&self.sv[idx_1].x, &self.sv[idx_2].x),
+                self.parameters.kernel.apply(
+                    &self.sv[idx_1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                    &self.sv[idx_2].x.iter().map(|e| e.to_f64().unwrap()).collect()
+                ).unwrap(),
             )),
         }
     }
@@ -891,18 +919,18 @@ impl<
         idx_1: Option<usize>,
         idx_2: Option<usize>,
         tol: TX,
-        cache: &mut Cache<'_, TX, TY, X, Y, K>,
+        cache: &mut Cache<TX, TY, X, Y>,
     ) -> bool {
         match self.select_pair(idx_1, idx_2, cache) {
             Some((idx_1, idx_2, k_v_12)) => {
-                let mut curv = self.sv[idx_1].k + self.sv[idx_2].k - TX::two() * k_v_12;
-                if curv <= TX::zero() {
-                    curv = self.tau;
+                let mut curv = self.sv[idx_1].k + self.sv[idx_2].k - 2f64 * k_v_12;
+                if curv <= 0f64 {
+                    curv = self.tau.to_f64().unwrap();
                 }
 
                 let mut step = (self.sv[idx_2].grad - self.sv[idx_1].grad) / curv;
 
-                if step >= TX::zero() {
+                if step >= 0f64 {
                     let mut ostep = self.sv[idx_1].alpha - self.sv[idx_1].cmin;
                     if ostep < step {
                         step = ostep;
@@ -922,7 +950,7 @@ impl<
                     }
                 }
 
-                self.update(idx_1, idx_2, step, cache);
+                self.update(idx_1, idx_2, TX::from(step).unwrap(), cache);
 
                 self.gmax - self.gmin > tol
             }
@@ -930,14 +958,24 @@ impl<
         }
     }
 
-    fn update(&mut self, v1: usize, v2: usize, step: TX, cache: &mut Cache<'_, TX, TY, X, Y, K>) {
-        self.sv[v1].alpha -= step;
-        self.sv[v2].alpha += step;
+    fn update(&mut self, v1: usize, v2: usize, step: TX, cache: &mut Cache<TX, TY, X, Y>) {
+        self.sv[v1].alpha -= step.to_f64().unwrap();
+        self.sv[v2].alpha += step.to_f64().unwrap();
 
         for i in 0..self.sv.len() {
-            let k2 = cache.get(&self.sv[v2], &self.sv[i]);
-            let k1 = cache.get(&self.sv[v1], &self.sv[i]);
-            self.sv[i].grad -= step * (k2 - k1);
+            let k2 = cache.get(&self.sv[v2], &self.sv[i],
+                self.parameters.kernel.apply(
+                    &self.sv[v2].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                    &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect()
+                ).unwrap()
+            );
+            let k1 = cache.get(&self.sv[v1], &self.sv[i],
+                self.parameters.kernel.apply(
+                    &self.sv[v1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                    &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect()
+                ).unwrap()
+            );
+            self.sv[i].grad -= step.to_f64().unwrap() * (k2 - k1);
         }
 
         self.recalculate_minmax_grad = true;
@@ -953,23 +991,23 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
-    #[test]
-    fn search_parameters() {
-        let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
-            SVCSearchParameters {
-                epoch: vec![10, 100],
-                kernel: vec![LinearKernel {}],
-                ..Default::default()
-            };
-        let mut iter = parameters.into_iter();
-        let next = iter.next().unwrap();
-        assert_eq!(next.epoch, 10);
-        assert_eq!(next.kernel, LinearKernel {});
-        let next = iter.next().unwrap();
-        assert_eq!(next.epoch, 100);
-        assert_eq!(next.kernel, LinearKernel {});
-        assert!(iter.next().is_none());
-    }
+    // #[test]
+    // fn search_parameters() {
+    //     let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+    //         SVCSearchParameters {
+    //             epoch: vec![10, 100],
+    //             kernel: vec![LinearKernel {}],
+    //             ..Default::default()
+    //         };
+    //     let mut iter = parameters.into_iter();
+    //     let next = iter.next().unwrap();
+    //     assert_eq!(next.epoch, 10);
+    //     assert_eq!(next.kernel, LinearKernel {});
+    //     let next = iter.next().unwrap();
+    //     assert_eq!(next.epoch, 100);
+    //     assert_eq!(next.kernel, LinearKernel {});
+    //     assert!(iter.next().is_none());
+    // }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -997,17 +1035,20 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let y: Vec<f64> = vec![
-            0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+        let y: Vec<u32> = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         ];
 
+        let knl = Kernels::linear();
+        let params = SVCParameters::default()
+            .with_c(200.0)
+            .with_kernel(&knl)
+            .with_seed(Some(100)
+        );
         let y_hat = SVC::fit(
             &x,
             &y,
-            SVCParameters::default()
-                .with_c(200.0)
-                .with_kernel(Kernels::linear())
-                .with_seed(Some(100)),
+            params,
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
@@ -1020,130 +1061,130 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    #[test]
-    fn svc_fit_decision_function() {
-        let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
+    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // fn svc_fit_decision_function() {
+    //     let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
 
-        let x2 = DenseMatrix::from_2d_array(&[
-            &[3.0, 3.0],
-            &[4.0, 4.0],
-            &[6.0, 6.0],
-            &[10.0, 10.0],
-            &[1.0, 1.0],
-            &[0.0, 0.0],
-        ]);
+    //     let x2 = DenseMatrix::from_2d_array(&[
+    //         &[3.0, 3.0],
+    //         &[4.0, 4.0],
+    //         &[6.0, 6.0],
+    //         &[10.0, 10.0],
+    //         &[1.0, 1.0],
+    //         &[0.0, 0.0],
+    //     ]);
 
-        let y: Vec<f64> = vec![0., 0., 1., 1.];
+    //     let y: Vec<f64> = vec![0., 0., 1., 1.];
 
-        let y_hat = SVC::fit(
-            &x,
-            &y,
-            SVCParameters::default()
-                .with_c(200.0)
-                .with_kernel(Kernels::linear()),
-        )
-        .and_then(|lr| lr.decision_function(&x2))
-        .unwrap();
+    //     let y_hat = SVC::fit(
+    //         &x,
+    //         &y,
+    //         SVCParameters::default()
+    //             .with_c(200.0)
+    //             .with_kernel(Kernels::linear()),
+    //     )
+    //     .and_then(|lr| lr.decision_function(&x2))
+    //     .unwrap();
 
-        // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
-        // so the score should increase as points get further away from that line
-        assert!(y_hat[1] < y_hat[2]);
-        assert!(y_hat[2] < y_hat[3]);
+    //     // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
+    //     // so the score should increase as points get further away from that line
+    //     assert!(y_hat[1] < y_hat[2]);
+    //     assert!(y_hat[2] < y_hat[3]);
 
-        // for negative scores the score should decrease
-        assert!(y_hat[4] > y_hat[5]);
+    //     // for negative scores the score should decrease
+    //     assert!(y_hat[4] > y_hat[5]);
 
-        // y_hat[0] is on the line, so its score should be close to 0
-        assert!(y_hat[0].abs() <= 0.1);
-    }
+    //     // y_hat[0] is on the line, so its score should be close to 0
+    //     assert!(y_hat[0].abs() <= 0.1);
+    // }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    #[test]
-    fn svc_fit_predict_rbf() {
-        let x = DenseMatrix::from_2d_array(&[
-            &[5.1, 3.5, 1.4, 0.2],
-            &[4.9, 3.0, 1.4, 0.2],
-            &[4.7, 3.2, 1.3, 0.2],
-            &[4.6, 3.1, 1.5, 0.2],
-            &[5.0, 3.6, 1.4, 0.2],
-            &[5.4, 3.9, 1.7, 0.4],
-            &[4.6, 3.4, 1.4, 0.3],
-            &[5.0, 3.4, 1.5, 0.2],
-            &[4.4, 2.9, 1.4, 0.2],
-            &[4.9, 3.1, 1.5, 0.1],
-            &[7.0, 3.2, 4.7, 1.4],
-            &[6.4, 3.2, 4.5, 1.5],
-            &[6.9, 3.1, 4.9, 1.5],
-            &[5.5, 2.3, 4.0, 1.3],
-            &[6.5, 2.8, 4.6, 1.5],
-            &[5.7, 2.8, 4.5, 1.3],
-            &[6.3, 3.3, 4.7, 1.6],
-            &[4.9, 2.4, 3.3, 1.0],
-            &[6.6, 2.9, 4.6, 1.3],
-            &[5.2, 2.7, 3.9, 1.4],
-        ]);
+    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // fn svc_fit_predict_rbf() {
+    //     let x = DenseMatrix::from_2d_array(&[
+    //         &[5.1, 3.5, 1.4, 0.2],
+    //         &[4.9, 3.0, 1.4, 0.2],
+    //         &[4.7, 3.2, 1.3, 0.2],
+    //         &[4.6, 3.1, 1.5, 0.2],
+    //         &[5.0, 3.6, 1.4, 0.2],
+    //         &[5.4, 3.9, 1.7, 0.4],
+    //         &[4.6, 3.4, 1.4, 0.3],
+    //         &[5.0, 3.4, 1.5, 0.2],
+    //         &[4.4, 2.9, 1.4, 0.2],
+    //         &[4.9, 3.1, 1.5, 0.1],
+    //         &[7.0, 3.2, 4.7, 1.4],
+    //         &[6.4, 3.2, 4.5, 1.5],
+    //         &[6.9, 3.1, 4.9, 1.5],
+    //         &[5.5, 2.3, 4.0, 1.3],
+    //         &[6.5, 2.8, 4.6, 1.5],
+    //         &[5.7, 2.8, 4.5, 1.3],
+    //         &[6.3, 3.3, 4.7, 1.6],
+    //         &[4.9, 2.4, 3.3, 1.0],
+    //         &[6.6, 2.9, 4.6, 1.3],
+    //         &[5.2, 2.7, 3.9, 1.4],
+    //     ]);
 
-        let y: Vec<f64> = vec![
-            -1., -1., -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-            1.,
-        ];
+    //     let y: Vec<f64> = vec![
+    //         -1., -1., -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+    //         1.,
+    //     ];
 
-        let y_hat = SVC::fit(
-            &x,
-            &y,
-            SVCParameters::default()
-                .with_c(1.0)
-                .with_kernel(Kernels::rbf(0.7)),
-        )
-        .and_then(|lr| lr.predict(&x))
-        .unwrap();
+    //     let y_hat = SVC::fit(
+    //         &x,
+    //         &y,
+    //         SVCParameters::default()
+    //             .with_c(1.0)
+    //             .with_kernel(Kernels::rbf(0.7)),
+    //     )
+    //     .and_then(|lr| lr.predict(&x))
+    //     .unwrap();
 
-        let acc = accuracy(&y_hat, &y);
+    //     let acc = accuracy(&y_hat, &y);
 
-        assert!(
-            acc >= 0.9,
-            "accuracy ({}) is not larger or equal to 0.9",
-            acc
-        );
-    }
+    //     assert!(
+    //         acc >= 0.9,
+    //         "accuracy ({}) is not larger or equal to 0.9",
+    //         acc
+    //     );
+    // }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    #[test]
-    #[cfg(feature = "serde")]
-    fn svc_serde() {
-        let x = DenseMatrix::from_2d_array(&[
-            &[5.1, 3.5, 1.4, 0.2],
-            &[4.9, 3.0, 1.4, 0.2],
-            &[4.7, 3.2, 1.3, 0.2],
-            &[4.6, 3.1, 1.5, 0.2],
-            &[5.0, 3.6, 1.4, 0.2],
-            &[5.4, 3.9, 1.7, 0.4],
-            &[4.6, 3.4, 1.4, 0.3],
-            &[5.0, 3.4, 1.5, 0.2],
-            &[4.4, 2.9, 1.4, 0.2],
-            &[4.9, 3.1, 1.5, 0.1],
-            &[7.0, 3.2, 4.7, 1.4],
-            &[6.4, 3.2, 4.5, 1.5],
-            &[6.9, 3.1, 4.9, 1.5],
-            &[5.5, 2.3, 4.0, 1.3],
-            &[6.5, 2.8, 4.6, 1.5],
-            &[5.7, 2.8, 4.5, 1.3],
-            &[6.3, 3.3, 4.7, 1.6],
-            &[4.9, 2.4, 3.3, 1.0],
-            &[6.6, 2.9, 4.6, 1.3],
-            &[5.2, 2.7, 3.9, 1.4],
-        ]);
+    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // #[cfg(feature = "serde")]
+    // fn svc_serde() {
+    //     let x = DenseMatrix::from_2d_array(&[
+    //         &[5.1, 3.5, 1.4, 0.2],
+    //         &[4.9, 3.0, 1.4, 0.2],
+    //         &[4.7, 3.2, 1.3, 0.2],
+    //         &[4.6, 3.1, 1.5, 0.2],
+    //         &[5.0, 3.6, 1.4, 0.2],
+    //         &[5.4, 3.9, 1.7, 0.4],
+    //         &[4.6, 3.4, 1.4, 0.3],
+    //         &[5.0, 3.4, 1.5, 0.2],
+    //         &[4.4, 2.9, 1.4, 0.2],
+    //         &[4.9, 3.1, 1.5, 0.1],
+    //         &[7.0, 3.2, 4.7, 1.4],
+    //         &[6.4, 3.2, 4.5, 1.5],
+    //         &[6.9, 3.1, 4.9, 1.5],
+    //         &[5.5, 2.3, 4.0, 1.3],
+    //         &[6.5, 2.8, 4.6, 1.5],
+    //         &[5.7, 2.8, 4.5, 1.3],
+    //         &[6.3, 3.3, 4.7, 1.6],
+    //         &[4.9, 2.4, 3.3, 1.0],
+    //         &[6.6, 2.9, 4.6, 1.3],
+    //         &[5.2, 2.7, 3.9, 1.4],
+    //     ]);
 
-        let y: Vec<f64> = vec![
-            -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-        ];
+    //     let y: Vec<f64> = vec![
+    //         -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+    //     ];
 
-        let svc = SVC::fit(&x, &y, Default::default()).unwrap();
+    //     let svc = SVC::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_svc: SVC<f64, DenseMatrix<f64>, LinearKernel> =
-            serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
+    //     let deserialized_svc: SVC<f64, DenseMatrix<f64>, LinearKernel> =
+    //         serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
-        assert_eq!(svc, deserialized_svc);
-    }
+    //     assert_eq!(svc, deserialized_svc);
+    // }
 }
