@@ -81,9 +81,9 @@ use rand::seq::SliceRandom;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::api::{Predictor, SupervisedEstimator};
-use crate::error::Failed;
-use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
+use crate::api::{PredictorBorrow, SupervisedEstimatorBorrow};
+use crate::error::{Failed, FailedError};
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
@@ -110,7 +110,7 @@ pub struct SVCParameters<
     pub tol: TX,
     // #[cfg_attr(feature = "serde", serde(default))]
     /// The kernel function.
-    pub kernel: &'a dyn Kernel<'a>,
+    pub kernel: Option<&'a dyn Kernel<'a>>,
     // #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
@@ -269,7 +269,7 @@ pub struct SVCParameters<
 pub struct SVC<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     classes: Option<Vec<TY>>,
     instances: Option<Vec<Vec<TX>>>,
-    parameters: Option<SVCParameters<'a, TX, TY, X, Y>>,
+    parameters: Option<&'a SVCParameters<'a, TX, TY, X, Y>>,
     w: Option<Vec<TX>>,
     b: Option<TX>,
     phantomdata: PhantomData<(X, Y)>,
@@ -324,15 +324,9 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         self
     }
     /// The kernel function.
-    pub fn with_kernel(&self, kernel: &'a (dyn Kernel<'a>)) -> SVCParameters<'a, TX, TY, X, Y> {
-        SVCParameters::<'a> {
-            epoch: self.epoch,
-            c: self.c,
-            tol: self.tol,
-            kernel: kernel,
-            m: PhantomData,
-            seed: self.seed,
-        }
+    pub fn with_kernel(mut self, kernel: &'a (dyn Kernel<'a>)) -> Self {
+        self.kernel = Some(kernel);
+        self
     }
 
     /// Seed for the pseudo random number generator.
@@ -342,23 +336,23 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     }
 }
 
-// impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
-//     for SVCParameters<'a, TX, TY, X, Y>
-// {
-//     fn default() -> Self {
-//         SVCParameters {
-//             epoch: 2,
-//             c: TX::one(),
-//             tol: TX::from_f64(1e-3).unwrap(),
-//             kernel: &Kernels::linear(),
-//             m: PhantomData,
-//             seed: Option::None,
-//         }
-//     }
-// }
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Default
+    for SVCParameters<'a, TX, TY, X, Y>
+{
+    fn default() -> Self {
+        SVCParameters {
+            epoch: 2,
+            c: TX::one(),
+            tol: TX::from_f64(1e-3).unwrap(),
+            kernel: Option::None,
+            m: PhantomData,
+            seed: Option::None,
+        }
+    }
+}
 
 impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    SupervisedEstimator<X, Y, SVCParameters<'a, TX, TY, X, Y>> for SVC<'a, TX, TY, X, Y>
+    SupervisedEstimatorBorrow<'a, X, Y, SVCParameters<'a, TX, TY, X, Y>> for SVC<'a, TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -368,24 +362,27 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             w: Option::None,
             b: Option::None,
             phantomdata: PhantomData,
-        }       
+        }
     }
-    fn fit(x: &X, y: &Y, parameters: &SVCParameters<'a, TX, TY, X, Y>) -> Result<Self, Failed> {
+    fn fit(
+        x: &'a X,
+        y: &'a Y,
+        parameters: &'a SVCParameters<'a, TX, TY, X, Y>,
+    ) -> Result<Self, Failed> {
         SVC::fit(x, y, parameters)
     }
 }
 
-impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
-    for SVC<'a, TX, TY, X, Y>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+    PredictorBorrow<'a, X, TX> for SVC<'a, TX, TY, X, Y>
 {
-    fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let predictions: Vec<TY> = self.predict(x).unwrap();
-        let n = predictions.len();
-        Ok(Array1::<TY>::from_iterator(predictions.into_iter(), n))
+    fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
+        Ok(self.predict(x).unwrap())
+
     }
 }
 
-impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
+impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array1<TY> + 'a>
     SVC<'a, TX, TY, X, Y>
 {
     /// Fits SVC to your data.
@@ -393,9 +390,9 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     /// * `y` - class labels
     /// * `parameters` - optional parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
-        x: &X,
-        y: &Y,
-        parameters: &SVCParameters<'a, TX, TY, X, Y>,
+        x: &'a X,
+        y: &'a Y,
+        parameters: &'a SVCParameters<'a, TX, TY, X, Y>,
     ) -> Result<SVC<'a, TX, TY, X, Y>, Failed> {
         let (n, _) = x.shape();
 
@@ -409,32 +406,30 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 
         if classes.len() != 2 {
             return Err(Failed::fit(&format!(
-                "Incorrect number of classes {}",
+                "Incorrect number of classes: {}",
                 classes.len()
             )));
         }
 
         // Make sure class labels are either 1 or -1
-        let mut y = y.clone();
-        for i in 0..y.shape() {
-            let y_v = *y.get(i);
-            if y_v != TY::from_i32(-1).unwrap() || y_v != TY::one() {
-                match y_v == classes[0] {
-                    true => y.set(i, TY::from_i32(-1).unwrap()),
-                    false => y.set(i, TY::one()),
-                }
+        for e in y.iterator(0) {
+            let y_v = e.to_i32().unwrap();
+            if y_v != -1 && y_v != 1 {
+                return Err(Failed::because(
+                    FailedError::ParametersError,
+                    "Class labels must be 1 or -1",
+                ));
             }
         }
 
-        let optimizer: Optimizer<'a, TX, TY, X, Y> =
-            Optimizer::new(x, &y, parameters);
+        let optimizer: Optimizer<TX, TY, X, Y> = Optimizer::new(x, y, parameters);
 
         let (support_vectors, weight, b) = optimizer.optimize();
 
-        Ok(SVC {
+        Ok(SVC::<'a> {
             classes: Some(classes),
             instances: Some(support_vectors),
-            parameters: Some(*parameters),
+            parameters: Some(parameters),
             w: Some(weight),
             b: Some(b),
             phantomdata: PhantomData,
@@ -443,13 +438,13 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Vec<TY>, Failed> {
-        let mut y_hat = self.decision_function(x)?;
+    pub fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
+        let mut y_hat: Vec<TX> = self.decision_function(x)?;
 
         for i in 0..y_hat.len() {
-            let cls_idx = match *y_hat.get(i).unwrap() > TY::zero() {
-                false => self.classes.unwrap()[0],
-                true => self.classes.unwrap()[1],
+            let cls_idx = match *y_hat.get(i).unwrap() > TX::zero() {
+                false => TX::from(self.classes.as_ref().unwrap()[0]).unwrap(),
+                true => TX::from(self.classes.as_ref().unwrap()[1]).unwrap(),
             };
 
             y_hat.set(i, cls_idx);
@@ -460,35 +455,46 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 
     /// Evaluates the decision function for the rows in `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn decision_function(&self, x: &X) -> Result<Vec<TY>, Failed> {
+    pub fn decision_function(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
         let (n, _) = x.shape();
-        let mut y_hat: Vec<TY> = Array1::zeros(n);
+        let mut y_hat: Vec<TX> = Array1::zeros(n);
 
         for i in 0..n {
-            y_hat.set(
-                i,
-                TY::from(
-                    self.predict_for_row(
-                        x.get_row(i).iterator(0)
-                    )).unwrap()
+            let row_pred: TX =
+                self.predict_for_row(
+                    Vec::from_iterator(x.get_row(i).iterator(0).map(|e| *e), n)
             );
+            y_hat.set(i, row_pred);
         }
 
         Ok(y_hat)
     }
 
-    fn predict_for_row(&self, x: Box<dyn Iterator<Item = &TX>>) -> TY {
-        let mut f = self.b.unwrap();
-        let n = self.instances.unwrap().len();
+    fn predict_for_row(&self, x: Vec<TX>) -> TX {
+        let mut f = self.b.clone().unwrap();
 
-        for i in 0..n {
-            f += self.w.unwrap()[i] * TX::from(self.parameters.unwrap().kernel.apply(
-                &x.map(|e| e.to_f64().unwrap()).collect(),
-                &self.instances.unwrap()[i].iter().map(|e| e.to_f64().unwrap()).collect()
-            ).unwrap()).unwrap();
+        for i in 0..self.instances.as_ref().unwrap().len() {
+            f += self.w.as_ref().unwrap()[i]
+                * TX::from(
+                    self.parameters
+                        .as_ref()
+                        .unwrap()
+                        .kernel
+                        .as_ref()
+                        .unwrap()
+                        .apply(
+                            &x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                            &self.instances.as_ref().unwrap()[i]
+                                .iter()
+                                .map(|e| e.to_f64().unwrap())
+                                .collect(),
+                        )
+                        .unwrap(),
+                )
+                .unwrap();
         }
 
-        TY::from(f).unwrap()
+        TX::from(f).unwrap()
     }
 }
 
@@ -497,21 +503,28 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 {
     fn eq(&self, other: &Self) -> bool {
         if (self.b.unwrap().sub(other.b.unwrap())).abs() > TX::epsilon() * TX::two()
-            || self.w.unwrap().len() != other.w.unwrap().len()
-            || self.instances.unwrap().len() != other.instances.unwrap().len()
+            || self.w.as_ref().unwrap().len() != other.w.as_ref().unwrap().len()
+            || self.instances.as_ref().unwrap().len() != other.instances.as_ref().unwrap().len()
         {
             false
         } else {
-            if !self.w.unwrap().approximate_eq(&other.w.unwrap(), TX::epsilon()) {
-                return false
+            if !self
+                .w
+                .as_ref()
+                .unwrap()
+                .approximate_eq(&other.w.as_ref().unwrap(), TX::epsilon())
+            {
+                return false;
             }
-            for i in 0..self.w.unwrap().len() {
-                if (self.w.unwrap()[i].sub(other.w.unwrap()[i])).abs() > TX::epsilon() {
+            for i in 0..self.w.as_ref().unwrap().len() {
+                if (self.w.as_ref().unwrap()[i].sub(other.w.as_ref().unwrap()[i])).abs()
+                    > TX::epsilon()
+                {
                     return false;
                 }
             }
-            for i in 0..self.instances.unwrap().len() {
-                if !(self.instances.unwrap()[i] == other.instances.unwrap()[i]) {
+            for i in 0..self.instances.as_ref().unwrap().len() {
+                if !(self.instances.as_ref().unwrap()[i] == other.instances.as_ref().unwrap()[i]) {
                     return false;
                 }
             }
@@ -521,7 +534,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 }
 
 impl<'a, TX: Number + RealNumber> SupportVector<TX> {
-    fn new(i: usize, x: Box<dyn Iterator<Item = &TX>>, y: TX, g: f64, c: f64, k_v: f64) -> SupportVector<TX> {
+    fn new(i: usize, x: Vec<TX>, y: TX, g: f64, c: f64, k_v: f64) -> SupportVector<TX> {
         let (cmin, cmax) = if y > TX::zero() {
             (0f64, c)
         } else {
@@ -529,7 +542,7 @@ impl<'a, TX: Number + RealNumber> SupportVector<TX> {
         };
         SupportVector {
             index: i,
-            x: x.map(|e| *e).collect(),
+            x,
             grad: g,
             k: k_v,
             alpha: 0f64,
@@ -539,9 +552,7 @@ impl<'a, TX: Number + RealNumber> SupportVector<TX> {
     }
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
-    Cache<TX, TY, X, Y>
-{
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> Cache<TX, TY, X, Y> {
     fn new() -> Cache<TX, TY, X, Y> {
         Cache {
             data: HashMap::new(),
@@ -553,10 +564,7 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let idx_i = i.index;
         let idx_j = j.index;
         #[allow(clippy::or_fun_call)]
-        let entry = self
-            .data
-            .entry((idx_i, idx_j))
-            .or_insert(or_insert);
+        let entry = self.data.entry((idx_i, idx_j)).or_insert(or_insert);
         *entry
     }
 
@@ -575,11 +583,9 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     fn new(
         x: &'a X,
         y: &'a Y,
-        parameters: &'a SVCParameters<TX, TY, X, Y>,
+        parameters: &'a SVCParameters<'a, TX, TY, X, Y>,
     ) -> Optimizer<'a, TX, TY, X, Y> {
         let (n, _) = x.shape();
-        // clone the kernel to be used in the optimizer
-        let knl = Box::new(parameters.kernel.clone());
 
         Optimizer {
             x,
@@ -607,10 +613,11 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 
         for _ in 0..self.parameters.epoch {
             for i in self.permutate(n) {
-                self.process(i,
-                    self.x.get_row(i).iterator(0),
+                self.process(
+                    i,
+                    Vec::from_iterator(self.x.get_row(i).iterator(0).map(|e| *e), n),
                     *self.y.get(i),
-                    &mut cache
+                    &mut cache,
                 );
                 loop {
                     self.reprocess(tol, &mut cache);
@@ -645,19 +652,21 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 
         for i in self.permutate(n) {
             if *self.y.get(i) == TY::one() && cp < few {
-                if self.process(i,
-                    self.x.get_row(i).iterator(0),
+                if self.process(
+                    i,
+                    Vec::from_iterator(self.x.get_row(i).iterator(0).map(|e| *e), n),
                     *self.y.get(i),
-                    &mut cache
+                    cache,
                 ) {
                     cp += 1;
                 }
             } else if *self.y.get(i) == TY::from(-1).unwrap()
                 && cn < few
-                && self.process(i,
-                    self.x.get_row(i).iterator(0),
+                && self.process(
+                    i,
+                    Vec::from_iterator(self.x.get_row(i).iterator(0).map(|e| *e), n),
                     *self.y.get(i),
-                    &mut cache
+                    cache,
                 )
             {
                 cn += 1;
@@ -669,7 +678,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         }
     }
 
-    fn process(&mut self, i: usize, x: Box<dyn Iterator<Item = &TX>>, y: TY, cache: &mut Cache<TX, TY, X, Y>) -> bool {
+    fn process(&mut self, i: usize, x: Vec<TX>, y: TY, cache: &mut Cache<TX, TY, X, Y>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
@@ -681,10 +690,16 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         let mut cache_values: Vec<((usize, usize), TX)> = Vec::new();
 
         for v in self.sv.iter() {
-            let k = self.parameters.kernel.apply(
-                &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                &x.map(|e| e.to_f64().unwrap()).collect()
-            ).unwrap();
+            let k = self
+                .parameters
+                .kernel
+                .as_ref()
+                .unwrap()
+                .apply(
+                    &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                    &x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                )
+                .unwrap();
             cache_values.push(((i, v.index), TX::from(k).unwrap()));
             g -= v.alpha * k;
         }
@@ -692,7 +707,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         self.find_min_max_gradient();
 
         if self.gmin < self.gmax
-            && ((y > TY::zero() && g < self.gmin.to_f64().unwrap()) || (y < TY::zero() && g > self.gmax.to_f64().unwrap()))
+            && ((y > TY::zero() && g < self.gmin.to_f64().unwrap())
+                || (y < TY::zero() && g > self.gmax.to_f64().unwrap()))
         {
             return false;
         }
@@ -701,18 +717,24 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             cache.insert(v.0, v.1.to_f64().unwrap());
         }
 
-        let x_f64 = x.map(|e| e.to_f64().unwrap()).collect();
-        let k_v = self.parameters.kernel.apply(
-            &x_f64,
-            &x_f64,
-        ).unwrap();
+        let x_f64 = x.iter().map(|e| e.to_f64().unwrap()).collect();
+        let k_v = self
+            .parameters
+            .kernel
+            .as_ref()
+            .unwrap()
+            .apply(&x_f64, &x_f64)
+            .unwrap();
 
         self.sv.insert(
             0,
-            SupportVector::<TX>::new(i,
-                x, TX::from(y).unwrap(), g,
+            SupportVector::<TX>::new(
+                i,
+                x.iter().map(|e| *e).collect(),
+                TX::from(y).unwrap(),
+                g,
                 self.parameters.c.to_f64().unwrap(),
-                k_v
+                k_v,
             ),
         );
 
@@ -777,7 +799,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         self.sv.retain(|v| {
             if v.alpha == 0f64
                 && ((TX::from(v.grad).unwrap() >= gmax && TX::zero() >= TX::from(v.cmax).unwrap())
-                    || (TX::from(v.grad).unwrap() <= gmin && TX::zero() <= TX::from(v.cmin).unwrap()))
+                    || (TX::from(v.grad).unwrap() <= gmin
+                        && TX::zero() <= TX::from(v.cmin).unwrap()))
             {
                 idxs_to_drop.insert(v.index);
                 return false;
@@ -820,20 +843,25 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = v.grad - gm;
-                    let k = cache.get(sv1, v,
-                        self.parameters.kernel.apply(
-                            &sv1.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            &v.x.iter().map(|e| e.to_f64().unwrap()).collect()
-                        ).unwrap()
+                    let k = cache.get(
+                        sv1,
+                        v,
+                        self.parameters
+                            .kernel
+                            .as_ref()
+                            .unwrap()
+                            .apply(
+                                &sv1.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                                &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                            )
+                            .unwrap(),
                     );
                     let mut curv = km + v.k - 2f64 * k;
                     if curv <= 0f64 {
                         curv = self.tau.to_f64().unwrap();
                     }
                     let mu = z / curv;
-                    if (mu > 0f64 && v.alpha < v.cmax)
-                        || (mu < 0f64 && v.alpha > v.cmin)
-                    {
+                    if (mu > 0f64 && v.alpha < v.cmax) || (mu < 0f64 && v.alpha > v.cmin) {
                         let gain = z * mu;
                         if gain > best {
                             best = gain;
@@ -848,10 +876,23 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                         idx_1,
                         idx_2,
                         k_v_12.unwrap_or_else(|| {
-                            self.parameters.kernel.apply(
-                                &self.sv[idx_1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                                &self.sv[idx_2].x.iter().map(|e| e.to_f64().unwrap()).collect()
-                            ).unwrap()
+                            self.parameters
+                                .kernel
+                                .as_ref()
+                                .unwrap()
+                                .apply(
+                                    &self.sv[idx_1]
+                                        .x
+                                        .iter()
+                                        .map(|e| e.to_f64().unwrap())
+                                        .collect(),
+                                    &self.sv[idx_2]
+                                        .x
+                                        .iter()
+                                        .map(|e| e.to_f64().unwrap())
+                                        .collect(),
+                                )
+                                .unwrap()
                         }),
                     )
                 })
@@ -866,11 +907,18 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
                     let z = gm - v.grad;
-                    let k = cache.get(sv2, v,
-                        self.parameters.kernel.apply(
-                            &sv2.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            &v.x.iter().map(|e| e.to_f64().unwrap()).collect()
-                        ).unwrap()
+                    let k = cache.get(
+                        sv2,
+                        v,
+                        self.parameters
+                            .kernel
+                            .as_ref()
+                            .unwrap()
+                            .apply(
+                                &sv2.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                                &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                            )
+                            .unwrap(),
                     );
                     let mut curv = km + v.k - 2f64 * k;
                     if curv <= 0f64 {
@@ -878,9 +926,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                     }
 
                     let mu = z / curv;
-                    if (mu > 0f64 && v.alpha > v.cmin)
-                        || (mu < 0f64 && v.alpha < v.cmax)
-                    {
+                    if (mu > 0f64 && v.alpha > v.cmin) || (mu < 0f64 && v.alpha < v.cmax) {
                         let gain = z * mu;
                         if gain > best {
                             best = gain;
@@ -895,10 +941,23 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                         idx_1,
                         idx_2,
                         k_v_12.unwrap_or_else(|| {
-                            self.parameters.kernel.apply(
-                                &self.sv[idx_1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                                &self.sv[idx_2].x.iter().map(|e| e.to_f64().unwrap()).collect()
-                            ).unwrap()
+                            self.parameters
+                                .kernel
+                                .as_ref()
+                                .unwrap()
+                                .apply(
+                                    &self.sv[idx_1]
+                                        .x
+                                        .iter()
+                                        .map(|e| e.to_f64().unwrap())
+                                        .collect(),
+                                    &self.sv[idx_2]
+                                        .x
+                                        .iter()
+                                        .map(|e| e.to_f64().unwrap())
+                                        .collect(),
+                                )
+                                .unwrap()
                         }),
                     )
                 })
@@ -906,10 +965,23 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             (Some(idx_1), Some(idx_2)) => Some((
                 idx_1,
                 idx_2,
-                self.parameters.kernel.apply(
-                    &self.sv[idx_1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                    &self.sv[idx_2].x.iter().map(|e| e.to_f64().unwrap()).collect()
-                ).unwrap(),
+                self.parameters
+                    .kernel
+                    .as_ref()
+                    .unwrap()
+                    .apply(
+                        &self.sv[idx_1]
+                            .x
+                            .iter()
+                            .map(|e| e.to_f64().unwrap())
+                            .collect(),
+                        &self.sv[idx_2]
+                            .x
+                            .iter()
+                            .map(|e| e.to_f64().unwrap())
+                            .collect(),
+                    )
+                    .unwrap(),
             )),
         }
     }
@@ -963,17 +1035,31 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         self.sv[v2].alpha += step.to_f64().unwrap();
 
         for i in 0..self.sv.len() {
-            let k2 = cache.get(&self.sv[v2], &self.sv[i],
-                self.parameters.kernel.apply(
-                    &self.sv[v2].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                    &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect()
-                ).unwrap()
+            let k2 = cache.get(
+                &self.sv[v2],
+                &self.sv[i],
+                self.parameters
+                    .kernel
+                    .as_ref()
+                    .unwrap()
+                    .apply(
+                        &self.sv[v2].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                        &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                    )
+                    .unwrap(),
             );
-            let k1 = cache.get(&self.sv[v1], &self.sv[i],
-                self.parameters.kernel.apply(
-                    &self.sv[v1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                    &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect()
-                ).unwrap()
+            let k1 = cache.get(
+                &self.sv[v1],
+                &self.sv[i],
+                self.parameters
+                    .kernel
+                    .as_ref()
+                    .unwrap()
+                    .apply(
+                        &self.sv[v1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                        &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                    )
+                    .unwrap(),
             );
             self.sv[i].grad -= step.to_f64().unwrap() * (k2 - k1);
         }
@@ -985,6 +1071,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 
 #[cfg(test)]
 mod tests {
+    use num::ToPrimitive;
+
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::accuracy;
@@ -1035,24 +1123,21 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let y: Vec<u32> = vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        ];
+        let y: Vec<i32> = vec![-1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let knl = Kernels::linear();
         let params = SVCParameters::default()
             .with_c(200.0)
             .with_kernel(&knl)
-            .with_seed(Some(100)
-        );
-        let y_hat = SVC::fit(
-            &x,
+            .with_seed(Some(100));
+
+        let y_hat = SVC::fit(&x, &y, &params)
+            .and_then(|lr| lr.predict(&x))
+            .unwrap();
+        let acc = accuracy(
             &y,
-            params,
-        )
-        .and_then(|lr| lr.predict(&x))
-        .unwrap();
-        let acc = accuracy(&y_hat, &y);
+            &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect())
+        );
 
         assert!(
             acc >= 0.9,
@@ -1061,94 +1146,96 @@ mod tests {
         );
     }
 
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // fn svc_fit_decision_function() {
-    //     let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    fn svc_fit_decision_function() {
+        let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
 
-    //     let x2 = DenseMatrix::from_2d_array(&[
-    //         &[3.0, 3.0],
-    //         &[4.0, 4.0],
-    //         &[6.0, 6.0],
-    //         &[10.0, 10.0],
-    //         &[1.0, 1.0],
-    //         &[0.0, 0.0],
-    //     ]);
+        let x2 = DenseMatrix::from_2d_array(&[
+            &[3.0, 3.0],
+            &[4.0, 4.0],
+            &[6.0, 6.0],
+            &[10.0, 10.0],
+            &[1.0, 1.0],
+            &[0.0, 0.0],
+        ]);
 
-    //     let y: Vec<f64> = vec![0., 0., 1., 1.];
+        let y: Vec<i32> = vec![-1, -1, 1, 1];
 
-    //     let y_hat = SVC::fit(
-    //         &x,
-    //         &y,
-    //         SVCParameters::default()
-    //             .with_c(200.0)
-    //             .with_kernel(Kernels::linear()),
-    //     )
-    //     .and_then(|lr| lr.decision_function(&x2))
-    //     .unwrap();
+        let y_hat = SVC::fit(
+            &x,
+            &y,
+            &SVCParameters::default()
+                .with_c(200.0)
+                .with_kernel(&Kernels::linear()),
+        )
+        .and_then(|lr| lr.decision_function(&x2))
+        .unwrap();
 
-    //     // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
-    //     // so the score should increase as points get further away from that line
-    //     assert!(y_hat[1] < y_hat[2]);
-    //     assert!(y_hat[2] < y_hat[3]);
+        // x can be classified by a straight line through [6.0, 0.0] and [0.0, 6.0],
+        // so the score should increase as points get further away from that line
+        assert!(y_hat[1] < y_hat[2]);
+        assert!(y_hat[2] < y_hat[3]);
 
-    //     // for negative scores the score should decrease
-    //     assert!(y_hat[4] > y_hat[5]);
+        // for negative scores the score should decrease
+        assert!(y_hat[4] > y_hat[5]);
 
-    //     // y_hat[0] is on the line, so its score should be close to 0
-    //     assert!(y_hat[0].abs() <= 0.1);
-    // }
+        // y_hat[0] is on the line, so its score should be close to 0
+        assert!(num::Float::abs(y_hat[0]) <= 0.1);
+    }
 
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // fn svc_fit_predict_rbf() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[5.1, 3.5, 1.4, 0.2],
-    //         &[4.9, 3.0, 1.4, 0.2],
-    //         &[4.7, 3.2, 1.3, 0.2],
-    //         &[4.6, 3.1, 1.5, 0.2],
-    //         &[5.0, 3.6, 1.4, 0.2],
-    //         &[5.4, 3.9, 1.7, 0.4],
-    //         &[4.6, 3.4, 1.4, 0.3],
-    //         &[5.0, 3.4, 1.5, 0.2],
-    //         &[4.4, 2.9, 1.4, 0.2],
-    //         &[4.9, 3.1, 1.5, 0.1],
-    //         &[7.0, 3.2, 4.7, 1.4],
-    //         &[6.4, 3.2, 4.5, 1.5],
-    //         &[6.9, 3.1, 4.9, 1.5],
-    //         &[5.5, 2.3, 4.0, 1.3],
-    //         &[6.5, 2.8, 4.6, 1.5],
-    //         &[5.7, 2.8, 4.5, 1.3],
-    //         &[6.3, 3.3, 4.7, 1.6],
-    //         &[4.9, 2.4, 3.3, 1.0],
-    //         &[6.6, 2.9, 4.6, 1.3],
-    //         &[5.2, 2.7, 3.9, 1.4],
-    //     ]);
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    fn svc_fit_predict_rbf() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
 
-    //     let y: Vec<f64> = vec![
-    //         -1., -1., -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-    //         1.,
-    //     ];
+        let y: Vec<i32> = vec![
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ];
 
-    //     let y_hat = SVC::fit(
-    //         &x,
-    //         &y,
-    //         SVCParameters::default()
-    //             .with_c(1.0)
-    //             .with_kernel(Kernels::rbf(0.7)),
-    //     )
-    //     .and_then(|lr| lr.predict(&x))
-    //     .unwrap();
+        let y_hat = SVC::fit(
+            &x,
+            &y,
+            &SVCParameters::default()
+                .with_c(1.0)
+                .with_kernel(&Kernels::rbf().with_gamma(0.7)),
+        )
+        .and_then(|lr| lr.predict(&x))
+        .unwrap();
 
-    //     let acc = accuracy(&y_hat, &y);
+        let acc = accuracy(
+            &y,
+            &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
 
-    //     assert!(
-    //         acc >= 0.9,
-    //         "accuracy ({}) is not larger or equal to 0.9",
-    //         acc
-    //     );
-    // }
+        assert!(
+            acc >= 0.9,
+            "accuracy ({}) is not larger or equal to 0.9",
+            acc
+        );
+    }
 
+    // TODO: implement serialization
     // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     // #[test]
     // #[cfg(feature = "serde")]
@@ -1176,13 +1263,13 @@ mod tests {
     //         &[5.2, 2.7, 3.9, 1.4],
     //     ]);
 
-    //     let y: Vec<f64> = vec![
-    //         -1., -1., -1., -1., -1., -1., -1., -1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+    //     let y: Vec<i32> = vec![
+    //         -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     //     ];
 
-    //     let svc = SVC::fit(&x, &y, Default::default()).unwrap();
+    //     let svc = SVC::fit(&x, &y, &Default::default()).unwrap();
 
-    //     let deserialized_svc: SVC<f64, DenseMatrix<f64>, LinearKernel> =
+    //     let deserialized_svc: SVC<f64, i32, DenseMatrix<f64>, LinearKernel> =
     //         serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
     //     assert_eq!(svc, deserialized_svc);

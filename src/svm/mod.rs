@@ -35,7 +35,6 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
-
 /// Defines a kernel function
 pub trait Kernel<'a> {
     /// Apply kernel function to x_i and x_j
@@ -50,7 +49,7 @@ impl Debug for dyn Kernel<'_> {
 
 /// Pre-defined kernel functions
 #[derive(Debug, Clone, Serialize, Deserialize)]
- pub struct Kernels {}
+pub struct Kernels {}
 
 impl<'a> Kernels {
     fn linear() -> LinearKernel<'a> {
@@ -74,12 +73,14 @@ impl<'a> Kernels {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct LinearKernel<'a> {
-    phantom: PhantomData<&'a ()>
+    phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Default for LinearKernel<'a> {
     fn default() -> Self {
-        Self { phantom: PhantomData }
+        Self {
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -89,7 +90,7 @@ impl<'a> Default for LinearKernel<'a> {
 pub struct RBFKernel<'a> {
     /// kernel coefficient
     pub gamma: Option<f64>,
-    phantom: PhantomData<&'a ()>
+    phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Default for RBFKernel<'a> {
@@ -118,7 +119,7 @@ pub struct PolynomialKernel<'a> {
     pub gamma: Option<f64>,
     /// independent term in kernel function
     pub coef0: Option<f64>,
-    phantom: PhantomData<&'a ()>
+    phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Default for PolynomialKernel<'a> {
@@ -127,7 +128,7 @@ impl<'a> Default for PolynomialKernel<'a> {
             gamma: Option::None,
             degree: Option::None,
             coef0: Some(1f64),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 }
@@ -158,7 +159,7 @@ pub struct SigmoidKernel<'a> {
     pub gamma: Option<f64>,
     /// independent term in kernel function
     pub coef0: Option<f64>,
-    phantom: PhantomData<&'a ()>
+    phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Default for SigmoidKernel<'a> {
@@ -166,7 +167,7 @@ impl<'a> Default for SigmoidKernel<'a> {
         Self {
             gamma: Option::None,
             coef0: Some(1f64),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 }
