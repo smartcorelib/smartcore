@@ -72,7 +72,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use num::Bounded;
@@ -87,10 +86,11 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
-use crate::svm::{Kernel, Kernels, LinearKernel};
+use crate::svm::Kernel;
 
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug, Clone)]
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 /// SVC Parameters
 pub struct SVCParameters<
     'a,
@@ -99,176 +99,40 @@ pub struct SVCParameters<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    // #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
-    // #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: TX,
-    // #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
     pub tol: TX,
-    // #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<&'a dyn Kernel<'a>>,
-    // #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
-    // #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Option<u64>,
 }
 
-// /// SVC grid search parameters
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug, Clone)]
-// pub struct SVCSearchParameters<
-//     TX: Number + RealNumber,
-//     TY: Number + Ord,
-//     X: Array2<TX>,
-//     Y: Array1<TY>,
-//     K: Kernel,
-// > {
-//     #[cfg_attr(feature = "serde", serde(default))]
-//     /// Number of epochs.
-//     pub epoch: Vec<usize>,
-//     #[cfg_attr(feature = "serde", serde(default))]
-//     /// Regularization parameter.
-//     pub c: Vec<TX>,
-//     #[cfg_attr(feature = "serde", serde(default))]
-//     /// Tolerance for stopping epoch.
-//     pub tol: Vec<TX>,
-//     #[cfg_attr(feature = "serde", serde(default))]
-//     /// The kernel function.
-//     pub kernel: Vec<K>,
-//     #[cfg_attr(feature = "serde", serde(default))]
-//     /// Unused parameter.
-//     m: PhantomData<(X, Y, TY)>,
-//     #[cfg_attr(feature = "serde", serde(default))]
-//     /// Controls the pseudo random number generation for shuffling the data for probability estimates
-//     seed: Vec<Option<u64>>,
-// }
-
-// /// SVC grid search iterator
-// pub struct SVCSearchParametersIterator<
-//     TX: Number + RealNumber,
-//     TY: Number + Ord,
-//     X: Array2<TX>,
-//     Y: Array1<TY>,
-//     K: Kernel,
-// > {
-//     svc_search_parameters: SVCSearchParameters<TX, TY, X, Y, K>,
-//     current_epoch: usize,
-//     current_c: usize,
-//     current_tol: usize,
-//     current_kernel: usize,
-//     current_seed: usize,
-// }
-
-// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel>
-//     IntoIterator for SVCSearchParameters<TX, TY, X, Y, K>
-// {
-//     type Item = SVCParameters<'a, TX, TY, X, Y>;
-//     type IntoIter = SVCSearchParametersIterator<TX, TY, X, Y, K>;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         SVCSearchParametersIterator {
-//             svc_search_parameters: self,
-//             current_epoch: 0,
-//             current_c: 0,
-//             current_tol: 0,
-//             current_kernel: 0,
-//             current_seed: 0,
-//         }
-//     }
-// }
-
-// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel>
-//     Iterator for SVCSearchParametersIterator<TX, TY, X, Y, K>
-// {
-//     type Item = SVCParameters<TX, TY, X, Y>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.current_epoch == self.svc_search_parameters.epoch.len()
-//             && self.current_c == self.svc_search_parameters.c.len()
-//             && self.current_tol == self.svc_search_parameters.tol.len()
-//             && self.current_kernel == self.svc_search_parameters.kernel.len()
-//             && self.current_seed == self.svc_search_parameters.seed.len()
-//         {
-//             return None;
-//         }
-
-//         let next = SVCParameters {
-//             epoch: self.svc_search_parameters.epoch[self.current_epoch],
-//             c: self.svc_search_parameters.c[self.current_c],
-//             tol: self.svc_search_parameters.tol[self.current_tol],
-//             kernel: self.svc_search_parameters.kernel[self.current_kernel].clone(),
-//             m: PhantomData,
-//             seed: self.svc_search_parameters.seed[self.current_seed],
-//         };
-
-//         if self.current_epoch + 1 < self.svc_search_parameters.epoch.len() {
-//             self.current_epoch += 1;
-//         } else if self.current_c + 1 < self.svc_search_parameters.c.len() {
-//             self.current_epoch = 0;
-//             self.current_c += 1;
-//         } else if self.current_tol + 1 < self.svc_search_parameters.tol.len() {
-//             self.current_epoch = 0;
-//             self.current_c = 0;
-//             self.current_tol += 1;
-//         } else if self.current_kernel + 1 < self.svc_search_parameters.kernel.len() {
-//             self.current_epoch = 0;
-//             self.current_c = 0;
-//             self.current_tol = 0;
-//             self.current_kernel += 1;
-//         } else if self.current_seed + 1 < self.svc_search_parameters.seed.len() {
-//             self.current_epoch = 0;
-//             self.current_c = 0;
-//             self.current_tol = 0;
-//             self.current_kernel = 0;
-//             self.current_seed += 1;
-//         } else {
-//             self.current_epoch += 1;
-//             self.current_c += 1;
-//             self.current_tol += 1;
-//             self.current_kernel += 1;
-//             self.current_seed += 1;
-//         }
-
-//         Some(next)
-//     }
-// }
-
-// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, K: Kernel> Default
-//     for SVCSearchParameters<TX, TY, X, Y, K>
-// {
-//     fn default() -> Self {
-//         let default_params: SVCParameters<TX, TY, X, Y> = SVCParameters::default();
-
-//         SVCSearchParameters {
-//             epoch: vec![default_params.epoch],
-//             c: vec![default_params.c],
-//             tol: vec![default_params.tol],
-//             kernel: vec![default_params.kernel],
-//             m: PhantomData,
-//             seed: vec![default_params.seed],
-//         }
-//     }
-// }
-
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug)]
-// #[cfg_attr(
-//     feature = "serde",
-//     serde(bound(
-//         serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-//         deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-//     ))
-// )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "TX: Serialize, TY: Serialize, X: Serialize, Y: Serialize",
+        deserialize = "TX: Deserialize<'de>, TY: Deserialize<'de>, X: Deserialize<'de>, Y: Deserialize<'de>",
+    ))
+)]
 /// Support Vector Classifier
 pub struct SVC<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     classes: Option<Vec<TY>>,
     instances: Option<Vec<Vec<TX>>>,
+    #[serde(skip)]
     parameters: Option<&'a SVCParameters<'a, TX, TY, X, Y>>,
     w: Option<Vec<TX>>,
     b: Option<TX>,
@@ -395,6 +259,11 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         parameters: &'a SVCParameters<'a, TX, TY, X, Y>,
     ) -> Result<SVC<'a, TX, TY, X, Y>, Failed> {
         let (n, _) = x.shape();
+
+        if parameters.kernel.is_none() {
+            return Err(Failed::because(FailedError::ParametersError, 
+                "kernel should be defined at this point, please use `with_kernel()`"));
+        }
 
         if n != y.shape() {
             return Err(Failed::fit(
@@ -722,7 +591,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             .parameters
             .kernel
             .as_ref()
-            .unwrap()
+            .expect("Kernel should be defined at this point, use with_kernel() on parameters")
             .apply(&x_f64, &x_f64)
             .unwrap();
 
@@ -1079,23 +948,6 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
-    // #[test]
-    // fn search_parameters() {
-    //     let parameters: SVCSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
-    //         SVCSearchParameters {
-    //             epoch: vec![10, 100],
-    //             kernel: vec![LinearKernel {}],
-    //             ..Default::default()
-    //         };
-    //     let mut iter = parameters.into_iter();
-    //     let next = iter.next().unwrap();
-    //     assert_eq!(next.epoch, 10);
-    //     assert_eq!(next.kernel, LinearKernel {});
-    //     let next = iter.next().unwrap();
-    //     assert_eq!(next.epoch, 100);
-    //     assert_eq!(next.kernel, LinearKernel {});
-    //     assert!(iter.next().is_none());
-    // }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -1235,43 +1087,47 @@ mod tests {
         );
     }
 
-    // TODO: implement serialization
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn svc_serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[5.1, 3.5, 1.4, 0.2],
-    //         &[4.9, 3.0, 1.4, 0.2],
-    //         &[4.7, 3.2, 1.3, 0.2],
-    //         &[4.6, 3.1, 1.5, 0.2],
-    //         &[5.0, 3.6, 1.4, 0.2],
-    //         &[5.4, 3.9, 1.7, 0.4],
-    //         &[4.6, 3.4, 1.4, 0.3],
-    //         &[5.0, 3.4, 1.5, 0.2],
-    //         &[4.4, 2.9, 1.4, 0.2],
-    //         &[4.9, 3.1, 1.5, 0.1],
-    //         &[7.0, 3.2, 4.7, 1.4],
-    //         &[6.4, 3.2, 4.5, 1.5],
-    //         &[6.9, 3.1, 4.9, 1.5],
-    //         &[5.5, 2.3, 4.0, 1.3],
-    //         &[6.5, 2.8, 4.6, 1.5],
-    //         &[5.7, 2.8, 4.5, 1.3],
-    //         &[6.3, 3.3, 4.7, 1.6],
-    //         &[4.9, 2.4, 3.3, 1.0],
-    //         &[6.6, 2.9, 4.6, 1.3],
-    //         &[5.2, 2.7, 3.9, 1.4],
-    //     ]);
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn svc_serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
 
-    //     let y: Vec<i32> = vec![
-    //         -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    //     ];
+        let y: Vec<i32> = vec![
+            -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ];
 
-    //     let svc = SVC::fit(&x, &y, &Default::default()).unwrap();
+        let knl = Kernels::linear();
+        let params = SVCParameters::default().with_kernel(&knl);
+        let svc = SVC::fit(&x, &y, &params).unwrap();
 
-    //     let deserialized_svc: SVC<f64, i32, DenseMatrix<f64>, LinearKernel> =
-    //         serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
+        // serialization
+        let serialized_svc = &serde_json::to_string(&svc).unwrap();
 
-    //     assert_eq!(svc, deserialized_svc);
-    // }
+        // println!("{:?}", serialized_svc);
+
+        // TODO: for deserialization, deserialization is needed for `linalg::basic::matrix::DenseMatrix`
+
+    }
 }

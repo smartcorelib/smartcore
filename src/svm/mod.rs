@@ -28,23 +28,37 @@ pub mod svc;
 
 use core::fmt::Debug;
 use std::marker::PhantomData;
+use std::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::ser::{Serializer, SerializeStruct};
 
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
-/// Defines a kernel function
+/// Defines a kernel function.
+/// This is a object-safe trait.
 pub trait Kernel<'a> {
     /// Apply kernel function to x_i and x_j
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
+    fn name(&self) -> String;
 }
 
-impl Debug for dyn Kernel<'_> {
+impl<'a> Debug for dyn Kernel<'_> + 'a {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Kernel<f64>")
     }
+}
+
+impl<'a> Serialize for dyn Kernel<'_> + 'a {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer {
+            let mut s = serializer.serialize_struct("Kernel", 1)?;
+            s.serialize_field("type", &self.name())?;
+            s.end()
+        }
 }
 
 /// Pre-defined kernel functions
@@ -188,6 +202,9 @@ impl<'a> Kernel<'a> for LinearKernel<'a> {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         Ok(x_i.dot(x_j))
     }
+    fn name(&self) -> String {
+        String::from_str(&"Linear").unwrap()
+    }
 }
 
 impl<'a> Kernel<'a> for RBFKernel<'a> {
@@ -200,6 +217,9 @@ impl<'a> Kernel<'a> for RBFKernel<'a> {
         }
         let v_diff = x_i.sub(x_j);
         Ok((-self.gamma.unwrap() * v_diff.mul(&v_diff).sum()).exp())
+    }
+    fn name(&self) -> String {
+        String::from_str(&"RBF").unwrap()   
     }
 }
 
@@ -214,6 +234,9 @@ impl<'a> Kernel<'a> for PolynomialKernel<'a> {
         let dot = x_i.dot(x_j);
         Ok((self.gamma.unwrap() * dot + self.coef0.unwrap()).powf(self.degree.unwrap()))
     }
+    fn name(&self) -> String {
+        String::from_str(&"Polynomial").unwrap()    
+    }
 }
 
 impl<'a> Kernel<'a> for SigmoidKernel<'a> {
@@ -226,6 +249,9 @@ impl<'a> Kernel<'a> for SigmoidKernel<'a> {
         }
         let dot = x_i.dot(x_j);
         Ok(self.gamma.unwrap() * dot + self.coef0.unwrap().tanh())
+    }
+    fn name(&self) -> String {
+        String::from_str(&"Sigmoid").unwrap()    
     }
 }
 
