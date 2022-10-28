@@ -88,7 +88,6 @@ use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
 use crate::svm::Kernel;
 
-
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVC Parameters
@@ -242,7 +241,6 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 {
     fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
         Ok(self.predict(x).unwrap())
-
     }
 }
 
@@ -261,8 +259,10 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         let (n, _) = x.shape();
 
         if parameters.kernel.is_none() {
-            return Err(Failed::because(FailedError::ParametersError, 
-                "kernel should be defined at this point, please use `with_kernel()`"));
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "kernel should be defined at this point, please use `with_kernel()`",
+            ));
         }
 
         if n != y.shape() {
@@ -330,9 +330,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
 
         for i in 0..n {
             let row_pred: TX =
-                self.predict_for_row(
-                    Vec::from_iterator(x.get_row(i).iterator(0).map(|e| *e), n)
-            );
+                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).map(|e| *e), n));
             y_hat.set(i, row_pred);
         }
 
@@ -363,7 +361,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
                 .unwrap();
         }
 
-        TX::from(f).unwrap()
+        f
     }
 }
 
@@ -948,7 +946,6 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
-
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn svc_fit_predict() {
@@ -975,7 +972,9 @@ mod tests {
             &[5.2, 2.7, 3.9, 1.4],
         ]);
 
-        let y: Vec<i32> = vec![-1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        let y: Vec<i32> = vec![
+            -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ];
 
         let knl = Kernels::linear();
         let params = SVCParameters::default()
@@ -986,10 +985,7 @@ mod tests {
         let y_hat = SVC::fit(&x, &y, &params)
             .and_then(|lr| lr.predict(&x))
             .unwrap();
-        let acc = accuracy(
-            &y,
-            &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect())
-        );
+        let acc = accuracy(&y, &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
 
         assert!(
             acc >= 0.9,
@@ -1076,9 +1072,7 @@ mod tests {
         .and_then(|lr| lr.predict(&x))
         .unwrap();
 
-        let acc = accuracy(
-            &y,
-            &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
+        let acc = accuracy(&y, &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
 
         assert!(
             acc >= 0.9,
@@ -1128,6 +1122,5 @@ mod tests {
         // println!("{:?}", serialized_svc);
 
         // TODO: for deserialization, deserialization is needed for `linalg::basic::matrix::DenseMatrix`
-
     }
 }

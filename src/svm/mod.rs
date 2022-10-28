@@ -24,16 +24,16 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 pub mod svc;
-// pub mod svr;
+pub mod svr;
 
 use core::fmt::Debug;
 use std::marker::PhantomData;
 use std::str::FromStr;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::ser::{SerializeStruct, Serializer};
 #[cfg(feature = "serde")]
-use serde::ser::{Serializer, SerializeStruct};
+use serde::{Deserialize, Serialize};
 
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, ArrayView1};
@@ -54,11 +54,13 @@ impl<'a> Debug for dyn Kernel<'_> + 'a {
 
 impl<'a> Serialize for dyn Kernel<'_> + 'a {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer {
-            let mut s = serializer.serialize_struct("Kernel", 1)?;
-            s.serialize_field("type", &self.name())?;
-            s.end()
-        }
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Kernel", 1)?;
+        s.serialize_field("type", &self.name())?;
+        s.end()
+    }
 }
 
 /// Pre-defined kernel functions
@@ -219,7 +221,7 @@ impl<'a> Kernel<'a> for RBFKernel<'a> {
         Ok((-self.gamma.unwrap() * v_diff.mul(&v_diff).sum()).exp())
     }
     fn name(&self) -> String {
-        String::from_str(&"RBF").unwrap()   
+        String::from_str(&"RBF").unwrap()
     }
 }
 
@@ -235,7 +237,7 @@ impl<'a> Kernel<'a> for PolynomialKernel<'a> {
         Ok((self.gamma.unwrap() * dot + self.coef0.unwrap()).powf(self.degree.unwrap()))
     }
     fn name(&self) -> String {
-        String::from_str(&"Polynomial").unwrap()    
+        String::from_str(&"Polynomial").unwrap()
     }
 }
 
@@ -251,7 +253,7 @@ impl<'a> Kernel<'a> for SigmoidKernel<'a> {
         Ok(self.gamma.unwrap() * dot + self.coef0.unwrap().tanh())
     }
     fn name(&self) -> String {
-        String::from_str(&"Sigmoid").unwrap()    
+        String::from_str(&"Sigmoid").unwrap()
     }
 }
 
