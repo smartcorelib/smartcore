@@ -99,7 +99,9 @@ impl Default for LassoParameters {
     }
 }
 
-impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for Lasso<TX, TY, X, Y> {
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for Lasso<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
         self.intercept == other.intercept
             && self.coefficients().shape() == other.coefficients().shape()

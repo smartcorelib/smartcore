@@ -49,7 +49,9 @@ struct GaussianNBDistribution<T: Number> {
     theta: Vec<Vec<f64>>,
 }
 
-impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y> for GaussianNBDistribution<Y> {
+impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
+    for GaussianNBDistribution<Y>
+{
     fn prior(&self, class_index: usize) -> f64 {
         if class_index >= self.class_labels.len() {
             0f64
@@ -246,12 +248,21 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
 /// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct GaussianNB<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> {
+pub struct GaussianNB<
+    TX: Number + RealNumber + RealNumber,
+    TY: Number + Ord + Unsigned,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+> {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
 }
 
-impl<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
-    SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
+impl<
+        TX: Number + RealNumber + RealNumber,
+        TY: Number + Ord + Unsigned,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -264,8 +275,12 @@ impl<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array
     }
 }
 
-impl<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
-    for GaussianNB<TX, TY, X, Y>
+impl<
+        TX: Number + RealNumber + RealNumber,
+        TY: Number + Ord + Unsigned,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > Predictor<X, Y> for GaussianNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
