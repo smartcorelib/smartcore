@@ -104,7 +104,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
         self.weight.as_ref().unwrap()
     }
     fn k(&self) -> usize {
-        self.k.unwrap().clone()
+        self.k.unwrap()
     }
 }
 

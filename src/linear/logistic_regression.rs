@@ -274,9 +274,8 @@ impl<'a, T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
 
         if self.alpha > T::zero() {
             let mut w_squared = T::zero();
-            for i in 0..p {
-                let w = w_bias[i];
-                w_squared += w * w;
+            for w_bias_i in w_bias.iter().take(p){
+                w_squared += *w_bias_i * *w_bias_i;
             }
             f += T::from_f64(0.5).unwrap() * self.alpha * w_squared;
         }
@@ -293,8 +292,8 @@ impl<'a, T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
             let wx = BinaryObjectiveFunction::partial_dot(w_bias, self.x, 0, i);
 
             let dyi = (T::from(self.y[i]).unwrap()) - wx.sigmoid();
-            for j in 0..p {
-                g[j] -= dyi * *self.x.get((i, j));
+            for (j, g_j) in g.iter_mut().enumerate().take(p) {
+                *g_j -= dyi * *self.x.get((i, j));
             }
             g[p] -= dyi;
         }
@@ -324,8 +323,8 @@ impl<'a, T: Number + FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T
         let mut prob = vec![T::zero(); self.k];
         let (n, p) = self.x.shape();
         for i in 0..n {
-            for j in 0..self.k {
-                prob[j] = MultiClassObjectiveFunction::partial_dot(w_bias, self.x, j * (p + 1), i);
+            for (j, prob_j) in prob.iter_mut().enumerate().take(self.k) {
+                *prob_j = MultiClassObjectiveFunction::partial_dot(w_bias, self.x, j * (p + 1), i);
             }
             prob.softmax_mut();
             f -= prob[self.y[i]].ln();
@@ -352,8 +351,8 @@ impl<'a, T: Number + FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T
         let (n, p) = self.x.shape();
 
         for i in 0..n {
-            for j in 0..self.k {
-                prob[j] = MultiClassObjectiveFunction::partial_dot(w, self.x, j * (p + 1), i);
+            for (j, prob_j) in prob.iter_mut().enumerate().take(self.k) {
+                *prob_j = MultiClassObjectiveFunction::partial_dot(w, self.x, j * (p + 1), i);
             }
 
             prob.softmax_mut();

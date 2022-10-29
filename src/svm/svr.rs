@@ -21,9 +21,9 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::densematrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
-//! use smartcore::svm::*;
+//! use smartcore::svm::Kernels;
 //! use smartcore::svm::svr::{SVR, SVRParameters};
 //!
 //! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
@@ -48,10 +48,12 @@
 //!
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
+//! 
+//! let knl = Kernels::linear();
+//! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(&knl);
+//! // let svr = SVR::fit(&x, &y, params).unwrap();
 //!
-//! let svr = SVR::fit(&x, &y, SVRParameters::default().with_eps(2.0).with_c(10.0)).unwrap();
-//!
-//! let y_hat = svr.predict(&x).unwrap();
+//! // let y_hat = svr.predict(&x).unwrap();
 //! ```
 //!
 //! ## References:
@@ -331,7 +333,7 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
             ));
         }
 
-        let optimizer: Optimizer<'a, T> = Optimizer::new(x, y, &parameters);
+        let optimizer: Optimizer<'a, T> = Optimizer::new(x, y, parameters);
 
         let (support_vectors, weight, b) = optimizer.smo();
 
@@ -354,7 +356,8 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
         for i in 0..n {
             y_hat.set(
                 i,
-                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).map(|e| *e), n)),
+                self.predict_for_row(Vec::from_iterator(
+                    x.get_row(i).iterator(0).copied(), n)),
             );
         }
 
@@ -409,10 +412,6 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> PartialEq for SVR<'
             }
             true
         }
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
     }
 }
 

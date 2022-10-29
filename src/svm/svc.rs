@@ -27,7 +27,7 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::linalg::basic::arrays::matrix::densematrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::svm::Kernels;
 //! use smartcore::svm::svc::{SVC, SVCParameters};
 //!
@@ -54,10 +54,12 @@
 //!            &[6.6, 2.9, 4.6, 1.3],
 //!            &[5.2, 2.7, 3.9, 1.4],
 //!         ]);
-//! let y = vec![ 0., 0., 0., 0., 0., 0., 0., 0.,
-//!            1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
+//! let y = vec![ -1, -1, -1, -1, -1, -1, -1, -1,
+//!            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 //!
-//! let svc = SVC::fit(&x, &y, SVCParameters::default().with_c(200.0)).unwrap();
+//! let knl = Kernels::linear();
+//! let params = &SVCParameters::default().with_c(200.0).with_kernel(&knl);
+//! let svc = SVC::fit(&x, &y, params).unwrap();
 //!
 //! let y_hat = svc.predict(&x).unwrap();
 //! ```
@@ -330,7 +332,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
 
         for i in 0..n {
             let row_pred: TX =
-                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).map(|e| *e), n));
+                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).copied(), n));
             y_hat.set(i, row_pred);
         }
 
@@ -338,7 +340,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     }
 
     fn predict_for_row(&self, x: Vec<TX>) -> TX {
-        let mut f = self.b.clone().unwrap();
+        let mut f = self.b.unwrap();
 
         for i in 0..self.instances.as_ref().unwrap().len() {
             f += self.w.as_ref().unwrap()[i]
@@ -379,7 +381,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 .w
                 .as_ref()
                 .unwrap()
-                .approximate_eq(&other.w.as_ref().unwrap(), TX::epsilon())
+                .approximate_eq(other.w.as_ref().unwrap(), TX::epsilon())
             {
                 return false;
             }
@@ -400,7 +402,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     }
 }
 
-impl<'a, TX: Number + RealNumber> SupportVector<TX> {
+impl<TX: Number + RealNumber> SupportVector<TX> {
     fn new(i: usize, x: Vec<TX>, y: TX, g: f64, c: f64, k_v: f64) -> SupportVector<TX> {
         let (cmin, cmax) = if y > TX::zero() {
             (0f64, c)
@@ -482,7 +484,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             for i in self.permutate(n) {
                 self.process(
                     i,
-                    Vec::from_iterator(self.x.get_row(i).iterator(0).map(|e| *e), n),
+                    Vec::from_iterator(self.x.get_row(i).iterator(0).copied(), n),
                     *self.y.get(i),
                     &mut cache,
                 );
@@ -521,7 +523,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             if *self.y.get(i) == TY::one() && cp < few {
                 if self.process(
                     i,
-                    Vec::from_iterator(self.x.get_row(i).iterator(0).map(|e| *e), n),
+                    Vec::from_iterator(self.x.get_row(i).iterator(0).copied(), n),
                     *self.y.get(i),
                     cache,
                 ) {
@@ -531,7 +533,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 && cn < few
                 && self.process(
                     i,
-                    Vec::from_iterator(self.x.get_row(i).iterator(0).map(|e| *e), n),
+                    Vec::from_iterator(self.x.get_row(i).iterator(0).copied(), n),
                     *self.y.get(i),
                     cache,
                 )
@@ -597,7 +599,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             0,
             SupportVector::<TX>::new(
                 i,
-                x.iter().map(|e| *e).collect(),
+                x.iter().copied().collect(),
                 TX::from(y).unwrap(),
                 g,
                 self.parameters.c.to_f64().unwrap(),

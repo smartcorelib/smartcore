@@ -9,8 +9,9 @@ Please note we have a [code of conduct](CODE_OF_CONDUCT.md), please follow it in
 
 We try to follow these principles:
 * follow as much as possible the sklearn API to give a frictionless user experience for practitioners already familiar with it
-* use only pure-Rust implementations for safety and future-proofing
-* do not use macros in the library code to allow readability and transparent behavior.
+* use only pure-Rust implementations for safety and future-proofing (with some low-level limited exceptions)
+* do not use macros in the library code to allow readability and transparent behavior
+* priority is not on "big data" dataset, try to be fast for small/average dataset with limited memory footprint.
 
 ## Pull Request Process
 

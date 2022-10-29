@@ -106,7 +106,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     }
 
     fn k(&self) -> usize {
-        self.k.unwrap().clone()
+        self.k.unwrap()
     }
 }
 

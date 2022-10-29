@@ -43,7 +43,8 @@ use crate::linalg::basic::arrays::{Array1, ArrayView1};
 pub trait Kernel<'a> {
     /// Apply kernel function to x_i and x_j
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
-    fn name(&self) -> String;
+    /// Return a serializable name
+    fn name(&self) -> &'a str;
 }
 
 impl<'a> Debug for dyn Kernel<'_> + 'a {
@@ -68,19 +69,19 @@ impl<'a> Serialize for dyn Kernel<'_> + 'a {
 pub struct Kernels {}
 
 impl<'a> Kernels {
-    fn linear() -> LinearKernel<'a> {
+    pub fn linear() -> LinearKernel<'a> {
         LinearKernel::default()
     }
 
-    fn rbf() -> RBFKernel<'a> {
+    pub fn rbf() -> RBFKernel<'a> {
         RBFKernel::default()
     }
 
-    fn polynomial() -> PolynomialKernel<'a> {
+    pub fn polynomial() -> PolynomialKernel<'a> {
         PolynomialKernel::default()
     }
 
-    fn sigmoid() -> SigmoidKernel<'a> {
+    pub fn sigmoid() -> SigmoidKernel<'a> {
         SigmoidKernel::default()
     }
 }
@@ -204,8 +205,8 @@ impl<'a> Kernel<'a> for LinearKernel<'a> {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         Ok(x_i.dot(x_j))
     }
-    fn name(&self) -> String {
-        String::from_str(&"Linear").unwrap()
+    fn name(&self) -> &'a str {
+        "Linear"
     }
 }
 
@@ -220,8 +221,8 @@ impl<'a> Kernel<'a> for RBFKernel<'a> {
         let v_diff = x_i.sub(x_j);
         Ok((-self.gamma.unwrap() * v_diff.mul(&v_diff).sum()).exp())
     }
-    fn name(&self) -> String {
-        String::from_str(&"RBF").unwrap()
+    fn name(&self) -> &'a str{
+        "RBF"
     }
 }
 
@@ -236,8 +237,8 @@ impl<'a> Kernel<'a> for PolynomialKernel<'a> {
         let dot = x_i.dot(x_j);
         Ok((self.gamma.unwrap() * dot + self.coef0.unwrap()).powf(self.degree.unwrap()))
     }
-    fn name(&self) -> String {
-        String::from_str(&"Polynomial").unwrap()
+    fn name(&self) -> &'a str {
+        "Polynomial"
     }
 }
 
@@ -252,8 +253,8 @@ impl<'a> Kernel<'a> for SigmoidKernel<'a> {
         let dot = x_i.dot(x_j);
         Ok(self.gamma.unwrap() * dot + self.coef0.unwrap().tanh())
     }
-    fn name(&self) -> String {
-        String::from_str(&"Sigmoid").unwrap()
+    fn name(&self) -> &'a str {
+        "Sigmoid"
     }
 }
 

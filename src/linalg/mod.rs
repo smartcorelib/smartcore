@@ -5,4 +5,5 @@ pub mod basic;
 pub mod traits;
 
 #[cfg(feature = "ndarray-bindings")]
+/// ndarray bindings
 pub mod ndarray;

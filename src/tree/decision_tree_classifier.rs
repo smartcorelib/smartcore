@@ -719,7 +719,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             );
         }
 
-        !self.nodes()[visitor.node].split_score.is_none()
+        self.nodes()[visitor.node].split_score.is_some()
     }
 
     fn find_best_split(
@@ -727,7 +727,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         visitor: &mut NodeVisitor<'_, TX, X>,
         n: usize,
         count: &[usize],
-        false_count: &mut Vec<usize>,
+        false_count: &mut [usize],
         parent_impurity: f64,
         j: usize,
     ) {
