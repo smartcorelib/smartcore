@@ -389,6 +389,7 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn run_multinomial_naive_bayes() {
         // Tests that MultinomialNB when alpha=1.0 gives the same values as
