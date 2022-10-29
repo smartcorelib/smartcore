@@ -8,9 +8,8 @@ pub mod digits;
 pub mod generator;
 pub mod iris;
 
-use crate::numbers::basenum::Number;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::numbers::realnum::RealNumber;
+use crate::numbers::{basenum::Number, realnum::RealNumber};
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 use std::io;
