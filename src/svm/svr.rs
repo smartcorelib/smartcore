@@ -48,7 +48,7 @@
 //!
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
-//! 
+//!
 //! let knl = Kernels::linear();
 //! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(&knl);
 //! // let svr = SVR::fit(&x, &y, params).unwrap();
@@ -356,8 +356,7 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
         for i in 0..n {
             y_hat.set(
                 i,
-                self.predict_for_row(Vec::from_iterator(
-                    x.get_row(i).iterator(0).copied(), n)),
+                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).copied(), n)),
             );
         }
 
@@ -369,19 +368,20 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
 
         for i in 0..self.instances.as_ref().unwrap().len() {
             f += self.w.as_ref().unwrap()[i]
-                * T::from(self
-                    .parameters
-                    .as_ref()
-                    .unwrap()
-                    .kernel
-                    .as_ref()
-                    .unwrap()
-                    .apply(
-                        &x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                        &self.instances.as_ref().unwrap()[i],
-                    )
-                    .unwrap()
-                ).unwrap()
+                * T::from(
+                    self.parameters
+                        .as_ref()
+                        .unwrap()
+                        .kernel
+                        .as_ref()
+                        .unwrap()
+                        .apply(
+                            &x.iter().map(|e| e.to_f64().unwrap()).collect(),
+                            &self.instances.as_ref().unwrap()[i],
+                        )
+                        .unwrap(),
+                )
+                .unwrap()
         }
 
         T::from(f).unwrap()
@@ -397,8 +397,7 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> PartialEq for SVR<'
             false
         } else {
             for i in 0..self.w.as_ref().unwrap().len() {
-                if (self.w.as_ref().unwrap()[i] - other.w.as_ref().unwrap()[i]).abs()
-                    > T::epsilon()
+                if (self.w.as_ref().unwrap()[i] - other.w.as_ref().unwrap()[i]).abs() > T::epsilon()
                 {
                     return false;
                 }
@@ -428,7 +427,11 @@ impl<T: Number + RealNumber> SupportVector<T> {
 }
 
 impl<'a, T: Number + RealNumber> Optimizer<'a, T> {
-    fn new<X: Array2<T>, Y: Array1<T>>(x: &'a X, y: &'a Y, parameters: &'a SVRParameters<'a, T>) -> Optimizer<'a, T> {
+    fn new<X: Array2<T>, Y: Array1<T>>(
+        x: &'a X,
+        y: &'a Y,
+        parameters: &'a SVRParameters<'a, T>,
+    ) -> Optimizer<'a, T> {
         let (n, _) = x.shape();
 
         let mut support_vectors: Vec<SupportVector<T>> = Vec::with_capacity(n);
@@ -649,8 +652,10 @@ impl<'a, T: Number + RealNumber> Optimizer<'a, T> {
             let si = T::two() * T::from_usize(i).unwrap() - T::one();
             let sj = T::two() * T::from_usize(j).unwrap() - T::one();
             for v in self.sv.iter_mut() {
-                v.grad[0] -= si * T::from(k1[v.index]).unwrap() * delta_alpha_i + sj * T::from(k2[v.index]).unwrap() * delta_alpha_j;
-                v.grad[1] += si * T::from(k1[v.index]).unwrap() * delta_alpha_i + sj * T::from(k2[v.index]).unwrap() * delta_alpha_j;
+                v.grad[0] -= si * T::from(k1[v.index]).unwrap() * delta_alpha_i
+                    + sj * T::from(k2[v.index]).unwrap() * delta_alpha_j;
+                v.grad[1] += si * T::from(k1[v.index]).unwrap() * delta_alpha_i
+                    + sj * T::from(k2[v.index]).unwrap() * delta_alpha_j;
             }
 
             self.find_min_max_gradient();

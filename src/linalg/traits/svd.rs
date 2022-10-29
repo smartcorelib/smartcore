@@ -433,14 +433,7 @@ impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;
         let tol = T::half() * (T::from(m + n).unwrap() + T::one()).sqrt() * s[0] * T::epsilon();
-        SVD {
-            U,
-            V,
-            s,
-            m,
-            n,
-            tol,
-        }
+        SVD { U, V, s, m, n, tol }
     }
 
     pub(crate) fn solve(&self, mut b: M) -> Result<M, Failed> {

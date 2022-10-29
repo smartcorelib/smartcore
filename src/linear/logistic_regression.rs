@@ -190,7 +190,7 @@ pub struct LogisticRegression<
 trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
     ///
     fn f(&self, w_bias: &[T]) -> T;
-    
+
     ///
     #[allow(clippy::ptr_arg)]
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
@@ -280,7 +280,7 @@ impl<'a, T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
 
         if self.alpha > T::zero() {
             let mut w_squared = T::zero();
-            for w_bias_i in w_bias.iter().take(p){
+            for w_bias_i in w_bias.iter().take(p) {
                 w_squared += *w_bias_i * *w_bias_i;
             }
             f += T::from_f64(0.5).unwrap() * self.alpha * w_squared;

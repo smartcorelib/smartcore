@@ -416,12 +416,7 @@ fn eltran<T: Number + RealNumber, M: Array2<T>>(A: &M, V: &mut M, perm: &[usize]
     }
 }
 
-fn hqr2<T: Number + RealNumber, M: Array2<T>>(
-    A: &mut M,
-    V: &mut M,
-    d: &mut [T],
-    e: &mut [T],
-) {
+fn hqr2<T: Number + RealNumber, M: Array2<T>>(A: &mut M, V: &mut M, d: &mut [T], e: &mut [T]) {
     let (n, _) = A.shape();
     let mut z = T::zero();
     let mut s = T::zero();
@@ -597,11 +592,7 @@ fn hqr2<T: Number + RealNumber, M: Array2<T>>(
                                 A.sub_element_mut((k, j), p * x);
                             }
 
-                            let mmin = if nn < k + 3 {
-                                nn
-                            } else {
-                                k + 3
-                            };
+                            let mmin = if nn < k + 3 { nn } else { k + 3 };
                             for i in 0..(mmin + 1) {
                                 p = x * *A.get((i, k)) + y * *A.get((i, k + 1));
                                 if k + 1 != nn {

@@ -225,7 +225,7 @@ impl<'a> Kernel<'a> for RBFKernel<'a> {
         let v_diff = x_i.sub(x_j);
         Ok((-self.gamma.unwrap() * v_diff.mul(&v_diff).sum()).exp())
     }
-    fn name(&self) -> &'a str{
+    fn name(&self) -> &'a str {
         "RBF"
     }
 }

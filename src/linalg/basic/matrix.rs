@@ -389,12 +389,7 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
     }
 
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
-        DenseMatrix::new(
-            nrows,
-            ncols,
-            iter.collect(),
-            axis != 0,
-        )
+        DenseMatrix::new(nrows, ncols, iter.collect(), axis != 0)
     }
 
     fn transpose(&self) -> Self {

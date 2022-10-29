@@ -13,9 +13,7 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::{
-    s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix2, OwnedRepr,
-};
+use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix2, OwnedRepr};
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     for ArrayBase<OwnedRepr<T>, Ix2>
