@@ -108,7 +108,7 @@ pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
         );
         self.iterator_mut(0)
             .zip(other.iterator(0))
-            .for_each(|(a, &b)| *a = *a + b);
+            .for_each(|(a, &b)| *a += b);
     }
     /// subtract values from another array to the values of initial array
     fn sub_mut(&mut self, other: &dyn Array<T, S>)
@@ -122,7 +122,7 @@ pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
         );
         self.iterator_mut(0)
             .zip(other.iterator(0))
-            .for_each(|(a, &b)| *a = *a - b);
+            .for_each(|(a, &b)| *a -= b);
     }
     /// multiply values from another array to the values of initial array
     fn mul_mut(&mut self, other: &dyn Array<T, S>)
@@ -136,7 +136,7 @@ pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
         );
         self.iterator_mut(0)
             .zip(other.iterator(0))
-            .for_each(|(a, &b)| *a = *a * b);
+            .for_each(|(a, &b)| *a *= b);
     }
     /// divide values from another array to the values of initial array
     fn div_mut(&mut self, other: &dyn Array<T, S>)
@@ -150,7 +150,7 @@ pub trait MutArray<T: Debug + Display + Copy + Sized, S>: Array<T, S> {
         );
         self.iterator_mut(0)
             .zip(other.iterator(0))
-            .for_each(|(a, &b)| *a = *a / b);
+            .for_each(|(a, &b)| *a /= b);
     }
 }
 
@@ -175,7 +175,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     where
         T: Number,
     {
-        self.iterator(0).map(|v| *v).sum()
+        self.iterator(0).copied().sum()
     }
     /// return max value from the view
     fn max(&self) -> T
@@ -214,7 +214,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         let mut max = T::min_value();
         let mut max_pos = 0usize;
         for (i, v) in self.iterator(0).enumerate() {
-            if T::gt(&v, &max) {
+            if T::gt(v, &max) {
                 max = *v;
                 max_pos = i;
             }
@@ -226,7 +226,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     where
         T: Number + Ord,
     {
-        let mut result: Vec<T> = self.iterator(0).map(|&v| v).collect();
+        let mut result: Vec<T> = self.iterator(0).copied().collect();
         result.sort();
         result.dedup();
         result
@@ -236,7 +236,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     where
         T: Number + Ord,
     {
-        let mut unique: Vec<T> = self.iterator(0).map(|&v| v).collect();
+        let mut unique: Vec<T> = self.iterator(0).copied().collect();
         unique.sort();
         unique.dedup();
 
@@ -801,7 +801,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     where
         Self: Sized;
     ///
-    fn from_slice<'a>(slice: &'_ dyn ArrayView1<T>) -> Self
+    fn from_slice(slice: &'_ dyn ArrayView1<T>) -> Self
     where
         Self: Sized;
     ///

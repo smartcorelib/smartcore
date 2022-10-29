@@ -191,8 +191,8 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         let mut m_values = Vec::with_capacity(nrows * ncols);
 
         for c in 0..ncols {
-            for r in 0..nrows {
-                m_values.push(values[r][c])
+            for r in values.iter().take(nrows) {
+                m_values.push(r[c])
             }
         }
 
@@ -301,7 +301,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 
     fn is_empty(&self) -> bool {
-        self.ncols > 0 && self.ncols > 0
+        self.ncols > 0 && self.nrows > 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -393,7 +393,7 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
             nrows,
             ncols,
             iter.collect(),
-            if axis == 0 { false } else { true },
+            axis != 0,
         )
     }
 

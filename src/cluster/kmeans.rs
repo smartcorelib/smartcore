@@ -313,7 +313,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             k: parameters.k,
             _y: y,
             size,
-            distortion: distortion,
+            distortion,
             centroids,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
@@ -353,7 +353,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
 
     fn kmeans_plus_plus(data: &X, k: usize, seed: Option<u64>) -> Vec<usize> {
         let mut rng = get_rng_impl(seed);
-        let (n, m) = data.shape();
+        let (n, _) = data.shape();
         let mut y = vec![0; n];
         let mut centroid: Vec<TX> = data
             .get_row(rng.gen_range(0..n))

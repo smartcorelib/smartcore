@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::cluster_helpers::*;
 use crate::numbers::basenum::Number;
-use crate::numbers::floatnum::FloatNumber;
-use crate::numbers::realnum::RealNumber;
 
 use crate::metrics::Metrics;
 
@@ -35,7 +33,7 @@ impl<T: Number + Ord> HCVScore<T> {
         self.v_measure
     }
     /// run computation for measures
-    pub fn compute(&mut self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> () {
+    pub fn compute(&mut self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) {
         let entropy_c: Option<f64> = entropy(y_true);
         let entropy_k: Option<f64> = entropy(y_pred);
         let contingency = contingency_matrix(y_true, y_pred);
@@ -77,7 +75,7 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
     /// Computes Homogeneity, completeness and V-Measure scores at once.
     /// * `y_true` - ground truth class labels to be used as a reference.
     /// * `y_pred` - cluster labels to evaluate.    
-    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
+    fn get_score(&self, _y_true: &dyn ArrayView1<T>, _y_pred: &dyn ArrayView1<T>) -> f64 {
         // this functions should not be used for this struct
         // use homogeneity(), completeness(), v_measure()
         // TODO: implement Metrics -> Result<T, Failed>

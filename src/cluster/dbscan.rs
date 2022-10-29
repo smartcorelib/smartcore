@@ -280,7 +280,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         }
 
         if parameters.eps <= 0f64 {
-            return Err(Failed::fit(&"Invalid radius: ".to_string()));
+            return Err(Failed::fit("Invalid radius: "));
         }
 
         let mut k = 0;

@@ -70,6 +70,7 @@ pub struct StandardScaler<T: Number + RealNumber> {
     _phantom: PhantomData<T>,
 }
 
+#[allow(dead_code)]
 impl<T: Number + RealNumber> StandardScaler<T> {
     fn new(parameters: StandardScalerParameters) -> Self
     where

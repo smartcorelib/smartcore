@@ -3,8 +3,6 @@
 //! This module provides interfaces and uniform API with simple conventions
 //! that are used in other modules for supervised and unsupervised learning.
 
-use std::any::Any;
-
 use crate::error::Failed;
 
 /// An estimator for unsupervised learning, that provides method `fit` to learn from data

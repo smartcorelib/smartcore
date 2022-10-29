@@ -105,6 +105,8 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         self.weight.as_ref().expect("Missing parameter: weight")
     }
 
+    #[allow(dead_code)]
+    ///
     fn k(&self) -> usize {
         self.k.unwrap()
     }

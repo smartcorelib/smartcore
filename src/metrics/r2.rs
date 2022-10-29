@@ -26,7 +26,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
-use crate::numbers::floatnum::FloatNumber;
 
 use crate::metrics::Metrics;
 

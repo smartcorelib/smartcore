@@ -108,6 +108,7 @@
 use rand::seq::SliceRandom;
 use std::fmt::{Debug, Display};
 
+#[allow(unused_imports)]
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};

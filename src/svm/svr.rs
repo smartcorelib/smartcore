@@ -80,7 +80,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
-use crate::svm::{Kernel, Kernels, LinearKernel};
+use crate::svm::Kernel;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]

@@ -46,6 +46,7 @@ use crate::numbers::realnum::RealNumber;
 pub struct LU<T: Number + RealNumber, M: Array2<T>> {
     LU: M,
     pivot: Vec<usize>,
+    #[allow(dead_code)]
     pivot_sign: i8,
     singular: bool,
     phantom: PhantomData<T>,

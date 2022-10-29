@@ -84,7 +84,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{PredictorBorrow, SupervisedEstimatorBorrow};
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray};
+use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
@@ -293,7 +293,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
             }
         }
 
-        let optimizer: Optimizer<TX, TY, X, Y> = Optimizer::new(x, y, parameters);
+        let optimizer: Optimizer<'_, TX, TY, X, Y> = Optimizer::new(x, y, parameters);
 
         let (support_vectors, weight, b) = optimizer.optimize();
 
@@ -599,7 +599,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             0,
             SupportVector::<TX>::new(
                 i,
-                x.iter().copied().collect(),
+                x.to_vec(),
                 TX::from(y).unwrap(),
                 g,
                 self.parameters.c.to_f64().unwrap(),

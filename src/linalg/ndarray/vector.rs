@@ -126,11 +126,11 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn from_vec_slice(slice: &[T]) -> Self {
-        Array::from_iter(slice.iter().map(|&v| v))
+        Array::from_iter(slice.iter().copied())
     }
 
     fn from_slice(slice: &dyn ArrayView1<T>) -> Self {
-        Array::from_iter(slice.iterator(0).map(|&v| v))
+        Array::from_iter(slice.iterator(0).copied())
     }
 }
 

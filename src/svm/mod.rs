@@ -22,13 +22,11 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 pub mod svc;
 pub mod svr;
 
 use core::fmt::Debug;
 use std::marker::PhantomData;
-use std::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::ser::{SerializeStruct, Serializer};
@@ -41,6 +39,7 @@ use crate::linalg::basic::arrays::{Array1, ArrayView1};
 /// Defines a kernel function.
 /// This is a object-safe trait.
 pub trait Kernel<'a> {
+    #[allow(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
     /// Return a serializable name
@@ -69,24 +68,26 @@ impl<'a> Serialize for dyn Kernel<'_> + 'a {
 pub struct Kernels {}
 
 impl<'a> Kernels {
+    /// Return a default linear
     pub fn linear() -> LinearKernel<'a> {
         LinearKernel::default()
     }
-
+    /// Return a default RBF
     pub fn rbf() -> RBFKernel<'a> {
         RBFKernel::default()
     }
-
+    /// Return a default polynomial
     pub fn polynomial() -> PolynomialKernel<'a> {
         PolynomialKernel::default()
     }
-
+    /// Return a default sigmoid
     pub fn sigmoid() -> SigmoidKernel<'a> {
         SigmoidKernel::default()
     }
 }
 
 /// Linear Kernel
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct LinearKernel<'a> {
@@ -119,6 +120,7 @@ impl<'a> Default for RBFKernel<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> RBFKernel<'a> {
     fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
@@ -150,6 +152,7 @@ impl<'a> Default for PolynomialKernel<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> PolynomialKernel<'a> {
     fn with_params(mut self, degree: f64, gamma: f64, coef0: f64) -> Self {
         self.degree = Some(degree);
@@ -163,7 +166,7 @@ impl<'a> PolynomialKernel<'a> {
         self
     }
 
-    fn with_degree(mut self, degree: f64, n_features: usize) -> Self {
+    fn with_degree(self, degree: f64, n_features: usize) -> Self {
         self.with_params(degree, 1f64, 1f64 / n_features as f64)
     }
 }
@@ -189,6 +192,7 @@ impl<'a> Default for SigmoidKernel<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> SigmoidKernel<'a> {
     fn with_params(mut self, gamma: f64, coef0: f64) -> Self {
         self.gamma = Some(gamma);
@@ -262,7 +266,6 @@ impl<'a> Kernel<'a> for SigmoidKernel<'a> {
 mod tests {
     use super::*;
     use crate::svm::Kernels;
-    use crate::svm::LinearKernel;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

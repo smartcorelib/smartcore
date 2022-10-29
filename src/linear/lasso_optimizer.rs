@@ -158,10 +158,8 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                 pitr = pcgmaxi;
             }
 
-            for i in 0..p {
-                dx[i] = dxu[i];
-                du[i] = dxu[i + p];
-            }
+            dx[..p].copy_from_slice(&dxu[..p]);
+            du[..p].copy_from_slice(&dxu[p..(p + p)]);
 
             // BACKTRACKING LINE SEARCH
             let phi = z.dot(&z) + lambda * u.sum() - Self::sumlogneg(&f) / t;
@@ -223,11 +221,11 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
 }
 
 ///
-impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X>
+impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
     for InteriorPointOptimizer<T, X>
 {
     ///
-    fn solve_preconditioner(&self, a: &X, b: &Vec<T>, x: &mut Vec<T>) {
+    fn solve_preconditioner(&self, a: &'a X, b: &[T], x: &mut [T]) {
         let (_, p) = a.shape();
 
         for i in 0..p {

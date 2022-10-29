@@ -48,9 +48,11 @@ pub struct SVD<T: Number + RealNumber, M: SVDDecomposable<T>> {
     pub V: M,
     /// Singular values of the original matrix
     pub s: Vec<T>,
-    full: bool,
+    ///
     m: usize,
+    ///
     n: usize,
+    ///
     tol: T,
 }
 
@@ -430,13 +432,11 @@ impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
     pub(crate) fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;
-        let full = s.len() == m.min(n);
         let tol = T::half() * (T::from(m + n).unwrap() + T::one()).sqrt() * s[0] * T::epsilon();
         SVD {
             U,
             V,
             s,
-            full,
             m,
             n,
             tol,

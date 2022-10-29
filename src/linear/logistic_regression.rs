@@ -188,10 +188,16 @@ pub struct LogisticRegression<
 }
 
 trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
-    fn f(&self, w_bias: &Vec<T>) -> T;
+    ///
+    fn f(&self, w_bias: &[T]) -> T;
+    
+    ///
+    #[allow(clippy::ptr_arg)]
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
 
-    fn partial_dot(w: &Vec<T>, x: &X, v_col: usize, m_row: usize) -> T {
+    ///
+    #[allow(clippy::ptr_arg)]
+    fn partial_dot(w: &[T], x: &X, v_col: usize, m_row: usize) -> T {
         let mut sum = T::zero();
         let p = x.shape().1;
         for i in 0..p {
@@ -263,7 +269,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
 impl<'a, T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
     for BinaryObjectiveFunction<'a, T, X>
 {
-    fn f(&self, w_bias: &Vec<T>) -> T {
+    fn f(&self, w_bias: &[T]) -> T {
         let mut f = T::zero();
         let (n, p) = self.x.shape();
 
@@ -318,7 +324,7 @@ struct MultiClassObjectiveFunction<'a, T: Number + FloatNumber, X: Array2<T>> {
 impl<'a, T: Number + FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T, X>
     for MultiClassObjectiveFunction<'a, T, X>
 {
-    fn f(&self, w_bias: &Vec<T>) -> T {
+    fn f(&self, w_bias: &[T]) -> T {
         let mut f = T::zero();
         let mut prob = vec![T::zero(); self.k];
         let (n, p) = self.x.shape();

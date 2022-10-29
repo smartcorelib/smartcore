@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 use crate::linalg::basic::arrays::ArrayView1;
 use crate::numbers::basenum::Number;
-use crate::numbers::realnum::RealNumber;
 
 pub fn contingency_matrix<T: Number + Ord, V: ArrayView1<T> + ?Sized>(
     labels_true: &V,

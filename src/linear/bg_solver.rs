@@ -10,7 +10,7 @@
 //! use smartcore::linear::bg_solver::BiconjugateGradientSolver;
 //!
 //! pub struct BGSolver {}
-//! impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}
+//! impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X> for BGSolver {}
 //!
 //! let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
 //! let b = vec![40., 51., 28.];
@@ -27,11 +27,11 @@ use crate::linalg::basic::arrays::{Array, Array1, Array2, ArrayView1, MutArrayVi
 use crate::numbers::floatnum::FloatNumber;
 
 ///
-pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
+pub trait BiconjugateGradientSolver<'a, T: FloatNumber, X: Array2<T>> {
     ///
     fn solve_mut(
         &self,
-        a: &X,
+        a: &'a X,
         b: &Vec<T>,
         x: &mut Vec<T>,
         tol: T,
@@ -60,7 +60,7 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
         }
 
         let bnrm = b.norm(2f64);
-        self.solve_preconditioner(a, &r, &mut z);
+        self.solve_preconditioner(a, &r[..], &mut z[..]);
 
         let mut p = Vec::zeros(n);
         let mut pp = Vec::zeros(n);
@@ -75,10 +75,8 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
                 bknum += z[j] * rr[j];
             }
             if iter == 1 {
-                for j in 0..n {
-                    p[j] = z[j];
-                    pp[j] = zz[j];
-                }
+                p[..n].copy_from_slice(&z[..n]);
+                pp[..n].copy_from_slice(&zz[..n]);
             } else {
                 let bk = bknum / bkden;
                 for j in 0..n {
@@ -95,9 +93,9 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
             let ak = bknum / akden;
             self.mat_t_vec_mul(a, &pp, &mut zz);
             for j in 0..n {
-                x[j] = x[j] + ak * p[j];
-                r[j] = r[j] - ak * z[j];
-                rr[j] = rr[j] - ak * zz[j];
+                x[j] += ak * p[j];
+                r[j] -= ak * z[j];
+                rr[j] -= ak * zz[j];
             }
             self.solve_preconditioner(a, &r, &mut z);
             err = T::from_f64(r.norm(2f64) / bnrm).unwrap();
@@ -111,7 +109,7 @@ pub trait BiconjugateGradientSolver<T: FloatNumber, X: Array2<T>> {
     }
 
     ///
-    fn solve_preconditioner(&self, a: &X, b: &Vec<T>, x: &mut Vec<T>) {
+    fn solve_preconditioner(&self, a: &'a X, b: &[T], x: &mut [T]) {
         let diag = Self::diag(a);
         let n = diag.len();
 
@@ -156,7 +154,7 @@ mod tests {
 
     pub struct BGSolver {}
 
-    impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<T, X> for BGSolver {}
+    impl<T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'_, T, X> for BGSolver {}
 
     #[test]
     fn bg_solver() {

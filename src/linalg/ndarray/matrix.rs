@@ -1,9 +1,8 @@
-use std::fmt;
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
 use crate::linalg::basic::arrays::{
-    Array as BaseArray, Array1, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
+    Array as BaseArray, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
 };
 
 use crate::linalg::traits::cholesky::CholeskyDecomposable;
@@ -14,9 +13,8 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::ScalarOperand;
 use ndarray::{
-    concatenate, s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix1, Ix2, OwnedRepr,
+    s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix2, OwnedRepr,
 };
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>

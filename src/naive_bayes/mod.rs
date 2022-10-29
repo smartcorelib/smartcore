@@ -48,6 +48,7 @@ pub(crate) trait NBDistribution<X: Number, Y: Number>: Clone {
     fn prior(&self, class_index: usize) -> f64;
 
     /// Logarithm of conditional probability of sample j given class in the specified index.
+    #[allow(clippy::borrowed_box)]
     fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64;
 
     /// Possible classes of the distribution.
