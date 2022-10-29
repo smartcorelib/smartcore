@@ -34,6 +34,7 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 /// Lasso regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -57,7 +58,7 @@ pub struct LassoParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 /// Lasso regressor
-pub struct Lasso<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
+pub struct Lasso<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     coefficients: Option<X>,
     intercept: Option<TX>,
     _phantom_ty: PhantomData<TY>,
@@ -98,7 +99,7 @@ impl Default for LassoParameters {
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for Lasso<TX, TY, X, Y> {
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for Lasso<TX, TY, X, Y> {
     fn eq(&self, other: &Self) -> bool {
         self.intercept == other.intercept
             && self.coefficients().shape() == other.coefficients().shape()
@@ -110,7 +111,7 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for La
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, LassoParameters> for Lasso<TX, TY, X, Y>
 {
     fn new() -> Self {
@@ -127,7 +128,7 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     for Lasso<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
@@ -235,7 +236,7 @@ impl Default for LassoSearchParameters {
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X, Y> {
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X, Y> {
     /// Fits Lasso regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values

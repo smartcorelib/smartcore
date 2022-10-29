@@ -65,6 +65,7 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array, Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 
@@ -94,7 +95,7 @@ pub struct ElasticNetParameters {
 /// Elastic net
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct ElasticNet<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
+pub struct ElasticNet<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     coefficients: Option<X>,
     intercept: Option<TX>,
     _phantom_ty: PhantomData<TY>,
@@ -263,7 +264,7 @@ impl Default for ElasticNetSearchParameters {
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
     for ElasticNet<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -280,7 +281,7 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, ElasticNetParameters> for ElasticNet<TX, TY, X, Y>
 {
     fn new() -> Self {
@@ -297,7 +298,7 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     for ElasticNet<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
@@ -305,7 +306,7 @@ impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     }
 }
 
-impl<TX: FloatNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> ElasticNet<TX, TY, X, Y> {
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> ElasticNet<TX, TY, X, Y> {
     /// Fits elastic net regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values

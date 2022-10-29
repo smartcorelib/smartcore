@@ -431,6 +431,8 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         }
     }
     /// return mean value
+    /// TODO: this can be made more readable and efficient using the
+    /// methods in `linalg::traits::stats`
     fn mean(&self, axis: u8) -> Vec<f64>
     where
         T: Number,
@@ -462,7 +464,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
     /// return variance
     fn var(&self, axis: u8) -> Vec<f64>
     where
-        T: Number,
+        T: Number + RealNumber,
     {
         let (n, m) = match axis {
             0 => {
@@ -496,7 +498,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
     /// return standard deviation
     fn std(&self, axis: u8) -> Vec<f64>
     where
-        T: Number,
+        T: Number + RealNumber,
     {
         let mut x = self.var(axis);
 

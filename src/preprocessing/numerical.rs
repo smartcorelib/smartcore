@@ -224,7 +224,6 @@ mod tests {
         use crate::api::{Transformer, UnsupervisedEstimator};
         use crate::linalg::basic::arrays::Array2;
         use crate::linalg::basic::matrix::DenseMatrix;
-        use crate::linalg::basic::vector::*;
 
         #[test]
         fn dont_adjust_mean_if_used() {

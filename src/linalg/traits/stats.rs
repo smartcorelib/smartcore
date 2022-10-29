@@ -3,11 +3,13 @@
 //! This module provides reference implementations for  various statistical functions.
 //! Concrete implementations of the `BaseMatrix` trait are free to override these methods for better performance.
 
-use crate::linalg::basic::arrays::ArrayView2;
+//! This module is deprecated. There are some ideas that can be ported to `linalg::arrays`
+
+use crate::linalg::basic::arrays::{ArrayView2, Array2};
 use crate::numbers::realnum::RealNumber;
 
 /// Defines baseline implementations for various statistical functions
-pub trait MatrixStats<T: RealNumber>: ArrayView2<T> {
+pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     /// Computes the arithmetic mean along the specified axis.
     fn mean(&self, axis: u8) -> Vec<T> {
         let (n, m) = match axis {
@@ -20,18 +22,13 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> {
 
         let mut x: Vec<T> = vec![T::zero(); n];
 
-        let div = T::from_usize(m).unwrap();
-
         for (i, x_i) in x.iter_mut().enumerate().take(n) {
-            for j in 0..m {
-                *x_i += match axis {
-                    0 => *self.get((j, i)),
-                    _ => *self.get((i, j)),
-                };
-            }
-            *x_i /= div;
+            let vec = match axis {
+                0 => self.get_col(i).iterator(0).copied().collect::<Vec<T>>(),
+                _ => self.get_row(i).iterator(0).copied().collect::<Vec<T>>(),
+            };
+            *x_i = Self::_mean_of_vector(&vec[..]);
         }
-
         x
     }
 
@@ -47,21 +44,12 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> {
 
         let mut x: Vec<T> = vec![T::zero(); n];
 
-        let div = T::from_usize(m).unwrap();
-
         for (i, x_i) in x.iter_mut().enumerate().take(n) {
-            let mut mu = T::zero();
-            let mut sum = T::zero();
-            for j in 0..m {
-                let a = match axis {
-                    0 => self.get((j, i)),
-                    _ => self.get((i, j)),
-                };
-                mu += *a;
-                sum += *a * *a;
-            }
-            mu /= div;
-            *x_i = sum / div - mu.powi(2);
+            let vec = match axis {
+                0 => self.get_col(i).iterator(0).copied().collect::<Vec<T>>(),
+                _ => self.get_row(i).iterator(0).copied().collect::<Vec<T>>(),
+            };
+            *x_i = Self::_var_of_vec(&vec[..], Option::None);
         }
 
         x
@@ -81,6 +69,43 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> {
         }
 
         x
+    }
+
+    /// (reference)[http://en.wikipedia.org/wiki/Arithmetic_mean]
+    /// Taken from statistical
+    /// The MIT License (MIT)
+    /// Copyright (c) 2015 Jeff Belgum
+    fn _mean_of_vector(v: &[T]) -> T
+    {
+        let len = num::cast(v.len()).unwrap();
+        v.iter().fold(T::zero(), |acc: T, elem| acc + *elem) / len
+    }
+
+    /// Taken from statistical
+    /// The MIT License (MIT)
+    /// Copyright (c) 2015 Jeff Belgum
+    fn sum_square_deviations_vec(v: &[T], c: Option<T>) -> T
+    {
+        let c = match c {
+            Some(c) => c,
+            None => Self::_mean_of_vector(v),
+        };
+
+        let sum = v.iter().map( |x| (*x - c) * (*x - c) ).fold(T::zero(), |acc, elem| acc + elem);
+        assert!(sum >= T::zero(), "negative sum of square root deviations");
+        sum
+    }
+
+    /// (Sample variance)[http://en.wikipedia.org/wiki/Variance#Sample_variance]
+    /// Taken from statistical
+    /// The MIT License (MIT)
+    /// Copyright (c) 2015 Jeff Belgum
+    fn _var_of_vec(v: &[T], xbar: Option<T>) -> T
+    {
+        assert!(v.len() > 1, "variance requires at least two data points");
+        let len: T = num::cast(v.len()).unwrap();
+        let sum = Self::sum_square_deviations_vec(v, xbar);
+        sum / (len - T::one())
     }
 
     // TODO: this is processing. Should have its own "processing.rs" module
@@ -149,8 +174,7 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::linalg::basic::arrays::ArrayView2;
+    use crate::linalg::basic::arrays::{ArrayView2, Array1};
     use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
@@ -167,33 +191,37 @@ mod tests {
         assert_eq!(m.mean(1), expected_1);
     }
 
-    // #[test]
-    // fn std() {
-    //     let m = DenseMatrix::from_2d_array(&[
-    //         &[1., 2., 3., 1., 2.],
-    //         &[4., 5., 6., 3., 4.],
-    //         &[7., 8., 9., 5., 6.],
-    //     ]);
-    //     let expected_0 = vec![2.44, 2.44, 2.44, 1.63, 1.63];
-    //     let expected_1 = vec![0.74, 1.01, 1.41];
+    #[test]
+    fn std() {
+        let m = DenseMatrix::from_2d_array(&[
+            &[1., 2., 3., 1., 2.],
+            &[4., 5., 6., 3., 4.],
+            &[7., 8., 9., 5., 6.],
+        ]);
+        let expected_0 = vec![2.44, 2.44, 2.44, 1.63, 1.63];
+        let expected_1 = vec![0.74, 1.01, 1.41];
 
-    //     // assert!(m.std(0).approximate_eq(&expected_0, 1e-2));
-    //     // assert!(m.std(1).approximate_eq(&expected_1, 1e-2));
-    //     assert_eq!(m.mean(0), expected_0);
-    //     assert_eq!(m.mean(1), expected_1);
-    // }
+        // assert!(m.std(0).approximate_eq(&expected_0, 1e-2));
+        // assert!(m.std(1).approximate_eq(&expected_1, 1e-2));
+        assert_eq!(m.mean(0), expected_0);
+        assert_eq!(m.mean(1), expected_1);
+    }
 
-    // #[test]
-    // fn var() {
-    //     let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
-    //     let expected_0 = vec![4., 4., 4., 4.];
-    //     let expected_1 = vec![1.25, 1.25];
+    #[test]
+    fn var() {
+        let m = DenseMatrix::from_2d_array(
+            &[
+                &[1., 2., 3., 4.],
+                &[5., 6., 7., 8.]
+            ]);
+        let expected_0 = vec![4., 4., 4., 4.];
+        let expected_1 = vec![1.25, 1.25];
 
-    //     // assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
-    //     // assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
-    //     assert_eq!(m.mean(0), expected_0);
-    //     assert_eq!(m.mean(1), expected_1);
-    // }
+        assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
+        assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
+        assert_eq!(m.mean(0), expected_0);
+        assert_eq!(m.mean(1), expected_1);
+    }
 
     // TODO: this is processing operation
     // #[test]

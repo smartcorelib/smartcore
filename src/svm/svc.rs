@@ -1119,7 +1119,7 @@ mod tests {
         let svc = SVC::fit(&x, &y, &params).unwrap();
 
         // serialization
-        let serialized_svc = &serde_json::to_string(&svc).unwrap();
+        let _serialized_svc = &serde_json::to_string(&svc).unwrap();
 
         // println!("{:?}", serialized_svc);
 

@@ -29,6 +29,7 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::naive_bayes::{BaseNaiveBayes, NBDistribution};
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +49,7 @@ struct GaussianNBDistribution<T: Number> {
     theta: Vec<Vec<f64>>,
 }
 
-impl<X: Number, Y: Number + Ord + Unsigned> NBDistribution<X, Y> for GaussianNBDistribution<Y> {
+impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y> for GaussianNBDistribution<Y> {
     fn prior(&self, class_index: usize) -> f64 {
         if class_index >= self.class_labels.len() {
             0f64
@@ -159,7 +160,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
     /// * `y` - vector with target values (classes) of length N.
     /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
     /// priors are adjusted according to the data.
-    pub fn fit<TX: Number, X: Array2<TX>, Y: Array1<TY>>(
+    pub fn fit<TX: Number + RealNumber, X: Array2<TX>, Y: Array1<TY>>(
         x: &X,
         y: &Y,
         priors: Option<Vec<f64>>,
@@ -245,11 +246,11 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
 /// distribution.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
-pub struct GaussianNB<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> {
+pub struct GaussianNB<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
 }
 
-impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn new() -> Self {
@@ -263,7 +264,7 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     }
 }
 
-impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+impl<TX: Number + RealNumber + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
     for GaussianNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
@@ -271,7 +272,7 @@ impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> Pred
     }
 }
 
-impl<TX: Number, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     GaussianNB<TX, TY, X, Y>
 {
     /// Fits GaussianNB with given data
@@ -346,12 +347,12 @@ mod tests {
     #[test]
     fn run_gaussian_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
-            &[-1, -1],
-            &[-2, -1],
-            &[-3, -2],
-            &[1, 1],
-            &[2, 1],
-            &[3, 2],
+            &[-1., -1.],
+            &[-2., -1.],
+            &[-3., -2.],
+            &[1., 1.],
+            &[2., 1.],
+            &[3., 2.],
         ]);
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 

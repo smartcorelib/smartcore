@@ -579,8 +579,7 @@ mod tests {
     use super::*;
     use crate::dataset::generator::make_blobs;
     use crate::linalg::basic::arrays::Array;
-    use crate::linalg::basic::matrix::*;
-    use crate::metrics::accuracy;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
     fn search_parameters() {

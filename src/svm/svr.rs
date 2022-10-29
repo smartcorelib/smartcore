@@ -694,11 +694,11 @@ impl<T: Clone> Cache<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::linalg::basic::matrix::DenseMatrix;
-    use crate::metrics::mean_squared_error;
-    #[cfg(feature = "serde")]
-    use crate::svm::*;
+    // use super::*;
+    // use crate::linalg::basic::matrix::DenseMatrix;
+    // use crate::metrics::mean_squared_error;
+    // #[cfg(feature = "serde")]
+    // use crate::svm::*;
 
     // #[test]
     // fn search_parameters() {
