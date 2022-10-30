@@ -13,8 +13,8 @@ use crate::linalg::traits::cholesky::CholeskyDecomposable;
 use crate::linalg::traits::evd::EVDDecomposable;
 use crate::linalg::traits::lu::LUDecomposable;
 use crate::linalg::traits::qr::QRDecomposable;
+use crate::linalg::traits::stats::{MatrixPreprocessing, MatrixStats};
 use crate::linalg::traits::svd::SVDDecomposable;
-use crate::linalg::traits::stats::{MatrixStats, MatrixPreprocessing};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 

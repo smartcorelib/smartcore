@@ -5,7 +5,7 @@
 
 //! This methods shall be used when dealing with `DenseMatrix`. Use the ones in `linalg::arrays` for `Array` types.
 
-use crate::linalg::basic::arrays::{ArrayView2, Array2, MutArrayView2};
+use crate::linalg::basic::arrays::{Array2, ArrayView2, MutArrayView2};
 use crate::numbers::realnum::RealNumber;
 
 /// Defines baseline implementations for various statistical functions
@@ -59,8 +59,6 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     fn std_dev(&self, axis: u8) -> Vec<T> {
         let mut x = self.variance(axis);
 
-        println!("variance {:?}", &x);
-
         let n = match axis {
             0 => self.shape().1,
             _ => self.shape().0,
@@ -68,7 +66,6 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
 
         for x_i in x.iter_mut().take(n) {
             *x_i = x_i.sqrt();
-            println!("{:?}", &x_i);
         }
 
         x
@@ -78,8 +75,7 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     /// Taken from statistical
     /// The MIT License (MIT)
     /// Copyright (c) 2015 Jeff Belgum
-    fn _mean_of_vector(v: &[T]) -> T
-    {
+    fn _mean_of_vector(v: &[T]) -> T {
         let len = num::cast(v.len()).unwrap();
         v.iter().fold(T::zero(), |acc: T, elem| acc + *elem) / len
     }
@@ -87,14 +83,16 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     /// Taken from statistical
     /// The MIT License (MIT)
     /// Copyright (c) 2015 Jeff Belgum
-    fn _sum_square_deviations_vec(v: &[T], c: Option<T>) -> T
-    {
+    fn _sum_square_deviations_vec(v: &[T], c: Option<T>) -> T {
         let c = match c {
             Some(c) => c,
             None => Self::_mean_of_vector(v),
         };
 
-        let sum = v.iter().map( |x| (*x - c) * (*x - c) ).fold(T::zero(), |acc, elem| acc + elem);
+        let sum = v
+            .iter()
+            .map(|x| (*x - c) * (*x - c))
+            .fold(T::zero(), |acc, elem| acc + elem);
         assert!(sum >= T::zero(), "negative sum of square root deviations");
         sum
     }
@@ -103,8 +101,7 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     /// Taken from statistical
     /// The MIT License (MIT)
     /// Copyright (c) 2015 Jeff Belgum
-    fn _var_of_vec(v: &[T], xbar: Option<T>) -> T
-    {
+    fn _var_of_vec(v: &[T], xbar: Option<T>) -> T {
         assert!(v.len() > 1, "variance requires at least two data points");
         let len: T = num::cast(v.len()).unwrap();
         let sum = Self::_sum_square_deviations_vec(v, xbar);
@@ -113,8 +110,6 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
 
     /// standardize values by removing the mean and scaling to unit variance
     fn standard_scale_mut(&mut self, mean: &[T], std: &[T], axis: u8) {
-        println!("{:?}", &mean);
-        println!("{:?}", &std);
         let (n, m) = match axis {
             0 => {
                 let (n, m) = self.shape();
@@ -126,13 +121,7 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
         for i in 0..n {
             for j in 0..m {
                 match axis {
-                    0 => {
-                        let val = *self.get((j, i));
-                        println!("mean - std {:?}, {:?}", mean[i], std[i]);
-                        let change = (val - mean[i]) / std[i];
-                        println!("{:?}, {:?}", &val, &change);
-                        self.set((j, i), change);
-                    },
+                    0 => self.set((j, i), (*self.get((j, i)) - mean[i]) / std[i]),
                     _ => self.set((i, j), (*self.get((i, j)) - mean[i]) / std[i]),
                 }
             }
@@ -175,8 +164,11 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
     ///
     /// assert_eq!(a.binarize(0.), expected);
     /// ```
-    fn binarize(self, threshold: T) -> Self where Self: Sized {
-        let mut m = self.clone();
+    fn binarize(self, threshold: T) -> Self
+    where
+        Self: Sized,
+    {
+        let mut m = self;
         m.mat_binarize_mut(threshold);
         m
     }
@@ -184,7 +176,7 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
 
 #[cfg(test)]
 mod tests {
-    use crate::linalg::basic::arrays::{Array1, Array2};
+    use crate::linalg::basic::arrays::Array1;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::linalg::traits::stats::MatrixStats;
 
@@ -204,13 +196,9 @@ mod tests {
 
     #[test]
     fn var() {
-        let m = DenseMatrix::from_2d_array(
-            &[
-                &[1., 2., 3., 4.],
-                &[5., 6., 7., 8.]
-            ]);
-        let expected_0 = vec![8., 8., 8., 8.];
-        let expected_1 = vec![1.666666, 1.666666];
+        let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
+        let expected_0 = vec![4., 4., 4., 4.];
+        let expected_1 = vec![1.25, 1.25];
 
         assert!(m.variance(0).approximate_eq(&expected_0, 1e-6));
         assert!(m.variance(1).approximate_eq(&expected_1, 1e-6));
@@ -220,17 +208,19 @@ mod tests {
 
     #[test]
     fn var_other() {
-        let m = DenseMatrix::from_2d_array(
-            &[
-                &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
-                &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25]
-            ]);
+        let m = DenseMatrix::from_2d_array(&[
+            &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
+            &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
+        ]);
         let expected_0 = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let expected_1 = vec![1.4285714285714286, 1.4285714285714286];
+        let expected_1 = vec![1.25, 1.25];
 
         assert!(m.variance(0).approximate_eq(&expected_0, std::f64::EPSILON));
         assert!(m.variance(1).approximate_eq(&expected_1, std::f64::EPSILON));
-        assert_eq!(m.mean_by(0), vec![0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25]);
+        assert_eq!(
+            m.mean_by(0),
+            vec![0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25]
+        );
         assert_eq!(m.mean_by(1), vec![1.375, 1.375]);
     }
 
@@ -241,26 +231,41 @@ mod tests {
             &[4., 5., 6., 3., 4.],
             &[7., 8., 9., 5., 6.],
         ]);
-        let expected_0 = vec![3.0, 3.0, 3.0, 2.0, 2.0];
-        let expected_1 = vec![0.8366600265340756, 1.140175425099138, 1.5811388300841898];
+        let expected_0 = vec![
+            2.449489742783178,
+            2.449489742783178,
+            2.449489742783178,
+            1.632993161855452,
+            1.632993161855452,
+        ];
+        let expected_1 = vec![0.7483314773547883, 1.019803902718557, 1.4142135623730951];
 
         assert!(m.std_dev(0).approximate_eq(&expected_0, f64::EPSILON));
         assert!(m.std_dev(1).approximate_eq(&expected_1, f64::EPSILON));
         assert_eq!(m.mean_by(0), vec![4.0, 5.0, 6.0, 3.0, 4.0]);
-        assert_eq!(m.mean_by(1),vec![1.8, 4.4, 7.0]);
+        assert_eq!(m.mean_by(1), vec![1.8, 4.4, 7.0]);
     }
 
     #[test]
     fn scale() {
-        let mut m: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
-        
-        let expected_0: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
-            &[-1., -1., -1., -1.],
-            &[ 1.,  1.,  1.,  1.]
-        ]);
+        let m: DenseMatrix<f64> =
+            DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
+
+        let expected_0: DenseMatrix<f64> =
+            DenseMatrix::from_2d_array(&[&[-1., -1., -1., -1.], &[1., 1., 1., 1.]]);
         let expected_1: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
-            &[-1.3416407864998738, -0.4472135954999579, 0.4472135954999579, 1.3416407864998738,],
-            &[-1.3416407864998738, -0.4472135954999579, 0.4472135954999579, 1.3416407864998738] 
+            &[
+                -1.3416407864998738,
+                -0.4472135954999579,
+                0.4472135954999579,
+                1.3416407864998738,
+            ],
+            &[
+                -1.3416407864998738,
+                -0.4472135954999579,
+                0.4472135954999579,
+                1.3416407864998738,
+            ],
         ]);
 
         assert_eq!(m.mean_by(0), vec![3.0, 4.0, 5.0, 6.0]);
@@ -275,12 +280,13 @@ mod tests {
         {
             let mut m = m.clone();
             m.standard_scale_mut(&m.mean_by(0), &m.std_dev(0), 0);
-            println!("{:?}", &m);
             assert_eq!(&m, &expected_0);
         }
 
-        m.standard_scale_mut(&m.mean_by(1), &m.std_dev(1), 1);
-        println!("{:?}", &m);
-        assert_eq!(&m, &expected_1);
+        {
+            let mut m = m.clone();
+            m.standard_scale_mut(&m.mean_by(1), &m.std_dev(1), 1);
+            assert_eq!(&m, &expected_1);
+        }
     }
 }

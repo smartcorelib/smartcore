@@ -9,7 +9,7 @@ pub mod lu;
 
 /// QR factorization that factors a matrix into a product of an orthogonal matrix and an upper triangular matrix.
 pub mod qr;
-/// Singular value decomposition.
-pub mod svd;
 /// statistacal tools for DenseMatrix
 pub mod stats;
+/// Singular value decomposition.
+pub mod svd;
