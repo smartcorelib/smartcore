@@ -27,7 +27,7 @@
 //!                   &[73., 600., 55.],
 //! ]);
 //!
-//! let a = data.mean(0);
+//! let a = data.mean_by(0);
 //! let b = vec![66., 640., 44.];
 //!
 //! let mahalanobis = Mahalanobis::new(&data);
@@ -150,7 +150,7 @@ mod tests {
             &[73., 600., 55.],
         ]);
 
-        let a = data.mean(0);
+        let a = data.mean_by(0);
         let b = vec![66., 640., 44.];
 
         let mahalanobis = Mahalanobis::new(&data);

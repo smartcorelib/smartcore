@@ -125,7 +125,7 @@ impl<T: Number + RealNumber, M: Array2<T>> UnsupervisedEstimator<M, StandardScal
     {
         Ok(Self {
             means: x.column_mean(),
-            stds: x.std(0),
+            stds: x.std_dev(0),
             parameters,
             _phantom: Default::default(),
         })

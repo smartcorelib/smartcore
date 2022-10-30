@@ -295,7 +295,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
                 b += w[i] * *col_mean_i;
             }
 
-            b = TX::from_f64(y.mean()).unwrap() - b;
+            b = TX::from_f64(y.mean_by()).unwrap() - b;
             (X::from_column(&w), b)
         } else {
             let mut optimizer = InteriorPointOptimizer::new(x, p);
@@ -308,7 +308,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
                 TX::from_f64(parameters.tol).unwrap(),
             )?;
 
-            (X::from_column(&w), TX::from_f64(y.mean()).unwrap())
+            (X::from_column(&w), TX::from_f64(y.mean_by()).unwrap())
         };
 
         Ok(Lasso {
@@ -344,11 +344,15 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
 
     fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
         let col_mean: Vec<TX> = x
-            .mean(0)
+            .mean_by(0)
             .iter()
             .map(|&v| TX::from_f64(v).unwrap())
             .collect();
-        let col_std: Vec<TX> = x.std(0).iter().map(|&v| TX::from_f64(v).unwrap()).collect();
+        let col_std: Vec<TX> = x
+            .std_dev(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
 
         for (i, col_std_i) in col_std.iter().enumerate() {
             if (*col_std_i - TX::zero()).abs() < TX::epsilon() {

@@ -330,7 +330,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let l2_reg =
             TX::from_f64(parameters.alpha * (1.0 - parameters.l1_ratio) * n_float).unwrap();
 
-        let y_mean = TX::from_f64(y.mean()).unwrap();
+        let y_mean = TX::from_f64(y.mean_by()).unwrap();
 
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
@@ -413,11 +413,15 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
     fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
         let col_mean: Vec<TX> = x
-            .mean(0)
+            .mean_by(0)
             .iter()
             .map(|&v| TX::from_f64(v).unwrap())
             .collect();
-        let col_std: Vec<TX> = x.std(0).iter().map(|&v| TX::from_f64(v).unwrap()).collect();
+        let col_std: Vec<TX> = x
+            .std_dev(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
 
         for (i, col_std_i) in col_std.iter().enumerate() {
             if (*col_std_i - TX::zero()).abs() < TX::epsilon() {

@@ -62,7 +62,7 @@ impl<T: Number> Metrics<T> for R2<T> {
 
         let n = y_true.shape();
 
-        let mean: f64 = y_true.mean();
+        let mean: f64 = y_true.mean_by();
         let mut ss_tot = T::zero();
         let mut ss_res = T::zero();
 

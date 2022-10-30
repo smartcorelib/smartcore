@@ -304,7 +304,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
             .fold(T::min_value(), max_f)
     }
     /// return array variance
-    fn var(&self) -> f64
+    fn variance(&self) -> f64
     where
         T: Number,
     {
@@ -322,14 +322,14 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         sum / div - mu.powi(2)
     }
     /// return variance
-    fn std(&self) -> f64
+    fn std_dev(&self) -> f64
     where
         T: Number,
     {
-        self.var().sqrt()
+        self.variance().sqrt()
     }
     /// return mean of the array
-    fn mean(&self) -> f64
+    fn mean_by(&self) -> f64
     where
         T: Number,
     {
@@ -433,7 +433,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
     /// return mean value
     /// TODO: this can be made more readable and efficient using the
     /// methods in `linalg::traits::stats`
-    fn mean(&self, axis: u8) -> Vec<f64>
+    fn mean_by(&self, axis: u8) -> Vec<f64>
     where
         T: Number,
     {
@@ -462,7 +462,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         x
     }
     /// return variance
-    fn var(&self, axis: u8) -> Vec<f64>
+    fn variance(&self, axis: u8) -> Vec<f64>
     where
         T: Number + RealNumber,
     {
@@ -496,11 +496,11 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         x
     }
     /// return standard deviation
-    fn std(&self, axis: u8) -> Vec<f64>
+    fn std_dev(&self, axis: u8) -> Vec<f64>
     where
         T: Number + RealNumber,
     {
-        let mut x = self.var(axis);
+        let mut x = self.variance(axis);
 
         let n = match axis {
             0 => self.shape().1,
@@ -520,7 +520,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
     {
         let (m, n) = self.shape();
 
-        let mu = self.mean(0);
+        let mu = self.mean_by(0);
 
         for k in 0..m {
             for i in 0..n {
@@ -1668,10 +1668,10 @@ mod tests {
 
     #[test]
     fn test_vec_var_std() {
-        assert_eq!(vec![1., 2., 3., 4., 5.].var(), 2.);
-        assert_eq!(vec![1., 2.].std(), 0.5);
-        assert_eq!(vec![1.].var(), 0.0);
-        assert_eq!(vec![1.].std(), 0.0);
+        assert_eq!(vec![1., 2., 3., 4., 5.].variance(), 2.);
+        assert_eq!(vec![1., 2.].std_dev(), 0.5);
+        assert_eq!(vec![1.].variance(), 0.0);
+        assert_eq!(vec![1.].std_dev(), 0.0);
     }
 
     #[test]
@@ -1772,7 +1772,7 @@ mod tests {
     fn test_vec_mean() {
         let m = vec![1, 2, 3];
 
-        assert_eq!(m.mean(), 2.0);
+        assert_eq!(m.mean_by(), 2.0);
     }
 
     #[test]
@@ -2069,11 +2069,11 @@ mod tests {
 
         {
             let mut m = m.clone();
-            m.scale_mut(&m.mean(0), &m.std(0), 0);
+            m.scale_mut(&m.mean_by(0), &m.std_dev(0), 0);
             assert!(relative_eq!(m, expected_0));
         }
 
-        m.scale_mut(&m.mean(1), &m.std(1), 1);
+        m.scale_mut(&m.mean_by(1), &m.std_dev(1), 1);
         assert!(relative_eq!(m, expected_1, epsilon = 1e-2));
     }
 

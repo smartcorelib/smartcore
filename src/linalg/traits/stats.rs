@@ -11,7 +11,7 @@ use crate::numbers::realnum::RealNumber;
 /// Defines baseline implementations for various statistical functions
 pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     /// Computes the arithmetic mean along the specified axis.
-    fn mean_by(&self, axis: u8) -> Vec<T> {
+    fn mean(&self, axis: u8) -> Vec<T> {
         let (n, _m) = match axis {
             0 => {
                 let (n, m) = self.shape();
@@ -33,7 +33,7 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     }
 
     /// Computes variance along the specified axis.
-    fn variance(&self, axis: u8) -> Vec<T> {
+    fn var(&self, axis: u8) -> Vec<T> {
         let (n, _m) = match axis {
             0 => {
                 let (n, m) = self.shape();
@@ -56,8 +56,8 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
     }
 
     /// Computes the standard deviation along the specified axis.
-    fn std_dev(&self, axis: u8) -> Vec<T> {
-        let mut x = self.variance(axis);
+    fn std(&self, axis: u8) -> Vec<T> {
+        let mut x = Self::var(self, axis);
 
         let n = match axis {
             0 => self.shape().1,
@@ -133,17 +133,17 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
 /// Defines baseline implementations for various matrix processing functions
 pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
     /// Each element of the matrix greater than the threshold becomes 1, while values less than or equal to the threshold become 0
-    /// ```
-    /// use smartcore::linalg::basic::matrix::*;
+    /// ```rust
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
     /// use smartcore::linalg::traits::stats::MatrixPreprocessing;
-    /// let mut a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
-    /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
+    /// let mut a = DenseMatrix::from_2d_array(&[&[0., 2., 3.], &[-5., -6., -7.]]);
+    /// let expected = DenseMatrix::from_2d_array(&[&[0., 1., 1.],&[0., 0., 0.]]);
     /// a.binarize_mut(0.);
     ///
     /// assert_eq!(a, expected);
     /// ```
 
-    fn mat_binarize_mut(&mut self, threshold: T) {
+    fn binarize_mut(&mut self, threshold: T) {
         let (nrows, ncols) = self.shape();
         for row in 0..nrows {
             for col in 0..ncols {
@@ -156,11 +156,11 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
         }
     }
     /// Returns new matrix where elements are binarized according to a given threshold.
-    /// ```
-    /// use smartcore::linalg::basic::matrix::*;
+    /// ```rust
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
     /// use smartcore::linalg::traits::stats::MatrixPreprocessing;
-    /// let a = DenseMatrix::from_array(2, 3, &[0., 2., 3., -5., -6., -7.]);
-    /// let expected = DenseMatrix::from_array(2, 3, &[0., 1., 1., 0., 0., 0.]);
+    /// let a = DenseMatrix::from_2d_array(&[&[0., 2., 3.], &[-5., -6., -7.]]);
+    /// let expected = DenseMatrix::from_2d_array(&[&[0., 1., 1.],&[0., 0., 0.]]);
     ///
     /// assert_eq!(a.binarize(0.), expected);
     /// ```
@@ -169,7 +169,7 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
         Self: Sized,
     {
         let mut m = self;
-        m.mat_binarize_mut(threshold);
+        m.binarize_mut(threshold);
         m
     }
 }
@@ -181,7 +181,7 @@ mod tests {
     use crate::linalg::traits::stats::MatrixStats;
 
     #[test]
-    fn mean() {
+    fn test_mean() {
         let m = DenseMatrix::from_2d_array(&[
             &[1., 2., 3., 1., 2.],
             &[4., 5., 6., 3., 4.],
@@ -190,24 +190,24 @@ mod tests {
         let expected_0 = vec![4., 5., 6., 3., 4.];
         let expected_1 = vec![1.8, 4.4, 7.];
 
-        assert_eq!(m.mean_by(0), expected_0);
-        assert_eq!(m.mean_by(1), expected_1);
+        assert_eq!(m.mean(0), expected_0);
+        assert_eq!(m.mean(1), expected_1);
     }
 
     #[test]
-    fn var() {
+    fn test_var() {
         let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
         let expected_0 = vec![4., 4., 4., 4.];
         let expected_1 = vec![1.25, 1.25];
 
-        assert!(m.variance(0).approximate_eq(&expected_0, 1e-6));
-        assert!(m.variance(1).approximate_eq(&expected_1, 1e-6));
-        assert_eq!(m.mean_by(0), vec![3.0, 4.0, 5.0, 6.0]);
-        assert_eq!(m.mean_by(1), vec![2.5, 6.5]);
+        assert!(m.var(0).approximate_eq(&expected_0, 1e-6));
+        assert!(m.var(1).approximate_eq(&expected_1, 1e-6));
+        assert_eq!(m.mean(0), vec![3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(m.mean(1), vec![2.5, 6.5]);
     }
 
     #[test]
-    fn var_other() {
+    fn test_var_other() {
         let m = DenseMatrix::from_2d_array(&[
             &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
             &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
@@ -215,17 +215,17 @@ mod tests {
         let expected_0 = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let expected_1 = vec![1.25, 1.25];
 
-        assert!(m.variance(0).approximate_eq(&expected_0, std::f64::EPSILON));
-        assert!(m.variance(1).approximate_eq(&expected_1, std::f64::EPSILON));
+        assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
+        assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
         assert_eq!(
-            m.mean_by(0),
+            m.mean(0),
             vec![0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25]
         );
-        assert_eq!(m.mean_by(1), vec![1.375, 1.375]);
+        assert_eq!(m.mean(1), vec![1.375, 1.375]);
     }
 
     #[test]
-    fn std() {
+    fn test_std() {
         let m = DenseMatrix::from_2d_array(&[
             &[1., 2., 3., 1., 2.],
             &[4., 5., 6., 3., 4.],
@@ -240,14 +240,16 @@ mod tests {
         ];
         let expected_1 = vec![0.7483314773547883, 1.019803902718557, 1.4142135623730951];
 
-        assert!(m.std_dev(0).approximate_eq(&expected_0, f64::EPSILON));
-        assert!(m.std_dev(1).approximate_eq(&expected_1, f64::EPSILON));
-        assert_eq!(m.mean_by(0), vec![4.0, 5.0, 6.0, 3.0, 4.0]);
-        assert_eq!(m.mean_by(1), vec![1.8, 4.4, 7.0]);
+        println!("{:?}", m.var(0));
+
+        assert!(m.std(0).approximate_eq(&expected_0, f64::EPSILON));
+        assert!(m.std(1).approximate_eq(&expected_1, f64::EPSILON));
+        assert_eq!(m.mean(0), vec![4.0, 5.0, 6.0, 3.0, 4.0]);
+        assert_eq!(m.mean(1), vec![1.8, 4.4, 7.0]);
     }
 
     #[test]
-    fn scale() {
+    fn test_scale() {
         let m: DenseMatrix<f64> =
             DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
 
@@ -268,24 +270,24 @@ mod tests {
             ],
         ]);
 
-        assert_eq!(m.mean_by(0), vec![3.0, 4.0, 5.0, 6.0]);
-        assert_eq!(m.mean_by(1), vec![2.5, 6.5]);
+        assert_eq!(m.mean(0), vec![3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(m.mean(1), vec![2.5, 6.5]);
 
-        assert_eq!(m.variance(0), vec![4., 4., 4., 4.]);
-        assert_eq!(m.variance(1), vec![1.25, 1.25]);
+        assert_eq!(m.var(0), vec![4., 4., 4., 4.]);
+        assert_eq!(m.var(1), vec![1.25, 1.25]);
 
-        assert_eq!(m.std_dev(0), vec![2., 2., 2., 2.]);
-        assert_eq!(m.std_dev(1), vec![1.118033988749895, 1.118033988749895]);
+        assert_eq!(m.std(0), vec![2., 2., 2., 2.]);
+        assert_eq!(m.std(1), vec![1.118033988749895, 1.118033988749895]);
 
         {
             let mut m = m.clone();
-            m.standard_scale_mut(&m.mean_by(0), &m.std_dev(0), 0);
+            m.standard_scale_mut(&m.mean(0), &m.std(0), 0);
             assert_eq!(&m, &expected_0);
         }
 
         {
             let mut m = m.clone();
-            m.standard_scale_mut(&m.mean_by(1), &m.std_dev(1), 1);
+            m.standard_scale_mut(&m.mean(1), &m.std(1), 1);
             assert_eq!(&m, &expected_1);
         }
     }

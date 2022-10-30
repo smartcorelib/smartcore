@@ -61,8 +61,8 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         let gamma = T::from_f64(-0.25).unwrap();
         let mu = T::two();
 
-        // let y = M::from_row_vector(y.sub_scalar(y.mean())).transpose();
-        let y = y.sub_scalar(T::from_f64(y.mean()).unwrap());
+        // let y = M::from_row_vector(y.sub_scalar(y.mean_by())).transpose();
+        let y = y.sub_scalar(T::from_f64(y.mean_by()).unwrap());
 
         let mut max_ls_iter = 100;
         let mut pitr = 0;

@@ -237,7 +237,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
         }
 
         let mu: Vec<T> = data
-            .mean(0)
+            .mean_by(0)
             .iter()
             .map(|&v| T::from_f64(v).unwrap())
             .collect();
