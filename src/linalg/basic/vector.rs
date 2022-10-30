@@ -164,10 +164,10 @@ mod tests {
         dot
     }
 
-    // fn vector_ops<T: Number, V: Array1<T>>(_: &V) -> T {
-    //     let v = V::zeros(10);
-    //     v.max()
-    // }
+    fn vector_ops<T: Number + PartialOrd, V: Array1<T>>(_: &V) -> T {
+        let v = V::zeros(10);
+        v.max()
+    }
 
     #[test]
     fn test_get_set() {
@@ -282,7 +282,7 @@ mod tests {
         y.sub_scalar(1.0);
         x.slice_mut(0..2).sub_scalar_mut(2.);
 
-        println!("Value: {:?}", x);
+        assert_eq!(vec![-1.0, 0.0, 3.0], x);
     }
 
     #[test]
@@ -293,10 +293,10 @@ mod tests {
         println!("Regular dot1: {:?}", dot_product(&y));
 
         let x = vec![4.0, 5.0, 6.0];
-        println!("Regular dot2: {:?}", y.slice(0..3).dot(&(*x.slice(0..3))));
-        println!("Regular dot2: {:?}", y.slice(0..3).dot(&x));
-        println!("Regular dot2: {:?}", y.dot(&x));
-        println!("Regular dot2: {:?}", y_i.dot(&y_i));
+        assert_eq!(32.0, y.slice(0..3).dot(&(*x.slice(0..3))));
+        assert_eq!(32.0, y.slice(0..3).dot(&x));
+        assert_eq!(32.0, y.dot(&x));
+        assert_eq!(14, y_i.dot(&y_i));
     }
 
     #[test]
@@ -307,17 +307,18 @@ mod tests {
         {
             let mut x_s = x.slice_mut(0..5);
             x_s.add_scalar_mut(1.0);
+            assert_eq!(vec![1.0, 1.0, 1.0, 1.0, 1.0], x_s.iterator(0).copied().collect::<Vec<f32>>());
         }
 
-        println!("Value: {:?}", x.slice(2..3).min());
+        assert_eq!(1.0, x.slice(2..3).min());
 
-        println!("{:?}", x);
+        assert_eq!(vec![1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], x);
     }
 
-    // #[test]
-    // fn test_vector_ops() {
-    //     let mut x = vec![1., 2., 3.];
+    #[test]
+    fn test_vector_ops() {
+        let x = vec![1., 2., 3.];
 
-    //     vector_ops(&x);
-    // }
+        vector_ops(&x);
+    }
 }
