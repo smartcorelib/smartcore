@@ -1,4 +1,4 @@
-//! # The Iris Dataset flower
+//! # The Iris flower dataset
 //!
 //! | Number of Instances | Number of Attributes | Missing Values? | Associated Tasks: |
 //! |-|-|-|-|
