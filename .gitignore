@@ -23,3 +23,7 @@ flamegraph.svg
 perf.data
 perf.data.old
 src.dot
+out.svg
+
+FlameGraph/
+out.stacks
