@@ -89,6 +89,12 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
 
 impl<'a, T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixView<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "DenseMatrix: nrows: {:?}, ncols: {:?}",
+            self.nrows, self.ncols
+        )?;
+        writeln!(f, "column_major: {:?}", self.column_major)?;
         self.display(f)
     }
 }
@@ -161,6 +167,12 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
 
 impl<'a, T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixMutView<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "DenseMatrix: nrows: {:?}, ncols: {:?}",
+            self.nrows, self.ncols
+        )?;
+        writeln!(f, "column_major: {:?}", self.column_major)?;
         self.display(f)
     }
 }
@@ -208,6 +220,12 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
 
 impl<T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrix<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "DenseMatrix: nrows: {:?}, ncols: {:?}",
+            self.nrows, self.ncols
+        )?;
+        writeln!(f, "column_major: {:?}", self.column_major)?;
         self.display(f)
     }
 }
@@ -524,66 +542,82 @@ mod tests {
     use approx::relative_eq;
 
     #[test]
+    fn test_display() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+
+        println!("{}", &x);
+    }
+
+    #[test]
     fn test_get_row_col() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
 
-        println!("{:?}", x.get_col(1).sum());
-        println!("{:?}", x.get_row(1).sum());
-
-        println!("{:?}", x.get_col(1).dot(&(*x.get_row(1))));
+        assert_eq!(15.0, x.get_col(1).sum());
+        assert_eq!(15.0, x.get_row(1).sum());
+        assert_eq!(81.0, x.get_col(1).dot(&(*x.get_row(1))));
     }
 
     #[test]
     fn test_row_major() {
         let mut x = DenseMatrix::new(2, 3, vec![1, 2, 3, 4, 5, 6], false);
 
-        println!("{:?}", x.get_col(1).get(1));
-        println!("{:?}", x.get_col(1).sum());
-        println!("{:?}", x.get_row(1).get(1));
-        println!("{:?}", x.get_row(1).sum());
+        assert_eq!(5, *x.get_col(1).get(1));
+        assert_eq!(7, x.get_col(1).sum());
+        assert_eq!(5, *x.get_row(1).get(1));
+        assert_eq!(15, x.get_row(1).sum());
         x.slice_mut(0..2, 1..2)
             .iterator_mut(0)
             .for_each(|v| *v += 2);
-        println!("{}", x);
+        assert_eq!(vec![1, 4, 3, 4, 7, 6], *x.values);
     }
 
     #[test]
     fn test_get_slice() {
         let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9], &[10, 11, 12]]);
 
-        println!("{}", DenseMatrix::from_slice(&(*x.slice(1..2, 0..3))));
+        assert_eq!(
+            vec![4, 5, 6],
+            DenseMatrix::from_slice(&(*x.slice(1..2, 0..3))).values
+        );
         let second_row: Vec<i32> = x.slice(1..2, 0..3).iterator(0).map(|x| *x).collect();
-        println!("{:?}", second_row);
+        assert_eq!(vec![4, 5, 6], second_row);
         let second_col: Vec<i32> = x.slice(0..3, 1..2).iterator(0).map(|x| *x).collect();
-        println!("{:?}", second_col);
+        assert_eq!(vec![2, 5, 8], second_col);
     }
 
     #[test]
     fn test_iter_mut() {
         let mut x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
 
-        println!("{:?}", x);
+        assert_eq!(vec![1, 4, 7, 2, 5, 8, 3, 6, 9], x.values);
+        // add +2 to some elements
         x.slice_mut(1..2, 0..3)
             .iterator_mut(0)
             .for_each(|v| *v += 2);
+        assert_eq!(vec![1, 6, 7, 2, 7, 8, 3, 8, 9], x.values);
+        // add +1 to some others
         x.slice_mut(0..3, 1..2)
             .iterator_mut(0)
             .for_each(|v| *v += 1);
-        println!("{:?}", x);
+        assert_eq!(vec![1, 6, 7, 3, 8, 9, 3, 8, 9], x.values);
+
+        // rewrite matrix as indices of values per axis 1 (row-wise)
         x.iterator_mut(1).enumerate().for_each(|(a, b)| *b = a);
-        println!("{}", x);
+        assert_eq!(vec![0, 1, 2, 3, 4, 5, 6, 7, 8], x.values);
+        // rewrite matrix as indices of values per axis 0 (column-wise)
         x.iterator_mut(0).enumerate().for_each(|(a, b)| *b = a);
-        println!("{}", x);
+        assert_eq!(vec![0, 3, 6, 1, 4, 7, 2, 5, 8], x.values);
+        // rewrite some by slice
         x.slice_mut(0..3, 0..2)
             .iterator_mut(0)
             .enumerate()
             .for_each(|(a, b)| *b = a);
-        println!("{}", x);
+        assert_eq!(vec![0, 2, 4, 1, 3, 5, 2, 5, 8], x.values);
         x.slice_mut(0..2, 0..3)
             .iterator_mut(1)
             .enumerate()
             .for_each(|(a, b)| *b = a);
-        println!("{}", x);
+        assert_eq!(vec![0, 1, 4, 2, 3, 5, 4, 5, 8], x.values);
     }
 
     #[test]
