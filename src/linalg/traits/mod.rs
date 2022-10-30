@@ -11,3 +11,5 @@ pub mod lu;
 pub mod qr;
 /// Singular value decomposition.
 pub mod svd;
+/// statistacal tools for DenseMatrix
+pub mod stats;

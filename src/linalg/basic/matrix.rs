@@ -14,6 +14,7 @@ use crate::linalg::traits::evd::EVDDecomposable;
 use crate::linalg::traits::lu::LUDecomposable;
 use crate::linalg::traits::qr::QRDecomposable;
 use crate::linalg::traits::svd::SVDDecomposable;
+use crate::linalg::traits::stats::{MatrixStats, MatrixPreprocessing};
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
@@ -512,6 +513,10 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
 impl<'a, T: Debug + Display + Copy + Sized> MutArrayView2<T> for DenseMatrixMutView<'a, T> {}
 
 impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for DenseMatrixMutView<'a, T> {}
+
+impl<T: RealNumber> MatrixStats<T> for DenseMatrix<T> {}
+
+impl<T: RealNumber> MatrixPreprocessing<T> for DenseMatrix<T> {}
 
 #[cfg(test)]
 mod tests {
