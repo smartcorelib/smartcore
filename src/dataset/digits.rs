@@ -1,4 +1,4 @@
-//! # Optical Recognition of Handwritten Digits Data Set
+//! # Optical Recognition of Handwritten Digits Dataset
 //!
 //! | Number of Instances | Number of Attributes | Missing Values? | Associated Tasks: |
 //! |-|-|-|-|
