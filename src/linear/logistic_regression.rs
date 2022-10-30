@@ -715,7 +715,7 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lr_fit_predict() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
             &[1., -5.],
             &[2., 5.],
             &[3., -2.],
@@ -739,8 +739,12 @@ mod tests {
         assert_eq!(lr.coefficients().shape(), (3, 2));
         assert_eq!(lr.intercept().shape(), (3, 1));
 
-        assert!((*lr.coefficients().get((0, 0)) - 0.0435f32).abs() < 1e-4);
-        assert!((*lr.intercept().get((0, 0)) - 0.1250f32).abs() < 1e-4);
+        assert!((*lr.coefficients().get((0, 0)) - 0.0435).abs() < 1e-4);
+        assert!(
+            (*lr.intercept().get((0, 0)) - 0.1250).abs() < 1e-4,
+            "expected to be least than 1e-4, got {}",
+            (*lr.intercept().get((0, 0)) - 0.1250).abs()
+        );
 
         let y_hat = lr.predict(&x).unwrap();
 

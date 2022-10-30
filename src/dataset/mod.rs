@@ -8,9 +8,8 @@ pub mod digits;
 pub mod generator;
 pub mod iris;
 
-use crate::numbers::basenum::Number;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::numbers::realnum::RealNumber;
+use crate::numbers::{basenum::Number, realnum::RealNumber};
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 use std::io;
@@ -84,7 +83,6 @@ pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn deserialize_data(
     bytes: &[u8],
 ) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {

@@ -55,7 +55,6 @@ pub fn load_dataset() -> Dataset<f32, u32> {
 #[cfg(test)]
 mod tests {
 
-    #[cfg(not(target_arch = "wasm32"))]
     use super::*;
 
     // TODO: fix serialization
