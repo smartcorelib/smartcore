@@ -625,24 +625,39 @@ mod tests {
         let mut x =
             DenseMatrix::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"], &["7", "8", "9"]]);
 
-        println!("{:?}", x);
+        assert_eq!(vec!["1", "4", "7", "2", "5", "8", "3", "6", "9"], x.values);
         x.iterator_mut(0).for_each(|v| *v = "str");
-        println!("{:?}", x);
+        assert_eq!(
+            vec!["str", "str", "str", "str", "str", "str", "str", "str", "str"],
+            x.values
+        );
     }
 
     #[test]
     fn test_transpose() {
         let x = DenseMatrix::<&str>::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"]]);
 
-        println!("{:?}", x);
-        println!("{:?}", x.transpose());
+        assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
+        assert!(x.column_major == true);
+
+        // transpose
+        let x = x.transpose();
+        assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
+        assert!(x.column_major == false); // should change column_major
     }
 
     #[test]
     fn test_from_iterator() {
         let data = vec![1, 2, 3, 4, 5, 6];
 
-        println!("{}", DenseMatrix::from_iterator(data.iter(), 2, 3, 0));
+        let m = DenseMatrix::from_iterator(data.iter(), 2, 3, 0);
+
+        // make a vector into a 2x3 matrix.
+        assert_eq!(
+            vec![1, 2, 3, 4, 5, 6],
+            m.values.iter().map(|e| **e).collect::<Vec<i32>>()
+        );
+        assert!(m.column_major == false);
     }
 
     #[test]
@@ -651,26 +666,35 @@ mod tests {
         let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
 
         println!("{}", a);
-        println!("{}", a.take(&[0, 2], 1));
+        // take column 0 and 2
+        assert_eq!(vec![1, 3, 4, 6], a.take(&[0, 2], 1).values);
         println!("{}", b);
-        println!("{}", b.take(&[0, 2], 0));
+        // take rows 0 and 2
+        assert_eq!(vec![1, 2, 5, 6], b.take(&[0, 2], 0).values);
     }
 
     #[test]
     fn test_mut() {
-        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
-        a.abs();
-        a.neg();
+        let a = DenseMatrix::from_2d_array(&[&[1.3, -2.1, 3.4], &[-4., -5.3, 6.1]]);
 
-        println!("{}", a);
+        let a = a.abs();
+        assert_eq!(vec![1.3, 4.0, 2.1, 5.3, 3.4, 6.1], a.values);
+
+        let a = a.neg();
+        assert_eq!(vec![-1.3, -4.0, -2.1, -5.3, -3.4, -6.1], a.values);
     }
 
     #[test]
     fn test_reshape() {
         let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9], &[10, 11, 12]]);
 
-        println!("{}", a.reshape(2, 6, 0));
-        println!("{}", a.reshape(3, 4, 1));
+        let a = a.reshape(2, 6, 0);
+        assert_eq!(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], a.values);
+        assert!(a.ncols == 6 && a.nrows == 2 && a.column_major == false);
+
+        let a = a.reshape(3, 4, 1);
+        assert_eq!(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], a.values);
+        assert!(a.ncols == 4 && a.nrows == 3 && a.column_major == true);
     }
 
     #[test]
