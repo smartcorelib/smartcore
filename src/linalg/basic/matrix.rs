@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::{
     Array, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
@@ -19,7 +19,7 @@ use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
 /// Dense matrix
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DenseMatrix<T> {
     ncols: usize,
     nrows: usize,

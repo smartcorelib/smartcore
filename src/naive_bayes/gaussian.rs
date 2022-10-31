@@ -22,6 +22,8 @@
 //! let nb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
+use std::fmt;
+
 use num_traits::Unsigned;
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -47,6 +49,18 @@ struct GaussianNBDistribution<T: Number> {
     var: Vec<Vec<f64>>,
     /// mean of each feature per class
     theta: Vec<Vec<f64>>,
+}
+
+impl<T: Number + Ord + Unsigned> fmt::Display for GaussianNBDistribution<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "GaussianNBDistribution: class_count: {:?}",
+            self.class_count
+        )?;
+        writeln!(f, "class_labels: {:?}", self.class_labels)?;
+        Ok(())
+    }
 }
 
 impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
@@ -415,25 +429,24 @@ mod tests {
         assert_eq!(gnb.class_priors(), &priors);
     }
 
-    // TODO: implement serialization
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::<f64>::from_2d_array(&[
-    //         &[-1., -1.],
-    //         &[-2., -1.],
-    //         &[-3., -2.],
-    //         &[1., 1.],
-    //         &[2., 1.],
-    //         &[3., 2.],
-    //     ]);
-    //     let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::<f64>::from_2d_array(&[
+            &[-1., -1.],
+            &[-2., -1.],
+            &[-3., -2.],
+            &[1., 1.],
+            &[2., 1.],
+            &[3., 2.],
+        ]);
+        let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
-    //     let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
-    //     let deserialized_gnb: GaussianNB<f64, u32, DenseMatrix<f64>, Vec<u32>> =
-    //         serde_json::from_str(&serde_json::to_string(&gnb).unwrap()).unwrap();
+        let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
+        let deserialized_gnb: GaussianNB<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            serde_json::from_str(&serde_json::to_string(&gnb).unwrap()).unwrap();
 
-    //     assert_eq!(gnb, deserialized_gnb);
-    // }
+        assert_eq!(gnb, deserialized_gnb);
+    }
 }
