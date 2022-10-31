@@ -28,7 +28,7 @@ pub enum ReadingError {
     ShapesDoNotMatch {
         /// More details about what row could not be read
         /// and where it happened.
-        msg: String
+        msg: String,
     },
 }
 impl From<std::io::Error> for ReadingError {
