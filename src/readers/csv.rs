@@ -1,19 +1,18 @@
 //! This module contains utitilities to read-in matrices from csv files.
-//! ```
+//! ```rust
 //! use smartcore::readers::csv;
-//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
-//! use crate::smartcore::linalg::BaseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use std::fs;
 //!
 //! fs::write("identity.csv", "header\n1.0,0.0\n0.0,1.0");
-//! assert_eq!(
-//!     csv::matrix_from_csv_source::<f64, Vec<_>, DenseMatrix<_>>(
-//!         fs::File::open("identity.csv").unwrap(),
-//!         csv::CSVDefinition::default()
-//!     )
-//!     .unwrap(),
-//!     DenseMatrix::from_row_vectors(vec![vec![1.0, 0.0], vec![0.0, 1.0]]).unwrap()
-//! );
+//!
+//! let mtx = csv::matrix_from_csv_source::<f64, Vec<_>, DenseMatrix<_>>(
+//!     fs::File::open("identity.csv").unwrap(),
+//!     csv::CSVDefinition::default()
+//! )
+//! .unwrap();
+//! println!("{}", &mtx);
+//!
 //! fs::remove_file("identity.csv");
 //! ```
 
