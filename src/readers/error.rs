@@ -24,6 +24,12 @@ pub enum ReadingError {
         /// and where it happened.
         msg: String,
     },
+    /// Shape after deserialization is wrong
+    ShapesDoNotMatch {
+        /// More details about what row could not be read
+        /// and where it happened.
+        msg: String
+    },
 }
 impl From<std::io::Error> for ReadingError {
     fn from(io_error: std::io::Error) -> Self {
@@ -39,6 +45,7 @@ impl ReadingError {
             ReadingError::InvalidField { msg } => Some(msg),
             ReadingError::InvalidRow { msg } => Some(msg),
             ReadingError::CouldNotReadFileSystem { msg } => Some(msg),
+            ReadingError::ShapesDoNotMatch { msg } => Some(msg),
             ReadingError::NoRowsProvided => None,
         }
     }
