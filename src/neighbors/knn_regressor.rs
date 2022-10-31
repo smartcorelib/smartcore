@@ -14,9 +14,9 @@
 //! To fit the model to a 4 x 2 matrix with 4 training samples, 2 features per sample:
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::neighbors::knn_regressor::*;
-//! use smartcore::math::distance::*;
+//! use smartcore::metrics::distance::*;
 //!
 //! //your explanatory variables. Each row is a training sample with 2 numerical features
 //! let x = DenseMatrix::from_2d_array(&[
@@ -42,16 +42,16 @@ use serde::{Deserialize, Serialize};
 use crate::algorithm::neighbour::{KNNAlgorithm, KNNAlgorithmName};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::{row_iter, BaseVector, Matrix};
-use crate::math::distance::euclidian::Euclidian;
-use crate::math::distance::{Distance, Distances};
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::metrics::distance::euclidian::Euclidian;
+use crate::metrics::distance::{Distance, Distances};
 use crate::neighbors::KNNWeightFunction;
+use crate::numbers::basenum::Number;
 
 /// `KNNRegressor` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct KNNRegressorParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
+pub struct KNNRegressorParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
@@ -74,14 +74,45 @@ pub struct KNNRegressorParameters<T: RealNumber, D: Distance<Vec<T>, T>> {
 /// K Nearest Neighbors Regressor
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct KNNRegressor<T: RealNumber, D: Distance<Vec<T>, T>> {
-    y: Vec<T>,
-    knn_algorithm: KNNAlgorithm<T, D>,
-    weight: KNNWeightFunction,
-    k: usize,
+pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+{
+    y: Option<Y>,
+    knn_algorithm: Option<KNNAlgorithm<TX, D>>,
+    weight: Option<KNNWeightFunction>,
+    k: Option<usize>,
+    _phantom_tx: PhantomData<TX>,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_x: PhantomData<X>,
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressorParameters<T, D> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    KNNRegressor<TX, TY, X, Y, D>
+{
+    ///
+    fn y(&self) -> &Y {
+        self.y.as_ref().unwrap()
+    }
+
+    ///
+    fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
+        self.knn_algorithm
+            .as_ref()
+            .expect("Missing parameter: KNNAlgorithm")
+    }
+
+    ///
+    fn weight(&self) -> &KNNWeightFunction {
+        self.weight.as_ref().expect("Missing parameter: weight")
+    }
+
+    #[allow(dead_code)]
+    ///
+    fn k(&self) -> usize {
+        self.k.unwrap()
+    }
+}
+
+impl<T: Number, D: Distance<Vec<T>>> KNNRegressorParameters<T, D> {
     /// number of training samples to consider when estimating class for new point. Default value is 3.
     pub fn with_k(mut self, k: usize) -> Self {
         self.k = k;
@@ -90,7 +121,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressorParameters<T, D> {
     /// a function that defines a distance between each pair of point in training data.
     /// This function should extend [`Distance`](../../math/distance/trait.Distance.html) trait.
     /// See [`Distances`](../../math/distance/struct.Distances.html) for a list of available functions.
-    pub fn with_distance<DD: Distance<Vec<T>, T>>(
+    pub fn with_distance<DD: Distance<Vec<T>>>(
         self,
         distance: DD,
     ) -> KNNRegressorParameters<T, DD> {
@@ -114,7 +145,7 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressorParameters<T, D> {
     }
 }
 
-impl<T: RealNumber> Default for KNNRegressorParameters<T, Euclidian> {
+impl<T: Number> Default for KNNRegressorParameters<T, Euclidian<T>> {
     fn default() -> Self {
         KNNRegressorParameters {
             distance: Distances::euclidian(),
@@ -126,13 +157,15 @@ impl<T: RealNumber> Default for KNNRegressorParameters<T, Euclidian> {
     }
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>> PartialEq
+    for KNNRegressor<TX, TY, X, Y, D>
+{
     fn eq(&self, other: &Self) -> bool {
-        if self.k != other.k || self.y.len() != other.y.len() {
+        if self.k != other.k || self.y().shape() != other.y().shape() {
             false
         } else {
-            for i in 0..self.y.len() {
-                if (self.y[i] - other.y[i]).abs() > T::epsilon() {
+            for i in 0..self.y().shape() {
+                if self.y().get(i) != other.y().get(i) {
                     return false;
                 }
             }
@@ -141,42 +174,53 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> PartialEq for KNNRegressor<T, D> {
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>>
-    SupervisedEstimator<M, M::RowVector, KNNRegressorParameters<T, D>> for KNNRegressor<T, D>
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    SupervisedEstimator<X, Y, KNNRegressorParameters<TX, D>> for KNNRegressor<TX, TY, X, Y, D>
 {
-    fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: KNNRegressorParameters<T, D>,
-    ) -> Result<Self, Failed> {
+    fn new() -> Self {
+        Self {
+            y: Option::None,
+            knn_algorithm: Option::None,
+            weight: Option::None,
+            k: Option::None,
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
+        }
+    }
+
+    fn fit(x: &X, y: &Y, parameters: KNNRegressorParameters<TX, D>) -> Result<Self, Failed> {
         KNNRegressor::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>, D: Distance<Vec<T>, T>> Predictor<M, M::RowVector>
-    for KNNRegressor<T, D>
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>> Predictor<X, Y>
+    for KNNRegressor<TX, TY, X, Y, D>
 {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
+    KNNRegressor<TX, TY, X, Y, D>
+{
     /// Fits KNN regressor to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
     /// * `y` - vector with real values    
     /// * `parameters` - additional parameters like search algorithm and k
-    pub fn fit<M: Matrix<T>>(
-        x: &M,
-        y: &M::RowVector,
-        parameters: KNNRegressorParameters<T, D>,
-    ) -> Result<KNNRegressor<T, D>, Failed> {
-        let y_m = M::from_row_vector(y.clone());
-
-        let (_, y_n) = y_m.shape();
+    pub fn fit(
+        x: &X,
+        y: &Y,
+        parameters: KNNRegressorParameters<TX, D>,
+    ) -> Result<KNNRegressor<TX, TY, X, Y, D>, Failed> {
+        let y_n = y.shape();
         let (x_n, _) = x.shape();
 
-        let data = row_iter(x).collect();
+        let data = x
+            .row_iter()
+            .map(|row| row.iterator(0).copied().collect())
+            .collect();
 
         if x_n != y_n {
             return Err(Failed::fit(&format!(
@@ -192,38 +236,47 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
             )));
         }
 
+        let knn_algo = parameters.algorithm.fit(data, parameters.distance)?;
+
         Ok(KNNRegressor {
-            y: y.to_vec(),
-            k: parameters.k,
-            knn_algorithm: parameters.algorithm.fit(data, parameters.distance)?,
-            weight: parameters.weight,
+            y: Some(y.clone()),
+            k: Some(parameters.k),
+            knn_algorithm: Some(knn_algo),
+            weight: Some(parameters.weight),
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
         })
     }
 
     /// Predict the target for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with estimates.
-    pub fn predict<M: Matrix<T>>(&self, x: &M) -> Result<M::RowVector, Failed> {
-        let mut result = M::zeros(1, x.shape().0);
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let mut result = Y::zeros(x.shape().0);
 
-        for (i, x) in row_iter(x).enumerate() {
-            result.set(0, i, self.predict_for_row(x)?);
+        let mut row_vec = vec![TX::zero(); x.shape().1];
+        for (i, row) in x.row_iter().enumerate() {
+            row.iterator(0)
+                .zip(row_vec.iter_mut())
+                .for_each(|(&s, v)| *v = s);
+            result.set(i, self.predict_for_row(&row_vec)?);
         }
 
-        Ok(result.to_row_vector())
+        Ok(result)
     }
 
-    fn predict_for_row(&self, x: Vec<T>) -> Result<T, Failed> {
-        let search_result = self.knn_algorithm.find(&x, self.k)?;
-        let mut result = T::zero();
+    fn predict_for_row(&self, row: &Vec<TX>) -> Result<TY, Failed> {
+        let search_result = self.knn_algorithm().find(row, self.k.unwrap())?;
+        let mut result = TY::zero();
 
         let weights = self
-            .weight
+            .weight()
             .calc_weights(search_result.iter().map(|v| v.1).collect());
-        let w_sum = weights.iter().copied().sum();
+        let w_sum: f64 = weights.iter().copied().sum();
 
         for (r, w) in search_result.iter().zip(weights.iter()) {
-            result += self.y[r.0] * (*w / w_sum);
+            result += *self.y().get(r.0) * TY::from_f64(*w / w_sum).unwrap();
         }
 
         Ok(result)
@@ -233,8 +286,8 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNRegressor<T, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
-    use crate::math::distance::Distances;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::metrics::distance::Distances;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]

@@ -1,4 +1,4 @@
-use num_traits::Float;
+use num_traits::Num;
 
 pub trait QuickArgSort {
     fn quick_argsort_mut(&mut self) -> Vec<usize>;
@@ -6,7 +6,7 @@ pub trait QuickArgSort {
     fn quick_argsort(&self) -> Vec<usize>;
 }
 
-impl<T: Float> QuickArgSort for Vec<T> {
+impl<T: Num + PartialOrd + Copy> QuickArgSort for Vec<T> {
     fn quick_argsort(&self) -> Vec<usize> {
         let mut v = self.clone();
         v.quick_argsort_mut()

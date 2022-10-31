@@ -33,8 +33,8 @@
 use crate::algorithm::neighbour::cover_tree::CoverTree;
 use crate::algorithm::neighbour::linear_search::LinearKNNSearch;
 use crate::error::Failed;
-use crate::math::distance::Distance;
-use crate::math::num::RealNumber;
+use crate::metrics::distance::Distance;
+use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +44,7 @@ pub mod cover_tree;
 /// dissimilarities for vector-vector distance. Linkage algorithms used in fastpair
 pub mod distances;
 /// fastpair closest neighbour algorithm
-pub mod fastpair;
+// pub mod fastpair;
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
 
@@ -67,13 +67,14 @@ impl Default for KNNAlgorithmName {
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub(crate) enum KNNAlgorithm<T: RealNumber, D: Distance<Vec<T>, T>> {
-    LinearSearch(LinearKNNSearch<Vec<T>, T, D>),
-    CoverTree(CoverTree<Vec<T>, T, D>),
+pub(crate) enum KNNAlgorithm<T: Number, D: Distance<Vec<T>>> {
+    LinearSearch(LinearKNNSearch<Vec<T>, D>),
+    CoverTree(CoverTree<Vec<T>, D>),
 }
 
+// TODO: missing documentation
 impl KNNAlgorithmName {
-    pub(crate) fn fit<T: RealNumber, D: Distance<Vec<T>, T>>(
+    pub(crate) fn fit<T: Number, D: Distance<Vec<T>>>(
         &self,
         data: Vec<Vec<T>>,
         distance: D,
@@ -89,8 +90,8 @@ impl KNNAlgorithmName {
     }
 }
 
-impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
-    pub fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, T, &Vec<T>)>, Failed> {
+impl<T: Number, D: Distance<Vec<T>>> KNNAlgorithm<T, D> {
+    pub fn find(&self, from: &Vec<T>, k: usize) -> Result<Vec<(usize, f64, &Vec<T>)>, Failed> {
         match *self {
             KNNAlgorithm::LinearSearch(ref linear) => linear.find(from, k),
             KNNAlgorithm::CoverTree(ref cover) => cover.find(from, k),
@@ -100,8 +101,8 @@ impl<T: RealNumber, D: Distance<Vec<T>, T>> KNNAlgorithm<T, D> {
     pub fn find_radius(
         &self,
         from: &Vec<T>,
-        radius: T,
-    ) -> Result<Vec<(usize, T, &Vec<T>)>, Failed> {
+        radius: f64,
+    ) -> Result<Vec<(usize, f64, &Vec<T>)>, Failed> {
         match *self {
             KNNAlgorithm::LinearSearch(ref linear) => linear.find_radius(from, radius),
             KNNAlgorithm::CoverTree(ref cover) => cover.find_radius(from, radius),

@@ -27,9 +27,10 @@ use std::collections::HashMap;
 
 use crate::algorithm::neighbour::distances::PairwiseDistance;
 use crate::error::{Failed, FailedError};
-use crate::linalg::Matrix;
-use crate::math::distance::euclidian::Euclidian;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::metrics::distance::euclidian::Euclidian;
+use crate::numbers::realnum::RealNumber;
+use crate::numbers::floatnum::FloatNumber;
 
 ///
 /// Inspired by Python implementation:
@@ -39,7 +40,7 @@ use crate::math::num::RealNumber;
 /// affinity used is Euclidean so to allow linkage with single, ward, complete and average
 ///
 #[derive(Debug, Clone)]
-pub struct FastPair<'a, T: RealNumber, M: Matrix<T>> {
+pub struct FastPair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
     /// initial matrix
     samples: &'a M,
     /// closest pair hashmap (connectivity matrix for closest pairs)
@@ -48,7 +49,7 @@ pub struct FastPair<'a, T: RealNumber, M: Matrix<T>> {
     pub neighbours: Vec<usize>,
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
+impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     ///
     /// Constructor
     /// Instantiate and inizialise the algorithm
@@ -72,7 +73,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
     }
 
     ///
-    /// Initialise `FastPair` by passing a `Matrix`.
+    /// Initialise `FastPair` by passing a `Array2`.
     /// Build a FastPairs data-structure from a set of (new) points.
     ///
     fn init(&mut self) {
@@ -96,8 +97,8 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
                 index_row_i,
                 PairwiseDistance {
                     node: index_row_i,
-                    neighbour: None,
-                    distance: Some(T::max_value()),
+                    neighbour: Option::None,
+                    distance: Some(T::MAX),
                 },
             );
         }
@@ -142,7 +143,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
         // compute sparse matrix (connectivity matrix)
         let mut sparse_matrix = M::zeros(len, len);
         for (_, p) in distances.iter() {
-            sparse_matrix.set(p.node, p.neighbour.unwrap(), p.distance.unwrap());
+            sparse_matrix.set((p.node, p.neighbour.unwrap()), p.distance.unwrap());
         }
 
         self.distances = distances;
@@ -180,7 +181,7 @@ impl<'a, T: RealNumber, M: Matrix<T>> FastPair<'a, T, M> {
 
         let mut closest_pair = PairwiseDistance {
             node: 0,
-            neighbour: None,
+            neighbour: Option::None,
             distance: Some(T::max_value()),
         };
         for pair in (0..m).combinations(2) {
@@ -549,7 +550,7 @@ mod tests_fastpair {
 
         let mut min_dissimilarity = PairwiseDistance {
             node: 0,
-            neighbour: None,
+            neighbour: Option::None,
             distance: Some(f64::MAX),
         };
         for p in dissimilarities.iter() {

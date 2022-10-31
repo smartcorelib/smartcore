@@ -10,48 +10,71 @@
 //!
 //! ```
 //! use smartcore::metrics::f1::F1;
+//! use smartcore::metrics::Metrics;
 //! let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
 //! let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 //!
-//! let score: f64 = F1 {beta: 1.0}.get_score(&y_pred, &y_true);
+//! let beta = 1.0; // beta default is equal 1.0 anyway
+//! let score: f64 = F1::new_with(beta).get_score(&y_pred, &y_true);
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::marker::PhantomData;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::ArrayView1;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
+
+use crate::metrics::Metrics;
 
 /// F-measure
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct F1<T: RealNumber> {
+pub struct F1<T> {
     /// a positive real factor
-    pub beta: T,
+    pub beta: f64,
+    _phantom: PhantomData<T>,
 }
 
-impl<T: RealNumber> F1<T> {
+impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
+    fn new() -> Self {
+        let beta: f64 = 1f64;
+        Self {
+            beta,
+            _phantom: PhantomData,
+        }
+    }
+    /// create a typed object to call Recall functions
+    fn new_with(beta: f64) -> Self {
+        Self {
+            beta,
+            _phantom: PhantomData,
+        }
+    }
     /// Computes F1 score
     /// * `y_true` - cround truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
-    pub fn get_score<V: BaseVector<T>>(&self, y_true: &V, y_pred: &V) -> T {
-        if y_true.len() != y_pred.len() {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
+        if y_true.shape() != y_pred.shape() {
             panic!(
                 "The vector sizes don't match: {} != {}",
-                y_true.len(),
-                y_pred.len()
+                y_true.shape(),
+                y_pred.shape()
             );
         }
         let beta2 = self.beta * self.beta;
 
-        let p = Precision {}.get_score(y_true, y_pred);
-        let r = Recall {}.get_score(y_true, y_pred);
+        let p = Precision::new().get_score(y_true, y_pred);
+        let r = Recall::new().get_score(y_true, y_pred);
 
-        (T::one() + beta2) * (p * r) / (beta2 * p + r)
+        (1f64 + beta2) * (p * r) / ((beta2 * p) + r)
     }
 }
 
@@ -65,8 +88,12 @@ mod tests {
         let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
         let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 
-        let score1: f64 = F1 { beta: 1.0 }.get_score(&y_pred, &y_true);
-        let score2: f64 = F1 { beta: 1.0 }.get_score(&y_true, &y_true);
+        let beta = 1.0;
+        let score1: f64 = F1::new_with(beta).get_score(&y_pred, &y_true);
+        let score2: f64 = F1::new_with(beta).get_score(&y_true, &y_true);
+
+        println!("{:?}", score1);
+        println!("{:?}", score2);
 
         assert!((score1 - 0.57142857).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);
