@@ -3,8 +3,8 @@
 //! Encode a series of categorical features as a one-hot numeric array.
 
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array1;
+use crate::numbers::realnum::RealNumber;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -132,7 +132,7 @@ where
     pub fn get_one_hot<U, V>(&self, category: &C) -> Option<V>
     where
         U: RealNumber,
-        V: BaseVector<U>,
+        V: Array1<U>,
     {
         self.get_num(category)
             .map(|&idx| make_one_hot::<U, V>(idx, self.num_categories))
@@ -142,15 +142,15 @@ where
     pub fn invert_one_hot<U, V>(&self, one_hot: V) -> Result<C, Failed>
     where
         U: RealNumber,
-        V: BaseVector<U>,
+        V: Array1<U>,
     {
         let pos = U::one();
 
-        let oh_it = (0..one_hot.len()).map(|idx| one_hot.get(idx));
+        let oh_it = (0..one_hot.shape()).map(|idx| one_hot.get(idx));
 
         let s: Vec<usize> = oh_it
             .enumerate()
-            .filter_map(|(idx, v)| if v == pos { Some(idx) } else { None })
+            .filter_map(|(idx, v)| if *v == pos { Some(idx) } else { None })
             .collect();
 
         if s.len() == 1 {
@@ -187,7 +187,7 @@ where
 pub fn make_one_hot<T, V>(category_idx: usize, num_categories: usize) -> V
 where
     T: RealNumber,
-    V: BaseVector<T>,
+    V: Array1<T>,
 {
     let pos = T::one();
     let mut z = V::zeros(num_categories);

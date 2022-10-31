@@ -1,8 +1,8 @@
-use ::rand::SeedableRng;
 #[cfg(not(feature = "std"))]
-use rand::rngs::SmallRng as RngImpl;
+pub(crate) use rand::rngs::SmallRng as RngImpl;
 #[cfg(feature = "std")]
-use rand::rngs::StdRng as RngImpl;
+pub(crate) use rand::rngs::StdRng as RngImpl;
+use rand::SeedableRng;
 
 pub(crate) fn get_rng_impl(seed: Option<u64>) -> RngImpl {
     match seed {

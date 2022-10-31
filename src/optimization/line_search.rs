@@ -1,7 +1,11 @@
+// TODO: missing documentation
+
 use crate::optimization::FunctionOrder;
 use num_traits::Float;
 
+///
 pub trait LineSearchMethod<T: Float> {
+    ///
     fn search(
         &self,
         f: &(dyn Fn(T) -> T),
@@ -12,21 +16,32 @@ pub trait LineSearchMethod<T: Float> {
     ) -> LineSearchResult<T>;
 }
 
+///
 #[derive(Debug, Clone)]
 pub struct LineSearchResult<T: Float> {
+    ///
     pub alpha: T,
+    ///
     pub f_x: T,
 }
 
+///
 pub struct Backtracking<T: Float> {
+    ///
     pub c1: T,
+    ///
     pub max_iterations: usize,
+    ///
     pub max_infinity_iterations: usize,
+    ///
     pub phi: T,
+    ///
     pub plo: T,
+    ///
     pub order: FunctionOrder,
 }
 
+///
 impl<T: Float> Default for Backtracking<T> {
     fn default() -> Self {
         Backtracking {
@@ -40,7 +55,9 @@ impl<T: Float> Default for Backtracking<T> {
     }
 }
 
+///
 impl<T: Float> LineSearchMethod<T> for Backtracking<T> {
+    ///
     fn search(
         &self,
         f: &(dyn Fn(T) -> T),

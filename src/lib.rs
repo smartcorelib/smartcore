@@ -18,14 +18,13 @@
 //! SmartCore is well integrated with a with wide variaty of libraries that provide support for large, multi-dimensional arrays and matrices. At this moment,
 //! all Smartcore's algorithms work with ordinary Rust vectors, as well as matrices and vectors defined in these packages:
 //! * [ndarray](https://docs.rs/ndarray)
-//! * [nalgebra](https://docs.rs/nalgebra/)
 //!
 //! ## Getting Started
 //!
 //! To start using SmartCore simply add the following to your Cargo.toml file:
 //! ```ignore
 //! [dependencies]
-//! smartcore = "0.2.0"
+//! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "v0.5-wip" }
 //! ```
 //!
 //! All machine learning algorithms in SmartCore are grouped into these broad categories:
@@ -43,11 +42,11 @@
 //!
 //! ```
 //! // DenseMatrix defenition
-//! use smartcore::linalg::naive::dense_matrix::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! // KNNClassifier
 //! use smartcore::neighbors::knn_classifier::*;
 //! // Various distance metrics
-//! use smartcore::math::distance::*;
+//! use smartcore::metrics::distance::*;
 //!
 //! // Turn Rust vectors with samples into a matrix
 //! let x = DenseMatrix::from_2d_array(&[
@@ -57,7 +56,7 @@
 //!    &[7., 8.],
 //!    &[9., 10.]]);
 //! // Our classes are defined as a Vector
-//! let y = vec![2., 2., 2., 3., 3.];
+//! let y = vec![2, 2, 2, 3, 3];
 //!
 //! // Train classifier
 //! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
@@ -66,9 +65,13 @@
 //! let y_hat = knn.predict(&x).unwrap();
 //! ```
 
+/// Foundamental numbers traits
+pub mod numbers;
+
 /// Various algorithms and helper methods that are used elsewhere in SmartCore
 pub mod algorithm;
 pub mod api;
+
 /// Algorithms for clustering of unlabeled data
 pub mod cluster;
 /// Various datasets
@@ -77,29 +80,29 @@ pub mod dataset;
 /// Matrix decomposition algorithms
 pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor
-pub mod ensemble;
+// pub mod ensemble;
 pub mod error;
 /// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.
 pub mod linear;
-/// Helper methods and classes, including definitions of distance metrics
-pub mod math;
 /// Functions for assessing prediction error.
 pub mod metrics;
+/// TODO: add docstring for model_selection
 pub mod model_selection;
 ///  Supervised learning algorithms based on applying the Bayes theorem with the independence assumptions between predictors
 pub mod naive_bayes;
 /// Supervised neighbors-based learning methods
 pub mod neighbors;
-pub(crate) mod optimization;
+/// Optimization procedures
+pub mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;
-/// Reading in Data.
-pub mod readers;
+// /// Reading in Data.
+// pub mod readers;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
 
-pub(crate) mod rand;
+pub(crate) mod rand_custom;

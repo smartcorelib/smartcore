@@ -6,13 +6,13 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::math::distance::Distance;
-//! use smartcore::math::distance::hamming::Hamming;
+//! use smartcore::metrics::distance::Distance;
+//! use smartcore::metrics::distance::hamming::Hamming;
 //!
 //! let a = vec![1, 0, 0, 1, 0, 0, 1];
 //! let b = vec![1, 1, 0, 0, 1, 0, 1];
 //!
-//! let h: f64 = Hamming {}.distance(&a, &b);
+//! let h: f64 = Hamming::new().distance(&a, &b);
 //!
 //! ```
 //!
@@ -21,30 +21,48 @@
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use crate::math::num::RealNumber;
+use std::marker::PhantomData;
 
 use super::Distance;
+use crate::linalg::basic::arrays::ArrayView1;
+use crate::numbers::basenum::Number;
 
 /// While comparing two integer-valued vectors of equal length, Hamming distance is the number of bit positions in which the two bits are different
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Hamming {}
+pub struct Hamming<T: Number> {
+    _t: PhantomData<T>,
+}
 
-impl<T: PartialEq, F: RealNumber> Distance<Vec<T>, F> for Hamming {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> F {
-        if x.len() != y.len() {
+impl<T: Number> Hamming<T> {
+    /// instatiate the initial structure
+    pub fn new() -> Hamming<T> {
+        Hamming { _t: PhantomData }
+    }
+}
+
+impl<T: Number> Default for Hamming<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Number, A: ArrayView1<T>> Distance<A> for Hamming<T> {
+    fn distance(&self, x: &A, y: &A) -> f64 {
+        if x.shape() != y.shape() {
             panic!("Input vector sizes are different");
         }
 
-        let mut dist = 0;
-        for i in 0..x.len() {
-            if x[i] != y[i] {
-                dist += 1;
-            }
-        }
+        let dist: usize = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(a, b)| match a != b {
+                true => 1,
+                false => 0,
+            })
+            .sum();
 
-        F::from_i64(dist).unwrap() / F::from_usize(x.len()).unwrap()
+        dist as f64 / x.shape() as f64
     }
 }
 
@@ -58,7 +76,7 @@ mod tests {
         let a = vec![1, 0, 0, 1, 0, 0, 1];
         let b = vec![1, 1, 0, 0, 1, 0, 1];
 
-        let h: f64 = Hamming {}.distance(&a, &b);
+        let h: f64 = Hamming::new().distance(&a, &b);
 
         assert!((h - 0.42857142).abs() < 1e-8);
     }

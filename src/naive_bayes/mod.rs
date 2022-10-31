@@ -36,49 +36,61 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
+use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
-pub(crate) trait NBDistribution<T: RealNumber, M: Matrix<T>> {
+pub(crate) trait NBDistribution<X: Number, Y: Number>: Clone {
     /// Prior of class at the given index.
-    fn prior(&self, class_index: usize) -> T;
+    fn prior(&self, class_index: usize) -> f64;
 
     /// Logarithm of conditional probability of sample j given class in the specified index.
-    fn log_likelihood(&self, class_index: usize, j: &M::RowVector) -> T;
+    #[allow(clippy::borrowed_box)]
+    fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64;
 
     /// Possible classes of the distribution.
-    fn classes(&self) -> &Vec<T>;
+    fn classes(&self) -> &Vec<Y>;
 }
 
 /// Base struct for the Naive Bayes classifier.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
-pub(crate) struct BaseNaiveBayes<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> {
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) struct BaseNaiveBayes<
+    TX: Number,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    D: NBDistribution<TX, TY>,
+> {
     distribution: D,
-    _phantom_t: PhantomData<T>,
-    _phantom_m: PhantomData<M>,
+    _phantom_tx: PhantomData<TX>,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_x: PhantomData<X>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, D> {
+impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX, TY>>
+    BaseNaiveBayes<TX, TY, X, Y, D>
+{
     /// Fits NB classifier to a given NBdistribution.
     /// * `distribution` - NBDistribution of the training data
     pub fn fit(distribution: D) -> Result<Self, Failed> {
         Ok(Self {
             distribution,
-            _phantom_t: PhantomData,
-            _phantom_m: PhantomData,
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
     /// Returns a vector of size N with class estimates.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let y_classes = self.distribution.classes();
         let (rows, _) = x.shape();
         let predictions = (0..rows)
@@ -98,8 +110,8 @@ impl<T: RealNumber, M: Matrix<T>, D: NBDistribution<T, M>> BaseNaiveBayes<T, M, 
                     .unwrap();
                 *prediction
             })
-            .collect::<Vec<T>>();
-        let y_hat = M::RowVector::from_array(&predictions);
+            .collect::<Vec<TY>>();
+        let y_hat = Y::from_vec_slice(&predictions);
         Ok(y_hat)
     }
 }

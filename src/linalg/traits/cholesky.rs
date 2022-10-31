@@ -8,8 +8,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
-//! use crate::smartcore::linalg::cholesky::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linalg::traits::cholesky::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[25., 15., -5.],
@@ -34,17 +34,18 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::error::{Failed, FailedError};
-use crate::linalg::BaseMatrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 #[derive(Debug, Clone)]
 /// Results of Cholesky decomposition.
-pub struct Cholesky<T: RealNumber, M: BaseMatrix<T>> {
+pub struct Cholesky<T: Number + RealNumber, M: Array2<T>> {
     R: M,
     t: PhantomData<T>,
 }
 
-impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
+impl<T: Number + RealNumber, M: Array2<T>> Cholesky<T, M> {
     pub(crate) fn new(R: M) -> Cholesky<T, M> {
         Cholesky { R, t: PhantomData }
     }
@@ -57,7 +58,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
         for i in 0..n {
             for j in 0..n {
                 if j <= i {
-                    R.set(i, j, self.R.get(i, j));
+                    R.set((i, j), *self.R.get((i, j)));
                 }
             }
         }
@@ -72,7 +73,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
         for i in 0..n {
             for j in 0..n {
                 if j <= i {
-                    R.set(j, i, self.R.get(i, j));
+                    R.set((j, i), *self.R.get((i, j)));
                 }
             }
         }
@@ -87,25 +88,25 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
         if bn != rn {
             return Err(Failed::because(
                 FailedError::SolutionFailed,
-                "Can\'t solve Ax = b for x. Number of rows in b != number of rows in R.",
+                "Can\'t solve Ax = b for x. FloatNumber of rows in b != number of rows in R.",
             ));
         }
 
         for k in 0..bn {
             for j in 0..m {
                 for i in 0..k {
-                    b.sub_element_mut(k, j, b.get(i, j) * self.R.get(k, i));
+                    b.sub_element_mut((k, j), *b.get((i, j)) * *self.R.get((k, i)));
                 }
-                b.div_element_mut(k, j, self.R.get(k, k));
+                b.div_element_mut((k, j), *self.R.get((k, k)));
             }
         }
 
         for k in (0..bn).rev() {
             for j in 0..m {
                 for i in k + 1..bn {
-                    b.sub_element_mut(k, j, b.get(i, j) * self.R.get(i, k));
+                    b.sub_element_mut((k, j), *b.get((i, j)) * *self.R.get((i, k)));
                 }
-                b.div_element_mut(k, j, self.R.get(k, k));
+                b.div_element_mut((k, j), *self.R.get((k, k)));
             }
         }
         Ok(b)
@@ -113,7 +114,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> Cholesky<T, M> {
 }
 
 /// Trait that implements Cholesky decomposition routine for any matrix.
-pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+pub trait CholeskyDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the Cholesky decomposition of a matrix.
     fn cholesky(&self) -> Result<Cholesky<T, Self>, Failed> {
         self.clone().cholesky_mut()
@@ -136,13 +137,13 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             for k in 0..j {
                 let mut s = T::zero();
                 for i in 0..k {
-                    s += self.get(k, i) * self.get(j, i);
+                    s += *self.get((k, i)) * *self.get((j, i));
                 }
-                s = (self.get(j, k) - s) / self.get(k, k);
-                self.set(j, k, s);
+                s = (*self.get((j, k)) - s) / *self.get((k, k));
+                self.set((j, k), s);
                 d += s * s;
             }
-            d = self.get(j, j) - d;
+            d = *self.get((j, j)) - d;
 
             if d < T::zero() {
                 return Err(Failed::because(
@@ -151,7 +152,7 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 ));
             }
 
-            self.set(j, j, d.sqrt());
+            self.set((j, j), d.sqrt());
         }
 
         Ok(Cholesky::new(self))
@@ -166,7 +167,8 @@ pub trait CholeskyDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use approx::relative_eq;
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn cholesky_decompose() {
@@ -177,13 +179,13 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[5.0, 3.0, -1.0], &[0.0, 3.0, 1.0], &[0.0, 0.0, 3.0]]);
         let cholesky = a.cholesky().unwrap();
 
-        assert!(cholesky.L().abs().approximate_eq(&l.abs(), 1e-4));
-        assert!(cholesky.U().abs().approximate_eq(&u.abs(), 1e-4));
-        assert!(cholesky
-            .L()
-            .matmul(&cholesky.U())
-            .abs()
-            .approximate_eq(&a.abs(), 1e-4));
+        assert!(relative_eq!(cholesky.L().abs(), l.abs(), epsilon = 1e-4));
+        assert!(relative_eq!(cholesky.U().abs(), u.abs(), epsilon = 1e-4));
+        assert!(relative_eq!(
+            cholesky.L().matmul(&cholesky.U()).abs(),
+            a.abs(),
+            epsilon = 1e-4
+        ));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -195,10 +197,10 @@ mod tests {
 
         let cholesky = a.cholesky().unwrap();
 
-        assert!(cholesky
-            .solve(b.transpose())
-            .unwrap()
-            .transpose()
-            .approximate_eq(&expected, 1e-4));
+        assert!(relative_eq!(
+            cholesky.solve(b.transpose()).unwrap().transpose(),
+            expected,
+            epsilon = 1e-4
+        ));
     }
 }
