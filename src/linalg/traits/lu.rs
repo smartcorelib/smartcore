@@ -11,8 +11,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::linalg::lu::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linalg::traits::lu::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                  &[1., 2., 3.],
@@ -38,26 +38,27 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use crate::error::Failed;
-use crate::linalg::BaseMatrix;
-use crate::math::num::RealNumber;
-
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 #[derive(Debug, Clone)]
 /// Result of LU decomposition.
-pub struct LU<T: RealNumber, M: BaseMatrix<T>> {
+pub struct LU<T: Number + RealNumber, M: Array2<T>> {
     LU: M,
     pivot: Vec<usize>,
-    _pivot_sign: i8,
+    #[allow(dead_code)]
+    pivot_sign: i8,
     singular: bool,
     phantom: PhantomData<T>,
 }
 
-impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
-    pub(crate) fn new(LU: M, pivot: Vec<usize>, _pivot_sign: i8) -> LU<T, M> {
+impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
+    pub(crate) fn new(LU: M, pivot: Vec<usize>, pivot_sign: i8) -> LU<T, M> {
         let (_, n) = LU.shape();
 
         let mut singular = false;
         for j in 0..n {
-            if LU.get(j, j) == T::zero() {
+            if LU.get((j, j)) == &T::zero() {
                 singular = true;
                 break;
             }
@@ -66,7 +67,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         LU {
             LU,
             pivot,
-            _pivot_sign,
+            pivot_sign,
             singular,
             phantom: PhantomData,
         }
@@ -80,9 +81,9 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         for i in 0..n_rows {
             for j in 0..n_cols {
                 match i.cmp(&j) {
-                    Ordering::Greater => L.set(i, j, self.LU.get(i, j)),
-                    Ordering::Equal => L.set(i, j, T::one()),
-                    Ordering::Less => L.set(i, j, T::zero()),
+                    Ordering::Greater => L.set((i, j), *self.LU.get((i, j))),
+                    Ordering::Equal => L.set((i, j), T::one()),
+                    Ordering::Less => L.set((i, j), T::zero()),
                 }
             }
         }
@@ -98,9 +99,9 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         for i in 0..n_rows {
             for j in 0..n_cols {
                 if i <= j {
-                    U.set(i, j, self.LU.get(i, j));
+                    U.set((i, j), *self.LU.get((i, j)));
                 } else {
-                    U.set(i, j, T::zero());
+                    U.set((i, j), T::zero());
                 }
             }
         }
@@ -114,7 +115,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         let mut piv = M::zeros(n, n);
 
         for i in 0..n {
-            piv.set(i, self.pivot[i], T::one());
+            piv.set((i, self.pivot[i]), T::one());
         }
 
         piv
@@ -131,7 +132,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
         let mut inv = M::zeros(n, n);
 
         for i in 0..n {
-            inv.set(i, i, T::one());
+            inv.set((i, i), T::one());
         }
 
         self.solve(inv)
@@ -156,33 +157,33 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
 
         for j in 0..b_n {
             for i in 0..m {
-                X.set(i, j, b.get(self.pivot[i], j));
+                X.set((i, j), *b.get((self.pivot[i], j)));
             }
         }
 
         for k in 0..n {
             for i in k + 1..n {
                 for j in 0..b_n {
-                    X.sub_element_mut(i, j, X.get(k, j) * self.LU.get(i, k));
+                    X.sub_element_mut((i, j), *X.get((k, j)) * *self.LU.get((i, k)));
                 }
             }
         }
 
         for k in (0..n).rev() {
             for j in 0..b_n {
-                X.div_element_mut(k, j, self.LU.get(k, k));
+                X.div_element_mut((k, j), *self.LU.get((k, k)));
             }
 
             for i in 0..k {
                 for j in 0..b_n {
-                    X.sub_element_mut(i, j, X.get(k, j) * self.LU.get(i, k));
+                    X.sub_element_mut((i, j), *X.get((k, j)) * *self.LU.get((i, k)));
                 }
             }
         }
 
         for j in 0..b_n {
             for i in 0..m {
-                b.set(i, j, X.get(i, j));
+                b.set((i, j), *X.get((i, j)));
             }
         }
 
@@ -191,7 +192,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> LU<T, M> {
 }
 
 /// Trait that implements LU decomposition routine for any matrix.
-pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+pub trait LUDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the LU decomposition of a square matrix.
     fn lu(&self) -> Result<LU<T, Self>, Failed> {
         self.clone().lu_mut()
@@ -209,18 +210,18 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 
         for j in 0..n {
             for (i, LUcolj_i) in LUcolj.iter_mut().enumerate().take(m) {
-                *LUcolj_i = self.get(i, j);
+                *LUcolj_i = *self.get((i, j));
             }
 
             for i in 0..m {
                 let kmax = usize::min(i, j);
                 let mut s = T::zero();
                 for (k, LUcolj_k) in LUcolj.iter().enumerate().take(kmax) {
-                    s += self.get(i, k) * (*LUcolj_k);
+                    s += *self.get((i, k)) * (*LUcolj_k);
                 }
 
                 LUcolj[i] -= s;
-                self.set(i, j, LUcolj[i]);
+                self.set((i, j), LUcolj[i]);
             }
 
             let mut p = j;
@@ -231,17 +232,15 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             }
             if p != j {
                 for k in 0..n {
-                    let t = self.get(p, k);
-                    self.set(p, k, self.get(j, k));
-                    self.set(j, k, t);
+                    self.swap((p, k), (j, k));
                 }
                 piv.swap(p, j);
                 pivsign = -pivsign;
             }
 
-            if j < m && self.get(j, j) != T::zero() {
+            if j < m && self.get((j, j)) != &T::zero() {
                 for i in j + 1..m {
-                    self.div_element_mut(i, j, self.get(j, j));
+                    self.div_element_mut((i, j), *self.get((j, j)));
                 }
             }
         }
@@ -258,7 +257,8 @@ pub trait LUDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use approx::relative_eq;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -271,9 +271,9 @@ mod tests {
         let expected_pivot =
             DenseMatrix::from_2d_array(&[&[0., 0., 1.], &[0., 1., 0.], &[1., 0., 0.]]);
         let lu = a.lu().unwrap();
-        assert!(lu.L().approximate_eq(&expected_L, 1e-4));
-        assert!(lu.U().approximate_eq(&expected_U, 1e-4));
-        assert!(lu.pivot().approximate_eq(&expected_pivot, 1e-4));
+        assert!(relative_eq!(lu.L(), expected_L, epsilon = 1e-4));
+        assert!(relative_eq!(lu.U(), expected_U, epsilon = 1e-4));
+        assert!(relative_eq!(lu.pivot(), expected_pivot, epsilon = 1e-4));
     }
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -282,6 +282,6 @@ mod tests {
         let expected =
             DenseMatrix::from_2d_array(&[&[-6.0, 3.6, 1.4], &[5.0, -3.0, -1.0], &[-1.0, 0.8, 0.2]]);
         let a_inv = a.lu().and_then(|lu| lu.inverse()).unwrap();
-        assert!(a_inv.approximate_eq(&expected, 1e-4));
+        assert!(relative_eq!(a_inv, expected, epsilon = 1e-4));
     }
 }

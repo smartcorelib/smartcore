@@ -10,9 +10,9 @@
 //! In SmartCore a random split into training and test sets can be quickly computed with the [train_test_split](./fn.train_test_split.html) helper function.
 //!
 //! ```
-//! use crate::smartcore::linalg::BaseMatrix;
-//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::model_selection::train_test_split;
+//! use smartcore::linalg::basic::arrays::Array;
 //!
 //! //Iris data
 //! let x = DenseMatrix::from_2d_array(&[
@@ -55,10 +55,12 @@
 //! The simplest way to run cross-validation is to use the [cross_val_score](./fn.cross_validate.html) helper function on your estimator and the dataset.
 //!
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::model_selection::{KFold, cross_validate};
 //! use smartcore::metrics::accuracy;
 //! use smartcore::linear::logistic_regression::LogisticRegression;
+//! use smartcore::api::SupervisedEstimator;
+//! use smartcore::linalg::basic::arrays::Array;
 //!
 //! //Iris data
 //! let x = DenseMatrix::from_2d_array(&[
@@ -83,17 +85,18 @@
 //!           &[6.6, 2.9, 4.6, 1.3],
 //!           &[5.2, 2.7, 3.9, 1.4],
 //!           ]);
-//! let y: Vec<f64> = vec![
-//!           0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+//! let y: Vec<i32> = vec![
+//!           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 //! ];
 //!
 //! let cv = KFold::default().with_n_splits(3);
 //!
-//! let results = cross_validate(LogisticRegression::fit,   //estimator
-//!                                 &x, &y,                 //data
-//!                                 &Default::default(),     //hyperparameters
-//!                                 &cv,                     //cross validation split
-//!                                 &accuracy).unwrap();    //metric
+//! let results = cross_validate(
+//!     LogisticRegression::new(),   //estimator
+//!     &x, &y,                 //data
+//!     Default::default(),     //hyperparameters
+//!     &cv,                     //cross validation split
+//!     &accuracy).unwrap();    //metric
 //!
 //! println!("Training accuracy: {}, test accuracy: {}",
 //!     results.mean_test_score(), results.mean_train_score());
@@ -102,18 +105,22 @@
 //! The function [cross_val_predict](./fn.cross_val_predict.html) has a similar interface to `cross_val_score`,
 //! but instead of test error it calculates predictions for all samples in the test set.
 
-use crate::api::Predictor;
-use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
-use crate::rand::get_rng_impl;
 use rand::seq::SliceRandom;
+use std::fmt::{Debug, Display};
 
-pub(crate) mod hyper_tuning;
+#[allow(unused_imports)]
+use crate::api::{Predictor, SupervisedEstimator};
+use crate::error::Failed;
+use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
+use crate::rand_custom::get_rng_impl;
+
+// TODO: fix this module
+// pub(crate) mod hyper_tuning;
 pub(crate) mod kfold;
 
-pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
+// pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
 pub use kfold::{KFold, KFoldIter};
 
 /// An interface for the K-Folds cross-validator
@@ -122,7 +129,7 @@ pub trait BaseKFold {
     type Output: Iterator<Item = (Vec<usize>, Vec<usize>)>;
     /// Return a tuple containing the the training set indices for that split and
     /// the testing set indices for that split.
-    fn split<T: RealNumber, M: Matrix<T>>(&self, x: &M) -> Self::Output;
+    fn split<T: Number, X: Array2<T>>(&self, x: &X) -> Self::Output;
     /// Returns the number of splits
     fn n_splits(&self) -> usize;
 }
@@ -132,19 +139,23 @@ pub trait BaseKFold {
 /// * `y` - target values, should be of size _N_
 /// * `test_size`, (0, 1] - the proportion of the dataset to include in the test split.
 /// * `shuffle`, - whether or not to shuffle the data before splitting
-/// * `seed` - Controls the shuffling applied to the data before applying the split. Pass an int for reproducible output across multiple function calls
-pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
-    x: &M,
-    y: &M::RowVector,
+pub fn train_test_split<
+    TX: Debug + Display + Copy + Sized,
+    TY: Debug + Display + Copy + Sized,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+>(
+    x: &X,
+    y: &Y,
     test_size: f32,
     shuffle: bool,
     seed: Option<u64>,
-) -> (M, M, M::RowVector, M::RowVector) {
-    if x.shape().0 != y.len() {
+) -> (X, X, Y, Y) {
+    if x.shape().0 != y.shape() {
         panic!(
             "x and y should have the same number of samples. |x|: {}, |y|: {}",
             x.shape().0,
-            y.len()
+            y.shape()
         );
     }
     let mut rng = get_rng_impl(seed);
@@ -153,7 +164,7 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
         panic!("test_size should be between 0 and 1");
     }
 
-    let n = y.len();
+    let n = y.shape();
 
     let n_test = ((n as f32) * test_size) as usize;
 
@@ -177,21 +188,29 @@ pub fn train_test_split<T: RealNumber, M: Matrix<T>>(
 
 /// Cross validation results.
 #[derive(Clone, Debug)]
-pub struct CrossValidationResult<T: RealNumber> {
+pub struct CrossValidationResult {
     /// Vector with test scores on each cv split
-    pub test_score: Vec<T>,
+    pub test_score: Vec<f64>,
     /// Vector with training scores on each cv split
-    pub train_score: Vec<T>,
+    pub train_score: Vec<f64>,
 }
 
-impl<T: RealNumber> CrossValidationResult<T> {
+impl CrossValidationResult {
     /// Average test score
-    pub fn mean_test_score(&self) -> T {
-        self.test_score.sum() / T::from_usize(self.test_score.len()).unwrap()
+    pub fn mean_test_score(&self) -> f64 {
+        let mut sum = 0f64;
+        for s in self.test_score.iter() {
+            sum += *s;
+        }
+        sum / self.test_score.len() as f64
     }
     /// Average training score
-    pub fn mean_train_score(&self) -> T {
-        self.train_score.sum() / T::from_usize(self.train_score.len()).unwrap()
+    pub fn mean_train_score(&self) -> f64 {
+        let mut sum = 0f64;
+        for s in self.train_score.iter() {
+            sum += *s;
+        }
+        sum / self.train_score.len() as f64
     }
 }
 
@@ -202,26 +221,27 @@ impl<T: RealNumber> CrossValidationResult<T> {
 /// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
 /// * `score` - a metric to use for evaluation, see [metrics](../metrics/index.html)
-pub fn cross_validate<T, M, H, E, K, F, S>(
-    fit_estimator: F,
-    x: &M,
-    y: &M::RowVector,
-    parameters: &H,
+pub fn cross_validate<TX, TY, X, Y, H, E, K, S>(
+    _estimator: E, // just an empty placeholder to allow passing `fit()`
+    x: &X,
+    y: &Y,
+    parameters: H,
     cv: &K,
-    score: S,
-) -> Result<CrossValidationResult<T>, Failed>
+    score: &S,
+) -> Result<CrossValidationResult, Failed>
 where
-    T: RealNumber,
-    M: Matrix<T>,
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
     H: Clone,
-    E: Predictor<M, M::RowVector>,
     K: BaseKFold,
-    F: Fn(&M, &M::RowVector, H) -> Result<E, Failed>,
-    S: Fn(&M::RowVector, &M::RowVector) -> T,
+    E: SupervisedEstimator<X, Y, H>,
+    S: Fn(&Y, &Y) -> f64,
 {
     let k = cv.n_splits();
-    let mut test_score = Vec::with_capacity(k);
-    let mut train_score = Vec::with_capacity(k);
+    let mut test_score: Vec<f64> = Vec::with_capacity(k);
+    let mut train_score: Vec<f64> = Vec::with_capacity(k);
 
     for (train_idx, test_idx) in cv.split(x) {
         let train_x = x.take(&train_idx, 0);
@@ -229,10 +249,12 @@ where
         let test_x = x.take(&test_idx, 0);
         let test_y = y.take(&test_idx);
 
-        let estimator = fit_estimator(&train_x, &train_y, parameters.clone())?;
+        // NOTE: we use here only the estimator "class", the  actual struct get dropped
+        let computed =
+            <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
 
-        train_score.push(score(&train_y, &estimator.predict(&train_x)?));
-        test_score.push(score(&test_y, &estimator.predict(&test_x)?));
+        train_score.push(score(&train_y, &computed.predict(&train_x)?));
+        test_score.push(score(&test_y, &computed.predict(&test_x)?));
     }
 
     Ok(CrossValidationResult {
@@ -248,33 +270,35 @@ where
 /// * `y` - target values, should be of size _N_
 /// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
-pub fn cross_val_predict<T, M, H, E, K, F>(
-    fit_estimator: F,
-    x: &M,
-    y: &M::RowVector,
+pub fn cross_val_predict<TX, TY, X, Y, H, E, K>(
+    _estimator: E, // just an empty placeholder to allow passing `fit()`
+    x: &X,
+    y: &Y,
     parameters: H,
-    cv: K,
-) -> Result<M::RowVector, Failed>
+    cv: &K,
+) -> Result<Y, Failed>
 where
-    T: RealNumber,
-    M: Matrix<T>,
+    TX: Number,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
     H: Clone,
-    E: Predictor<M, M::RowVector>,
     K: BaseKFold,
-    F: Fn(&M, &M::RowVector, H) -> Result<E, Failed>,
+    E: SupervisedEstimator<X, Y, H>,
 {
-    let mut y_hat = M::RowVector::zeros(y.len());
+    let mut y_hat = Y::zeros(y.shape());
 
     for (train_idx, test_idx) in cv.split(x) {
         let train_x = x.take(&train_idx, 0);
         let train_y = y.take(&train_idx);
         let test_x = x.take(&test_idx, 0);
 
-        let estimator = fit_estimator(&train_x, &train_y, parameters.clone())?;
+        let computed =
+            <E as SupervisedEstimator<X, Y, H>>::fit(&train_x, &train_y, parameters.clone())?;
 
-        let y_test_hat = estimator.predict(&test_x)?;
+        let y_test_hat = computed.predict(&test_x)?;
         for (i, &idx) in test_idx.iter().enumerate() {
-            y_hat.set(idx, y_test_hat.get(i));
+            y_hat.set(idx, *y_test_hat.get(i));
         }
     }
 
@@ -285,10 +309,17 @@ where
 mod tests {
 
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::algorithm::neighbour::KNNAlgorithmName;
+    use crate::api::NoParameters;
+    use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::linear::logistic_regression::LogisticRegression;
+    use crate::metrics::distance::Distances;
     use crate::metrics::{accuracy, mean_absolute_error};
+    use crate::model_selection::cross_validate;
     use crate::model_selection::kfold::KFold;
-    use crate::neighbors::knn_regressor::KNNRegressor;
+    use crate::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
+    use crate::neighbors::KNNWeightFunction;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -312,31 +343,33 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct NoParameters {}
+    struct BiasedParameters {}
+    impl NoParameters for BiasedParameters {}
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_cross_validate_biased() {
         struct BiasedEstimator {}
 
-        impl BiasedEstimator {
-            fn fit<M: Matrix<f32>>(
-                _: &M,
-                _: &M::RowVector,
-                _: NoParameters,
-            ) -> Result<BiasedEstimator, Failed> {
+        impl<X: Array2<f32>, Y: Array1<u32>, P: NoParameters> SupervisedEstimator<X, Y, P>
+            for BiasedEstimator
+        {
+            fn new() -> Self {
+                Self {}
+            }
+            fn fit(_: &X, _: &Y, _: P) -> Result<BiasedEstimator, Failed> {
                 Ok(BiasedEstimator {})
             }
         }
 
-        impl<M: Matrix<f32>> Predictor<M, M::RowVector> for BiasedEstimator {
-            fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+        impl<X: Array2<f32>, Y: Array1<u32>> Predictor<X, Y> for BiasedEstimator {
+            fn predict(&self, x: &X) -> Result<Y, Failed> {
                 let (n, _) = x.shape();
-                Ok(M::RowVector::zeros(n))
+                Ok(Y::zeros(n))
             }
         }
 
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f32> = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
@@ -358,9 +391,7 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y = vec![
-            0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-        ];
+        let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let cv = KFold {
             n_splits: 5,
@@ -368,10 +399,10 @@ mod tests {
         };
 
         let results = cross_validate(
-            BiasedEstimator::fit,
+            BiasedEstimator {},
             &x,
             &y,
-            &NoParameters {},
+            BiasedParameters {},
             &cv,
             &accuracy,
         )
@@ -413,10 +444,10 @@ mod tests {
         };
 
         let results = cross_validate(
-            KNNRegressor::fit,
+            KNNRegressor::new(),
             &x,
             &y,
-            &Default::default(),
+            Default::default(),
             &cv,
             &mean_absolute_error,
         )
@@ -429,7 +460,7 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn test_cross_val_predict_knn() {
-        let x = DenseMatrix::from_2d_array(&[
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159., 107.608, 1947., 60.323],
             &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
             &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
@@ -447,18 +478,69 @@ mod tests {
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
         ]);
-        let y = vec![
+        let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
             114.2, 115.7, 116.9,
         ];
 
-        let cv = KFold {
+        let cv: KFold = KFold {
             n_splits: 2,
             ..KFold::default()
         };
 
-        let y_hat = cross_val_predict(KNNRegressor::fit, &x, &y, Default::default(), cv).unwrap();
+        let y_hat: Vec<f64> = cross_val_predict(
+            KNNRegressor::new(),
+            &x,
+            &y,
+            KNNRegressorParameters::default()
+                .with_k(3)
+                .with_distance(Distances::euclidian())
+                .with_algorithm(KNNAlgorithmName::LinearSearch)
+                .with_weight(KNNWeightFunction::Distance),
+            &cv,
+        )
+        .unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 10.0);
+    }
+
+    #[test]
+    fn test_cross_validation_accuracy() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ]);
+        let y: Vec<i32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        let cv = KFold::default().with_n_splits(3);
+
+        let results = cross_validate(
+            LogisticRegression::new(),
+            &x,
+            &y,
+            Default::default(),
+            &cv,
+            &accuracy,
+        )
+        .unwrap();
+        println!("{:?}", results);
     }
 }

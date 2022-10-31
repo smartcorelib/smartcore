@@ -1,15 +1,16 @@
 //! In this module you will find composite of matrix operations that are used elsewhere
 //! for improved efficiency.
 
-use crate::linalg::BaseMatrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::basenum::Number;
 
 /// High order matrix operations.
-pub trait HighOrderOperations<T: RealNumber>: BaseMatrix<T> {
+pub trait HighOrderOperations<T: Number>: Array2<T> {
     /// Y = AB
     /// ```
-    /// use smartcore::linalg::naive::dense_matrix::*;
-    /// use smartcore::linalg::high_order::HighOrderOperations;
+    /// use smartcore::linalg::basic::matrix::*;
+    /// use smartcore::linalg::traits::high_order::HighOrderOperations;
+    /// use smartcore::linalg::basic::arrays::Array2;
     ///
     /// let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
     /// let b = DenseMatrix::from_2d_array(&[&[5., 6.], &[7., 8.], &[9., 10.]]);
@@ -25,4 +26,8 @@ pub trait HighOrderOperations<T: RealNumber>: BaseMatrix<T> {
             (false, false) => self.matmul(b),
         }
     }
+}
+
+mod tests {
+    /* TODO: Add tests  */
 }

@@ -32,7 +32,6 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use crate::math::num::RealNumber;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -65,21 +64,21 @@ impl Default for KNNWeightFunction {
 }
 
 impl KNNWeightFunction {
-    fn calc_weights<T: RealNumber>(&self, distances: Vec<T>) -> std::vec::Vec<T> {
+    fn calc_weights(&self, distances: Vec<f64>) -> std::vec::Vec<f64> {
         match *self {
             KNNWeightFunction::Distance => {
                 // if there are any points that has zero distance from one or more training points,
                 // those training points are weighted as 1.0 and the other points as 0.0
-                if distances.iter().any(|&e| e == T::zero()) {
+                if distances.iter().any(|&e| e == 0f64) {
                     distances
                         .iter()
-                        .map(|e| if *e == T::zero() { T::one() } else { T::zero() })
+                        .map(|e| if *e == 0f64 { 1f64 } else { 0f64 })
                         .collect()
                 } else {
-                    distances.iter().map(|e| T::one() / *e).collect()
+                    distances.iter().map(|e| 1f64 / *e).collect()
                 }
             }
-            KNNWeightFunction::Uniform => vec![T::one(); distances.len()],
+            KNNWeightFunction::Uniform => vec![1f64; distances.len()],
         }
     }
 }

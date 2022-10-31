@@ -6,8 +6,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::linalg::qr::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linalg::traits::qr::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[0.9, 0.4, 0.7],
@@ -28,20 +28,22 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![allow(non_snake_case)]
 
-use crate::error::Failed;
-use crate::linalg::BaseMatrix;
-use crate::math::num::RealNumber;
 use std::fmt::Debug;
+
+use crate::error::Failed;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 
 #[derive(Debug, Clone)]
 /// Results of QR decomposition.
-pub struct QR<T: RealNumber, M: BaseMatrix<T>> {
+pub struct QR<T: Number + RealNumber, M: Array2<T>> {
     QR: M,
     tau: Vec<T>,
     singular: bool,
 }
 
-impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
+impl<T: Number + RealNumber, M: Array2<T>> QR<T, M> {
     pub(crate) fn new(QR: M, tau: Vec<T>) -> QR<T, M> {
         let mut singular = false;
         for tau_elem in tau.iter() {
@@ -59,9 +61,9 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
         let (_, n) = self.QR.shape();
         let mut R = M::zeros(n, n);
         for i in 0..n {
-            R.set(i, i, self.tau[i]);
+            R.set((i, i), self.tau[i]);
             for j in i + 1..n {
-                R.set(i, j, self.QR.get(i, j));
+                R.set((i, j), *self.QR.get((i, j)));
             }
         }
         R
@@ -73,16 +75,16 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
         let mut Q = M::zeros(m, n);
         let mut k = n - 1;
         loop {
-            Q.set(k, k, T::one());
+            Q.set((k, k), T::one());
             for j in k..n {
-                if self.QR.get(k, k) != T::zero() {
+                if self.QR.get((k, k)) != &T::zero() {
                     let mut s = T::zero();
                     for i in k..m {
-                        s += self.QR.get(i, k) * Q.get(i, j);
+                        s += *self.QR.get((i, k)) * *Q.get((i, j));
                     }
-                    s = -s / self.QR.get(k, k);
+                    s = -s / *self.QR.get((k, k));
                     for i in k..m {
-                        Q.add_element_mut(i, j, s * self.QR.get(i, k));
+                        Q.add_element_mut((i, j), s * *self.QR.get((i, k)));
                     }
                 }
             }
@@ -114,23 +116,23 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
             for j in 0..b_ncols {
                 let mut s = T::zero();
                 for i in k..m {
-                    s += self.QR.get(i, k) * b.get(i, j);
+                    s += *self.QR.get((i, k)) * *b.get((i, j));
                 }
-                s = -s / self.QR.get(k, k);
+                s = -s / *self.QR.get((k, k));
                 for i in k..m {
-                    b.add_element_mut(i, j, s * self.QR.get(i, k));
+                    b.add_element_mut((i, j), s * *self.QR.get((i, k)));
                 }
             }
         }
 
         for k in (0..n).rev() {
             for j in 0..b_ncols {
-                b.set(k, j, b.get(k, j) / self.tau[k]);
+                b.set((k, j), *b.get((k, j)) / self.tau[k]);
             }
 
             for i in 0..k {
                 for j in 0..b_ncols {
-                    b.sub_element_mut(i, j, b.get(k, j) * self.QR.get(i, k));
+                    b.sub_element_mut((i, j), *b.get((k, j)) * *self.QR.get((i, k)));
                 }
             }
         }
@@ -140,7 +142,7 @@ impl<T: RealNumber, M: BaseMatrix<T>> QR<T, M> {
 }
 
 /// Trait that implements QR decomposition routine for any matrix.
-pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+pub trait QRDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Compute the QR decomposition of a matrix.
     fn qr(&self) -> Result<QR<T, Self>, Failed> {
         self.clone().qr_mut()
@@ -156,26 +158,26 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         for (k, r_diagonal_k) in r_diagonal.iter_mut().enumerate().take(n) {
             let mut nrm = T::zero();
             for i in k..m {
-                nrm = nrm.hypot(self.get(i, k));
+                nrm = nrm.hypot(*self.get((i, k)));
             }
 
             if nrm.abs() > T::epsilon() {
-                if self.get(k, k) < T::zero() {
+                if self.get((k, k)) < &T::zero() {
                     nrm = -nrm;
                 }
                 for i in k..m {
-                    self.div_element_mut(i, k, nrm);
+                    self.div_element_mut((i, k), nrm);
                 }
-                self.add_element_mut(k, k, T::one());
+                self.add_element_mut((k, k), T::one());
 
                 for j in k + 1..n {
                     let mut s = T::zero();
                     for i in k..m {
-                        s += self.get(i, k) * self.get(i, j);
+                        s += *self.get((i, k)) * *self.get((i, j));
                     }
-                    s = -s / self.get(k, k);
+                    s = -s / *self.get((k, k));
                     for i in k..m {
-                        self.add_element_mut(i, j, s * self.get(i, k));
+                        self.add_element_mut((i, j), s * *self.get((i, k)));
                     }
                 }
             }
@@ -194,7 +196,8 @@ pub trait QRDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use approx::relative_eq;
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose() {
@@ -210,8 +213,8 @@ mod tests {
             &[0.0, 0.0, -0.1999],
         ]);
         let qr = a.qr().unwrap();
-        assert!(qr.Q().abs().approximate_eq(&q.abs(), 1e-4));
-        assert!(qr.R().abs().approximate_eq(&r.abs(), 1e-4));
+        assert!(relative_eq!(qr.Q().abs(), q.abs(), epsilon = 1e-4));
+        assert!(relative_eq!(qr.R().abs(), r.abs(), epsilon = 1e-4));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -225,6 +228,6 @@ mod tests {
             &[0.4729730, 0.6621622],
         ]);
         let w = a.qr_solve_mut(b).unwrap();
-        assert!(w.approximate_eq(&expected_w, 1e-2));
+        assert!(relative_eq!(w, expected_w, epsilon = 1e-2));
     }
 }

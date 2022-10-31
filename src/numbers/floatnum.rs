@@ -1,32 +1,12 @@
-//! # Real Number
-//! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
-//! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
+use rand::Rng;
 
-use num_traits::{Float, FromPrimitive};
-use rand::prelude::*;
-use std::fmt::{Debug, Display};
-use std::iter::{Product, Sum};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-use std::str::FromStr;
+use num_traits::{Float, Signed};
 
-use crate::rand::get_rng_impl;
+use crate::numbers::basenum::Number;
 
-/// Defines real number
+/// Defines float number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
-pub trait RealNumber:
-    Float
-    + FromPrimitive
-    + Debug
-    + Display
-    + Copy
-    + Sum
-    + Product
-    + AddAssign
-    + SubAssign
-    + MulAssign
-    + DivAssign
-    + FromStr
-{
+pub trait FloatNumber: Number + Float + Signed {
     /// Copy sign from `sign` - another real number
     fn copysign(self, sign: Self) -> Self;
 
@@ -50,14 +30,11 @@ pub trait RealNumber:
         self * self
     }
 
-    /// Raw transmutation to u32
-    fn to_f32_bits(self) -> u32;
-
     /// Raw transmutation to u64
-    fn to_f64_bits(self) -> u64;
+    fn to_f32_bits(self) -> u32;
 }
 
-impl RealNumber for f64 {
+impl FloatNumber for f64 {
     fn copysign(self, sign: Self) -> Self {
         self.copysign(sign)
     }
@@ -81,7 +58,7 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
-        let mut rng = get_rng_impl(None);
+        let mut rng = rand::thread_rng();
         rng.gen()
     }
 
@@ -96,13 +73,9 @@ impl RealNumber for f64 {
     fn to_f32_bits(self) -> u32 {
         self.to_bits() as u32
     }
-
-    fn to_f64_bits(self) -> u64 {
-        self.to_bits()
-    }
 }
 
-impl RealNumber for f32 {
+impl FloatNumber for f32 {
     fn copysign(self, sign: Self) -> Self {
         self.copysign(sign)
     }
@@ -126,7 +99,7 @@ impl RealNumber for f32 {
     }
 
     fn rand() -> f32 {
-        let mut rng = get_rng_impl(None);
+        let mut rng = rand::thread_rng();
         rng.gen()
     }
 
@@ -140,32 +113,5 @@ impl RealNumber for f32 {
 
     fn to_f32_bits(self) -> u32 {
         self.to_bits()
-    }
-
-    fn to_f64_bits(self) -> u64 {
-        self.to_bits() as u64
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    #[test]
-    fn sigmoid() {
-        assert_eq!(1.0.sigmoid(), 0.7310585786300049);
-        assert_eq!(41.0.sigmoid(), 1.);
-        assert_eq!((-41.0).sigmoid(), 0.);
-    }
-
-    #[test]
-    fn f32_from_string() {
-        assert_eq!(f32::from_str("1.111111").unwrap(), 1.111111)
-    }
-
-    #[test]
-    fn f64_from_string() {
-        assert_eq!(f64::from_str("1.111111111").unwrap(), 1.111111111)
     }
 }

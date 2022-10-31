@@ -10,8 +10,8 @@
 //!
 //! Example:
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::*;
-//! use smartcore::linalg::svd::*;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linalg::traits::svd::*;
 //!
 //! let A = DenseMatrix::from_2d_array(&[
 //!                 &[0.9, 0.4, 0.7],
@@ -34,32 +34,35 @@
 #![allow(non_snake_case)]
 
 use crate::error::Failed;
-use crate::linalg::BaseMatrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
 use std::fmt::Debug;
 
 /// Results of SVD decomposition
 #[derive(Debug, Clone)]
-pub struct SVD<T: RealNumber, M: SVDDecomposableMatrix<T>> {
+pub struct SVD<T: Number + RealNumber, M: SVDDecomposable<T>> {
     /// Left-singular vectors of _A_
     pub U: M,
     /// Right-singular vectors of _A_
     pub V: M,
     /// Singular values of the original matrix
     pub s: Vec<T>,
-    _full: bool,
+    ///
     m: usize,
+    ///
     n: usize,
+    ///
     tol: T,
 }
 
-impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
+impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
     /// Diagonal matrix with singular values
     pub fn S(&self) -> M {
         let mut s = M::zeros(self.U.shape().1, self.V.shape().0);
 
         for i in 0..self.s.len() {
-            s.set(i, i, self.s[i]);
+            s.set((i, i), self.s[i]);
         }
 
         s
@@ -67,7 +70,7 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
 }
 
 /// Trait that implements SVD decomposition routine for any matrix.
-pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
+pub trait SVDDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Solves Ax = b. Overrides original matrix in the process.
     fn svd_solve_mut(self, b: Self) -> Result<Self, Failed> {
         self.svd_mut().and_then(|svd| svd.solve(b))
@@ -106,31 +109,31 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 
             if i < m {
                 for k in i..m {
-                    scale += U.get(k, i).abs();
+                    scale += U.get((k, i)).abs();
                 }
 
                 if scale.abs() > T::epsilon() {
                     for k in i..m {
-                        U.div_element_mut(k, i, scale);
-                        s += U.get(k, i) * U.get(k, i);
+                        U.div_element_mut((k, i), scale);
+                        s += *U.get((k, i)) * *U.get((k, i));
                     }
 
-                    let mut f = U.get(i, i);
-                    g = -RealNumber::copysign(s.sqrt(), f);
+                    let mut f = *U.get((i, i));
+                    g = -<T as RealNumber>::copysign(s.sqrt(), f);
                     let h = f * g - s;
-                    U.set(i, i, f - g);
+                    U.set((i, i), f - g);
                     for j in l - 1..n {
                         s = T::zero();
                         for k in i..m {
-                            s += U.get(k, i) * U.get(k, j);
+                            s += *U.get((k, i)) * *U.get((k, j));
                         }
                         f = s / h;
                         for k in i..m {
-                            U.add_element_mut(k, j, f * U.get(k, i));
+                            U.add_element_mut((k, j), f * *U.get((k, i)));
                         }
                     }
                     for k in i..m {
-                        U.mul_element_mut(k, i, scale);
+                        U.mul_element_mut((k, i), scale);
                     }
                 }
             }
@@ -142,37 +145,37 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
 
             if i < m && i + 1 != n {
                 for k in l - 1..n {
-                    scale += U.get(i, k).abs();
+                    scale += U.get((i, k)).abs();
                 }
 
                 if scale.abs() > T::epsilon() {
                     for k in l - 1..n {
-                        U.div_element_mut(i, k, scale);
-                        s += U.get(i, k) * U.get(i, k);
+                        U.div_element_mut((i, k), scale);
+                        s += *U.get((i, k)) * *U.get((i, k));
                     }
 
-                    let f = U.get(i, l - 1);
-                    g = -RealNumber::copysign(s.sqrt(), f);
+                    let f = *U.get((i, l - 1));
+                    g = -<T as RealNumber>::copysign(s.sqrt(), f);
                     let h = f * g - s;
-                    U.set(i, l - 1, f - g);
+                    U.set((i, l - 1), f - g);
 
                     for (k, rv1_k) in rv1.iter_mut().enumerate().take(n).skip(l - 1) {
-                        *rv1_k = U.get(i, k) / h;
+                        *rv1_k = *U.get((i, k)) / h;
                     }
 
                     for j in l - 1..m {
                         s = T::zero();
                         for k in l - 1..n {
-                            s += U.get(j, k) * U.get(i, k);
+                            s += *U.get((j, k)) * *U.get((i, k));
                         }
 
                         for (k, rv1_k) in rv1.iter().enumerate().take(n).skip(l - 1) {
-                            U.add_element_mut(j, k, s * (*rv1_k));
+                            U.add_element_mut((j, k), s * (*rv1_k));
                         }
                     }
 
                     for k in l - 1..n {
-                        U.mul_element_mut(i, k, scale);
+                        U.mul_element_mut((i, k), scale);
                     }
                 }
             }
@@ -184,24 +187,24 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             if i < n - 1 {
                 if g != T::zero() {
                     for j in l..n {
-                        v.set(j, i, (U.get(i, j) / U.get(i, l)) / g);
+                        v.set((j, i), (*U.get((i, j)) / *U.get((i, l))) / g);
                     }
                     for j in l..n {
                         let mut s = T::zero();
                         for k in l..n {
-                            s += U.get(i, k) * v.get(k, j);
+                            s += *U.get((i, k)) * *v.get((k, j));
                         }
                         for k in l..n {
-                            v.add_element_mut(k, j, s * v.get(k, i));
+                            v.add_element_mut((k, j), s * *v.get((k, i)));
                         }
                     }
                 }
                 for j in l..n {
-                    v.set(i, j, T::zero());
-                    v.set(j, i, T::zero());
+                    v.set((i, j), T::zero());
+                    v.set((j, i), T::zero());
                 }
             }
-            v.set(i, i, T::one());
+            v.set((i, i), T::one());
             g = rv1[i];
             l = i;
         }
@@ -210,7 +213,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             l = i + 1;
             g = w[i];
             for j in l..n {
-                U.set(i, j, T::zero());
+                U.set((i, j), T::zero());
             }
 
             if g.abs() > T::epsilon() {
@@ -218,23 +221,23 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 for j in l..n {
                     let mut s = T::zero();
                     for k in l..m {
-                        s += U.get(k, i) * U.get(k, j);
+                        s += *U.get((k, i)) * *U.get((k, j));
                     }
-                    let f = (s / U.get(i, i)) * g;
+                    let f = (s / *U.get((i, i))) * g;
                     for k in i..m {
-                        U.add_element_mut(k, j, f * U.get(k, i));
+                        U.add_element_mut((k, j), f * *U.get((k, i)));
                     }
                 }
                 for j in i..m {
-                    U.mul_element_mut(j, i, g);
+                    U.mul_element_mut((j, i), g);
                 }
             } else {
                 for j in i..m {
-                    U.set(j, i, T::zero());
+                    U.set((j, i), T::zero());
                 }
             }
 
-            U.add_element_mut(i, i, T::one());
+            U.add_element_mut((i, i), T::one());
         }
 
         for k in (0..n).rev() {
@@ -269,10 +272,10 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                         c = g * h;
                         s = -f * h;
                         for j in 0..m {
-                            let y = U.get(j, nm);
-                            let z = U.get(j, i);
-                            U.set(j, nm, y * c + z * s);
-                            U.set(j, i, z * c - y * s);
+                            let y = *U.get((j, nm));
+                            let z = *U.get((j, i));
+                            U.set((j, nm), y * c + z * s);
+                            U.set((j, i), z * c - y * s);
                         }
                     }
                 }
@@ -282,7 +285,7 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     if z < T::zero() {
                         w[k] = -z;
                         for j in 0..n {
-                            v.set(j, k, -v.get(j, k));
+                            v.set((j, k), -*v.get((j, k)));
                         }
                     }
                     break;
@@ -299,7 +302,8 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 let mut h = rv1[k];
                 let mut f = ((y - z) * (y + z) + (g - h) * (g + h)) / (T::two() * h * y);
                 g = f.hypot(T::one());
-                f = ((x - z) * (x + z) + h * ((y / (f + RealNumber::copysign(g, f))) - h)) / x;
+                f = ((x - z) * (x + z) + h * ((y / (f + <T as RealNumber>::copysign(g, f))) - h))
+                    / x;
                 let mut c = T::one();
                 let mut s = T::one();
 
@@ -319,10 +323,10 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     y *= c;
 
                     for jj in 0..n {
-                        x = v.get(jj, j);
-                        z = v.get(jj, i);
-                        v.set(jj, j, x * c + z * s);
-                        v.set(jj, i, z * c - x * s);
+                        x = *v.get((jj, j));
+                        z = *v.get((jj, i));
+                        v.set((jj, j), x * c + z * s);
+                        v.set((jj, i), z * c - x * s);
                     }
 
                     z = f.hypot(h);
@@ -336,10 +340,10 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                     f = c * g + s * y;
                     x = c * y - s * g;
                     for jj in 0..m {
-                        y = U.get(jj, j);
-                        z = U.get(jj, i);
-                        U.set(jj, j, y * c + z * s);
-                        U.set(jj, i, z * c - y * s);
+                        y = *U.get((jj, j));
+                        z = *U.get((jj, i));
+                        U.set((jj, j), y * c + z * s);
+                        U.set((jj, i), z * c - y * s);
                     }
                 }
 
@@ -366,19 +370,19 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
             for i in inc..n {
                 let sw = w[i];
                 for (k, su_k) in su.iter_mut().enumerate().take(m) {
-                    *su_k = U.get(k, i);
+                    *su_k = *U.get((k, i));
                 }
                 for (k, sv_k) in sv.iter_mut().enumerate().take(n) {
-                    *sv_k = v.get(k, i);
+                    *sv_k = *v.get((k, i));
                 }
                 let mut j = i;
                 while w[j - inc] < sw {
                     w[j] = w[j - inc];
                     for k in 0..m {
-                        U.set(k, j, U.get(k, j - inc));
+                        U.set((k, j), *U.get((k, j - inc)));
                     }
                     for k in 0..n {
-                        v.set(k, j, v.get(k, j - inc));
+                        v.set((k, j), *v.get((k, j - inc)));
                     }
                     j -= inc;
                     if j < inc {
@@ -387,10 +391,10 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
                 }
                 w[j] = sw;
                 for (k, su_k) in su.iter().enumerate().take(m) {
-                    U.set(k, j, *su_k);
+                    U.set((k, j), *su_k);
                 }
                 for (k, sv_k) in sv.iter().enumerate().take(n) {
-                    v.set(k, j, *sv_k);
+                    v.set((k, j), *sv_k);
                 }
             }
             if inc <= 1 {
@@ -401,21 +405,21 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
         for k in 0..n {
             let mut s = 0.;
             for i in 0..m {
-                if U.get(i, k) < T::zero() {
+                if U.get((i, k)) < &T::zero() {
                     s += 1.;
                 }
             }
             for j in 0..n {
-                if v.get(j, k) < T::zero() {
+                if v.get((j, k)) < &T::zero() {
                     s += 1.;
                 }
             }
             if s > (m + n) as f64 / 2. {
                 for i in 0..m {
-                    U.set(i, k, -U.get(i, k));
+                    U.set((i, k), -*U.get((i, k)));
                 }
                 for j in 0..n {
-                    v.set(j, k, -v.get(j, k));
+                    v.set((j, k), -*v.get((j, k)));
                 }
             }
         }
@@ -424,21 +428,12 @@ pub trait SVDDecomposableMatrix<T: RealNumber>: BaseMatrix<T> {
     }
 }
 
-impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
+impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
     pub(crate) fn new(U: M, V: M, s: Vec<T>) -> SVD<T, M> {
         let m = U.shape().0;
         let n = V.shape().0;
-        let _full = s.len() == m.min(n);
         let tol = T::half() * (T::from(m + n).unwrap() + T::one()).sqrt() * s[0] * T::epsilon();
-        SVD {
-            U,
-            V,
-            s,
-            _full,
-            m,
-            n,
-            tol,
-        }
+        SVD { U, V, s, m, n, tol }
     }
 
     pub(crate) fn solve(&self, mut b: M) -> Result<M, Failed> {
@@ -458,7 +453,7 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
                 let mut r = T::zero();
                 if self.s[j] > self.tol {
                     for i in 0..self.m {
-                        r += self.U.get(i, j) * b.get(i, k);
+                        r += *self.U.get((i, j)) * *b.get((i, k));
                     }
                     r /= self.s[j];
                 }
@@ -468,9 +463,9 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
             for j in 0..self.n {
                 let mut r = T::zero();
                 for (jj, tmp_jj) in tmp.iter().enumerate().take(self.n) {
-                    r += self.V.get(j, jj) * (*tmp_jj);
+                    r += *self.V.get((j, jj)) * (*tmp_jj);
                 }
-                b.set(j, k, r);
+                b.set((j, k), r);
             }
         }
 
@@ -481,7 +476,9 @@ impl<T: RealNumber, M: SVDDecomposableMatrix<T>> SVD<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use approx::relative_eq;
+
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn decompose_symmetric() {
@@ -507,8 +504,8 @@ mod tests {
 
         let svd = A.svd().unwrap();
 
-        assert!(V.abs().approximate_eq(&svd.V.abs(), 1e-4));
-        assert!(U.abs().approximate_eq(&svd.U.abs(), 1e-4));
+        assert!(relative_eq!(V.abs(), svd.V.abs(), epsilon = 1e-4));
+        assert!(relative_eq!(U.abs(), svd.U.abs(), epsilon = 1e-4));
         for i in 0..s.len() {
             assert!((s[i] - svd.s[i]).abs() < 1e-4);
         }
@@ -708,8 +705,8 @@ mod tests {
 
         let svd = A.svd().unwrap();
 
-        assert!(V.abs().approximate_eq(&svd.V.abs(), 1e-4));
-        assert!(U.abs().approximate_eq(&svd.U.abs(), 1e-4));
+        assert!(relative_eq!(V.abs(), svd.V.abs(), epsilon = 1e-4));
+        assert!(relative_eq!(U.abs(), svd.U.abs(), epsilon = 1e-4));
         for i in 0..s.len() {
             assert!((s[i] - svd.s[i]).abs() < 1e-4);
         }
@@ -722,7 +719,7 @@ mod tests {
         let expected_w =
             DenseMatrix::from_2d_array(&[&[-0.20, -1.28], &[0.87, 2.22], &[0.47, 0.66]]);
         let w = a.svd_solve_mut(b).unwrap();
-        assert!(w.approximate_eq(&expected_w, 1e-2));
+        assert!(relative_eq!(w, expected_w, epsilon = 1e-2));
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -736,8 +733,6 @@ mod tests {
 
         let a_hat = u.matmul(s).matmul(&v.transpose());
 
-        for (a, a_hat) in a.iter().zip(a_hat.iter()) {
-            assert!((a - a_hat).abs() < 1e-3)
-        }
+        assert!(relative_eq!(a, a_hat, epsilon = 1e-3));
     }
 }

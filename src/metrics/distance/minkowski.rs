@@ -8,14 +8,14 @@
 //! Example:
 //!
 //! ```
-//! use smartcore::math::distance::Distance;
-//! use smartcore::math::distance::minkowski::Minkowski;
+//! use smartcore::metrics::distance::Distance;
+//! use smartcore::metrics::distance::minkowski::Minkowski;
 //!
 //! let x = vec![1., 1.];
 //! let y = vec![2., 2.];
 //!
-//! let l1: f64 = Minkowski { p: 1 }.distance(&x, &y);
-//! let l2: f64 = Minkowski { p: 2 }.distance(&x, &y);
+//! let l1: f64 = Minkowski::new(1).distance(&x, &y);
+//! let l2: f64 = Minkowski::new(2).distance(&x, &y);
 //!
 //! ```
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -23,37 +23,47 @@
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::ArrayView1;
+use crate::numbers::basenum::Number;
 
 use super::Distance;
 
 /// Defines the Minkowski distance of order `p`
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Minkowski {
+pub struct Minkowski<T: Number> {
     /// order, integer
     pub p: u16,
+    _t: PhantomData<T>,
 }
 
-impl<T: RealNumber> Distance<Vec<T>, T> for Minkowski {
-    fn distance(&self, x: &Vec<T>, y: &Vec<T>) -> T {
-        if x.len() != y.len() {
+impl<T: Number> Minkowski<T> {
+    /// instatiate the initial structure
+    pub fn new(p: u16) -> Minkowski<T> {
+        Minkowski { p, _t: PhantomData }
+    }
+}
+
+impl<T: Number, A: ArrayView1<T>> Distance<A> for Minkowski<T> {
+    fn distance(&self, x: &A, y: &A) -> f64 {
+        if x.shape() != y.shape() {
             panic!("Input vector sizes are different");
         }
         if self.p < 1 {
             panic!("p must be at least 1");
         }
 
-        let mut dist = T::zero();
-        let p_t = T::from_u16(self.p).unwrap();
+        let p_t = self.p as f64;
 
-        for i in 0..x.len() {
-            let d = (x[i] - y[i]).abs();
-            dist += d.powf(p_t);
-        }
+        let dist: f64 = x
+            .iterator(0)
+            .zip(y.iterator(0))
+            .map(|(&a, &b)| (a - b).to_f64().unwrap().abs().powf(p_t))
+            .sum();
 
-        dist.powf(T::one() / p_t)
+        dist.powf(1f64 / p_t)
     }
 }
 
@@ -67,9 +77,9 @@ mod tests {
         let a = vec![1., 2., 3.];
         let b = vec![4., 5., 6.];
 
-        let l1: f64 = Minkowski { p: 1 }.distance(&a, &b);
-        let l2: f64 = Minkowski { p: 2 }.distance(&a, &b);
-        let l3: f64 = Minkowski { p: 3 }.distance(&a, &b);
+        let l1: f64 = Minkowski::new(1).distance(&a, &b);
+        let l2: f64 = Minkowski::new(2).distance(&a, &b);
+        let l3: f64 = Minkowski::new(3).distance(&a, &b);
 
         assert!((l1 - 9.0).abs() < 1e-8);
         assert!((l2 - 5.19615242).abs() < 1e-8);
@@ -82,6 +92,6 @@ mod tests {
         let a = vec![1., 2., 3.];
         let b = vec![4., 5., 6.];
 
-        let _: f64 = Minkowski { p: 0 }.distance(&a, &b);
+        let _: f64 = Minkowski::new(0).distance(&a, &b);
     }
 }

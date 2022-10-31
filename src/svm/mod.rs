@@ -22,142 +22,250 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 pub mod svc;
 pub mod svr;
 
+use core::fmt::Debug;
+use std::marker::PhantomData;
+
+#[cfg(feature = "serde")]
+use serde::ser::{SerializeStruct, Serializer};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::error::{Failed, FailedError};
+use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
-/// Defines a kernel function
-pub trait Kernel<T: RealNumber, V: BaseVector<T>>: Clone {
+/// Defines a kernel function.
+/// This is a object-safe trait.
+pub trait Kernel<'a> {
+    #[allow(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
-    fn apply(&self, x_i: &V, x_j: &V) -> T;
+    fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
+    /// Return a serializable name
+    fn name(&self) -> &'a str;
+}
+
+impl<'a> Debug for dyn Kernel<'_> + 'a {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Kernel<f64>")
+    }
+}
+
+impl<'a> Serialize for dyn Kernel<'_> + 'a {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Kernel", 1)?;
+        s.serialize_field("type", &self.name())?;
+        s.end()
+    }
 }
 
 /// Pre-defined kernel functions
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kernels {}
 
-impl Kernels {
-    /// Linear kernel
-    pub fn linear() -> LinearKernel {
-        LinearKernel {}
+impl<'a> Kernels {
+    /// Return a default linear
+    pub fn linear() -> LinearKernel<'a> {
+        LinearKernel::default()
     }
-
-    /// Radial basis function kernel (Gaussian)
-    pub fn rbf<T: RealNumber>(gamma: T) -> RBFKernel<T> {
-        RBFKernel { gamma }
+    /// Return a default RBF
+    pub fn rbf() -> RBFKernel<'a> {
+        RBFKernel::default()
     }
-
-    /// Polynomial kernel
-    /// * `degree` - degree of the polynomial
-    /// * `gamma` - kernel coefficient
-    /// * `coef0` - independent term in kernel function
-    pub fn polynomial<T: RealNumber>(degree: T, gamma: T, coef0: T) -> PolynomialKernel<T> {
-        PolynomialKernel {
-            degree,
-            gamma,
-            coef0,
-        }
+    /// Return a default polynomial
+    pub fn polynomial() -> PolynomialKernel<'a> {
+        PolynomialKernel::default()
     }
-
-    /// Polynomial kernel
-    /// * `degree` - degree of the polynomial
-    /// * `n_features` - number of features in vector
-    pub fn polynomial_with_degree<T: RealNumber>(
-        degree: T,
-        n_features: usize,
-    ) -> PolynomialKernel<T> {
-        let coef0 = T::one();
-        let gamma = T::one() / T::from_usize(n_features).unwrap();
-        Kernels::polynomial(degree, gamma, coef0)
-    }
-
-    /// Sigmoid kernel    
-    /// * `gamma` - kernel coefficient
-    /// * `coef0` - independent term in kernel function
-    pub fn sigmoid<T: RealNumber>(gamma: T, coef0: T) -> SigmoidKernel<T> {
-        SigmoidKernel { gamma, coef0 }
-    }
-
-    /// Sigmoid kernel    
-    /// * `gamma` - kernel coefficient    
-    pub fn sigmoid_with_gamma<T: RealNumber>(gamma: T) -> SigmoidKernel<T> {
-        SigmoidKernel {
-            gamma,
-            coef0: T::one(),
-        }
+    /// Return a default sigmoid
+    pub fn sigmoid() -> SigmoidKernel<'a> {
+        SigmoidKernel::default()
     }
 }
 
 /// Linear Kernel
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LinearKernel {}
+#[derive(Debug, Clone, PartialEq)]
+pub struct LinearKernel<'a> {
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> Default for LinearKernel<'a> {
+    fn default() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
 
 /// Radial basis function (Gaussian) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RBFKernel<T: RealNumber> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct RBFKernel<'a> {
     /// kernel coefficient
-    pub gamma: T,
+    pub gamma: Option<f64>,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> Default for RBFKernel<'a> {
+    fn default() -> Self {
+        Self {
+            gamma: Option::None,
+            phantom: PhantomData,
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl<'a> RBFKernel<'a> {
+    fn with_gamma(mut self, gamma: f64) -> Self {
+        self.gamma = Some(gamma);
+        self
+    }
 }
 
 /// Polynomial kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PolynomialKernel<T: RealNumber> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct PolynomialKernel<'a> {
     /// degree of the polynomial
-    pub degree: T,
+    pub degree: Option<f64>,
     /// kernel coefficient
-    pub gamma: T,
+    pub gamma: Option<f64>,
     /// independent term in kernel function
-    pub coef0: T,
+    pub coef0: Option<f64>,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> Default for PolynomialKernel<'a> {
+    fn default() -> Self {
+        Self {
+            gamma: Option::None,
+            degree: Option::None,
+            coef0: Some(1f64),
+            phantom: PhantomData,
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl<'a> PolynomialKernel<'a> {
+    fn with_params(mut self, degree: f64, gamma: f64, coef0: f64) -> Self {
+        self.degree = Some(degree);
+        self.gamma = Some(gamma);
+        self.coef0 = Some(coef0);
+        self
+    }
+
+    fn with_gamma(mut self, gamma: f64) -> Self {
+        self.gamma = Some(gamma);
+        self
+    }
+
+    fn with_degree(self, degree: f64, n_features: usize) -> Self {
+        self.with_params(degree, 1f64, 1f64 / n_features as f64)
+    }
 }
 
 /// Sigmoid (hyperbolic tangent) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SigmoidKernel<T: RealNumber> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct SigmoidKernel<'a> {
     /// kernel coefficient
-    pub gamma: T,
+    pub gamma: Option<f64>,
     /// independent term in kernel function
-    pub coef0: T,
+    pub coef0: Option<f64>,
+    phantom: PhantomData<&'a ()>,
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for LinearKernel {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
-        x_i.dot(x_j)
+impl<'a> Default for SigmoidKernel<'a> {
+    fn default() -> Self {
+        Self {
+            gamma: Option::None,
+            coef0: Some(1f64),
+            phantom: PhantomData,
+        }
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for RBFKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+#[allow(dead_code)]
+impl<'a> SigmoidKernel<'a> {
+    fn with_params(mut self, gamma: f64, coef0: f64) -> Self {
+        self.gamma = Some(gamma);
+        self.coef0 = Some(coef0);
+        self
+    }
+    fn with_gamma(mut self, gamma: f64) -> Self {
+        self.gamma = Some(gamma);
+        self
+    }
+}
+
+impl<'a> Kernel<'a> for LinearKernel<'a> {
+    fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
+        Ok(x_i.dot(x_j))
+    }
+    fn name(&self) -> &'a str {
+        "Linear"
+    }
+}
+
+impl<'a> Kernel<'a> for RBFKernel<'a> {
+    fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
+        if self.gamma.is_none() {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "gamma should be set, use {Kernel}::default().with_gamma(..)",
+            ));
+        }
         let v_diff = x_i.sub(x_j);
-        (-self.gamma * v_diff.mul(&v_diff).sum()).exp()
+        Ok((-self.gamma.unwrap() * v_diff.mul(&v_diff).sum()).exp())
+    }
+    fn name(&self) -> &'a str {
+        "RBF"
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for PolynomialKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+impl<'a> Kernel<'a> for PolynomialKernel<'a> {
+    fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
+        if self.gamma.is_none() || self.coef0.is_none() || self.degree.is_none() {
+            return Err(Failed::because(
+                FailedError::ParametersError, "gamma, coef0, degree should be set, 
+                                                        use {Kernel}::default().with_{parameter}(..)")
+            );
+        }
         let dot = x_i.dot(x_j);
-        (self.gamma * dot + self.coef0).powf(self.degree)
+        Ok((self.gamma.unwrap() * dot + self.coef0.unwrap()).powf(self.degree.unwrap()))
+    }
+    fn name(&self) -> &'a str {
+        "Polynomial"
     }
 }
 
-impl<T: RealNumber, V: BaseVector<T>> Kernel<T, V> for SigmoidKernel<T> {
-    fn apply(&self, x_i: &V, x_j: &V) -> T {
+impl<'a> Kernel<'a> for SigmoidKernel<'a> {
+    fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
+        if self.gamma.is_none() || self.coef0.is_none() {
+            return Err(Failed::because(
+                FailedError::ParametersError, "gamma, coef0, degree should be set, 
+                                                        use {Kernel}::default().with_{parameter}(..)")
+            );
+        }
         let dot = x_i.dot(x_j);
-        (self.gamma * dot + self.coef0).tanh()
+        Ok(self.gamma.unwrap() * dot + self.coef0.unwrap().tanh())
+    }
+    fn name(&self) -> &'a str {
+        "Sigmoid"
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::svm::Kernels;
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
@@ -165,7 +273,7 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert_eq!(32f64, Kernels::linear().apply(&v1, &v2));
+        assert_eq!(32f64, Kernels::linear().apply(&v1, &v2).unwrap());
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -174,7 +282,13 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert!((0.2265f64 - Kernels::rbf(0.055).apply(&v1, &v2)).abs() < 1e-4);
+        let result = Kernels::rbf()
+            .with_gamma(0.055)
+            .apply(&v1, &v2)
+            .unwrap()
+            .abs();
+
+        assert!((0.2265f64 - result) < 1e-4);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -183,10 +297,13 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert!(
-            (4913f64 - Kernels::polynomial(3.0, 0.5, 1.0).apply(&v1, &v2)).abs()
-                < std::f64::EPSILON
-        );
+        let result = Kernels::polynomial()
+            .with_params(3.0, 0.5, 1.0)
+            .apply(&v1, &v2)
+            .unwrap()
+            .abs();
+
+        assert!((4913f64 - result) < std::f64::EPSILON);
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
@@ -195,6 +312,12 @@ mod tests {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
 
-        assert!((0.3969f64 - Kernels::sigmoid(0.01, 0.1).apply(&v1, &v2)).abs() < 1e-4);
+        let result = Kernels::sigmoid()
+            .with_params(0.01, 0.1)
+            .apply(&v1, &v2)
+            .unwrap()
+            .abs();
+
+        assert!((0.3969f64 - result) < 1e-4);
     }
 }
