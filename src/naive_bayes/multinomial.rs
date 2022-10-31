@@ -33,6 +33,8 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
+use std::fmt;
+
 use num_traits::Unsigned;
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -60,6 +62,18 @@ struct MultinomialNBDistribution<T: Number> {
     feature_count: Vec<Vec<usize>>,
     /// Number of features of each sample
     n_features: usize,
+}
+
+impl<T: Number + Ord + Unsigned> fmt::Display for MultinomialNBDistribution<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "MultinomialNBDistribution: n_features: {:?}",
+            self.n_features
+        )?;
+        writeln!(f, "class_labels: {:?}", self.class_labels)?;
+        Ok(())
+    }
 }
 
 impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
@@ -510,23 +524,22 @@ mod tests {
         assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 2, 1, 0, 1, 0, 2, 0, 0, 2));
     }
 
-    // TODO: implement serialization
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[1, 1, 0, 0, 0, 0],
-    //         &[0, 1, 0, 0, 1, 0],
-    //         &[0, 1, 0, 1, 0, 0],
-    //         &[0, 1, 1, 0, 0, 1],
-    //     ]);
-    //     let y = vec![0, 0, 0, 1];
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[1, 1, 0, 0, 0, 0],
+            &[0, 1, 0, 0, 1, 0],
+            &[0, 1, 0, 1, 0, 0],
+            &[0, 1, 1, 0, 0, 1],
+        ]);
+        let y = vec![0, 0, 0, 1];
 
-    //     let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
-    //     let deserialized_mnb: MultinomialNB<u32, u32, DenseMatrix<u32>, Vec<u32>> =
-    //         serde_json::from_str(&serde_json::to_string(&mnb).unwrap()).unwrap();
+        let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
+        let deserialized_mnb: MultinomialNB<u32, u32, DenseMatrix<u32>, Vec<u32>> =
+            serde_json::from_str(&serde_json::to_string(&mnb).unwrap()).unwrap();
 
-    //     assert_eq!(mnb, deserialized_mnb);
-    // }
+        assert_eq!(mnb, deserialized_mnb);
+    }
 }

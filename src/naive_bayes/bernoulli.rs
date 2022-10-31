@@ -33,6 +33,8 @@
 //! ## References:
 //!
 //! * ["Introduction to Information Retrieval", Manning C. D., Raghavan P., Schutze H., 2009, Chapter 13 ](https://nlp.stanford.edu/IR-book/information-retrieval-book.html)
+use std::fmt;
+
 use num_traits::Unsigned;
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -60,6 +62,18 @@ struct BernoulliNBDistribution<T: Number + Ord + Unsigned> {
     feature_log_prob: Vec<Vec<f64>>,
     /// Number of features of each sample
     n_features: usize,
+}
+
+impl<T: Number + Ord + Unsigned> fmt::Display for BernoulliNBDistribution<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "BernoulliNBDistribution: n_features: {:?}",
+            self.n_features
+        )?;
+        writeln!(f, "class_labels: {:?}", self.class_labels)?;
+        Ok(())
+    }
 }
 
 impl<T: Number + Ord + Unsigned> PartialEq for BernoulliNBDistribution<T> {
@@ -598,23 +612,22 @@ mod tests {
         assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0));
     }
 
-    // TODO: implement serialization
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[1, 1, 0, 0, 0, 0],
-    //         &[0, 1, 0, 0, 1, 0],
-    //         &[0, 1, 0, 1, 0, 0],
-    //         &[0, 1, 1, 0, 0, 1],
-    //     ]);
-    //     let y: Vec<u32> = vec![0, 0, 0, 1];
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[1, 1, 0, 0, 0, 0],
+            &[0, 1, 0, 0, 1, 0],
+            &[0, 1, 0, 1, 0, 0],
+            &[0, 1, 1, 0, 0, 1],
+        ]);
+        let y: Vec<u32> = vec![0, 0, 0, 1];
 
-    //     let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
-    //     let deserialized_bnb: BernoulliNB<i32, u32, DenseMatrix<i32>, Vec<u32>> =
-    //         serde_json::from_str(&serde_json::to_string(&bnb).unwrap()).unwrap();
+        let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
+        let deserialized_bnb: BernoulliNB<i32, u32, DenseMatrix<i32>, Vec<u32>> =
+            serde_json::from_str(&serde_json::to_string(&bnb).unwrap()).unwrap();
 
-    //     assert_eq!(bnb, deserialized_bnb);
-    // }
+        assert_eq!(bnb, deserialized_bnb);
+    }
 }
