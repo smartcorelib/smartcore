@@ -307,7 +307,10 @@ mod tests {
         {
             let mut x_s = x.slice_mut(0..5);
             x_s.add_scalar_mut(1.0);
-            assert_eq!(vec![1.0, 1.0, 1.0, 1.0, 1.0], x_s.iterator(0).copied().collect::<Vec<f32>>());
+            assert_eq!(
+                vec![1.0, 1.0, 1.0, 1.0, 1.0],
+                x_s.iterator(0).copied().collect::<Vec<f32>>()
+            );
         }
 
         assert_eq!(1.0, x.slice(2..3).min());
