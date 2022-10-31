@@ -30,6 +30,8 @@
 //! let nb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
 //! let y_hat = nb.predict(&x).unwrap();
 //! ```
+use std::fmt;
+
 use num_traits::Unsigned;
 
 use crate::api::{Predictor, SupervisedEstimator};
@@ -59,6 +61,18 @@ struct CategoricalNBDistribution<T: Number + Unsigned> {
     /// for each feature. Each array provides the number of samples
     /// encountered for each class and category of the specific feature.
     category_count: Vec<Vec<Vec<usize>>>,
+}
+
+impl<T: Number + Ord + Unsigned> fmt::Display for CategoricalNBDistribution<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "CategoricalNBDistribution: n_features: {:?}",
+            self.n_features
+        )?;
+        writeln!(f, "class_labels: {:?}", self.class_labels)?;
+        Ok(())
+    }
 }
 
 impl<T: Number + Unsigned> PartialEq for CategoricalNBDistribution<T> {
@@ -521,34 +535,33 @@ mod tests {
         assert_eq!(y_hat, vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1]);
     }
 
-    // TODO: implement serialization
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[3, 4, 0, 1],
-    //         &[3, 0, 0, 1],
-    //         &[4, 4, 1, 2],
-    //         &[4, 2, 4, 3],
-    //         &[4, 2, 4, 2],
-    //         &[4, 1, 1, 0],
-    //         &[1, 1, 1, 1],
-    //         &[0, 4, 1, 0],
-    //         &[0, 3, 2, 1],
-    //         &[0, 3, 1, 1],
-    //         &[3, 4, 0, 1],
-    //         &[3, 4, 2, 4],
-    //         &[0, 3, 1, 2],
-    //         &[0, 4, 1, 2],
-    //     ]);
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[3, 4, 0, 1],
+            &[3, 0, 0, 1],
+            &[4, 4, 1, 2],
+            &[4, 2, 4, 3],
+            &[4, 2, 4, 2],
+            &[4, 1, 1, 0],
+            &[1, 1, 1, 1],
+            &[0, 4, 1, 0],
+            &[0, 3, 2, 1],
+            &[0, 3, 1, 1],
+            &[3, 4, 0, 1],
+            &[3, 4, 2, 4],
+            &[0, 3, 1, 2],
+            &[0, 4, 1, 2],
+        ]);
 
-    //     let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
-    //     let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
+        let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
+        let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
 
-    //     let deserialized_cnb: CategoricalNB<u32, DenseMatrix<u32>, Vec<u32>> =
-    //         serde_json::from_str(&serde_json::to_string(&cnb).unwrap()).unwrap();
+        let deserialized_cnb: CategoricalNB<u32, DenseMatrix<u32>, Vec<u32>> =
+            serde_json::from_str(&serde_json::to_string(&cnb).unwrap()).unwrap();
 
-    //     assert_eq!(cnb, deserialized_cnb);
-    // }
+        assert_eq!(cnb, deserialized_cnb);
+    }
 }
