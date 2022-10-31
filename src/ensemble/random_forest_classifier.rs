@@ -820,9 +820,7 @@ mod tests {
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
         ]);
-        let y = vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        ];
+        let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let classifier = RandomForestClassifier::fit(
             &x,
@@ -832,7 +830,7 @@ mod tests {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
-                n_trees: 100,  // this is n_estimators in sklearn
+                n_trees: 100, // this is n_estimators in sklearn
                 m: Option::None,
                 keep_samples: false,
                 seed: 0,
