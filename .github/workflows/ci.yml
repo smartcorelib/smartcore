@@ -19,7 +19,7 @@ jobs:
             { os: "ubuntu", target: "i686-unknown-linux-gnu" },
             { os: "ubuntu", target: "wasm32-unknown-unknown" },
             { os: "macos", target: "aarch64-apple-darwin" },
-            { os: "wasi", target: "wasm32-wasi" },
+            { os: "ubuntu", target: "wasm32-wasi" },
           ]
     env:
       TZ: "/usr/share/zoneinfo/your/location"
