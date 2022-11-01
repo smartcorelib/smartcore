@@ -12,23 +12,24 @@ readme = "README.md"
 keywords = ["machine-learning", "statistical", "ai", "optimization", "linear-algebra"]
 categories = ["science"]
 
-[features]
-default = ["datasets", "serde"]
-ndarray-bindings = ["ndarray"]
-datasets = ["rand_distr", "std"]
-std = ["rand/std", "rand/std_rng"]
-# wasm32 only
-js = ["getrandom/js"]
-
 [dependencies]
 approx = "0.5.1"
 cfg-if = "1.0.0"
 ndarray = { version = "0.15", optional = true }
 num-traits = "0.2.12"
 num = "0.4"
-rand = { version = "0.8", default-features = false, features = ["small_rng"] }
+rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+default = ["serde", "datasets"]
+serde = ["dep:serde"]
+ndarray-bindings = ["dep:ndarray"]
+datasets = ["dep:rand_distr", "std"]
+std = ["rand/std_rng", "rand/std"]
+# wasm32 only
+js = ["getrandom/js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", optional = true }
