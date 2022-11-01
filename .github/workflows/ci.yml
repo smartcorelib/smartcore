@@ -19,7 +19,7 @@ jobs:
             { os: "ubuntu", target: "i686-unknown-linux-gnu" },
             { os: "ubuntu", target: "wasm32-unknown-unknown" },
             { os: "macos", target: "aarch64-apple-darwin" },
-            { os: "wasi", target: "wasm32-wasi" },
+            { os: "ubuntu", target: "wasm32-wasi" },
           ]
     env:
       TZ: "/usr/share/zoneinfo/your/location"
@@ -43,6 +43,9 @@ jobs:
       - name: Install test runner for wasm
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install wasmtime
+         if: matrix.platform.target == 'wasm32-wasi'
+         run: curl https://wasmtime.dev/install.sh -sSf | bash
       - name: Install test runner for wasi
         if: matrix.platform.target == 'wasm32-wasi'
         run: |
@@ -65,5 +68,5 @@ jobs:
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: wasm-pack test --node -- --all-features
       - name: Tests in WASI
-        if: matrix.platform.target == 'wasm32‑wasi'
+        if: matrix.platform.target == 'wasm32-wasi'
         run: cargo wasi test -- --features default --node
