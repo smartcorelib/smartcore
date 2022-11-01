@@ -65,5 +65,5 @@ jobs:
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: wasm-pack test --node -- --all-features
       - name: Tests in WASI
-        if: matrix.platform.target == 'wasm32‑wasi'
+        if: matrix.platform.target == 'wasm32-wasi'
         run: cargo wasi test -- --features default --node
