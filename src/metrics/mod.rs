@@ -55,7 +55,7 @@
 pub mod accuracy;
 // TODO: reimplement AUC
 // /// Computes Area Under the Receiver Operating Characteristic Curve (ROC AUC) from prediction scores.
-// pub mod auc;
+pub mod auc;
 /// Compute the homogeneity, completeness and V-Measure scores.
 pub mod cluster_hcv;
 pub(crate) mod cluster_helpers;
