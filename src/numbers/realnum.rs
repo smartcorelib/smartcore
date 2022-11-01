@@ -63,6 +63,7 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
+        // TODO: to be implemented, see issue smartcore#214
         1.0
     }
 
