@@ -53,11 +53,7 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
     /// AUC score.
     /// * `y_true` - ground truth (correct) labels.
     /// * `y_pred_prob` - probability estimates, as returned by a classifier.
-    fn get_score(
-        &self,
-        y_true: &dyn ArrayView1<T>,
-        y_pred_prob: &dyn ArrayView1<T>,
-    ) -> f64 {
+    fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred_prob: &dyn ArrayView1<T>) -> f64 {
         let mut pos = T::zero();
         let mut neg = T::zero();
 
@@ -76,7 +72,8 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
             }
         }
 
-        let y_pred: Vec<T> = Array1::<T>::from_iterator(y_pred_prob.iterator(0).copied(), y_pred_prob.shape());
+        let y_pred: Vec<T> =
+            Array1::<T>::from_iterator(y_pred_prob.iterator(0).copied(), y_pred_prob.shape());
         // TODO: try to use `crate::algorithm::sort::quick_sort` here
         let label_idx: Vec<usize> = y_pred.argsort();
 
