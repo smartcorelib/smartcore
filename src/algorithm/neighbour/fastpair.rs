@@ -174,7 +174,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     ///
     /// Brute force algorithm, used only for comparison and testing
     ///
-    #[cfg(feature = "fp_bench")]
+    #[allow(dead_code)]
     pub fn closest_pair_brute(&self) -> PairwiseDistance<T> {
         use itertools::Itertools;
         let m = self.samples.shape().0;
