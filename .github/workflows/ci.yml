@@ -43,9 +43,6 @@ jobs:
       - name: Install test runner for wasm
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Install wasmtime
-         if: matrix.platform.target == 'wasm32-wasi'
-         run: curl https://wasmtime.dev/install.sh -sSf | bash
       - name: Install test runner for wasi
         if: matrix.platform.target == 'wasm32-wasi'
         run: |
