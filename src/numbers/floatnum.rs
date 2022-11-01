@@ -1,5 +1,3 @@
-use rand::Rng;
-
 use num_traits::{Float, Signed};
 
 use crate::numbers::basenum::Number;
@@ -58,6 +56,7 @@ impl FloatNumber for f64 {
     }
 
     fn rand() -> f64 {
+        use rand::Rng;
         let mut rng = rand::thread_rng();
         rng.gen()
     }
@@ -99,6 +98,7 @@ impl FloatNumber for f32 {
     }
 
     fn rand() -> f32 {
+        use rand::Rng;
         let mut rng = rand::thread_rng();
         rng.gen()
     }
