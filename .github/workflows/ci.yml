@@ -45,7 +45,11 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install test runner for wasi
         if: matrix.platform.target == 'wasm32-wasi'
-        run: curl https://wasmtime.dev/install.sh -sSf | bash && cargo install cargo-wasi
+        run: |
+            curl https://wasmtime.dev/install.sh -sSf | bash
+            export WASMTIME_HOME="$HOME/.wasmtime"
+            export PATH="$WASMTIME_HOME/bin:$PATH"
+            cargo install cargo-wasi
       - name: Stable Build
         uses: actions-rs/cargo@v1
         with:
