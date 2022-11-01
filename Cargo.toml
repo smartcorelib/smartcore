@@ -45,6 +45,7 @@ wasm-bindgen-test = "0.3"
 [profile.bench]
 debug = true
 
+[workspace]
 resolver = "2"
 
 [profile.test]
