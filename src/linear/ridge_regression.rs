@@ -443,7 +443,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn ridge_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -500,7 +503,7 @@ mod tests {
     }
 
     // TODO: implement serialization for new DenseMatrix
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
     // #[test]
     // #[cfg(feature = "serde")]
     // fn serde() {

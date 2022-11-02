@@ -810,7 +810,10 @@ mod tests {
     use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_symmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -841,7 +844,10 @@ mod tests {
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_asymmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -872,7 +878,10 @@ mod tests {
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_complex() {
         let A = DenseMatrix::from_2d_array(&[
