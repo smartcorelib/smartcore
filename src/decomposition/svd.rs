@@ -237,7 +237,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn svd_decompose() {
         // https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/USArrests.html
@@ -316,7 +319,7 @@ mod tests {
 
     // Disable this test for now
     // TODO: implement deserialization for new DenseMatrix
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
     // #[test]
     // #[cfg(feature = "serde")]
     // fn serde() {
