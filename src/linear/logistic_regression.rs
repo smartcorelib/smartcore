@@ -577,6 +577,8 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "datasets")]
     use crate::dataset::generator::make_blobs;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
@@ -751,6 +753,7 @@ mod tests {
         assert_eq!(y_hat, vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
     }
 
+    #[cfg(feature = "datasets")]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lr_fit_predict_multiclass() {
@@ -778,6 +781,7 @@ mod tests {
         assert!(reg_coeff_sum < coeff);
     }
 
+    #[cfg(feature = "datasets")]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[test]
     fn lr_fit_predict_binary() {

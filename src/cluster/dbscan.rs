@@ -491,10 +491,12 @@ mod tests {
 
         assert_eq!(dbscan, deserialized_dbscan);
     }
-    use crate::dataset::generator;
 
+    #[cfg(feature = "datasets")]
     #[test]
     fn from_vec() {
+        use crate::dataset::generator;
+
         // Generate three blobs
         let blobs = generator::make_blobs(100, 2, 3);
         let x: DenseMatrix<f32> = DenseMatrix::from_iterator(blobs.data.into_iter(), 100, 2, 0);
