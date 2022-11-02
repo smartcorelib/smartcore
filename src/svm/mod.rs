@@ -269,7 +269,10 @@ mod tests {
     use super::*;
     use crate::svm::Kernels;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn linear_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -278,7 +281,10 @@ mod tests {
         assert_eq!(32f64, Kernels::linear().apply(&v1, &v2).unwrap());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn rbf_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -293,7 +299,10 @@ mod tests {
         assert!((0.2265f64 - result) < 1e-4);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn polynomial_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -308,7 +317,10 @@ mod tests {
         assert!((4913f64 - result) < std::f64::EPSILON);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn sigmoid_kernel() {
         let v1 = vec![1., 2., 3.];

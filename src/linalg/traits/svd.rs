@@ -479,7 +479,10 @@ mod tests {
     use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_symmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -510,7 +513,10 @@ mod tests {
             assert!((s[i] - svd.s[i]).abs() < 1e-4);
         }
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_asymmetric() {
         let A = DenseMatrix::from_2d_array(&[
@@ -711,7 +717,10 @@ mod tests {
             assert!((s[i] - svd.s[i]).abs() < 1e-4);
         }
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn solve() {
         let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
@@ -722,7 +731,10 @@ mod tests {
         assert!(relative_eq!(w, expected_w, epsilon = 1e-2));
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_restore() {
         let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0, 4.0], &[5.0, 6.0, 7.0, 8.0]]);

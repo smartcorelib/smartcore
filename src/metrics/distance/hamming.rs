@@ -70,7 +70,10 @@ impl<T: Number, A: ArrayView1<T>> Distance<A> for Hamming<T> {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn hamming_distance() {
         let a = vec![1, 0, 0, 1, 0, 0, 1];

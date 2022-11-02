@@ -496,7 +496,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_bernoulli_naive_bayes() {
         // Tests that BernoulliNB when alpha=1.0 gives the same values as
@@ -551,7 +554,10 @@ mod tests {
         assert_eq!(y_hat, &[1]);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn bernoulli_nb_scikit_parity() {
         let x = DenseMatrix::from_2d_array(&[
@@ -612,7 +618,10 @@ mod tests {
         assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0));
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

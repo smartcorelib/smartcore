@@ -159,7 +159,10 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_kfold_return_test_indices_simple() {
         let k = KFold {
@@ -175,7 +178,10 @@ mod tests {
         assert_eq!(test_indices[2], (22..33).collect::<Vec<usize>>());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_kfold_return_test_indices_odd() {
         let k = KFold {
@@ -191,7 +197,10 @@ mod tests {
         assert_eq!(test_indices[2], (23..34).collect::<Vec<usize>>());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_kfold_return_test_mask_simple() {
         let k = KFold {
@@ -218,7 +227,10 @@ mod tests {
         }
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_kfold_return_split_simple() {
         let k = KFold {
@@ -235,7 +247,10 @@ mod tests {
         assert_eq!(train_test_splits[1].1, (11..22).collect::<Vec<usize>>());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_kfold_return_split_simple_shuffle() {
         let k = KFold {
@@ -251,7 +266,10 @@ mod tests {
         assert_eq!(train_test_splits[1].1.len(), 11_usize);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn numpy_parity_test() {
         let k = KFold {
@@ -273,7 +291,10 @@ mod tests {
         }
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn numpy_parity_test_shuffle() {
         let k = KFold {

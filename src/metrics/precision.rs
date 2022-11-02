@@ -95,7 +95,10 @@ impl<T: RealNumber> Metrics<T> for Precision<T> {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn precision() {
         let y_true: Vec<f64> = vec![0., 1., 1., 0.];
@@ -114,7 +117,10 @@ mod tests {
         assert!((score3 - 0.5).abs() < 1e-8);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn precision_multiclass() {
         let y_true: Vec<f64> = vec![0., 0., 0., 1., 1., 1., 2., 2., 2.];

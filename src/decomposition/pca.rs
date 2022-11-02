@@ -446,7 +446,10 @@ mod tests {
             &[6.8, 161.0, 60.0, 15.6],
         ])
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn pca_components() {
         let us_arrests = us_arrests_data();
@@ -466,7 +469,10 @@ mod tests {
             epsilon = 1e-3
         ));
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_covariance() {
         let us_arrests = us_arrests_data();
@@ -579,7 +585,10 @@ mod tests {
         ));
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose_correlation() {
         let us_arrests = us_arrests_data();
@@ -700,7 +709,7 @@ mod tests {
 
     // Disable this test for now
     // TODO: implement deserialization for new DenseMatrix
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
     // #[test]
     // #[cfg(feature = "serde")]
     // fn pca_serde() {
