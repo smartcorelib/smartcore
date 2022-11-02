@@ -215,7 +215,10 @@ pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
 /// AUC score, see [AUC](auc/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
-pub fn roc_auc_score<T: Number + RealNumber + FloatNumber + PartialOrd, V: ArrayView1<T> + Array1<T> + Array1<T>>(
+pub fn roc_auc_score<
+    T: Number + RealNumber + FloatNumber + PartialOrd,
+    V: ArrayView1<T> + Array1<T> + Array1<T>,
+>(
     y_true: &V,
     y_pred_probabilities: &V,
 ) -> f64 {
