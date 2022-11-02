@@ -24,6 +24,8 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 pub mod svc;
 pub mod svr;
+/// search parameters
+pub mod search;
 
 use core::fmt::Debug;
 use std::marker::PhantomData;
