@@ -24,15 +24,15 @@ jobs:
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Cache .cargo and target
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo
             ./target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -66,3 +66,34 @@ jobs:
           export WASMTIME_HOME="$HOME/.wasmtime"
           export PATH="$WASMTIME_HOME/bin:$PATH"
           cargo install cargo-wasi && cargo wasi test
+
+  check_features:
+    runs-on: "${{ matrix.platform.os }}-latest"
+    strategy:
+      matrix:
+        platform: [{ os: "ubuntu" }]
+        features: ["--features serde", "--features datasets", ""]
+    env:
+      TZ: "/usr/share/zoneinfo/your/location"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache .cargo and target
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-cargo-features-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-features-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+          profile: minimal
+          default: true
+      - name: Stable Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --no-default-features ${{ matrix.features }}

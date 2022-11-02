@@ -133,7 +133,7 @@ pub struct SVCParameters<
 pub struct SVC<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     classes: Option<Vec<TY>>,
     instances: Option<Vec<Vec<TX>>>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     parameters: Option<&'a SVCParameters<'a, TX, TY, X, Y>>,
     w: Option<Vec<TX>>,
     b: Option<TX>,

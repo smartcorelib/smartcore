@@ -71,8 +71,8 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
         x
     }
 
-    /// (reference)[http://en.wikipedia.org/wiki/Arithmetic_mean]
-    /// Taken from statistical
+    /// <http://en.wikipedia.org/wiki/Arithmetic_mean>
+    /// Taken from `statistical`
     /// The MIT License (MIT)
     /// Copyright (c) 2015 Jeff Belgum
     fn _mean_of_vector(v: &[T]) -> T {
@@ -97,7 +97,7 @@ pub trait MatrixStats<T: RealNumber>: ArrayView2<T> + Array2<T> {
         sum
     }
 
-    /// (Sample variance)[http://en.wikipedia.org/wiki/Variance#Sample_variance]
+    /// <http://en.wikipedia.org/wiki/Variance#Sample_variance>
     /// Taken from statistical
     /// The MIT License (MIT)
     /// Copyright (c) 2015 Jeff Belgum
