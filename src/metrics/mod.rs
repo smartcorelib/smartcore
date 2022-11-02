@@ -84,7 +84,7 @@ use std::marker::PhantomData;
 /// A trait to be implemented by all metrics
 pub trait Metrics<T> {
     /// instantiate a new Metrics trait-object
-    /// https://doc.rust-lang.org/error-index.html#E0038
+    /// <https://doc.rust-lang.org/error-index.html#E0038>
     fn new() -> Self
     where
         Self: Sized;
@@ -133,10 +133,10 @@ impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
         f1::F1::new_with(beta)
     }
 
-    // /// Area Under the Receiver Operating Characteristic Curve (ROC AUC), see [AUC](auc/index.html).
-    // pub fn roc_auc_score() -> auc::AUC<T> {
-    //     auc::AUC::<T>::new()
-    // }
+    /// Area Under the Receiver Operating Characteristic Curve (ROC AUC), see [AUC](auc/index.html).
+    pub fn roc_auc_score() -> auc::AUC<T> {
+        auc::AUC::<T>::new()
+    }
 }
 
 impl<T: Number + Ord> ClassificationMetricsOrd<T> {
@@ -212,16 +212,16 @@ pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
     obj.get_score(y_true, y_pred)
 }
 
-// /// AUC score, see [AUC](auc/index.html).
-// /// * `y_true` - cround truth (correct) labels.
-// /// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
-// pub fn roc_auc_score<T: Number + PartialOrd, V: ArrayView1<T> + Array1<T> + Array1<T>>(
-//     y_true: &V,
-//     y_pred_probabilities: &V,
-// ) -> T {
-//     let obj = ClassificationMetrics::<T>::roc_auc_score();
-//     obj.get_score(y_true, y_pred_probabilities)
-// }
+/// AUC score, see [AUC](auc/index.html).
+/// * `y_true` - cround truth (correct) labels.
+/// * `y_pred_probabilities` - probability estimates, as returned by a classifier.
+pub fn roc_auc_score<T: Number + RealNumber + FloatNumber + PartialOrd, V: ArrayView1<T> + Array1<T> + Array1<T>>(
+    y_true: &V,
+    y_pred_probabilities: &V,
+) -> f64 {
+    let obj = ClassificationMetrics::<T>::roc_auc_score();
+    obj.get_score(y_true, y_pred_probabilities)
+}
 
 /// Computes mean squared error, see [mean squared error](mean_squared_error/index.html).
 /// * `y_true` - Ground truth (correct) target values.
