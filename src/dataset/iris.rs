@@ -70,7 +70,10 @@ mod tests {
     //     assert!(serialize_data(&dataset, "iris.xy").is_ok());
     // }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn iris_dataset() {
         let dataset = load_dataset();

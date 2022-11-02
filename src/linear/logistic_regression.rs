@@ -598,7 +598,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn multiclass_objective_f() {
         let x = DenseMatrix::from_2d_array(&[
@@ -655,7 +658,10 @@ mod tests {
         assert!((g[0].abs() - 32.0).abs() < 1e-4);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn binary_objective_f() {
         let x = DenseMatrix::from_2d_array(&[
@@ -714,7 +720,10 @@ mod tests {
         assert!((g[2] - 3.8693).abs() < 1e-4);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn lr_fit_predict() {
         let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
@@ -754,7 +763,10 @@ mod tests {
     }
 
     #[cfg(feature = "datasets")]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn lr_fit_predict_multiclass() {
         let blobs = make_blobs(15, 4, 3);
@@ -782,7 +794,10 @@ mod tests {
     }
 
     #[cfg(feature = "datasets")]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn lr_fit_predict_binary() {
         let blobs = make_blobs(20, 4, 2);
@@ -813,7 +828,7 @@ mod tests {
     }
 
     // TODO: serialization for the new DenseMatrix needs to be implemented
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
     // #[test]
     // #[cfg(feature = "serde")]
     // fn serde() {
@@ -844,7 +859,10 @@ mod tests {
     //     assert_eq!(lr, deserialized_lr);
     // }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn lr_fit_predict_iris() {
         let x = DenseMatrix::from_2d_array(&[

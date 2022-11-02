@@ -102,7 +102,10 @@ pub fn mutual_info_score(contingency: &[Vec<usize>]) -> f64 {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn contingency_matrix_test() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];
@@ -114,7 +117,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn entropy_test() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];
@@ -122,7 +128,10 @@ mod tests {
         assert!((1.2770 - entropy(&v1).unwrap() as f64).abs() < 1e-4);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn mutual_info_score_test() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];

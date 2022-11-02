@@ -76,7 +76,10 @@ impl<T: Number + FloatNumber> Metrics<T> for MeanSquareError<T> {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn mean_squared_error() {
         let y_true: Vec<f64> = vec![3., -0.5, 2., 7.];
