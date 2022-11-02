@@ -52,6 +52,7 @@ impl<'a> Debug for dyn Kernel<'_> + 'a {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'a> Serialize for dyn Kernel<'_> + 'a {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -64,7 +65,8 @@ impl<'a> Serialize for dyn Kernel<'_> + 'a {
 }
 
 /// Pre-defined kernel functions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Kernels {}
 
 impl<'a> Kernels {

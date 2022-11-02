@@ -92,7 +92,7 @@ pub struct SVRParameters<'a, T: Number + RealNumber> {
     pub c: T,
     /// Tolerance for stopping criterion.
     pub tol: T,
-    #[serde(skip_deserializing)]
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<&'a dyn Kernel<'a>>,
 }
