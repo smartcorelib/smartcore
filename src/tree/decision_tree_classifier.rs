@@ -673,7 +673,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let mut is_pure = true;
         for i in 0..n_rows {
             if visitor.samples[i] > 0 {
-                if label == Option::None {
+                if label.is_none() {
                     label = Option::Some(visitor.y[i]);
                 } else if visitor.y[i] != label.unwrap() {
                     is_pure = false;

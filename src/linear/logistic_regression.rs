@@ -518,12 +518,9 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
             for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
                 result.set(
                     i,
-                    self.classes()[if RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half()
-                    {
-                        1
-                    } else {
-                        0
-                    }],
+                    self.classes()[usize::from(
+                        RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half(),
+                    )],
                 );
             }
         } else {

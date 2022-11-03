@@ -511,7 +511,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             match queue.pop_front() {
                 Some(node_id) => {
                     let node = &self.nodes()[node_id];
-                    if node.true_child == None && node.false_child == None {
+                    if node.true_child.is_none() && node.false_child.is_none() {
                         result = node.output;
                     } else if x.get((row, node.split_feature)).to_f64().unwrap()
                         <= node.split_value.unwrap_or(std::f64::NAN)
@@ -557,7 +557,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             self.find_best_split(visitor, n, sum, parent_gain, *variable);
         }
 
-        self.nodes()[visitor.node].split_score != Option::None
+        self.nodes()[visitor.node].split_score.is_some()
     }
 
     fn find_best_split(
