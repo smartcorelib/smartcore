@@ -107,6 +107,7 @@ mod test {
     use std::fs;
     use std::io::Read;
     use std::path;
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_temporary_text_file() {
         let path_of_temporary_file;
@@ -126,7 +127,7 @@ mod test {
         // should have been cleaned up.
         assert!(!path::Path::new(&path_of_temporary_file).exists())
     }
-
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_string_to_file() {
         let path_of_test_file = "test.file";

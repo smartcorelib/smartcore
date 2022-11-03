@@ -49,11 +49,9 @@ resolver = "2"
 [profile.test]
 debug = 1
 opt-level = 3
-split-debuginfo = "unpacked"
 
 [profile.release]
 strip = true 
-debug = 1
 lto = true
 codegen-units = 1
 overflow-checks = true
