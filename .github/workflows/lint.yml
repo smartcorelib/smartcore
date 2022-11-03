@@ -1,0 +1,41 @@
+name: Lint checks
+
+on:
+  push:
+    branches: [ main, development ]
+  pull_request:
+    branches: [ development ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      TZ: "/usr/share/zoneinfo/your/location"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache .cargo and target
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-lint-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-lint-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          default: true
+      - run: rustup component add rustfmt
+      - name: Check formt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - run: rustup component add clippy
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features -- -Drust-2018-idioms -Dwarnings

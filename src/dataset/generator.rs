@@ -48,7 +48,7 @@ pub fn make_blobs(
 }
 
 /// Make a large circle containing a smaller circle in 2d.
-pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32, f32> {
+pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32, u32> {
     if !(0.0..1.0).contains(&factor) {
         panic!("'factor' has to be between 0 and 1.");
     }
@@ -79,7 +79,7 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
 
     Dataset {
         data: x,
-        target: y,
+        target: y.into_iter().map(|x| x as u32).collect(),
         num_samples,
         num_features: 2,
         feature_names: (0..2).map(|n| n.to_string()).collect(),
@@ -89,7 +89,7 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
 }
 
 /// Make two interleaving half circles in 2d
-pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, f32> {
+pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, u32> {
     let num_samples_out = num_samples / 2;
     let num_samples_in = num_samples - num_samples_out;
 
@@ -116,7 +116,7 @@ pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, f32> {
 
     Dataset {
         data: x,
-        target: y,
+        target: y.into_iter().map(|x| x as u32).collect(),
         num_samples,
         num_features: 2,
         feature_names: (0..2).map(|n| n.to_string()).collect(),
@@ -137,6 +137,10 @@ mod tests {
 
     use super::*;
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_make_blobs() {
         let dataset = make_blobs(10, 2, 3);
@@ -149,6 +153,10 @@ mod tests {
         assert_eq!(dataset.num_samples, 10);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_make_circles() {
         let dataset = make_circles(10, 0.5, 0.05);
@@ -161,6 +169,10 @@ mod tests {
         assert_eq!(dataset.num_samples, 10);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_make_moons() {
         let dataset = make_moons(10, 0.05);

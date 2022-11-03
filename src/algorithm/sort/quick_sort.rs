@@ -1,4 +1,4 @@
-use num_traits::Float;
+use num_traits::Num;
 
 pub trait QuickArgSort {
     fn quick_argsort_mut(&mut self) -> Vec<usize>;
@@ -6,7 +6,7 @@ pub trait QuickArgSort {
     fn quick_argsort(&self) -> Vec<usize>;
 }
 
-impl<T: Float> QuickArgSort for Vec<T> {
+impl<T: Num + PartialOrd + Copy> QuickArgSort for Vec<T> {
     fn quick_argsort(&self) -> Vec<usize> {
         let mut v = self.clone();
         v.quick_argsort_mut()
@@ -113,6 +113,10 @@ impl<T: Float> QuickArgSort for Vec<T> {
 mod tests {
     use super::*;
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn with_capacity() {
         let arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];

@@ -3,8 +3,8 @@
 //! Encode a series of categorical features as a one-hot numeric array.
 
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array1;
+use crate::numbers::realnum::RealNumber;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -132,27 +132,25 @@ where
     pub fn get_one_hot<U, V>(&self, category: &C) -> Option<V>
     where
         U: RealNumber,
-        V: BaseVector<U>,
+        V: Array1<U>,
     {
-        match self.get_num(category) {
-            None => None,
-            Some(&idx) => Some(make_one_hot::<U, V>(idx, self.num_categories)),
-        }
+        self.get_num(category)
+            .map(|&idx| make_one_hot::<U, V>(idx, self.num_categories))
     }
 
     /// Invert one-hot vector, back to the category
     pub fn invert_one_hot<U, V>(&self, one_hot: V) -> Result<C, Failed>
     where
         U: RealNumber,
-        V: BaseVector<U>,
+        V: Array1<U>,
     {
         let pos = U::one();
 
-        let oh_it = (0..one_hot.len()).map(|idx| one_hot.get(idx));
+        let oh_it = (0..one_hot.shape()).map(|idx| one_hot.get(idx));
 
         let s: Vec<usize> = oh_it
             .enumerate()
-            .filter_map(|(idx, v)| if v == pos { Some(idx) } else { None })
+            .filter_map(|(idx, v)| if *v == pos { Some(idx) } else { None })
             .collect();
 
         if s.len() == 1 {
@@ -189,7 +187,7 @@ where
 pub fn make_one_hot<T, V>(category_idx: usize, num_categories: usize) -> V
 where
     T: RealNumber,
-    V: BaseVector<T>,
+    V: Array1<T>,
 {
     let pos = T::one();
     let mut z = V::zeros(num_categories);
@@ -201,6 +199,10 @@ where
 mod tests {
     use super::*;
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn from_categories() {
         let fake_categories: Vec<usize> = vec![1, 2, 3, 4, 5, 3, 5, 3, 1, 2, 4];
@@ -219,12 +221,20 @@ mod tests {
         let enc = CategoryMapper::<&str>::from_positional_category_vec(fake_category_pos);
         enc
     }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn ordinal_encoding() {
         let enc = build_fake_str_enc();
         assert_eq!(1f64, enc.get_ordinal::<f64>(&"dog").unwrap())
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn category_map_and_vec() {
         let category_map: HashMap<&str, usize> = vec![("background", 0), ("dog", 1), ("cat", 2)]
@@ -239,6 +249,10 @@ mod tests {
         assert_eq!(oh_vec, res);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn positional_categories_vec() {
         let enc = build_fake_str_enc();
@@ -250,6 +264,10 @@ mod tests {
         assert_eq!(oh_vec, res);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn invert_label_test() {
         let enc = build_fake_str_enc();
@@ -262,6 +280,10 @@ mod tests {
         };
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_many_categorys() {
         let enc = build_fake_str_enc();

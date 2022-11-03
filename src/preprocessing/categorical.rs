@@ -5,7 +5,7 @@
 //!
 //! ### Usage Example
 //! ```
-//! use smartcore::linalg::naive::dense_matrix::DenseMatrix;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::preprocessing::categorical::{OneHotEncoder, OneHotEncoderParams};
 //! let data = DenseMatrix::from_2d_array(&[
 //!         &[1.5, 1.0, 1.5, 3.0],
@@ -27,10 +27,10 @@
 use std::iter;
 
 use crate::error::Failed;
-use crate::linalg::Matrix;
+use crate::linalg::basic::arrays::Array2;
 
-use crate::preprocessing::data_traits::{CategoricalFloat, Categorizable};
 use crate::preprocessing::series_encoder::CategoryMapper;
+use crate::preprocessing::traits::{CategoricalFloat, Categorizable};
 
 /// OneHotEncoder Parameters
 #[derive(Debug, Clone)]
@@ -78,8 +78,7 @@ fn find_new_idxs(num_params: usize, cat_sizes: &[usize], cat_idxs: &[usize]) -> 
         .zip(
             repeats
                 .zip(offset)
-                .map(|(r, o)| iter::repeat(o).take(r))
-                .flatten(),
+                .flat_map(|(r, o)| iter::repeat(o).take(r)),
         )
         .map(|(idx, ofst)| idx + ofst)
         .collect();
@@ -107,7 +106,7 @@ impl OneHotEncoder {
     pub fn fit<T, M>(data: &M, params: OneHotEncoderParams) -> Result<OneHotEncoder, Failed>
     where
         T: Categorizable,
-        M: Matrix<T>,
+        M: Array2<T>,
     {
         match (params.col_idx_categorical, params.infer_categorical) {
             (None, false) => Err(Failed::fit(
@@ -158,7 +157,7 @@ impl OneHotEncoder {
     pub fn transform<T, M>(&self, x: &M) -> Result<M, Failed>
     where
         T: Categorizable,
-        M: Matrix<T>,
+        M: Array2<T>,
     {
         let (nrows, p) = x.shape();
         let additional_params: Vec<usize> = self
@@ -175,7 +174,7 @@ impl OneHotEncoder {
 
         for (pidx, &old_cidx) in self.col_idx_categorical.iter().enumerate() {
             let cidx = new_col_idx[old_cidx];
-            let col_iter = (0..nrows).map(|r| x.get(r, old_cidx).to_category());
+            let col_iter = (0..nrows).map(|r| x.get((r, old_cidx)).to_category());
             let sencoder = &self.category_mappers[pidx];
             let oh_series = col_iter.map(|c| sencoder.get_one_hot::<T, Vec<T>>(&c));
 
@@ -189,7 +188,7 @@ impl OneHotEncoder {
                     Some(v) => {
                         // copy one hot vectors to their place in the data matrix;
                         for (col_ofst, &val) in v.iter().enumerate() {
-                            res.set(row, cidx + col_ofst, val);
+                            res.set((row, cidx + col_ofst), val);
                         }
                     }
                 }
@@ -210,8 +209,8 @@ impl OneHotEncoder {
             }
 
             for r in 0..nrows {
-                let val = x.get(r, old_p);
-                res.set(r, new_p, val);
+                let val = x.get((r, old_p));
+                res.set((r, new_p), *val);
             }
         }
 
@@ -222,9 +221,13 @@ impl OneHotEncoder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::DenseMatrix;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use crate::preprocessing::series_encoder::CategoryMapper;
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn adjust_idxs() {
         assert_eq!(find_new_idxs(0, &[], &[]), Vec::<usize>::new());
@@ -269,6 +272,10 @@ mod tests {
         (orig, oh_enc)
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn hash_encode_f64_series() {
         let series = vec![3.0, 1.0, 2.0, 1.0];
@@ -279,6 +286,10 @@ mod tests {
         let orig_val: f64 = inv.unwrap().into();
         assert_eq!(orig_val, 2.0);
     }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_fit() {
         let (x, _) = build_fake_matrix();
@@ -294,6 +305,10 @@ mod tests {
         assert_eq!(num_cat, vec![2, 4]);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn matrix_transform_test() {
         let (x, expected_x) = build_fake_matrix();
@@ -309,6 +324,10 @@ mod tests {
         assert_eq!(nm, expected_x);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn fail_on_bad_category() {
         let m = DenseMatrix::from_2d_array(&[

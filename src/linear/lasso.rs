@@ -23,28 +23,34 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
-use crate::math::num::RealNumber;
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
 
 /// Lasso regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct LassoParameters<T: RealNumber> {
+pub struct LassoParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the strength of the penalty to the loss function.
-    pub alpha: T,
+    pub alpha: f64,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// If true the regressors X will be normalized before regression
     /// by subtracting the mean and dividing by the standard deviation.
     pub normalize: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The tolerance for the optimization
-    pub tol: T,
+    pub tol: f64,
+    #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum number of iterations
     pub max_iter: usize,
 }
@@ -52,14 +58,16 @@ pub struct LassoParameters<T: RealNumber> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 /// Lasso regressor
-pub struct Lasso<T: RealNumber, M: Matrix<T>> {
-    coefficients: M,
-    intercept: T,
+pub struct Lasso<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
+    coefficients: Option<X>,
+    intercept: Option<TX>,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_y: PhantomData<Y>,
 }
 
-impl<T: RealNumber> LassoParameters<T> {
+impl LassoParameters {
     /// Regularization parameter.
-    pub fn with_alpha(mut self, alpha: T) -> Self {
+    pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
@@ -69,7 +77,7 @@ impl<T: RealNumber> LassoParameters<T> {
         self
     }
     /// The tolerance for the optimization
-    pub fn with_tol(mut self, tol: T) -> Self {
+    pub fn with_tol(mut self, tol: f64) -> Self {
         self.tol = tol;
         self
     }
@@ -80,48 +88,162 @@ impl<T: RealNumber> LassoParameters<T> {
     }
 }
 
-impl<T: RealNumber> Default for LassoParameters<T> {
+impl Default for LassoParameters {
     fn default() -> Self {
         LassoParameters {
-            alpha: T::one(),
+            alpha: 1f64,
             normalize: true,
-            tol: T::from_f64(1e-4).unwrap(),
+            tol: 1e-4,
             max_iter: 1000,
         }
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> PartialEq for Lasso<T, M> {
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for Lasso<TX, TY, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
-        self.coefficients == other.coefficients
-            && (self.intercept - other.intercept).abs() <= T::epsilon()
+        self.intercept == other.intercept
+            && self.coefficients().shape() == other.coefficients().shape()
+            && self
+                .coefficients()
+                .iterator(0)
+                .zip(other.coefficients().iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> SupervisedEstimator<M, M::RowVector, LassoParameters<T>>
-    for Lasso<T, M>
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, LassoParameters> for Lasso<TX, TY, X, Y>
 {
-    fn fit(x: &M, y: &M::RowVector, parameters: LassoParameters<T>) -> Result<Self, Failed> {
+    fn new() -> Self {
+        Self {
+            coefficients: Option::None,
+            intercept: Option::None,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
+        }
+    }
+
+    fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Self, Failed> {
         Lasso::fit(x, y, parameters)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Predictor<M, M::RowVector> for Lasso<T, M> {
-    fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
+    for Lasso<TX, TY, X, Y>
+{
+    fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
     }
 }
 
-impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
+/// Lasso grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct LassoSearchParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the strength of the penalty to the loss function.
+    pub alpha: Vec<f64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// If true the regressors X will be normalized before regression
+    /// by subtracting the mean and dividing by the standard deviation.
+    pub normalize: Vec<bool>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The tolerance for the optimization
+    pub tol: Vec<f64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The maximum number of iterations
+    pub max_iter: Vec<usize>,
+}
+
+/// Lasso grid search iterator
+pub struct LassoSearchParametersIterator {
+    lasso_search_parameters: LassoSearchParameters,
+    current_alpha: usize,
+    current_normalize: usize,
+    current_tol: usize,
+    current_max_iter: usize,
+}
+
+impl IntoIterator for LassoSearchParameters {
+    type Item = LassoParameters;
+    type IntoIter = LassoSearchParametersIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LassoSearchParametersIterator {
+            lasso_search_parameters: self,
+            current_alpha: 0,
+            current_normalize: 0,
+            current_tol: 0,
+            current_max_iter: 0,
+        }
+    }
+}
+
+impl Iterator for LassoSearchParametersIterator {
+    type Item = LassoParameters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_alpha == self.lasso_search_parameters.alpha.len()
+            && self.current_normalize == self.lasso_search_parameters.normalize.len()
+            && self.current_tol == self.lasso_search_parameters.tol.len()
+            && self.current_max_iter == self.lasso_search_parameters.max_iter.len()
+        {
+            return None;
+        }
+
+        let next = LassoParameters {
+            alpha: self.lasso_search_parameters.alpha[self.current_alpha],
+            normalize: self.lasso_search_parameters.normalize[self.current_normalize],
+            tol: self.lasso_search_parameters.tol[self.current_tol],
+            max_iter: self.lasso_search_parameters.max_iter[self.current_max_iter],
+        };
+
+        if self.current_alpha + 1 < self.lasso_search_parameters.alpha.len() {
+            self.current_alpha += 1;
+        } else if self.current_normalize + 1 < self.lasso_search_parameters.normalize.len() {
+            self.current_alpha = 0;
+            self.current_normalize += 1;
+        } else if self.current_tol + 1 < self.lasso_search_parameters.tol.len() {
+            self.current_alpha = 0;
+            self.current_normalize = 0;
+            self.current_tol += 1;
+        } else if self.current_max_iter + 1 < self.lasso_search_parameters.max_iter.len() {
+            self.current_alpha = 0;
+            self.current_normalize = 0;
+            self.current_tol = 0;
+            self.current_max_iter += 1;
+        } else {
+            self.current_alpha += 1;
+            self.current_normalize += 1;
+            self.current_tol += 1;
+            self.current_max_iter += 1;
+        }
+
+        Some(next)
+    }
+}
+
+impl Default for LassoSearchParameters {
+    fn default() -> Self {
+        let default_params = LassoParameters::default();
+
+        LassoSearchParameters {
+            alpha: vec![default_params.alpha],
+            normalize: vec![default_params.normalize],
+            tol: vec![default_params.tol],
+            max_iter: vec![default_params.max_iter],
+        }
+    }
+}
+
+impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Lasso<TX, TY, X, Y> {
     /// Fits Lasso regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
     /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
-    pub fn fit(
-        x: &M,
-        y: &M::RowVector,
-        parameters: LassoParameters<T>,
-    ) -> Result<Lasso<T, M>, Failed> {
+    pub fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Lasso<TX, TY, X, Y>, Failed> {
         let (n, p) = x.shape();
 
         if n <= p {
@@ -130,11 +252,11 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
             ));
         }
 
-        if parameters.alpha < T::zero() {
+        if parameters.alpha < 0f64 {
             return Err(Failed::fit("alpha should be >= 0"));
         }
 
-        if parameters.tol <= T::zero() {
+        if parameters.tol <= 0f64 {
             return Err(Failed::fit("tol should be > 0"));
         }
 
@@ -142,71 +264,98 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
             return Err(Failed::fit("max_iter should be > 0"));
         }
 
-        if y.len() != n {
+        if y.shape() != n {
             return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
 
-        let l1_reg = parameters.alpha * T::from_usize(n).unwrap();
+        let y: Vec<TX> = y.iterator(0).map(|&v| TX::from(v).unwrap()).collect();
+
+        let l1_reg = TX::from_f64(parameters.alpha * n as f64).unwrap();
 
         let (w, b) = if parameters.normalize {
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
 
             let mut optimizer = InteriorPointOptimizer::new(&scaled_x, p);
 
-            let mut w =
-                optimizer.optimize(&scaled_x, y, l1_reg, parameters.max_iter, parameters.tol)?;
+            let mut w = optimizer.optimize(
+                &scaled_x,
+                &y,
+                l1_reg,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+            )?;
 
             for (j, col_std_j) in col_std.iter().enumerate().take(p) {
-                w.set(j, 0, w.get(j, 0) / *col_std_j);
+                w[j] /= *col_std_j;
             }
 
-            let mut b = T::zero();
+            let mut b = TX::zero();
 
             for (i, col_mean_i) in col_mean.iter().enumerate().take(p) {
-                b += w.get(i, 0) * *col_mean_i;
+                b += w[i] * *col_mean_i;
             }
 
-            b = y.mean() - b;
-            (w, b)
+            b = TX::from_f64(y.mean_by()).unwrap() - b;
+            (X::from_column(&w), b)
         } else {
             let mut optimizer = InteriorPointOptimizer::new(x, p);
 
-            let w = optimizer.optimize(x, y, l1_reg, parameters.max_iter, parameters.tol)?;
+            let w = optimizer.optimize(
+                x,
+                &y,
+                l1_reg,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+            )?;
 
-            (w, y.mean())
+            (X::from_column(&w), TX::from_f64(y.mean_by()).unwrap())
         };
 
         Ok(Lasso {
-            intercept: b,
-            coefficients: w,
+            intercept: Some(b),
+            coefficients: Some(w),
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
         })
     }
 
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &M) -> Result<M::RowVector, Failed> {
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let (nrows, _) = x.shape();
-        let mut y_hat = x.matmul(&self.coefficients);
-        y_hat.add_mut(&M::fill(nrows, 1, self.intercept));
-        Ok(y_hat.transpose().to_row_vector())
+        let mut y_hat = x.matmul(self.coefficients());
+        let bias = X::fill(nrows, 1, self.intercept.unwrap());
+        y_hat.add_mut(&bias);
+        Ok(Y::from_iterator(
+            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 
     /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> &M {
-        &self.coefficients
+    pub fn coefficients(&self) -> &X {
+        self.coefficients.as_ref().unwrap()
     }
 
     /// Get estimate of intercept
-    pub fn intercept(&self) -> T {
-        self.intercept
+    pub fn intercept(&self) -> &TX {
+        self.intercept.as_ref().unwrap()
     }
 
-    fn rescale_x(x: &M) -> Result<(M, Vec<T>, Vec<T>), Failed> {
-        let col_mean = x.mean(0);
-        let col_std = x.std(0);
+    fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
+        let col_mean: Vec<TX> = x
+            .mean_by(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
+        let col_std: Vec<TX> = x
+            .std_dev(0)
+            .iter()
+            .map(|&v| TX::from_f64(v).unwrap())
+            .collect();
 
         for (i, col_std_i) in col_std.iter().enumerate() {
-            if (*col_std_i - T::zero()).abs() < T::epsilon() {
+            if (*col_std_i - TX::zero()).abs() < TX::epsilon() {
                 return Err(Failed::fit(&format!(
                     "Cannot rescale constant column {}",
                     i
@@ -223,9 +372,36 @@ impl<T: RealNumber, M: Matrix<T>> Lasso<T, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
+    #[test]
+    fn search_parameters() {
+        let parameters = LassoSearchParameters {
+            alpha: vec![0., 1.],
+            max_iter: vec![10, 100],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 10);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 0.);
+        assert_eq!(next.max_iter, 100);
+        let next = iter.next().unwrap();
+        assert_eq!(next.alpha, 1.);
+        assert_eq!(next.max_iter, 100);
+        assert!(iter.next().is_none());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn lasso_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -274,38 +450,40 @@ mod tests {
         assert!(mean_absolute_error(&y_hat, &y) < 2.0);
     }
 
-    #[test]
-    #[cfg(feature = "serde")]
-    fn serde() {
-        let x = DenseMatrix::from_2d_array(&[
-            &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
-            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
-            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
-            &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
-            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
-            &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
-            &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
-            &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
-            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
-            &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
-            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
-            &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
-            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
-            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
-            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
-            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+    // TODO: serialization for the new DenseMatrix needs to be implemented
+    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
+    // #[test]
+    // #[cfg(feature = "serde")]
+    // fn serde() {
+    //     let x = DenseMatrix::from_2d_array(&[
+    //         &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
+    //         &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+    //         &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+    //         &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
+    //         &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+    //         &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
+    //         &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
+    //         &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
+    //         &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+    //         &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
+    //         &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+    //         &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
+    //         &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+    //         &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+    //         &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+    //         &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+    //     ]);
 
-        let y = vec![
-            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
-            114.2, 115.7, 116.9,
-        ];
+    //     let y = vec![
+    //         83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+    //         114.2, 115.7, 116.9,
+    //     ];
 
-        let lr = Lasso::fit(&x, &y, Default::default()).unwrap();
+    //     let lr = Lasso::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_lr: Lasso<f64, DenseMatrix<f64>> =
-            serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
+    //     let deserialized_lr: Lasso<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+    //         serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
-        assert_eq!(lr, deserialized_lr);
-    }
+    //     assert_eq!(lr, deserialized_lr);
+    // }
 }

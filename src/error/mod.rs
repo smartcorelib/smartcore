@@ -30,6 +30,8 @@ pub enum FailedError {
     DecompositionFailed,
     /// Can't solve for x
     SolutionFailed,
+    /// Erro in input
+    ParametersError,
 }
 
 impl Failed {
@@ -94,6 +96,7 @@ impl fmt::Display for FailedError {
             FailedError::FindFailed => "Find failed",
             FailedError::DecompositionFailed => "Decomposition failed",
             FailedError::SolutionFailed => "Can't find solution",
+            FailedError::ParametersError => "Error in input, check parameters",
         };
         write!(f, "{}", failed_err_str)
     }

@@ -1,0 +1,44 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ main, development ]
+  pull_request:
+    branches: [ development ]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      TZ: "/usr/share/zoneinfo/your/location"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache .cargo
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-coverage-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-coverage-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          default: true
+      - name: Install cargo-tarpaulin
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: latest
+          use-tool-cache: true
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/cargo@v1
+        with:
+          command: tarpaulin
+          args: --out Lcov --all-features -- --test-threads 1
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error:     true

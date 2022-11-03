@@ -12,21 +12,23 @@
 //!
 
 use crate::error::Failed;
-use crate::linalg::BaseVector;
-use crate::linalg::Matrix;
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray, MutArrayView1};
 use crate::linear::bg_solver::BiconjugateGradientSolver;
-use crate::math::num::RealNumber;
+use crate::numbers::floatnum::FloatNumber;
 
-pub struct InteriorPointOptimizer<T: RealNumber, M: Matrix<T>> {
-    ata: M,
+///
+pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
+    ata: X,
     d1: Vec<T>,
     d2: Vec<T>,
     prb: Vec<T>,
     prs: Vec<T>,
 }
 
-impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
-    pub fn new(a: &M, n: usize) -> InteriorPointOptimizer<T, M> {
+///
+impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
+    ///
+    pub fn new(a: &X, n: usize) -> InteriorPointOptimizer<T, X> {
         InteriorPointOptimizer {
             ata: a.ab(true, a, false),
             d1: vec![T::zero(); n],
@@ -36,14 +38,15 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
         }
     }
 
+    ///
     pub fn optimize(
         &mut self,
-        x: &M,
-        y: &M::RowVector,
+        x: &X,
+        y: &Vec<T>,
         lambda: T,
         max_iter: usize,
         tol: T,
-    ) -> Result<M, Failed> {
+    ) -> Result<Vec<T>, Failed> {
         let (n, p) = x.shape();
         let p_f64 = T::from_usize(p).unwrap();
 
@@ -58,50 +61,53 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
         let gamma = T::from_f64(-0.25).unwrap();
         let mu = T::two();
 
-        let y = M::from_row_vector(y.sub_scalar(y.mean())).transpose();
+        // let y = M::from_row_vector(y.sub_scalar(y.mean_by())).transpose();
+        let y = y.sub_scalar(T::from_f64(y.mean_by()).unwrap());
 
         let mut max_ls_iter = 100;
         let mut pitr = 0;
-        let mut w = M::zeros(p, 1);
+        let mut w = Vec::zeros(p);
         let mut neww = w.clone();
-        let mut u = M::ones(p, 1);
+        let mut u = Vec::ones(p);
         let mut newu = u.clone();
 
-        let mut f = M::fill(p, 2, -T::one());
+        let mut f = X::fill(p, 2, -T::one());
         let mut newf = f.clone();
 
         let mut q1 = vec![T::zero(); p];
         let mut q2 = vec![T::zero(); p];
 
-        let mut dx = M::zeros(p, 1);
-        let mut du = M::zeros(p, 1);
-        let mut dxu = M::zeros(2 * p, 1);
-        let mut grad = M::zeros(2 * p, 1);
+        let mut dx = Vec::zeros(p);
+        let mut du = Vec::zeros(p);
+        let mut dxu = Vec::zeros(2 * p);
+        let mut grad = Vec::zeros(2 * p);
 
-        let mut nu = M::zeros(n, 1);
+        let mut nu = Vec::zeros(n);
         let mut dobj = T::zero();
         let mut s = T::infinity();
         let mut t = T::one()
             .max(T::one() / lambda)
             .min(T::two() * p_f64 / T::from(1e-3).unwrap());
 
+        let lambda_f64 = lambda.to_f64().unwrap();
+
         for ntiter in 0..max_iter {
-            let mut z = x.matmul(&w);
+            let mut z = w.xa(true, x);
 
             for i in 0..n {
-                z.set(i, 0, z.get(i, 0) - y.get(i, 0));
-                nu.set(i, 0, T::two() * z.get(i, 0));
+                z[i] -= y[i];
+                nu[i] = T::two() * z[i];
             }
 
             // CALCULATE DUALITY GAP
-            let xnu = x.ab(true, &nu, false);
-            let max_xnu = xnu.norm(T::infinity());
-            if max_xnu > lambda {
-                let lnu = lambda / max_xnu;
+            let xnu = nu.xa(false, x);
+            let max_xnu = xnu.norm(std::f64::INFINITY);
+            if max_xnu > lambda_f64 {
+                let lnu = T::from_f64(lambda_f64 / max_xnu).unwrap();
                 nu.mul_scalar_mut(lnu);
             }
 
-            let pobj = z.dot(&z) + lambda * w.norm(T::one());
+            let pobj = z.dot(&z) + lambda * T::from_f64(w.norm(1f64)).unwrap();
             dobj = dobj.max(gamma * nu.dot(&nu) - nu.dot(&y));
 
             let gap = pobj - dobj;
@@ -118,22 +124,22 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
 
             // CALCULATE NEWTON STEP
             for i in 0..p {
-                let q1i = T::one() / (u.get(i, 0) + w.get(i, 0));
-                let q2i = T::one() / (u.get(i, 0) - w.get(i, 0));
+                let q1i = T::one() / (u[i] + w[i]);
+                let q2i = T::one() / (u[i] - w[i]);
                 q1[i] = q1i;
                 q2[i] = q2i;
                 self.d1[i] = (q1i * q1i + q2i * q2i) / t;
                 self.d2[i] = (q1i * q1i - q2i * q2i) / t;
             }
 
-            let mut gradphi = x.ab(true, &z, false);
+            let mut gradphi = z.xa(false, x);
 
             for i in 0..p {
-                let g1 = T::two() * gradphi.get(i, 0) - (q1[i] - q2[i]) / t;
+                let g1 = T::two() * gradphi[i] - (q1[i] - q2[i]) / t;
                 let g2 = lambda - (q1[i] + q2[i]) / t;
-                gradphi.set(i, 0, g1);
-                grad.set(i, 0, -g1);
-                grad.set(i + p, 0, -g2);
+                gradphi[i] = g1;
+                grad[i] = -g1;
+                grad[i + p] = -g2;
             }
 
             for i in 0..p {
@@ -141,7 +147,7 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
                 self.prs[i] = self.prb[i] * self.d1[i] - self.d2[i].powi(2);
             }
 
-            let normg = grad.norm2();
+            let normg = T::from_f64(grad.norm2()).unwrap();
             let mut pcgtol = min_pcgtol.min(eta * gap / T::one().min(normg));
             if ntiter != 0 && pitr == 0 {
                 pcgtol *= min_pcgtol;
@@ -152,10 +158,8 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
                 pitr = pcgmaxi;
             }
 
-            for i in 0..p {
-                dx.set(i, 0, dxu.get(i, 0));
-                du.set(i, 0, dxu.get(i + p, 0));
-            }
+            dx[..p].copy_from_slice(&dxu[..p]);
+            du[..p].copy_from_slice(&dxu[p..(p + p)]);
 
             // BACKTRACKING LINE SEARCH
             let phi = z.dot(&z) + lambda * u.sum() - Self::sumlogneg(&f) / t;
@@ -165,16 +169,20 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
             let lsiter = 0;
             while lsiter < max_ls_iter {
                 for i in 0..p {
-                    neww.set(i, 0, w.get(i, 0) + s * dx.get(i, 0));
-                    newu.set(i, 0, u.get(i, 0) + s * du.get(i, 0));
-                    newf.set(i, 0, neww.get(i, 0) - newu.get(i, 0));
-                    newf.set(i, 1, -neww.get(i, 0) - newu.get(i, 0));
+                    neww[i] = w[i] + s * dx[i];
+                    newu[i] = u[i] + s * du[i];
+                    newf.set((i, 0), neww[i] - newu[i]);
+                    newf.set((i, 1), -neww[i] - newu[i]);
                 }
 
-                if newf.max() < T::zero() {
-                    let mut newz = x.matmul(&neww);
+                if newf
+                    .iterator(0)
+                    .fold(T::neg_infinity(), |max, v| v.max(max))
+                    < T::zero()
+                {
+                    let mut newz = neww.xa(true, x);
                     for i in 0..n {
-                        newz.set(i, 0, newz.get(i, 0) - y.get(i, 0));
+                        newz[i] -= y[i];
                     }
 
                     let newphi = newz.dot(&newz) + lambda * newu.sum() - Self::sumlogneg(&newf) / t;
@@ -200,56 +208,46 @@ impl<T: RealNumber, M: Matrix<T>> InteriorPointOptimizer<T, M> {
         Ok(w)
     }
 
-    fn sumlogneg(f: &M) -> T {
+    ///
+    fn sumlogneg(f: &X) -> T {
         let (n, _) = f.shape();
         let mut sum = T::zero();
         for i in 0..n {
-            sum += (-f.get(i, 0)).ln();
-            sum += (-f.get(i, 1)).ln();
+            sum += (-*f.get((i, 0))).ln();
+            sum += (-*f.get((i, 1))).ln();
         }
         sum
     }
 }
 
-impl<'a, T: RealNumber, M: Matrix<T>> BiconjugateGradientSolver<T, M>
-    for InteriorPointOptimizer<T, M>
+///
+impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
+    for InteriorPointOptimizer<T, X>
 {
-    fn solve_preconditioner(&self, a: &M, b: &M, x: &mut M) {
+    ///
+    fn solve_preconditioner(&self, a: &'a X, b: &[T], x: &mut [T]) {
         let (_, p) = a.shape();
 
         for i in 0..p {
-            x.set(
-                i,
-                0,
-                (self.d1[i] * b.get(i, 0) - self.d2[i] * b.get(i + p, 0)) / self.prs[i],
-            );
-            x.set(
-                i + p,
-                0,
-                (-self.d2[i] * b.get(i, 0) + self.prb[i] * b.get(i + p, 0)) / self.prs[i],
-            );
+            x[i] = (self.d1[i] * b[i] - self.d2[i] * b[i + p]) / self.prs[i];
+            x[i + p] = (-self.d2[i] * b[i] + self.prb[i] * b[i + p]) / self.prs[i];
         }
     }
 
-    fn mat_vec_mul(&self, _: &M, x: &M, y: &mut M) {
+    ///
+    fn mat_vec_mul(&self, _: &X, x: &Vec<T>, y: &mut Vec<T>) {
         let (_, p) = self.ata.shape();
-        let atax = self.ata.matmul(&x.slice(0..p, 0..1));
+        let x_slice = Vec::from_slice(x.slice(0..p).as_ref());
+        let atax = x_slice.xa(true, &self.ata);
 
         for i in 0..p {
-            y.set(
-                i,
-                0,
-                T::two() * atax.get(i, 0) + self.d1[i] * x.get(i, 0) + self.d2[i] * x.get(i + p, 0),
-            );
-            y.set(
-                i + p,
-                0,
-                self.d2[i] * x.get(i, 0) + self.d1[i] * x.get(i + p, 0),
-            );
+            y[i] = T::two() * atax[i] + self.d1[i] * x[i] + self.d2[i] * x[i + p];
+            y[i + p] = self.d2[i] * x[i] + self.d1[i] * x[i + p];
         }
     }
 
-    fn mat_t_vec_mul(&self, a: &M, x: &M, y: &mut M) {
+    ///
+    fn mat_t_vec_mul(&self, a: &X, x: &Vec<T>, y: &mut Vec<T>) {
         self.mat_vec_mul(a, x, y);
     }
 }
