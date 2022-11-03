@@ -55,7 +55,7 @@ impl Debug for dyn Kernel {
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Serialize for dyn Kernel {
+impl Serialize for dyn Kernel {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -105,7 +105,7 @@ pub struct RBFKernel {
 }
 
 #[allow(dead_code)]
-impl<'a> RBFKernel {
+impl RBFKernel {
     /// assign gamma parameter to kernel (required)
     /// ```rust
     /// use smartcore::svm::RBFKernel;
@@ -129,7 +129,7 @@ pub struct PolynomialKernel {
     pub coef0: Option<f64>,
 }
 
-impl<'a> Default for PolynomialKernel {
+impl Default for PolynomialKernel {
     fn default() -> Self {
         Self {
             gamma: Option::None,
@@ -180,7 +180,7 @@ pub struct SigmoidKernel {
     pub coef0: Option<f64>,
 }
 
-impl<'a> Default for SigmoidKernel {
+impl Default for SigmoidKernel {
     fn default() -> Self {
         Self {
             gamma: Option::None,

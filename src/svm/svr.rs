@@ -140,7 +140,7 @@ struct Cache<T: Clone> {
     data: Vec<RefCell<Option<Vec<T>>>>,
 }
 
-impl<'a, T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
+impl<T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
     /// Epsilon in the epsilon-SVR model.
     pub fn with_eps(mut self, eps: T) -> Self {
         self.eps = eps;
@@ -163,7 +163,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
     }
 }
 
-impl<'a, T: Number + FloatNumber + PartialOrd> Default for SVRParameters<T> {
+impl<T: Number + FloatNumber + PartialOrd> Default for SVRParameters<T> {
     fn default() -> Self {
         SVRParameters {
             eps: T::from_f64(0.1).unwrap(),
