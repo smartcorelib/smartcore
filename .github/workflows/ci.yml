@@ -33,8 +33,11 @@ jobs:
             ./target
           key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
-      - uses: Vampire/setup-wsl@v1
+      - name: Install WSL
         if: matrix.platform.target == 'x86_64-pc-windows-msvc'
+        uses: Vampire/setup-wsl@v1
+        with:
+          additional-packages: cargo
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -60,8 +63,8 @@ jobs:
           command: test
           args: --all-features
       - shell: wsl-bash {0}
-        run: cargo test --all-features
         if: matrix.platform.target == 'x86_64-pc-windows-msvc'
+        run: cargo test --all-features
       - name: Tests in WASM
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: wasm-pack test --node -- --all-features
