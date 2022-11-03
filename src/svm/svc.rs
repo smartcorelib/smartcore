@@ -100,22 +100,17 @@ pub struct SVCParameters<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: TX,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
     pub tol: TX,
     #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<&'a dyn Kernel<'a>>,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Option<u64>,
 }
