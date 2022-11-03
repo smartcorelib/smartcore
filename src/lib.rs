@@ -105,8 +105,8 @@ pub mod neighbors;
 pub mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;
-// /// Reading in Data.
-// pub mod readers;
+/// Reading in data from serialized foramts
+pub mod readers;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods
