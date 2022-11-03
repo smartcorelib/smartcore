@@ -127,7 +127,7 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 0., 0., 1., 1., 1., 2., 2., 2.];
         let y_pred: Vec<f64> = vec![0., 1., 2., 0., 1., 2., 0., 1., 2.];
 
-        let score1: f64 = Recall::new().get_score( &y_true, &y_pred);
+        let score1: f64 = Recall::new().get_score(&y_true, &y_pred);
         let score2: f64 = Recall::new().get_score(&y_pred, &y_pred);
 
         assert!((score1 - 0.333333333).abs() < 1e-8);
