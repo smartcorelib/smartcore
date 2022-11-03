@@ -85,7 +85,7 @@ mod tests {
         let y_true: Vec<f64> = vec![3., -0.5, 2., 7.];
         let y_pred: Vec<f64> = vec![2.5, 0.0, 2., 8.];
 
-        let score1: f64 = MeanSquareError::new().get_score( &y_true, &y_pred);
+        let score1: f64 = MeanSquareError::new().get_score(&y_true, &y_pred);
         let score2: f64 = MeanSquareError::new().get_score(&y_true, &y_true);
 
         assert!((score1 - 0.375).abs() < 1e-8);

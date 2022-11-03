@@ -92,7 +92,7 @@ mod tests {
         let y_pred: Vec<f64> = vec![0., 2., 1., 3.];
         let y_true: Vec<f64> = vec![0., 1., 2., 3.];
 
-        let score1: f64 = Accuracy::<f64>::new().get_score( &y_true, &y_pred);
+        let score1: f64 = Accuracy::<f64>::new().get_score(&y_true, &y_pred);
         let score2: f64 = Accuracy::<f64>::new().get_score(&y_true, &y_true);
 
         assert!((score1 - 0.5).abs() < 1e-8);
@@ -108,7 +108,7 @@ mod tests {
         let y_pred: Vec<i32> = vec![0, 2, 1, 3];
         let y_true: Vec<i32> = vec![0, 1, 2, 3];
 
-        let score1: f64 = Accuracy::<i32>::new().get_score( &y_true, &y_pred);
+        let score1: f64 = Accuracy::<i32>::new().get_score(&y_true, &y_pred);
         let score2: f64 = Accuracy::<i32>::new().get_score(&y_true, &y_true);
 
         assert_eq!(score1, 0.5);
