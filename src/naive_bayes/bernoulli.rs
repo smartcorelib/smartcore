@@ -365,6 +365,20 @@ pub struct BernoulliNB<
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    fmt::Display for BernoulliNB<TX, TY, X, Y>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "BernoulliNB:\ninner: {:?}\nbinarize: {:?}",
+            self.inner.as_ref().unwrap(),
+            self.binarize.as_ref().unwrap()
+        )?;
+        Ok(())
+    }
+}
+
+impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, BernoulliNBParameters<TX>> for BernoulliNB<TX, TY, X, Y>
 {
     fn new() -> Self {
@@ -593,6 +607,9 @@ mod tests {
                 &[4, 4, 3, 4, 5, 2, 4, 5, 3, 4]
             ]
         );
+
+        // test Display
+        println!("{}", &bnb);
 
         let distribution = bnb.inner.clone().unwrap().distribution;
 
