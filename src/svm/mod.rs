@@ -22,10 +22,10 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-pub mod svc;
-pub mod svr;
 /// search parameters
 pub mod search;
+pub mod svc;
+pub mod svr;
 
 use core::fmt::Debug;
 use std::marker::PhantomData;
