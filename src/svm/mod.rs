@@ -126,7 +126,12 @@ impl<'a> Default for RBFKernel<'a> {
 
 #[allow(dead_code)]
 impl<'a> RBFKernel<'a> {
-    fn with_gamma(mut self, gamma: f64) -> Self {
+    /// assign gamma parameter to kernel (required)
+    /// ```rust
+    /// use smartcore::svm::RBFKernel;
+    /// let knl = RBFKernel::default().with_gamma(0.7);
+    /// ```
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
         self
     }
@@ -158,19 +163,32 @@ impl<'a> Default for PolynomialKernel<'a> {
 
 #[allow(dead_code)]
 impl<'a> PolynomialKernel<'a> {
-    fn with_params(mut self, degree: f64, gamma: f64, coef0: f64) -> Self {
+    /// set parameters for kernel
+    /// ```rust
+    /// use smartcore::svm::PolynomialKernel;
+    /// let knl = PolynomialKernel::default().with_params(3.0, 0.7, 1.0);
+    /// ```
+    pub fn with_params(mut self, degree: f64, gamma: f64, coef0: f64) -> Self {
         self.degree = Some(degree);
         self.gamma = Some(gamma);
         self.coef0 = Some(coef0);
         self
     }
-
-    fn with_gamma(mut self, gamma: f64) -> Self {
+    /// set gamma parameter for kernel
+    /// ```rust
+    /// use smartcore::svm::PolynomialKernel;
+    /// let knl = PolynomialKernel::default().with_gamma(0.7);
+    /// ```
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
         self
     }
-
-    fn with_degree(self, degree: f64, n_features: usize) -> Self {
+    /// set degree parameter for kernel
+    /// ```rust
+    /// use smartcore::svm::PolynomialKernel;
+    /// let knl = PolynomialKernel::default().with_degree(3.0, 100);
+    /// ```
+    pub fn with_degree(self, degree: f64, n_features: usize) -> Self {
         self.with_params(degree, 1f64, 1f64 / n_features as f64)
     }
 }
@@ -198,12 +216,22 @@ impl<'a> Default for SigmoidKernel<'a> {
 
 #[allow(dead_code)]
 impl<'a> SigmoidKernel<'a> {
-    fn with_params(mut self, gamma: f64, coef0: f64) -> Self {
+    /// set parameters for kernel
+    /// ```rust
+    /// use smartcore::svm::SigmoidKernel;
+    /// let knl = SigmoidKernel::default().with_params(0.7, 1.0);
+    /// ```
+    pub fn with_params(mut self, gamma: f64, coef0: f64) -> Self {
         self.gamma = Some(gamma);
         self.coef0 = Some(coef0);
         self
     }
-    fn with_gamma(mut self, gamma: f64) -> Self {
+    /// set gamma parameter for kernel
+    /// ```rust
+    /// use smartcore::svm::SigmoidKernel;
+    /// let knl = SigmoidKernel::default().with_gamma(0.7);
+    /// ```
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
         self
     }
