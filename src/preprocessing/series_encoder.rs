@@ -199,7 +199,10 @@ where
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn from_categories() {
         let fake_categories: Vec<usize> = vec![1, 2, 3, 4, 5, 3, 5, 3, 1, 2, 4];
@@ -218,14 +221,20 @@ mod tests {
         let enc = CategoryMapper::<&str>::from_positional_category_vec(fake_category_pos);
         enc
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn ordinal_encoding() {
         let enc = build_fake_str_enc();
         assert_eq!(1f64, enc.get_ordinal::<f64>(&"dog").unwrap())
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn category_map_and_vec() {
         let category_map: HashMap<&str, usize> = vec![("background", 0), ("dog", 1), ("cat", 2)]
@@ -240,7 +249,10 @@ mod tests {
         assert_eq!(oh_vec, res);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn positional_categories_vec() {
         let enc = build_fake_str_enc();
@@ -252,7 +264,10 @@ mod tests {
         assert_eq!(oh_vec, res);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn invert_label_test() {
         let enc = build_fake_str_enc();
@@ -265,7 +280,10 @@ mod tests {
         };
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_many_categorys() {
         let enc = build_fake_str_enc();

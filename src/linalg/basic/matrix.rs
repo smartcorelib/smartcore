@@ -4,6 +4,7 @@ use std::ops::Range;
 use std::slice::Iter;
 
 use approx::{AbsDiffEq, RelativeEq};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::{
@@ -19,7 +20,8 @@ use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
 /// Dense matrix
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct DenseMatrix<T> {
     ncols: usize,
     nrows: usize,

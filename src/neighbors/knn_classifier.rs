@@ -305,7 +305,10 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn knn_fit_predict() {
         let x =
@@ -317,7 +320,10 @@ mod tests {
         assert_eq!(y.to_vec(), y_hat);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn knn_fit_predict_weighted() {
         let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]);
@@ -335,7 +341,10 @@ mod tests {
         assert_eq!(vec![3], y_hat);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

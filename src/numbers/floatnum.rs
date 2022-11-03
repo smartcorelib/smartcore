@@ -1,8 +1,6 @@
-use rand::Rng;
-
 use num_traits::{Float, Signed};
 
-use crate::numbers::basenum::Number;
+use crate::{numbers::basenum::Number, rand_custom::get_rng_impl};
 
 /// Defines float number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
@@ -58,7 +56,8 @@ impl FloatNumber for f64 {
     }
 
     fn rand() -> f64 {
-        let mut rng = rand::thread_rng();
+        use rand::Rng;
+        let mut rng = get_rng_impl(None);
         rng.gen()
     }
 
@@ -99,7 +98,8 @@ impl FloatNumber for f32 {
     }
 
     fn rand() -> f32 {
-        let mut rng = rand::thread_rng();
+        use rand::Rng;
+        let mut rng = get_rng_impl(None);
         rng.gen()
     }
 

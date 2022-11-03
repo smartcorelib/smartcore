@@ -276,6 +276,19 @@ impl<
         TY: Number + Ord + Unsigned,
         X: Array2<TX>,
         Y: Array1<TY>,
+    > fmt::Display for GaussianNB<TX, TY, X, Y>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "GaussianNB:\ninner: {:?}", self.inner.as_ref().unwrap())?;
+        Ok(())
+    }
+}
+
+impl<
+        TX: Number + RealNumber + RealNumber,
+        TY: Number + Ord + Unsigned,
+        X: Array2<TX>,
+        Y: Array1<TY>,
     > SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn new() -> Self {
@@ -372,7 +385,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_gaussian_naive_bayes() {
         let x = DenseMatrix::from_2d_array(&[
@@ -409,7 +425,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_gaussian_naive_bayes_with_priors() {
         let x = DenseMatrix::from_2d_array(&[
@@ -427,9 +446,15 @@ mod tests {
         let gnb = GaussianNB::fit(&x, &y, parameters).unwrap();
 
         assert_eq!(gnb.class_priors(), &priors);
+
+        // test display for GNB
+        println!("{}", &gnb);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

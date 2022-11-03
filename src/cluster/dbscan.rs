@@ -425,7 +425,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn fit_predict_dbscan() {
         let x = DenseMatrix::from_2d_array(&[
@@ -457,7 +460,10 @@ mod tests {
         assert_eq!(expected_labels, predicted_labels);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {
@@ -491,10 +497,12 @@ mod tests {
 
         assert_eq!(dbscan, deserialized_dbscan);
     }
-    use crate::dataset::generator;
 
+    #[cfg(feature = "datasets")]
     #[test]
     fn from_vec() {
+        use crate::dataset::generator;
+
         // Generate three blobs
         let blobs = generator::make_blobs(100, 2, 3);
         let x: DenseMatrix<f32> = DenseMatrix::from_iterator(blobs.data.into_iter(), 100, 2, 0);

@@ -309,6 +309,19 @@ pub struct MultinomialNB<
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>>,
 }
 
+impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> fmt::Display
+    for MultinomialNB<TX, TY, X, Y>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "MultinomialNB:\ninner: {:?}",
+            self.inner.as_ref().unwrap()
+        )?;
+        Ok(())
+    }
+}
+
 impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
 {
@@ -403,7 +416,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_multinomial_naive_bayes() {
         // Tests that MultinomialNB when alpha=1.0 gives the same values as
@@ -461,7 +477,10 @@ mod tests {
         assert_eq!(y_hat, &[0]);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn multinomial_nb_scikit_parity() {
         let x = DenseMatrix::<u32>::from_2d_array(&[
@@ -494,6 +513,9 @@ mod tests {
             ]
         );
 
+        // test display
+        println!("{}", &nb);
+
         let y_hat = nb.predict(&x).unwrap();
 
         let distribution = nb.inner.clone().unwrap().distribution;
@@ -524,7 +546,10 @@ mod tests {
         assert_eq!(y_hat, vec!(2, 2, 0, 0, 0, 2, 2, 1, 0, 1, 0, 2, 0, 0, 2));
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

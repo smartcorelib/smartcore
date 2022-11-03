@@ -673,7 +673,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let mut is_pure = true;
         for i in 0..n_rows {
             if visitor.samples[i] > 0 {
-                if label == Option::None {
+                if label.is_none() {
                     label = Option::Some(visitor.y[i]);
                 } else if visitor.y[i] != label.unwrap() {
                     is_pure = false;
@@ -899,7 +899,10 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn gini_impurity() {
         assert!(
@@ -915,7 +918,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn fit_predict_iris() {
         let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
@@ -968,7 +974,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn fit_predict_baloons() {
         let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
@@ -1003,7 +1012,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn serde() {

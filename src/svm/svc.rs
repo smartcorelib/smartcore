@@ -100,22 +100,17 @@ pub struct SVCParameters<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Number of epochs.
     pub epoch: usize,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub c: TX,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Tolerance for stopping criterion.
     pub tol: TX,
     #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<&'a dyn Kernel<'a>>,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
-    #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
     seed: Option<u64>,
 }
@@ -133,7 +128,7 @@ pub struct SVCParameters<
 pub struct SVC<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     classes: Option<Vec<TY>>,
     instances: Option<Vec<Vec<TX>>>,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     parameters: Option<&'a SVCParameters<'a, TX, TY, X, Y>>,
     w: Option<Vec<TX>>,
     b: Option<TX>,
@@ -948,7 +943,10 @@ mod tests {
     #[cfg(feature = "serde")]
     use crate::svm::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn svc_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
@@ -996,7 +994,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn svc_fit_decision_function() {
         let x = DenseMatrix::from_2d_array(&[&[4.0, 0.0], &[0.0, 4.0], &[8.0, 0.0], &[0.0, 8.0]]);
@@ -1034,7 +1035,10 @@ mod tests {
         assert!(num::Float::abs(y_hat[0]) <= 0.1);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn svc_fit_predict_rbf() {
         let x = DenseMatrix::from_2d_array(&[
@@ -1083,7 +1087,10 @@ mod tests {
         );
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(feature = "serde")]
     fn svc_serde() {

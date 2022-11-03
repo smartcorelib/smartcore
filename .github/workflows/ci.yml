@@ -19,19 +19,20 @@ jobs:
             { os: "ubuntu", target: "i686-unknown-linux-gnu" },
             { os: "ubuntu", target: "wasm32-unknown-unknown" },
             { os: "macos", target: "aarch64-apple-darwin" },
+            { os: "ubuntu", target: "wasm32-wasi" },
           ]
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Cache .cargo and target
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo
             ./target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -42,6 +43,9 @@ jobs:
       - name: Install test runner for wasm
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install test runner for wasi
+        if: matrix.platform.target == 'wasm32-wasi'
+        run: curl https://wasmtime.dev/install.sh -sSf | bash
       - name: Stable Build
         uses: actions-rs/cargo@v1
         with:
@@ -56,3 +60,40 @@ jobs:
       - name: Tests in WASM
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: wasm-pack test --node -- --all-features
+      - name: Tests in WASI
+        if: matrix.platform.target == 'wasm32-wasi'
+        run: |
+          export WASMTIME_HOME="$HOME/.wasmtime"
+          export PATH="$WASMTIME_HOME/bin:$PATH"
+          cargo install cargo-wasi && cargo wasi test
+
+  check_features:
+    runs-on: "${{ matrix.platform.os }}-latest"
+    strategy:
+      matrix:
+        platform: [{ os: "ubuntu" }]
+        features: ["--features serde", "--features datasets", ""]
+    env:
+      TZ: "/usr/share/zoneinfo/your/location"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache .cargo and target
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-cargo-features-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-features-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+          profile: minimal
+          default: true
+      - name: Stable Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --no-default-features ${{ matrix.features }}

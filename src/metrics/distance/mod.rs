@@ -24,9 +24,15 @@ pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
 
+use std::cmp::{Eq, Ordering, PartialOrd};
+
 use crate::linalg::basic::arrays::Array2;
 use crate::linalg::traits::lu::LUDecomposable;
 use crate::numbers::basenum::Number;
+use crate::numbers::realnum::RealNumber;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// Distance metric, a function that calculates distance between two points
 pub trait Distance<T>: Clone {
@@ -64,5 +70,47 @@ impl Distances {
         data: &M,
     ) -> mahalanobis::Mahalanobis<T, C> {
         mahalanobis::Mahalanobis::new(data)
+    }
+}
+
+///
+/// ### Pairwise dissimilarities.
+///
+/// Representing distances as pairwise dissimilarities, so to build a
+/// graph of closest neighbours. This representation can be reused for
+/// different implementations
+/// (initially used in this library for [FastPair](algorithm/neighbour/fastpair)).
+/// The edge of the subgraph is defined by `PairwiseDistance`.
+/// The calling algorithm can store a list of distances as
+/// a list of these structures.
+///
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy)]
+pub struct PairwiseDistance<T: RealNumber> {
+    /// index of the vector in the original `Matrix` or list
+    pub node: usize,
+
+    /// index of the closest neighbor in the original `Matrix` or same list
+    pub neighbour: Option<usize>,
+
+    /// measure of distance, according to the algorithm distance function
+    /// if the distance is None, the edge has value "infinite" or max distance
+    /// each algorithm has to match
+    pub distance: Option<T>,
+}
+
+impl<T: RealNumber> Eq for PairwiseDistance<T> {}
+
+impl<T: RealNumber> PartialEq for PairwiseDistance<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node == other.node
+            && self.neighbour == other.neighbour
+            && self.distance == other.distance
+    }
+}
+
+impl<T: RealNumber> PartialOrd for PairwiseDistance<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.distance.partial_cmp(&other.distance)
     }
 }

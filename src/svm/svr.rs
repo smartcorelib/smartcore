@@ -79,140 +79,30 @@ use crate::api::{PredictorBorrow, SupervisedEstimatorBorrow};
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
-use crate::numbers::realnum::RealNumber;
+use crate::numbers::floatnum::FloatNumber;
 use crate::svm::Kernel;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVR Parameters
-pub struct SVRParameters<'a, T: Number + RealNumber> {
+pub struct SVRParameters<'a, T: Number + FloatNumber + PartialOrd> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: T,
     /// Regularization parameter.
     pub c: T,
     /// Tolerance for stopping criterion.
     pub tol: T,
-    #[serde(skip_deserializing)]
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<&'a dyn Kernel<'a>>,
 }
 
-// /// SVR grid search parameters
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug, Clone)]
-// pub struct SVRSearchParameters<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-//     /// Epsilon in the epsilon-SVR model.
-//     pub eps: Vec<T>,
-//     /// Regularization parameter.
-//     pub c: Vec<T>,
-//     /// Tolerance for stopping eps.
-//     pub tol: Vec<T>,
-//     /// The kernel function.
-//     pub kernel: Vec<K>,
-//     /// Unused parameter.
-//     m: PhantomData<M>,
-// }
-
-// /// SVR grid search iterator
-// pub struct SVRSearchParametersIterator<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-//     svr_search_parameters: SVRSearchParameters<T, M, K>,
-//     current_eps: usize,
-//     current_c: usize,
-//     current_tol: usize,
-//     current_kernel: usize,
-// }
-
-// impl<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
-//     for SVRSearchParameters<T, M, K>
-// {
-//     type Item = SVRParameters<T, M, K>;
-//     type IntoIter = SVRSearchParametersIterator<T, M, K>;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         SVRSearchParametersIterator {
-//             svr_search_parameters: self,
-//             current_eps: 0,
-//             current_c: 0,
-//             current_tol: 0,
-//             current_kernel: 0,
-//         }
-//     }
-// }
-
-// impl<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
-//     for SVRSearchParametersIterator<T, M, K>
-// {
-//     type Item = SVRParameters<T, M, K>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.current_eps == self.svr_search_parameters.eps.len()
-//             && self.current_c == self.svr_search_parameters.c.len()
-//             && self.current_tol == self.svr_search_parameters.tol.len()
-//             && self.current_kernel == self.svr_search_parameters.kernel.len()
-//         {
-//             return None;
-//         }
-
-//         let next = SVRParameters::<T, M, K> {
-//             eps: self.svr_search_parameters.eps[self.current_eps],
-//             c: self.svr_search_parameters.c[self.current_c],
-//             tol: self.svr_search_parameters.tol[self.current_tol],
-//             kernel: self.svr_search_parameters.kernel[self.current_kernel].clone(),
-//             m: PhantomData,
-//         };
-
-//         if self.current_eps + 1 < self.svr_search_parameters.eps.len() {
-//             self.current_eps += 1;
-//         } else if self.current_c + 1 < self.svr_search_parameters.c.len() {
-//             self.current_eps = 0;
-//             self.current_c += 1;
-//         } else if self.current_tol + 1 < self.svr_search_parameters.tol.len() {
-//             self.current_eps = 0;
-//             self.current_c = 0;
-//             self.current_tol += 1;
-//         } else if self.current_kernel + 1 < self.svr_search_parameters.kernel.len() {
-//             self.current_eps = 0;
-//             self.current_c = 0;
-//             self.current_tol = 0;
-//             self.current_kernel += 1;
-//         } else {
-//             self.current_eps += 1;
-//             self.current_c += 1;
-//             self.current_tol += 1;
-//             self.current_kernel += 1;
-//         }
-
-//         Some(next)
-//     }
-// }
-
-// impl<T: Number + RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M, LinearKernel> {
-//     fn default() -> Self {
-//         let default_params: SVRParameters<T, M, LinearKernel> = SVRParameters::default();
-
-//         SVRSearchParameters {
-//             eps: vec![default_params.eps],
-//             c: vec![default_params.c],
-//             tol: vec![default_params.tol],
-//             kernel: vec![default_params.kernel],
-//             m: PhantomData,
-//         }
-//     }
-// }
-
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug)]
-// #[cfg_attr(
-//     feature = "serde",
-//     serde(bound(
-//         serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-//         deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-//     ))
-// )]
-
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug)]
 /// Epsilon-Support Vector Regression
-pub struct SVR<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> {
+pub struct SVR<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> {
     instances: Option<Vec<Vec<f64>>>,
+    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     parameters: Option<&'a SVRParameters<'a, T>>,
     w: Option<Vec<T>>,
     b: T,
@@ -230,7 +120,7 @@ struct SupportVector<T> {
 }
 
 /// Sequential Minimal Optimization algorithm
-struct Optimizer<'a, T: Number + RealNumber> {
+struct Optimizer<'a, T: Number + FloatNumber + PartialOrd> {
     tol: T,
     c: T,
     parameters: Option<&'a SVRParameters<'a, T>>,
@@ -242,13 +132,15 @@ struct Optimizer<'a, T: Number + RealNumber> {
     gmaxindex: usize,
     tau: T,
     sv: Vec<SupportVector<T>>,
+    /// avoid infinite loop if SMO does not converge
+    max_iterations: usize,
 }
 
 struct Cache<T: Clone> {
     data: Vec<RefCell<Option<Vec<T>>>>,
 }
 
-impl<'a, T: Number + RealNumber> SVRParameters<'a, T> {
+impl<'a, T: Number + FloatNumber + PartialOrd> SVRParameters<'a, T> {
     /// Epsilon in the epsilon-SVR model.
     pub fn with_eps(mut self, eps: T) -> Self {
         self.eps = eps;
@@ -271,7 +163,7 @@ impl<'a, T: Number + RealNumber> SVRParameters<'a, T> {
     }
 }
 
-impl<'a, T: Number + RealNumber> Default for SVRParameters<'a, T> {
+impl<'a, T: Number + FloatNumber + PartialOrd> Default for SVRParameters<'a, T> {
     fn default() -> Self {
         SVRParameters {
             eps: T::from_f64(0.1).unwrap(),
@@ -282,7 +174,7 @@ impl<'a, T: Number + RealNumber> Default for SVRParameters<'a, T> {
     }
 }
 
-impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>>
+impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>>
     SupervisedEstimatorBorrow<'a, X, Y, SVRParameters<'a, T>> for SVR<'a, T, X, Y>
 {
     fn new() -> Self {
@@ -299,7 +191,7 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>>
     }
 }
 
-impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> PredictorBorrow<'a, X, T>
+impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PredictorBorrow<'a, X, T>
     for SVR<'a, T, X, Y>
 {
     fn predict(&self, x: &'a X) -> Result<Vec<T>, Failed> {
@@ -307,7 +199,7 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> PredictorBorrow<'a,
     }
 }
 
-impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
+impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
     /// Fits SVR to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target values
@@ -388,7 +280,9 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> SVR<'a, T, X, Y> {
     }
 }
 
-impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> PartialEq for SVR<'a, T, X, Y> {
+impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PartialEq
+    for SVR<'a, T, X, Y>
+{
     fn eq(&self, other: &Self) -> bool {
         if (self.b - other.b).abs() > T::epsilon() * T::two()
             || self.w.as_ref().unwrap().len() != other.w.as_ref().unwrap().len()
@@ -414,7 +308,7 @@ impl<'a, T: Number + RealNumber, X: Array2<T>, Y: Array1<T>> PartialEq for SVR<'
     }
 }
 
-impl<T: Number + RealNumber> SupportVector<T> {
+impl<T: Number + FloatNumber + PartialOrd> SupportVector<T> {
     fn new(i: usize, x: Vec<f64>, y: T, eps: T, k: f64) -> SupportVector<T> {
         SupportVector {
             index: i,
@@ -426,7 +320,7 @@ impl<T: Number + RealNumber> SupportVector<T> {
     }
 }
 
-impl<'a, T: Number + RealNumber> Optimizer<'a, T> {
+impl<'a, T: Number + FloatNumber + PartialOrd> Optimizer<'a, T> {
     fn new<X: Array2<T>, Y: Array1<T>>(
         x: &'a X,
         y: &'a Y,
@@ -468,12 +362,13 @@ impl<'a, T: Number + RealNumber> Optimizer<'a, T> {
             gmaxindex: 0,
             tau: T::from_f64(1e-12).unwrap(),
             sv: support_vectors,
+            max_iterations: 49999,
         }
     }
 
     fn find_min_max_gradient(&mut self) {
-        // self.gmin = <T as Bounded>::max_value()();
-        // self.gmax = <T as Bounded>::min_value();
+        self.gmin = <T as Bounded>::max_value();
+        self.gmax = <T as Bounded>::min_value();
 
         for i in 0..self.sv.len() {
             let v = &self.sv[i];
@@ -511,10 +406,13 @@ impl<'a, T: Number + RealNumber> Optimizer<'a, T> {
     /// * hyperplane parameters: w and b (computed with T)
     fn smo(mut self) -> (Vec<Vec<f64>>, Vec<T>, T) {
         let cache: Cache<f64> = Cache::new(self.sv.len());
-
+        let mut n_iteration = 0usize;
         self.find_min_max_gradient();
 
         while self.gmax - self.gmin > self.tol {
+            if n_iteration > self.max_iterations {
+                break;
+            }
             let v1 = self.svmax;
             let i = self.gmaxindex;
             let old_alpha_i = self.sv[v1].alpha[i];
@@ -659,6 +557,7 @@ impl<'a, T: Number + RealNumber> Optimizer<'a, T> {
             }
 
             self.find_min_max_gradient();
+            n_iteration += 1;
         }
 
         let b = -(self.gmax + self.gmin) / T::two();
@@ -694,11 +593,11 @@ impl<T: Clone> Cache<T> {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // use crate::linalg::basic::matrix::DenseMatrix;
-    // use crate::metrics::mean_squared_error;
-    // #[cfg(feature = "serde")]
-    // use crate::svm::*;
+    use super::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::metrics::mean_squared_error;
+    #[cfg(feature = "serde")]
+    use crate::svm::Kernels;
 
     // #[test]
     // fn search_parameters() {
@@ -718,79 +617,97 @@ mod tests {
     //     assert!(iter.next().is_none());
     // }
 
-    // TODO: had to disable this test as it runs for too long
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // fn svr_fit_predict() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
-    //         &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
-    //         &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
-    //         &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
-    //         &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
-    //         &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
-    //         &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
-    //         &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
-    //         &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
-    //         &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
-    //         &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
-    //         &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
-    //         &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
-    //         &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
-    //         &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
-    //         &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-    //     ]);
+    //TODO: had to disable this test as it runs for too long
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn svr_fit_predict() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
+            &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ]);
 
-    //     let y: Vec<f64> = vec![
-    //         83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
-    //         114.2, 115.7, 116.9,
-    //     ];
+        let y: Vec<f64> = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
 
-    //     let knl = Kernels::linear();
-    //     let y_hat = SVR::fit(&x, &y, &SVRParameters::default()
-    //          .with_eps(2.0)
-    //          .with_c(10.0)
-    //          .with_kernel(&knl)
-    //     )
-    //         .and_then(|lr| lr.predict(&x))
-    //         .unwrap();
+        let knl = Kernels::linear();
+        let y_hat = SVR::fit(
+            &x,
+            &y,
+            &SVRParameters::default()
+                .with_eps(2.0)
+                .with_c(10.0)
+                .with_kernel(&knl),
+        )
+        .and_then(|lr| lr.predict(&x))
+        .unwrap();
 
-    //     assert!(mean_squared_error(&y_hat, &y) < 2.5);
-    // }
+        let t = mean_squared_error(&y_hat, &y);
+        println!("{:?}", t);
+        assert!(t < 2.5);
+    }
 
-    // #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn svr_serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
-    //         &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
-    //         &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
-    //         &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
-    //         &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
-    //         &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
-    //         &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
-    //         &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
-    //         &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
-    //         &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
-    //         &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
-    //         &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
-    //         &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
-    //         &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
-    //         &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
-    //         &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-    //     ]);
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn svr_serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
+            &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ]);
 
-    //     let y: Vec<f64> = vec![
-    //         83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
-    //         114.2, 115.7, 116.9,
-    //     ];
+        let y: Vec<f64> = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
 
-    //     let svr = SVR::fit(&x, &y, Default::default()).unwrap();
+        let knl = Kernels::rbf().with_gamma(0.7);
+        let params = SVRParameters::default().with_kernel(&knl);
 
-    //     let deserialized_svr: SVR<f64, DenseMatrix<f64>, LinearKernel> =
-    //         serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
+        let svr = SVR::fit(&x, &y, &params).unwrap();
 
-    //     assert_eq!(svr, deserialized_svr);
-    // }
+        let serialized = &serde_json::to_string(&svr).unwrap();
+
+        println!("{}", &serialized);
+
+        // let deserialized_svr: SVR<f64, DenseMatrix<f64>, LinearKernel> =
+        //     serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
+
+        // assert_eq!(svr, deserialized_svr);
+    }
 }

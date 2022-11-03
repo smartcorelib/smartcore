@@ -14,7 +14,7 @@
 //! let y_pred: Vec<f64> = vec![3., -0.5, 2., 7.];
 //! let y_true: Vec<f64> = vec![2.5, 0.0, 2., 8.];
 //!
-//! let mse: f64 = MeanAbsoluteError::new().get_score(&y_pred, &y_true);
+//! let mse: f64 = MeanAbsoluteError::new().get_score( &y_true, &y_pred);
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -81,7 +81,10 @@ impl<T: Number> Metrics<T> for R2<T> {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn r2() {
         let y_true: Vec<f64> = vec![3., -0.5, 2., 7.];
