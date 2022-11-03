@@ -83,7 +83,10 @@ impl<T: Number> Metrics<T> for Accuracy<T> {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn accuracy_float() {
         let y_pred: Vec<f64> = vec![0., 2., 1., 3.];
@@ -96,7 +99,10 @@ mod tests {
         assert!((score2 - 1.0).abs() < 1e-8);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn accuracy_int() {
         let y_pred: Vec<i32> = vec![0, 2, 1, 3];

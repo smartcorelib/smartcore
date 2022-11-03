@@ -22,6 +22,8 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+/// search parameters
+pub mod search;
 pub mod svc;
 pub mod svr;
 
@@ -52,6 +54,7 @@ impl<'a> Debug for dyn Kernel<'_> + 'a {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'a> Serialize for dyn Kernel<'_> + 'a {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -64,7 +67,8 @@ impl<'a> Serialize for dyn Kernel<'_> + 'a {
 }
 
 /// Pre-defined kernel functions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct Kernels {}
 
 impl<'a> Kernels {
@@ -267,7 +271,10 @@ mod tests {
     use super::*;
     use crate::svm::Kernels;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn linear_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -276,7 +283,10 @@ mod tests {
         assert_eq!(32f64, Kernels::linear().apply(&v1, &v2).unwrap());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn rbf_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -291,7 +301,10 @@ mod tests {
         assert!((0.2265f64 - result) < 1e-4);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn polynomial_kernel() {
         let v1 = vec![1., 2., 3.];
@@ -306,7 +319,10 @@ mod tests {
         assert!((4913f64 - result) < std::f64::EPSILON);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn sigmoid_kernel() {
         let v1 = vec![1., 2., 3.];

@@ -87,7 +87,10 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
 mod tests {
     use super::*;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn homogeneity_score() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];

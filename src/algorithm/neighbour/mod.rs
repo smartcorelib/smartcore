@@ -41,10 +41,8 @@ use serde::{Deserialize, Serialize};
 pub(crate) mod bbd_tree;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
-/// dissimilarities for vector-vector distance. Linkage algorithms used in fastpair
-pub mod distances;
 /// fastpair closest neighbour algorithm
-// pub mod fastpair;
+pub mod fastpair;
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
 

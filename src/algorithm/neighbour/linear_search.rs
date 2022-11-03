@@ -143,7 +143,10 @@ mod tests {
         }
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn knn_find() {
         let data1 = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -190,7 +193,10 @@ mod tests {
 
         assert_eq!(vec!(1, 2, 3), found_idxs2);
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn knn_point_eq() {
         let point1 = KNNPoint {

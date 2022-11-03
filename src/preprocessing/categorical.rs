@@ -224,7 +224,10 @@ mod tests {
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::preprocessing::series_encoder::CategoryMapper;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn adjust_idxs() {
         assert_eq!(find_new_idxs(0, &[], &[]), Vec::<usize>::new());
@@ -269,7 +272,10 @@ mod tests {
         (orig, oh_enc)
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn hash_encode_f64_series() {
         let series = vec![3.0, 1.0, 2.0, 1.0];
@@ -280,7 +286,10 @@ mod tests {
         let orig_val: f64 = inv.unwrap().into();
         assert_eq!(orig_val, 2.0);
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_fit() {
         let (x, _) = build_fake_matrix();
@@ -296,7 +305,10 @@ mod tests {
         assert_eq!(num_cat, vec![2, 4]);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn matrix_transform_test() {
         let (x, expected_x) = build_fake_matrix();
@@ -312,7 +324,10 @@ mod tests {
         assert_eq!(nm, expected_x);
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn fail_on_bad_category() {
         let m = DenseMatrix::from_2d_array(&[

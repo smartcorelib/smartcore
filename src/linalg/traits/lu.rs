@@ -260,7 +260,10 @@ mod tests {
     use crate::linalg::basic::matrix::DenseMatrix;
     use approx::relative_eq;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn decompose() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
@@ -275,7 +278,10 @@ mod tests {
         assert!(relative_eq!(lu.U(), expected_U, epsilon = 1e-4));
         assert!(relative_eq!(lu.pivot(), expected_pivot, epsilon = 1e-4));
     }
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn inverse() {
         let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);

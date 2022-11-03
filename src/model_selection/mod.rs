@@ -321,7 +321,10 @@ mod tests {
     use crate::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
     use crate::neighbors::KNNWeightFunction;
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn run_train_test_split() {
         let n = 123;
@@ -346,7 +349,10 @@ mod tests {
     struct BiasedParameters {}
     impl NoParameters for BiasedParameters {}
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_cross_validate_biased() {
         struct BiasedEstimator {}
@@ -412,7 +418,10 @@ mod tests {
         assert_eq!(0.4, results.mean_train_score());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_cross_validate_knn() {
         let x = DenseMatrix::from_2d_array(&[
@@ -457,7 +466,10 @@ mod tests {
         assert!(results.mean_train_score() < results.mean_test_score());
     }
 
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn test_cross_val_predict_knn() {
         let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
