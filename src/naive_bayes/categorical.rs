@@ -139,6 +139,17 @@ impl<T: Number + Unsigned> NBDistribution<T, T> for CategoricalNBDistribution<T>
     }
 }
 
+impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> fmt::Display for CategoricalNB<T, X, Y> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "CategoricalNB:\ninner: {:?}",
+            self.inner.as_ref().unwrap()
+        )?;
+        Ok(())
+    }
+}
+
 impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
@@ -539,6 +550,8 @@ mod tests {
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
         let y_hat = cnb.predict(&x).unwrap();
         assert_eq!(y_hat, vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1]);
+
+        println!("{}", &cnb);
     }
 
     #[cfg_attr(

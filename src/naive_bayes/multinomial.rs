@@ -309,6 +309,19 @@ pub struct MultinomialNB<
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>>,
 }
 
+impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> fmt::Display
+    for MultinomialNB<TX, TY, X, Y>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "MultinomialNB:\ninner: {:?}",
+            self.inner.as_ref().unwrap()
+        )?;
+        Ok(())
+    }
+}
+
 impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, MultinomialNBParameters> for MultinomialNB<TX, TY, X, Y>
 {
@@ -499,6 +512,9 @@ mod tests {
                 &[10, 12, 9, 9, 11, 3, 9, 18, 10, 10]
             ]
         );
+
+        // test display
+        println!("{}", &nb);
 
         let y_hat = nb.predict(&x).unwrap();
 

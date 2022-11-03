@@ -276,6 +276,19 @@ impl<
         TY: Number + Ord + Unsigned,
         X: Array2<TX>,
         Y: Array1<TY>,
+    > fmt::Display for GaussianNB<TX, TY, X, Y>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "GaussianNB:\ninner: {:?}", self.inner.as_ref().unwrap())?;
+        Ok(())
+    }
+}
+
+impl<
+        TX: Number + RealNumber + RealNumber,
+        TY: Number + Ord + Unsigned,
+        X: Array2<TX>,
+        Y: Array1<TY>,
     > SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn new() -> Self {
@@ -433,6 +446,9 @@ mod tests {
         let gnb = GaussianNB::fit(&x, &y, parameters).unwrap();
 
         assert_eq!(gnb.class_priors(), &priors);
+
+        // test display for GNB
+        println!("{}", &gnb);
     }
 
     #[cfg_attr(
