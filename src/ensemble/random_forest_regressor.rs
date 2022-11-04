@@ -175,14 +175,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     SupervisedEstimator<X, Y, RandomForestRegressorParameters>
     for RandomForestRegressor<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            parameters: Option::None,
-            trees: Option::None,
-            samples: Option::None,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: RandomForestRegressorParameters) -> Result<Self, Failed> {
         RandomForestRegressor::fit(x, y, parameters)
     }

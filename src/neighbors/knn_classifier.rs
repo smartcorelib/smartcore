@@ -181,18 +181,6 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     SupervisedEstimator<X, Y, KNNClassifierParameters<TX, D>> for KNNClassifier<TX, TY, X, Y, D>
 {
-    fn new() -> Self {
-        Self {
-            classes: Option::None,
-            y: Option::None,
-            knn_algorithm: Option::None,
-            weight: Option::None,
-            k: Option::None,
-            _phantom_tx: PhantomData,
-            _phantom_x: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
     fn fit(x: &X, y: &Y, parameters: KNNClassifierParameters<TX, D>) -> Result<Self, Failed> {
         KNNClassifier::fit(x, y, parameters)
     }

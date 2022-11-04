@@ -91,8 +91,8 @@
 //!
 //! let cv = KFold::default().with_n_splits(3);
 //!
-//! let results = cross_validate(
-//!     LogisticRegression::new(),   //estimator
+//! // Need to pass generic type parameter to define the type of the estimator
+//! let results = cross_validate::<_,_,_,_,_,LogisticRegression<_,_,_,_>,_,_>(
 //!     &x, &y,                 //data
 //!     Default::default(),     //hyperparameters
 //!     &cv,                     //cross validation split
@@ -222,7 +222,6 @@ impl CrossValidationResult {
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
 /// * `score` - a metric to use for evaluation, see [metrics](../metrics/index.html)
 pub fn cross_validate<TX, TY, X, Y, H, E, K, S>(
-    _estimator: E, // just an empty placeholder to allow passing `fit()`
     x: &X,
     y: &Y,
     parameters: H,
@@ -271,7 +270,6 @@ where
 /// * `parameters` - parameters of selected estimator. Use `Default::default()` for default parameters.
 /// * `cv` - the cross-validation splitting strategy, should be an instance of [`BaseKFold`](./trait.BaseKFold.html)
 pub fn cross_val_predict<TX, TY, X, Y, H, E, K>(
-    _estimator: E, // just an empty placeholder to allow passing `fit()`
     x: &X,
     y: &Y,
     parameters: H,
@@ -360,9 +358,6 @@ mod tests {
         impl<X: Array2<f32>, Y: Array1<u32>, P: NoParameters> SupervisedEstimator<X, Y, P>
             for BiasedEstimator
         {
-            fn new() -> Self {
-                Self {}
-            }
             fn fit(_: &X, _: &Y, _: P) -> Result<BiasedEstimator, Failed> {
                 Ok(BiasedEstimator {})
             }
@@ -404,8 +399,7 @@ mod tests {
             ..KFold::default()
         };
 
-        let results = cross_validate(
-            BiasedEstimator {},
+        let results = cross_validate::<_, _, _, _, _, BiasedEstimator, _, _>(
             &x,
             &y,
             BiasedParameters {},
@@ -452,8 +446,7 @@ mod tests {
             ..KFold::default()
         };
 
-        let results = cross_validate(
-            KNNRegressor::new(),
+        let results = cross_validate::<_, _, _, _, _, KNNRegressor<_, _, _, _, _>, _, _>(
             &x,
             &y,
             Default::default(),
@@ -500,8 +493,7 @@ mod tests {
             ..KFold::default()
         };
 
-        let y_hat: Vec<f64> = cross_val_predict(
-            KNNRegressor::new(),
+        let y_hat: Vec<f64> = cross_val_predict::<_, _, _, _, _, KNNRegressor<_, _, _, _, _>, _>(
             &x,
             &y,
             KNNRegressorParameters::default()
@@ -544,8 +536,7 @@ mod tests {
 
         let cv = KFold::default().with_n_splits(3);
 
-        let results = cross_validate(
-            LogisticRegression::new(),
+        let results = cross_validate::<_, _, _, _, _, LogisticRegression<_, _, _, _>, _, _>(
             &x,
             &y,
             Default::default(),

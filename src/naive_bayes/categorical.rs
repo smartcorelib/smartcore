@@ -347,12 +347,6 @@ pub struct CategoricalNB<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> {
 impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
     SupervisedEstimator<X, Y, CategoricalNBParameters> for CategoricalNB<T, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            inner: Option::None,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: CategoricalNBParameters) -> Result<Self, Failed> {
         CategoricalNB::fit(x, y, parameters)
     }
