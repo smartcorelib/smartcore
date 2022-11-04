@@ -100,7 +100,6 @@ pub struct SVCParameters<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX
     pub c: TX,
     /// Tolerance for stopping criterion.
     pub tol: TX,
-    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<Box<dyn Kernel>>,
     /// Unused parameter.

@@ -92,7 +92,6 @@ pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
     pub c: T,
     /// Tolerance for stopping criterion.
     pub tol: T,
-    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
     pub kernel: Option<Box<dyn Kernel>>,
 }
