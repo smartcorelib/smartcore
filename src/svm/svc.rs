@@ -57,7 +57,7 @@
 //! let y = vec![ -1, -1, -1, -1, -1, -1, -1, -1,
 //!            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 //!
-//! let knl = Box::new(Kernels::linear());
+//! let knl = Kernels::linear();
 //! let params = &SVCParameters::default().with_c(200.0).with_kernel(knl);
 //! let svc = SVC::fit(&x, &y, params).unwrap();
 //!
@@ -178,8 +178,8 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         self
     }
     /// The kernel function.
-    pub fn with_kernel(mut self, kernel: Box<dyn Kernel>) -> Self {
-        self.kernel = Some(kernel);
+    pub fn with_kernel<K: Kernel + 'static>(mut self, kernel: K) -> Self {
+        self.kernel = Some(Box::new(kernel));
         self
     }
 
@@ -973,7 +973,7 @@ mod tests {
         let knl = Kernels::linear();
         let params = SVCParameters::default()
             .with_c(200.0)
-            .with_kernel(Box::new(knl))
+            .with_kernel(knl)
             .with_seed(Some(100));
 
         let y_hat = SVC::fit(&x, &y, &params)
@@ -1012,7 +1012,7 @@ mod tests {
             &y,
             &SVCParameters::default()
                 .with_c(200.0)
-                .with_kernel(Box::new(Kernels::linear())),
+                .with_kernel(Kernels::linear()),
         )
         .and_then(|lr| lr.decision_function(&x2))
         .unwrap();
@@ -1067,7 +1067,7 @@ mod tests {
             &y,
             &SVCParameters::default()
                 .with_c(1.0)
-                .with_kernel(Box::new(Kernels::rbf().with_gamma(0.7))),
+                .with_kernel(Kernels::rbf().with_gamma(0.7)),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
@@ -1116,7 +1116,7 @@ mod tests {
         ];
 
         let knl = Kernels::linear();
-        let params = SVCParameters::default().with_kernel(Box::new(knl));
+        let params = SVCParameters::default().with_kernel(knl);
         let svc = SVC::fit(&x, &y, &params).unwrap();
 
         // serialization

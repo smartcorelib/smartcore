@@ -49,7 +49,7 @@
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
-//! let knl = Box::new(Kernels::linear());
+//! let knl = Kernels::linear();
 //! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(knl);
 //! // let svr = SVR::fit(&x, &y, params).unwrap();
 //!
@@ -157,8 +157,8 @@ impl<T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
         self
     }
     /// The kernel function.
-    pub fn with_kernel(mut self, kernel: Box<dyn Kernel>) -> Self {
-        self.kernel = Some(kernel);
+    pub fn with_kernel<K: Kernel + 'static>(mut self, kernel: K) -> Self {
+        self.kernel = Some(Box::new(kernel));
         self
     }
 }
@@ -655,7 +655,7 @@ mod tests {
             &SVRParameters::default()
                 .with_eps(2.0)
                 .with_c(10.0)
-                .with_kernel(Box::new(knl)),
+                .with_kernel(knl),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
@@ -697,7 +697,7 @@ mod tests {
         ];
 
         let knl = Kernels::rbf().with_gamma(0.7);
-        let params = SVRParameters::default().with_kernel(Box::new(knl));
+        let params = SVRParameters::default().with_kernel(knl);
 
         let svr = SVR::fit(&x, &y, &params).unwrap();
 
