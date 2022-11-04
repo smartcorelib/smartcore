@@ -93,6 +93,10 @@ pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
     /// Tolerance for stopping criterion.
     pub tol: T,
     /// The kernel function.
+    #[cfg_attr(
+        all(feature = "serde", target_arch = "wasm32"),
+        serde(skip_serializing, skip_deserializing)
+    )]
     pub kernel: Option<Box<dyn Kernel>>,
 }
 

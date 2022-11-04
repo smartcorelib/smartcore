@@ -101,6 +101,10 @@ pub struct SVCParameters<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX
     /// Tolerance for stopping criterion.
     pub tol: TX,
     /// The kernel function.
+    #[cfg_attr(
+        all(feature = "serde", target_arch = "wasm32"),
+        serde(skip_serializing, skip_deserializing)
+    )]
     pub kernel: Option<Box<dyn Kernel>>,
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,

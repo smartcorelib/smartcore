@@ -38,7 +38,10 @@ use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
 /// Defines a kernel function.
 /// This is a object-safe trait.
-#[typetag::serde(tag = "type")]
+#[cfg_attr(
+    all(feature = "serde", not(target_arch = "wasm32")),
+    typetag::serde(tag = "type")
+)]
 pub trait Kernel: Debug {
     #[allow(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
@@ -190,14 +193,14 @@ impl SigmoidKernel {
     }
 }
 
-#[cfg_attr(feature = "serde", typetag::serde)]
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
 impl Kernel for LinearKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         Ok(x_i.dot(x_j))
     }
 }
 
-#[cfg_attr(feature = "serde", typetag::serde)]
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
 impl Kernel for RBFKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() {
@@ -211,7 +214,7 @@ impl Kernel for RBFKernel {
     }
 }
 
-#[cfg_attr(feature = "serde", typetag::serde)]
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
 impl Kernel for PolynomialKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() || self.degree.is_none() {
@@ -225,7 +228,7 @@ impl Kernel for PolynomialKernel {
     }
 }
 
-#[cfg_attr(feature = "serde", typetag::serde)]
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
 impl Kernel for SigmoidKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() {
