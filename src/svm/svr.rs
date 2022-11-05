@@ -50,7 +50,7 @@
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
 //! let knl = Kernels::linear();
-//! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(&knl);
+//! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(knl);
 //! // let svr = SVR::fit(&x, &y, params).unwrap();
 //!
 //! // let y_hat = svr.predict(&x).unwrap();
@@ -83,9 +83,9 @@ use crate::numbers::floatnum::FloatNumber;
 use crate::svm::Kernel;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// SVR Parameters
-pub struct SVRParameters<'a, T: Number + FloatNumber + PartialOrd> {
+pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: T,
     /// Regularization parameter.
@@ -94,7 +94,7 @@ pub struct SVRParameters<'a, T: Number + FloatNumber + PartialOrd> {
     pub tol: T,
     #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
-    pub kernel: Option<&'a dyn Kernel<'a>>,
+    pub kernel: Option<Box<dyn Kernel>>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -103,7 +103,7 @@ pub struct SVRParameters<'a, T: Number + FloatNumber + PartialOrd> {
 pub struct SVR<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> {
     instances: Option<Vec<Vec<f64>>>,
     #[cfg_attr(feature = "serde", serde(skip_deserializing))]
-    parameters: Option<&'a SVRParameters<'a, T>>,
+    parameters: Option<&'a SVRParameters<T>>,
     w: Option<Vec<T>>,
     b: T,
     phantom: PhantomData<(X, Y)>,
@@ -123,7 +123,7 @@ struct SupportVector<T> {
 struct Optimizer<'a, T: Number + FloatNumber + PartialOrd> {
     tol: T,
     c: T,
-    parameters: Option<&'a SVRParameters<'a, T>>,
+    parameters: Option<&'a SVRParameters<T>>,
     svmin: usize,
     svmax: usize,
     gmin: T,
@@ -140,7 +140,7 @@ struct Cache<T: Clone> {
     data: Vec<RefCell<Option<Vec<T>>>>,
 }
 
-impl<'a, T: Number + FloatNumber + PartialOrd> SVRParameters<'a, T> {
+impl<T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
     /// Epsilon in the epsilon-SVR model.
     pub fn with_eps(mut self, eps: T) -> Self {
         self.eps = eps;
@@ -157,13 +157,13 @@ impl<'a, T: Number + FloatNumber + PartialOrd> SVRParameters<'a, T> {
         self
     }
     /// The kernel function.
-    pub fn with_kernel(mut self, kernel: &'a (dyn Kernel<'a>)) -> Self {
-        self.kernel = Some(kernel);
+    pub fn with_kernel<K: Kernel + 'static>(mut self, kernel: K) -> Self {
+        self.kernel = Some(Box::new(kernel));
         self
     }
 }
 
-impl<'a, T: Number + FloatNumber + PartialOrd> Default for SVRParameters<'a, T> {
+impl<T: Number + FloatNumber + PartialOrd> Default for SVRParameters<T> {
     fn default() -> Self {
         SVRParameters {
             eps: T::from_f64(0.1).unwrap(),
@@ -175,9 +175,9 @@ impl<'a, T: Number + FloatNumber + PartialOrd> Default for SVRParameters<'a, T> 
 }
 
 impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>>
-    SupervisedEstimatorBorrow<'a, X, Y, SVRParameters<'a, T>> for SVR<'a, T, X, Y>
+    SupervisedEstimatorBorrow<'a, X, Y, SVRParameters<T>> for SVR<'a, T, X, Y>
 {
-    fn fit(x: &'a X, y: &'a Y, parameters: &'a SVRParameters<'a, T>) -> Result<Self, Failed> {
+    fn fit(x: &'a X, y: &'a Y, parameters: &'a SVRParameters<T>) -> Result<Self, Failed> {
         SVR::fit(x, y, parameters)
     }
 }
@@ -199,7 +199,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
     pub fn fit(
         x: &'a X,
         y: &'a Y,
-        parameters: &'a SVRParameters<'a, T>,
+        parameters: &'a SVRParameters<T>,
     ) -> Result<SVR<'a, T, X, Y>, Failed> {
         let (n, _) = x.shape();
 
@@ -315,7 +315,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd> Optimizer<'a, T> {
     fn new<X: Array2<T>, Y: Array1<T>>(
         x: &'a X,
         y: &'a Y,
-        parameters: &'a SVRParameters<'a, T>,
+        parameters: &'a SVRParameters<T>,
     ) -> Optimizer<'a, T> {
         let (n, _) = x.shape();
 
@@ -646,7 +646,7 @@ mod tests {
             &SVRParameters::default()
                 .with_eps(2.0)
                 .with_c(10.0)
-                .with_kernel(&knl),
+                .with_kernel(knl),
         )
         .and_then(|lr| lr.predict(&x))
         .unwrap();
@@ -688,7 +688,7 @@ mod tests {
         ];
 
         let knl = Kernels::rbf().with_gamma(0.7);
-        let params = SVRParameters::default().with_kernel(&knl);
+        let params = SVRParameters::default().with_kernel(knl);
 
         let svr = SVR::fit(&x, &y, &params).unwrap();
 
