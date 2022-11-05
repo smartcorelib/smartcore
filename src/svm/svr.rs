@@ -177,15 +177,6 @@ impl<T: Number + FloatNumber + PartialOrd> Default for SVRParameters<T> {
 impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>>
     SupervisedEstimatorBorrow<'a, X, Y, SVRParameters<T>> for SVR<'a, T, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            instances: Option::None,
-            parameters: Option::None,
-            w: Option::None,
-            b: T::zero(),
-            phantom: PhantomData,
-        }
-    }
     fn fit(x: &'a X, y: &'a Y, parameters: &'a SVRParameters<T>) -> Result<Self, Failed> {
         SVR::fit(x, y, parameters)
     }

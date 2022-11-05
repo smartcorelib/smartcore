@@ -507,19 +507,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, DecisionTreeClassifierParameters>
     for DecisionTreeClassifier<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            nodes: vec![],
-            parameters: Option::None,
-            num_classes: 0usize,
-            classes: vec![],
-            depth: 0u16,
-            _phantom_tx: PhantomData,
-            _phantom_x: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: DecisionTreeClassifierParameters) -> Result<Self, Failed> {
         DecisionTreeClassifier::fit(x, y, parameters)
     }

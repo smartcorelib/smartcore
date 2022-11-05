@@ -208,16 +208,6 @@ impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> De
 impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimatorBorrow<'a, X, Y, SVCParameters<TX, TY, X, Y>> for SVC<'a, TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            classes: Option::None,
-            instances: Option::None,
-            parameters: Option::None,
-            w: Option::None,
-            b: Option::None,
-            phantomdata: PhantomData,
-        }
-    }
     fn fit(
         x: &'a X,
         y: &'a Y,

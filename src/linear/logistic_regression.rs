@@ -390,18 +390,6 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     SupervisedEstimator<X, Y, LogisticRegressionParameters<TX>>
     for LogisticRegression<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            coefficients: Option::None,
-            intercept: Option::None,
-            classes: Option::None,
-            num_attributes: 0,
-            num_classes: 0,
-            _phantom_tx: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: LogisticRegressionParameters<TX>) -> Result<Self, Failed> {
         LogisticRegression::fit(x, y, parameters)
     }

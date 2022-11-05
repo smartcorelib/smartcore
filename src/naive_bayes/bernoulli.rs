@@ -381,13 +381,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, BernoulliNBParameters<TX>> for BernoulliNB<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            inner: Option::None,
-            binarize: Option::None,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         BernoulliNB::fit(x, y, parameters)
     }

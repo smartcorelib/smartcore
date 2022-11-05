@@ -255,16 +255,6 @@ impl<
         Y: Array1<TY>,
     > SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            coefficients: Option::None,
-            intercept: Option::None,
-            solver: Option::None,
-            _phantom_ty: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: RidgeRegressionParameters<TX>) -> Result<Self, Failed> {
         RidgeRegression::fit(x, y, parameters)
     }

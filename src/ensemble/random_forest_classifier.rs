@@ -196,14 +196,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
     SupervisedEstimator<X, Y, RandomForestClassifierParameters>
     for RandomForestClassifier<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            parameters: Option::None,
-            trees: Option::None,
-            classes: Option::None,
-            samples: Option::None,
-        }
-    }
     fn fit(x: &X, y: &Y, parameters: RandomForestClassifierParameters) -> Result<Self, Failed> {
         RandomForestClassifier::fit(x, y, parameters)
     }

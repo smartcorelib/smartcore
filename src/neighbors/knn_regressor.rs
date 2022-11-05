@@ -177,18 +177,6 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     SupervisedEstimator<X, Y, KNNRegressorParameters<TX, D>> for KNNRegressor<TX, TY, X, Y, D>
 {
-    fn new() -> Self {
-        Self {
-            y: Option::None,
-            knn_algorithm: Option::None,
-            weight: Option::None,
-            k: Option::None,
-            _phantom_tx: PhantomData,
-            _phantom_ty: PhantomData,
-            _phantom_x: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: KNNRegressorParameters<TX, D>) -> Result<Self, Failed> {
         KNNRegressor::fit(x, y, parameters)
     }

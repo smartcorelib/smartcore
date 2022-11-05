@@ -291,12 +291,6 @@ impl<
         Y: Array1<TY>,
     > SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            inner: Option::None,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
         GaussianNB::fit(x, y, parameters)
     }

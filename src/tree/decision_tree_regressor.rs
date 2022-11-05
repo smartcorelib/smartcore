@@ -387,18 +387,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, DecisionTreeRegressorParameters>
     for DecisionTreeRegressor<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            nodes: vec![],
-            parameters: Option::None,
-            depth: 0u16,
-            _phantom_tx: PhantomData,
-            _phantom_ty: PhantomData,
-            _phantom_x: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: DecisionTreeRegressorParameters) -> Result<Self, Failed> {
         DecisionTreeRegressor::fit(x, y, parameters)
     }

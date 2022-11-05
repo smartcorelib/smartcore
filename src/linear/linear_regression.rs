@@ -206,16 +206,6 @@ impl<
         Y: Array1<TY>,
     > SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            coefficients: Option::None,
-            intercept: Option::None,
-            solver: LinearRegressionParameters::default().solver,
-            _phantom_ty: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: LinearRegressionParameters) -> Result<Self, Failed> {
         LinearRegression::fit(x, y, parameters)
     }

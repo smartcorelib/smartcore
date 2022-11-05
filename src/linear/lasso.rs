@@ -116,15 +116,6 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Par
 impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     SupervisedEstimator<X, Y, LassoParameters> for Lasso<TX, TY, X, Y>
 {
-    fn new() -> Self {
-        Self {
-            coefficients: Option::None,
-            intercept: Option::None,
-            _phantom_ty: PhantomData,
-            _phantom_y: PhantomData,
-        }
-    }
-
     fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Self, Failed> {
         Lasso::fit(x, y, parameters)
     }
