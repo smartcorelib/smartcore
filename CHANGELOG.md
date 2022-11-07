@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3] - 2022-11 
 
 ## Added
+- WARNING: Breaking changes!
 - Seeds to multiple algorithims that depend on random number generation.
 - Added feature `js` to use WASM in browser
 - Drop `nalgebra-bindings` feature
-- Complete refactoring with *extensive API changes* that includes:
+- Complete refactoring with **extensive API changes** that includes:
     * moving to a new traits system, less structs more traits
     * adapting all the modules to the new traits system
     * moving towards Rust 2021, in particular the use of `dyn` and `as_ref`
@@ -19,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## BREAKING CHANGE
 - Added a new parameter to `train_test_split` to define the seed.
 
-## [0.2.1] - 2022-05-10
+## [0.2.1] - 2021-05-10
 
 ## Added
 - L2 regularization penalty to the Logistic Regression

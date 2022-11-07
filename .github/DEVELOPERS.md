@@ -1,4 +1,7 @@
-# Smartcore: Introduction to modules
+# smartcore: Introduction to modules
+
+Important source of information:
+* [Rust API guidelines](https://rust-lang.github.io/api-guidelines/about.html)
 
 ## Walkthrough: traits system and basic structures
 

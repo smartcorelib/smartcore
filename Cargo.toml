@@ -1,9 +1,9 @@
 [package]
 name = "smartcore"
-description = "The most advanced machine learning library in rust."
+description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.org"
-version = "0.4.0"
-authors = ["SmartCore Developers"]
+version = "0.3.0"
+authors = ["smartcore Developers"]
 edition = "2021"
 license = "Apache-2.0"
 documentation = "https://docs.rs/smartcore"
@@ -11,6 +11,12 @@ repository = "https://github.com/smartcorelib/smartcore"
 readme = "README.md"
 keywords = ["machine-learning", "statistical", "ai", "optimization", "linear-algebra"]
 categories = ["science"]
+exclude = [
+    ".github",
+    ".gitignore",
+    "smartcore.iml",
+    "smartcore.svg",
+]
 
 [dependencies]
 approx = "0.5.1"
@@ -23,10 +29,10 @@ rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
-default = ["serde", "datasets"]
+default = []
 serde = ["dep:serde"]
 ndarray-bindings = ["dep:ndarray"]
-datasets = ["dep:rand_distr", "std"]
+datasets = ["dep:rand_distr", "std", "serde"]
 std = ["rand/std_rng", "rand/std"]
 # wasm32 only
 js = ["getrandom/js"]

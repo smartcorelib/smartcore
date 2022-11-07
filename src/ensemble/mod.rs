@@ -7,7 +7,7 @@
 //! set and then aggregate their individual predictions to form a final prediction. In classification setting the overall prediction is the most commonly
 //! occurring majority class among the individual predictions.
 //!
-//! In SmartCore you will find implementation of RandomForest - a popular averaging algorithms based on randomized [decision trees](../tree/index.html).
+//! In smartcore you will find implementation of RandomForest - a popular averaging algorithms based on randomized [decision trees](../tree/index.html).
 //! Random forests provide an improvement over bagged trees by way of a small tweak that decorrelates the trees. As in bagging, we build a number of
 //! decision trees on bootstrapped training samples. But when building these decision trees, each time a split in a tree is considered,
 //! a random sample of _m_ predictors is chosen as split candidates from the full set of _p_ predictors.
