@@ -596,7 +596,6 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
-    #[cfg(feature = "serde")]
     use crate::svm::Kernels;
 
     // #[test]
@@ -617,7 +616,6 @@ mod tests {
     //     assert!(iter.next().is_none());
     // }
 
-    //TODO: had to disable this test as it runs for too long
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test

@@ -104,7 +104,6 @@ pub struct RandomForestClassifier<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    parameters: Option<RandomForestClassifierParameters>,
     trees: Option<Vec<DecisionTreeClassifier<TX, TY, X, Y>>>,
     classes: Option<Vec<TY>>,
     samples: Option<Vec<Vec<bool>>>,
@@ -198,7 +197,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
 {
     fn new() -> Self {
         Self {
-            parameters: Option::None,
             trees: Option::None,
             classes: Option::None,
             samples: Option::None,
@@ -501,7 +499,6 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
 
         Ok(RandomForestClassifier {
-            parameters: Some(parameters),
             trees: Some(trees),
             classes: Some(classes),
             samples: maybe_all_samples,

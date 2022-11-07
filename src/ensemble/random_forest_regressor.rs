@@ -98,7 +98,6 @@ pub struct RandomForestRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    parameters: Option<RandomForestRegressorParameters>,
     trees: Option<Vec<DecisionTreeRegressor<TX, TY, X, Y>>>,
     samples: Option<Vec<Vec<bool>>>,
 }
@@ -177,7 +176,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 {
     fn new() -> Self {
         Self {
-            parameters: Option::None,
             trees: Option::None,
             samples: Option::None,
         }
@@ -434,7 +432,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         }
 
         Ok(RandomForestRegressor {
-            parameters: Some(parameters),
             trees: Some(trees),
             samples: maybe_all_samples,
         })

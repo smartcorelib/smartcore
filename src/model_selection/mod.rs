@@ -7,7 +7,7 @@
 //! Splitting data into multiple subsets helps us to find the right combination of hyperparameters, estimate model performance and choose the right model for
 //! the data.
 //!
-//! In SmartCore a random split into training and test sets can be quickly computed with the [train_test_split](./fn.train_test_split.html) helper function.
+//! In smartcore a random split into training and test sets can be quickly computed with the [train_test_split](./fn.train_test_split.html) helper function.
 //!
 //! ```
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
