@@ -10,7 +10,7 @@
 
 //! # smartcore
 //!
-//! Welcome to smartcore, machine learning in Rust!
+//! Welcome to `smartcore`, machine learning in Rust!
 //!
 //! `smartcore` features various classification, regression and clustering algorithms including support vector machines, random forests, k-means and DBSCAN,
 //! as well as tools for model selection and model evaluation.
