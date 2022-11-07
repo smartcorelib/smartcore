@@ -75,7 +75,7 @@
 //! ```
 //!
 //! ## Overview
-//! 
+//!
 //! ### Supported algorithms
 //! All machine learning algorithms are grouped into these broad categories:
 //! * [Clustering](cluster/index.html), unsupervised clustering of unlabeled data.
@@ -86,7 +86,7 @@
 //! * [Nearest Neighbors](neighbors/index.html), K Nearest Neighbors for classification and regression
 //! * [Naive Bayes](naive_bayes/index.html), statistical classification technique based on Bayes Theorem
 //! * [SVM](svm/index.html), support vector machines
-//! 
+//!
 //! ### Linear Algebra traits system
 //! For an introduction to `smartcore`'s traits system see [this notebook](https://github.com/smartcorelib/smartcore-jupyter/blob/5523993c53c6ec1fd72eea130ef4e7883121c1ea/notebooks/01-A-little-bit-about-numbers.ipynb)
 

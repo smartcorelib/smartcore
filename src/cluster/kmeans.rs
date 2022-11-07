@@ -11,7 +11,7 @@
 //! these re-calculated centroids becoming the new centers of their respective clusters. Next all instances of the training set are re-assigned to their closest cluster again.
 //! This iterative process continues until convergence is achieved and the clusters are considered settled.
 //!
-//! Initial choice of K data points is very important and has big effect on performance of the algorithm. smartcore uses k-means++ algorithm to initialize cluster centers.
+//! Initial choice of K data points is very important and has big effect on performance of the algorithm. `smartcore` uses k-means++ algorithm to initialize cluster centers.
 //!
 //! Example:
 //!
