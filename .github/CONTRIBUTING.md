@@ -25,6 +25,11 @@ Take a look to the conventions established by existing code:
 * Every module should provide a Rust doctest, a brief test embedded with the documentation that explains how to use the procedure implemented.
 * Every module should provide comprehensive tests at the end, in its `mod tests {}` sub-module. These tests can be flagged or not with configuration flags to allow WebAssembly target.
 * Run `cargo doc --no-deps --open` and read the generated documentation in the browser to be sure that your changes reflects in the documentation and new code is documented.
+* a nice overview of the codebase is given by [static analyzer](https://mozilla.github.io/rust-code-analysis/metrics.html):
+```
+$ cargo install rust-code-analysis-cli
+$ rust-code-analysis-cli -m -O json -o . -p src/ --pr
+```
 
 ## Issue Report Process
 
