@@ -36,7 +36,7 @@ serde = ["dep:serde"]
 ndarray-bindings = ["dep:ndarray"]
 datasets = ["dep:rand_distr", "std_rand", "serde"]
 std_rand = ["rand/std_rng", "rand/std"]
-# used by wasm32-unknown-unknown
+# used by wasm32-unknown-unknown for in-browser usage
 js = ["getrandom/js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
