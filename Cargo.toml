@@ -35,7 +35,7 @@ typetag = { version = "0.2", optional = true }
 
 [features]
 default = []
-serde = ["dep:serde"]
+serde = ["dep:serde", "dep:typetag"]
 ndarray-bindings = ["dep:ndarray"]
 datasets = ["dep:rand_distr", "std_rand", "serde"]
 std_rand = ["rand/std_rng", "rand/std"]
