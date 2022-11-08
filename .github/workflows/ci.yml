@@ -46,12 +46,12 @@ jobs:
       - name: Install test runner for wasi
         if: matrix.platform.target == 'wasm32-wasi'
         run: curl https://wasmtime.dev/install.sh -sSf | bash
-      - name: Stable Build withh all features
+      - name: Stable Build with all features
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --all-features --target ${{ matrix.platform.target }}
-      - name: Stable Build with not features
+      - name: Stable Build without features
         uses: actions-rs/cargo@v1
         with:
           command: build
