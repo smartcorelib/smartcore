@@ -12,7 +12,7 @@
 //! \\[\hat{\beta} = (X^TX)^{-1}X^Ty \\]
 //!
 //! the \\((X^TX)^{-1}\\) term is both computationally expensive and numerically unstable. An alternative approach is to use a matrix decomposition to avoid this operation.
-//! smartcore uses [SVD](../../linalg/svd/index.html) and [QR](../../linalg/qr/index.html) matrix decomposition to find estimates of \\(\hat{\beta}\\).
+//! `smartcore` uses [SVD](../../linalg/svd/index.html) and [QR](../../linalg/qr/index.html) matrix decomposition to find estimates of \\(\hat{\beta}\\).
 //! The QR decomposition is more computationally efficient and more numerically stable than calculating the normal equation directly,
 //! but does not work for all data matrices. Unlike the QR decomposition, all matrices have an SVD decomposition.
 //!
