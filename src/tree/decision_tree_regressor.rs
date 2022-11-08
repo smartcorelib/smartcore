@@ -11,7 +11,7 @@
 //!
 //! where \\(\hat{y}_{Rk}\\) is the mean response for the training observations withing region _k_.
 //!
-//! smartcore uses recursive binary splitting approach to build \\(R_1, R_2, ..., R_K\\) regions. The approach begins at the top of the tree and then successively splits the predictor space
+//! `smartcore` uses recursive binary splitting approach to build \\(R_1, R_2, ..., R_K\\) regions. The approach begins at the top of the tree and then successively splits the predictor space
 //! one predictor at a time. At each step of the tree-building process, the best split is made at that particular step, rather than looking ahead and picking a split that will lead to a better
 //! tree in some future step.
 //!

@@ -20,7 +20,7 @@
 //!
 //! Where \\( m \\) is a number of training samples, \\( y_i \\) is a label value (either 1 or -1) and \\(\langle\vec{w}, \vec{x}_i \rangle + b\\) is a decision boundary.
 //!
-//! To solve this optimization problem, smartcore uses an [approximate SVM solver](https://leon.bottou.org/projects/lasvm).
+//! To solve this optimization problem, `smartcore` uses an [approximate SVM solver](https://leon.bottou.org/projects/lasvm).
 //! The optimizer reaches accuracies similar to that of a real SVM after performing two passes through the training examples. You can choose the number of passes
 //! through the data that the algorithm takes by changing the `epoch` parameter of the classifier.
 //!

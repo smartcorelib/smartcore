@@ -1,6 +1,6 @@
 //! # K Nearest Neighbors Classifier
 //!
-//! smartcore relies on 2 backend algorithms to speedup KNN queries:
+//! `smartcore` relies on 2 backend algorithms to speedup KNN queries:
 //! * [`LinearSearch`](../../algorithm/neighbour/linear_search/index.html)
 //! * [`CoverTree`](../../algorithm/neighbour/cover_tree/index.html)
 //!
