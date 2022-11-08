@@ -26,6 +26,17 @@ Take a look to the conventions established by existing code:
 * Every module should provide comprehensive tests at the end, in its `mod tests {}` sub-module. These tests can be flagged or not with configuration flags to allow WebAssembly target.
 * Run `cargo doc --no-deps --open` and read the generated documentation in the browser to be sure that your changes reflects in the documentation and new code is documented.
 
+#### digging deeper
+* a nice overview of the codebase is given by [static analyzer](https://mozilla.github.io/rust-code-analysis/metrics.html):
+```
+$ cargo install rust-code-analysis-cli
+// print metrics for every module
+$ rust-code-analysis-cli -m -O json -o . -p src/ --pr
+// print full AST for a module
+$ rust-code-analysis-cli -p src/algorithm/neighbour/fastpair.rs --ls 22 --le 213 -d > ast.txt
+```
+* find more information about what happens in your binary with [`twiggy`](https://rustwasm.github.io/twiggy/install.html). This need a compiled binary so create a brief `main {}` function using `smartcore` and then point `twiggy` to that file.
+
 ## Issue Report Process
 
 1. Go to the project's issues.

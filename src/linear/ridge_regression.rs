@@ -12,7 +12,7 @@
 //! where \\(\alpha \geq 0\\) is a tuning parameter that controls strength of regularization. When \\(\alpha = 0\\) the penalty term has no effect, and ridge regression will produce the least squares estimates.
 //! However, as \\(\alpha \rightarrow \infty\\), the impact of the shrinkage penalty grows, and the ridge regression coefficient estimates will approach zero.
 //!
-//! SmartCore uses [SVD](../../linalg/svd/index.html) and [Cholesky](../../linalg/cholesky/index.html) matrix decomposition to find estimates of \\(\hat{\beta}\\).
+//! `smartcore` uses [SVD](../../linalg/svd/index.html) and [Cholesky](../../linalg/cholesky/index.html) matrix decomposition to find estimates of \\(\hat{\beta}\\).
 //! The Cholesky decomposition is more computationally efficient and more numerically stable than calculating the normal equation directly,
 //! but does not work for all data matrices. Unlike the Cholesky decomposition, all matrices have an SVD decomposition.
 //!
@@ -197,7 +197,6 @@ pub struct RidgeRegression<
 > {
     coefficients: Option<X>,
     intercept: Option<TX>,
-    solver: Option<RidgeRegressionSolverName>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -259,7 +258,6 @@ impl<
         Self {
             coefficients: Option::None,
             intercept: Option::None,
-            solver: Option::None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -367,7 +365,6 @@ impl<
         Ok(RidgeRegression {
             intercept: Some(b),
             coefficients: Some(w),
-            solver: Some(parameters.solver),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })

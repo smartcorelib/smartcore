@@ -2,7 +2,7 @@
 //! Computes the area under the receiver operating characteristic (ROC) curve that is equal to the probability that a classifier will rank a
 //! randomly chosen positive instance higher than a randomly chosen negative one.
 //!
-//! SmartCore calculates ROC AUC from Wilcoxon or Mann-Whitney U test.
+//! `smartcore` calculates ROC AUC from Wilcoxon or Mann-Whitney U test.
 //!
 //! Example:
 //! ```

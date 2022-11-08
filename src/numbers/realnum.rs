@@ -1,5 +1,5 @@
 //! # Real Number
-//! Most algorithms in SmartCore rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
+//! Most algorithms in `smartcore` rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
 use num_traits::Float;
