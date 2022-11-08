@@ -1,7 +1,7 @@
 #[cfg(not(feature = "std"))]
-pub(crate) use rand::rngs::SmallRng as RngImpl;
-#[cfg(not(feature = "std"))]
 use getrandom;
+#[cfg(not(feature = "std"))]
+pub(crate) use rand::rngs::SmallRng as RngImpl;
 #[cfg(feature = "std")]
 pub(crate) use rand::rngs::StdRng as RngImpl;
 use rand::SeedableRng;
