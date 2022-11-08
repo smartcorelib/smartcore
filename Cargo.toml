@@ -40,7 +40,7 @@ std_rand = ["rand/std_rng", "rand/std"]
 js = ["getrandom/js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "*", features = ["js"] }
+getrandom = { version = "*", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "wasi")))'.dev-dependencies]
 wasm-bindgen-test = "0.3"
