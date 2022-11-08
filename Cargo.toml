@@ -26,7 +26,7 @@ ndarray = { version = "0.15", optional = true }
 num-traits = "0.2.12"
 num = "0.4"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
-getrandom = { version = "*", features = ["js"] }
+getrandom = "*"
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
@@ -36,6 +36,8 @@ serde = ["dep:serde"]
 ndarray-bindings = ["dep:ndarray"]
 datasets = ["dep:rand_distr", "std_rand", "serde"]
 std_rand = ["rand/std_rng", "rand/std"]
+# used by wasm32-unknown-unknown
+js = ["getrandom/js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", optional = true }
