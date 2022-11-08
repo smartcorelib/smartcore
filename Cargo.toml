@@ -16,6 +16,7 @@ exclude = [
     ".gitignore",
     "smartcore.iml",
     "smartcore.svg",
+    "tests/"
 ]
 
 [dependencies]
@@ -25,6 +26,7 @@ ndarray = { version = "0.15", optional = true }
 num-traits = "0.2.12"
 num = "0.4"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
+getrandom = { version = "*", features = ["js"] }
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
@@ -32,25 +34,21 @@ serde = { version = "1", features = ["derive"], optional = true }
 default = []
 serde = ["dep:serde"]
 ndarray-bindings = ["dep:ndarray"]
-datasets = ["dep:rand_distr", "std", "serde"]
-std = ["rand/std_rng", "rand/std"]
-# wasm32 only
-js = ["getrandom/js"]
+datasets = ["dep:rand_distr", "std_rand", "serde"]
+std_rand = ["rand/std_rng", "rand/std"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", optional = true }
 
-[dev-dependencies]
-itertools = "*"
-criterion = { version = "0.4", default-features = false }
-serde_json = "1.0"
-bincode = "1.3.1"
-
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "wasi")))'.dev-dependencies]
 wasm-bindgen-test = "0.3"
 
+[dev-dependencies]
+itertools = "*"
+serde_json = "1.0"
+bincode = "1.3.1"
+
 [workspace]
-resolver = "2"
 
 [profile.test]
 debug = 1
