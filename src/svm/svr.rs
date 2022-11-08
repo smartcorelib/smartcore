@@ -92,8 +92,11 @@ pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
     pub c: T,
     /// Tolerance for stopping criterion.
     pub tol: T,
-    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
+    #[cfg_attr(
+        all(feature = "serde", target_arch = "wasm32"),
+        serde(skip_serializing, skip_deserializing)
+    )]
     pub kernel: Option<Box<dyn Kernel>>,
 }
 
@@ -668,7 +671,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", not(target_arch = "wasm32")))]
     fn svr_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
@@ -699,13 +702,9 @@ mod tests {
 
         let svr = SVR::fit(&x, &y, &params).unwrap();
 
-        let serialized = &serde_json::to_string(&svr).unwrap();
+        let deserialized_svr: SVR<f64, DenseMatrix<f64>, _> =
+            serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
-        println!("{}", &serialized);
-
-        // let deserialized_svr: SVR<f64, DenseMatrix<f64>, LinearKernel> =
-        //     serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
-
-        // assert_eq!(svr, deserialized_svr);
+        assert_eq!(svr, deserialized_svr);
     }
 }

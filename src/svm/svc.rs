@@ -100,8 +100,11 @@ pub struct SVCParameters<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX
     pub c: TX,
     /// Tolerance for stopping criterion.
     pub tol: TX,
-    #[cfg_attr(feature = "serde", serde(skip_deserializing))]
     /// The kernel function.
+    #[cfg_attr(
+        all(feature = "serde", target_arch = "wasm32"),
+        serde(skip_serializing, skip_deserializing)
+    )]
     pub kernel: Option<Box<dyn Kernel>>,
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
@@ -1085,7 +1088,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", not(target_arch = "wasm32")))]
     fn svc_serde() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
@@ -1119,8 +1122,9 @@ mod tests {
         let svc = SVC::fit(&x, &y, &params).unwrap();
 
         // serialization
-        let serialized_svc = &serde_json::to_string(&svc).unwrap();
+        let deserialized_svc: SVC<f64, i32, _, _> =
+            serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
-        println!("{:?}", serialized_svc);
+        assert_eq!(svc, deserialized_svc);
     }
 }
