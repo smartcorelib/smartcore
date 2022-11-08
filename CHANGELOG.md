@@ -9,13 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 - WARNING: Breaking changes!
 - Seeds to multiple algorithims that depend on random number generation.
-- Added feature `js` to use WASM in browser
 - Drop `nalgebra-bindings` feature
 - Complete refactoring with **extensive API changes** that includes:
     * moving to a new traits system, less structs more traits
     * adapting all the modules to the new traits system
-    * moving towards Rust 2021, in particular the use of `dyn` and `as_ref`
+    * moving to Rust 2021, in particular the use of `dyn` and `as_ref`
     * reorganization of the code base, trying to eliminate duplicates
+- usage of `serde` is now optional, use the `serde` feature
+- default feature is now Wasm-/Wasi-first for minimal binary size
 
 ## BREAKING CHANGE
 - Added a new parameter to `train_test_split` to define the seed.
