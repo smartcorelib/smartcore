@@ -29,9 +29,12 @@ rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+typetag = { version = "0.2", optional = true }
+
 [features]
 default = []
-serde = ["dep:serde"]
+serde = ["dep:serde", "dep:typetag"]
 ndarray-bindings = ["dep:ndarray"]
 datasets = ["dep:rand_distr", "std_rand", "serde"]
 std_rand = ["rand/std_rng", "rand/std"]
