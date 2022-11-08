@@ -11,7 +11,7 @@
 //!
 //! where \\(\hat{y}_{Rk}\\) is the mean response for the training observations withing region _k_.
 //!
-//! SmartCore uses recursive binary splitting approach to build \\(R_1, R_2, ..., R_K\\) regions. The approach begins at the top of the tree and then successively splits the predictor space
+//! `smartcore` uses recursive binary splitting approach to build \\(R_1, R_2, ..., R_K\\) regions. The approach begins at the top of the tree and then successively splits the predictor space
 //! one predictor at a time. At each step of the tree-building process, the best split is made at that particular step, rather than looking ahead and picking a split that will lead to a better
 //! tree in some future step.
 //!
@@ -128,7 +128,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 struct Node {
-    index: usize,
     output: f64,
     split_feature: usize,
     split_value: Option<f64>,
@@ -299,9 +298,8 @@ impl Default for DecisionTreeRegressorSearchParameters {
 }
 
 impl Node {
-    fn new(index: usize, output: f64) -> Self {
+    fn new(output: f64) -> Self {
         Node {
-            index,
             output,
             split_feature: 0,
             split_value: Option::None,
@@ -450,7 +448,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             sum += *sample_i as f64 * y_m.get(i).to_f64().unwrap();
         }
 
-        let root = Node::new(0, sum / (n as f64));
+        let root = Node::new(sum / (n as f64));
         nodes.push(root);
         let mut order: Vec<Vec<usize>> = Vec::new();
 
@@ -662,11 +660,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let true_child_idx = self.nodes().len();
 
-        self.nodes
-            .push(Node::new(true_child_idx, visitor.true_child_output));
+        self.nodes.push(Node::new(visitor.true_child_output));
         let false_child_idx = self.nodes().len();
-        self.nodes
-            .push(Node::new(false_child_idx, visitor.false_child_output));
+        self.nodes.push(Node::new(visitor.false_child_output));
 
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);

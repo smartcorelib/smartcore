@@ -9,7 +9,7 @@
 //! SVM is memory efficient since it uses only a subset of training data to find a decision boundary. This subset is called support vectors.
 //!
 //! In SVM distance between a data point and the support vectors is defined by the kernel function.
-//! SmartCore supports multiple kernel functions but you can always define a new kernel function by implementing the `Kernel` trait. Not all functions can be a kernel.
+//! `smartcore` supports multiple kernel functions but you can always define a new kernel function by implementing the `Kernel` trait. Not all functions can be a kernel.
 //! Building a new kernel requires a good mathematical understanding of the [Mercer theorem](https://en.wikipedia.org/wiki/Mercer%27s_theorem)
 //! that gives necessary and sufficient condition for a function to be a kernel function.
 //!

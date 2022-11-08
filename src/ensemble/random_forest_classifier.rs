@@ -104,7 +104,6 @@ pub struct RandomForestClassifier<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    parameters: Option<RandomForestClassifierParameters>,
     trees: Option<Vec<DecisionTreeClassifier<TX, TY, X, Y>>>,
     classes: Option<Vec<TY>>,
     samples: Option<Vec<Vec<bool>>>,
@@ -198,7 +197,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
 {
     fn new() -> Self {
         Self {
-            parameters: Option::None,
             trees: Option::None,
             classes: Option::None,
             samples: Option::None,
@@ -501,7 +499,6 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
 
         Ok(RandomForestClassifier {
-            parameters: Some(parameters),
             trees: Some(trees),
             classes: Some(classes),
             samples: maybe_all_samples,
@@ -637,7 +634,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn fit_predict_iris() {
+    fn fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],

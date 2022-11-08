@@ -4,7 +4,7 @@
 //! In a feedback loop you build your model first, then you get feedback from metrics, improve it and repeat until your model achieve desirable performance.
 //! Evaluation metrics helps to explain the performance of a model and compare models based on an objective criterion.
 //!
-//! Choosing the right metric is crucial while evaluating machine learning models. In SmartCore you will find metrics for these classes of ML models:
+//! Choosing the right metric is crucial while evaluating machine learning models. In `smartcore` you will find metrics for these classes of ML models:
 //!
 //! * [Classification metrics](struct.ClassificationMetrics.html)
 //! * [Regression metrics](struct.RegressionMetrics.html)

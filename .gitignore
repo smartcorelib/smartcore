@@ -27,3 +27,5 @@ out.svg
 
 FlameGraph/
 out.stacks
+*.json
+*.txt

@@ -11,7 +11,7 @@
 //! these re-calculated centroids becoming the new centers of their respective clusters. Next all instances of the training set are re-assigned to their closest cluster again.
 //! This iterative process continues until convergence is achieved and the clusters are considered settled.
 //!
-//! Initial choice of K data points is very important and has big effect on performance of the algorithm. SmartCore uses k-means++ algorithm to initialize cluster centers.
+//! Initial choice of K data points is very important and has big effect on performance of the algorithm. `smartcore` uses k-means++ algorithm to initialize cluster centers.
 //!
 //! Example:
 //!
@@ -74,7 +74,7 @@ pub struct KMeans<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     k: usize,
     _y: Vec<usize>,
     size: Vec<usize>,
-    distortion: f64,
+    _distortion: f64,
     centroids: Vec<Vec<f64>>,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
@@ -313,7 +313,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             k: parameters.k,
             _y: y,
             size,
-            distortion,
+            _distortion: distortion,
             centroids,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
@@ -470,7 +470,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn fit_predict_iris() {
+    fn fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
