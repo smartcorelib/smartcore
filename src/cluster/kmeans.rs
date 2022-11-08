@@ -469,9 +469,8 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
-    #[cfg(feature = "datasets")]
     #[test]
-    fn fit_predict_iris() {
+    fn fit_predict() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
