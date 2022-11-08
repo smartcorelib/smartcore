@@ -26,7 +26,6 @@ ndarray = { version = "0.15", optional = true }
 num-traits = "0.2.12"
 num = "0.4"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
-getrandom = "*"
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
@@ -40,7 +39,7 @@ std_rand = ["rand/std_rng", "rand/std"]
 js = ["getrandom/js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "*", features = ["js"] }
+getrandom = { version = "*", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "wasi")))'.dev-dependencies]
 wasm-bindgen-test = "0.3"

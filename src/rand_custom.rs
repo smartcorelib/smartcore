@@ -15,9 +15,17 @@ pub fn get_rng_impl(seed: Option<u64>) -> RngImpl {
                     RngImpl::seed_from_u64(rand::thread_rng().next_u64())
                 } else {
                     // no std_random feature build, use getrandom
-                    let mut buf = [0u8; 64];
-                    getrandom::getrandom(&mut buf).unwrap();
-                    RngImpl::seed_from_u64(buf[0] as u64)
+                    #[cfg(feature = "js")]
+                    {
+                        let mut buf = [0u8; 64];
+                        getrandom::getrandom(&mut buf).unwrap();
+                        RngImpl::seed_from_u64(buf[0] as u64)
+                    }
+                    #[cfg(not(feature = "js"))]
+                    {
+                        // Using 0 as default seed
+                        RngImpl::seed_from_u64(0)
+                    }
                 }
             }
         }
