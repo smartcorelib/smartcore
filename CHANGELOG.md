@@ -4,22 +4,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3] - 2022-11 
+## [0.3.0] - 2022-11-09 
 
 ## Added
 - WARNING: Breaking changes!
-- Seeds to multiple algorithims that depend on random number generation.
-- Drop `nalgebra-bindings` feature
 - Complete refactoring with **extensive API changes** that includes:
     * moving to a new traits system, less structs more traits
     * adapting all the modules to the new traits system
-    * moving to Rust 2021, in particular the use of `dyn` and `as_ref`
-    * reorganization of the code base, trying to eliminate duplicates
-- usage of `serde` is now optional, use the `serde` feature
-- default feature is now Wasm-/Wasi-first for minimal binary size
+    * moving to Rust 2021, use of object-safe traits and `as_ref`
+    * reorganization of the code base, eliminate duplicates
+- implements `readers` (needs "serde" feature) for read/write CSV file, extendible to other formats
+- default feature is now Wasm-/Wasi-first
 
-## BREAKING CHANGE
-- Added a new parameter to `train_test_split` to define the seed.
+## Changed
+- WARNING: Breaking changes!
+- Seeds to multiple algorithims that depend on random number generation
+- Added a new parameter to `train_test_split` to define the seed
+- changed use of "serde" feature
+
+## Dropped
+- WARNING: Breaking changes!
+- Drop `nalgebra-bindings` feature, only `ndarray` as supported library
 
 ## [0.2.1] - 2021-05-10
 
