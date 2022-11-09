@@ -14,7 +14,7 @@
 //! let y_pred: Vec<f64> = vec![0., 1., 1., 0.];
 //! let y_true: Vec<f64> = vec![0., 0., 1., 1.];
 //!
-//! let score: f64 = Recall::new().get_score(&y_pred, &y_true);
+//! let score: f64 = Recall::new().get_score( &y_true, &y_pred);
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -105,17 +105,17 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 1., 1., 0.];
         let y_pred: Vec<f64> = vec![0., 0., 1., 1.];
 
-        let score1: f64 = Recall::new().get_score(&y_pred, &y_true);
+        let score1: f64 = Recall::new().get_score(&y_true, &y_pred);
         let score2: f64 = Recall::new().get_score(&y_pred, &y_pred);
 
         assert!((score1 - 0.5).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);
 
-        let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
         let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
+        let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
 
-        let score3: f64 = Recall::new().get_score(&y_pred, &y_true);
-        assert!((score3 - 0.6666666666666666).abs() < 1e-8);
+        let score3: f64 = Recall::new().get_score(&y_true, &y_pred);
+        assert!((score3 - 0.5).abs() < 1e-8);
     }
 
     #[cfg_attr(
@@ -127,7 +127,7 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 0., 0., 1., 1., 1., 2., 2., 2.];
         let y_pred: Vec<f64> = vec![0., 1., 2., 0., 1., 2., 0., 1., 2.];
 
-        let score1: f64 = Recall::new().get_score(&y_pred, &y_true);
+        let score1: f64 = Recall::new().get_score(&y_true, &y_pred);
         let score2: f64 = Recall::new().get_score(&y_pred, &y_pred);
 
         assert!((score1 - 0.333333333).abs() < 1e-8);

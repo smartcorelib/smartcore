@@ -1,6 +1,6 @@
 //! Datasets
 //!
-//! In this module you will find small datasets that are used in SmartCore mostly for demonstration purposes.
+//! In this module you will find small datasets that are used in `smartcore` mostly for demonstration purposes.
 pub mod boston;
 pub mod breast_cancer;
 pub mod diabetes;

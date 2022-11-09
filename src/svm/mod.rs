@@ -9,7 +9,7 @@
 //! SVM is memory efficient since it uses only a subset of training data to find a decision boundary. This subset is called support vectors.
 //!
 //! In SVM distance between a data point and the support vectors is defined by the kernel function.
-//! SmartCore supports multiple kernel functions but you can always define a new kernel function by implementing the `Kernel` trait. Not all functions can be a kernel.
+//! `smartcore` supports multiple kernel functions but you can always define a new kernel function by implementing the `Kernel` trait. Not all functions can be a kernel.
 //! Building a new kernel requires a good mathematical understanding of the [Mercer theorem](https://en.wikipedia.org/wiki/Mercer%27s_theorem)
 //! that gives necessary and sufficient condition for a function to be a kernel function.
 //!
@@ -23,15 +23,13 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 /// search parameters
-pub mod search;
 pub mod svc;
 pub mod svr;
+// /// search parameters space
+// pub mod search;
 
 use core::fmt::Debug;
-use std::marker::PhantomData;
 
-#[cfg(feature = "serde")]
-use serde::ser::{SerializeStruct, Serializer};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -40,52 +38,36 @@ use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
 /// Defines a kernel function.
 /// This is a object-safe trait.
-pub trait Kernel<'a> {
+#[cfg_attr(
+    all(feature = "serde", not(target_arch = "wasm32")),
+    typetag::serde(tag = "type")
+)]
+pub trait Kernel: Debug {
     #[allow(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
-    /// Return a serializable name
-    fn name(&self) -> &'a str;
-}
-
-impl<'a> Debug for dyn Kernel<'_> + 'a {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Kernel<f64>")
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'a> Serialize for dyn Kernel<'_> + 'a {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("Kernel", 1)?;
-        s.serialize_field("type", &self.name())?;
-        s.end()
-    }
 }
 
 /// Pre-defined kernel functions
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Kernels {}
+pub struct Kernels;
 
-impl<'a> Kernels {
+impl Kernels {
     /// Return a default linear
-    pub fn linear() -> LinearKernel<'a> {
+    pub fn linear() -> LinearKernel {
         LinearKernel::default()
     }
     /// Return a default RBF
-    pub fn rbf() -> RBFKernel<'a> {
+    pub fn rbf() -> RBFKernel {
         RBFKernel::default()
     }
     /// Return a default polynomial
-    pub fn polynomial() -> PolynomialKernel<'a> {
+    pub fn polynomial() -> PolynomialKernel {
         PolynomialKernel::default()
     }
     /// Return a default sigmoid
-    pub fn sigmoid() -> SigmoidKernel<'a> {
+    pub fn sigmoid() -> SigmoidKernel {
         SigmoidKernel::default()
     }
 }
@@ -93,40 +75,25 @@ impl<'a> Kernels {
 /// Linear Kernel
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
-pub struct LinearKernel<'a> {
-    phantom: PhantomData<&'a ()>,
-}
-
-impl<'a> Default for LinearKernel<'a> {
-    fn default() -> Self {
-        Self {
-            phantom: PhantomData,
-        }
-    }
-}
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LinearKernel;
 
 /// Radial basis function (Gaussian) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
-pub struct RBFKernel<'a> {
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct RBFKernel {
     /// kernel coefficient
     pub gamma: Option<f64>,
-    phantom: PhantomData<&'a ()>,
-}
-
-impl<'a> Default for RBFKernel<'a> {
-    fn default() -> Self {
-        Self {
-            gamma: Option::None,
-            phantom: PhantomData,
-        }
-    }
 }
 
 #[allow(dead_code)]
-impl<'a> RBFKernel<'a> {
-    fn with_gamma(mut self, gamma: f64) -> Self {
+impl RBFKernel {
+    /// assign gamma parameter to kernel (required)
+    /// ```rust
+    /// use smartcore::svm::RBFKernel;
+    /// let knl = RBFKernel::default().with_gamma(0.7);
+    /// ```
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
         self
     }
@@ -135,42 +102,52 @@ impl<'a> RBFKernel<'a> {
 /// Polynomial kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct PolynomialKernel<'a> {
+pub struct PolynomialKernel {
     /// degree of the polynomial
     pub degree: Option<f64>,
     /// kernel coefficient
     pub gamma: Option<f64>,
     /// independent term in kernel function
     pub coef0: Option<f64>,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> Default for PolynomialKernel<'a> {
+impl Default for PolynomialKernel {
     fn default() -> Self {
         Self {
             gamma: Option::None,
             degree: Option::None,
             coef0: Some(1f64),
-            phantom: PhantomData,
         }
     }
 }
 
-#[allow(dead_code)]
-impl<'a> PolynomialKernel<'a> {
-    fn with_params(mut self, degree: f64, gamma: f64, coef0: f64) -> Self {
+impl PolynomialKernel {
+    /// set parameters for kernel
+    /// ```rust
+    /// use smartcore::svm::PolynomialKernel;
+    /// let knl = PolynomialKernel::default().with_params(3.0, 0.7, 1.0);
+    /// ```
+    pub fn with_params(mut self, degree: f64, gamma: f64, coef0: f64) -> Self {
         self.degree = Some(degree);
         self.gamma = Some(gamma);
         self.coef0 = Some(coef0);
         self
     }
-
-    fn with_gamma(mut self, gamma: f64) -> Self {
+    /// set gamma parameter for kernel
+    /// ```rust
+    /// use smartcore::svm::PolynomialKernel;
+    /// let knl = PolynomialKernel::default().with_gamma(0.7);
+    /// ```
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
         self
     }
-
-    fn with_degree(self, degree: f64, n_features: usize) -> Self {
+    /// set degree parameter for kernel
+    /// ```rust
+    /// use smartcore::svm::PolynomialKernel;
+    /// let knl = PolynomialKernel::default().with_degree(3.0, 100);
+    /// ```
+    pub fn with_degree(self, degree: f64, n_features: usize) -> Self {
         self.with_params(degree, 1f64, 1f64 / n_features as f64)
     }
 }
@@ -178,47 +155,53 @@ impl<'a> PolynomialKernel<'a> {
 /// Sigmoid (hyperbolic tangent) kernel
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct SigmoidKernel<'a> {
+pub struct SigmoidKernel {
     /// kernel coefficient
     pub gamma: Option<f64>,
     /// independent term in kernel function
     pub coef0: Option<f64>,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> Default for SigmoidKernel<'a> {
+impl Default for SigmoidKernel {
     fn default() -> Self {
         Self {
             gamma: Option::None,
             coef0: Some(1f64),
-            phantom: PhantomData,
         }
     }
 }
 
-#[allow(dead_code)]
-impl<'a> SigmoidKernel<'a> {
-    fn with_params(mut self, gamma: f64, coef0: f64) -> Self {
+impl SigmoidKernel {
+    /// set parameters for kernel
+    /// ```rust
+    /// use smartcore::svm::SigmoidKernel;
+    /// let knl = SigmoidKernel::default().with_params(0.7, 1.0);
+    /// ```
+    pub fn with_params(mut self, gamma: f64, coef0: f64) -> Self {
         self.gamma = Some(gamma);
         self.coef0 = Some(coef0);
         self
     }
-    fn with_gamma(mut self, gamma: f64) -> Self {
+    /// set gamma parameter for kernel
+    /// ```rust
+    /// use smartcore::svm::SigmoidKernel;
+    /// let knl = SigmoidKernel::default().with_gamma(0.7);
+    /// ```
+    pub fn with_gamma(mut self, gamma: f64) -> Self {
         self.gamma = Some(gamma);
         self
     }
 }
 
-impl<'a> Kernel<'a> for LinearKernel<'a> {
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
+impl Kernel for LinearKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         Ok(x_i.dot(x_j))
     }
-    fn name(&self) -> &'a str {
-        "Linear"
-    }
 }
 
-impl<'a> Kernel<'a> for RBFKernel<'a> {
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
+impl Kernel for RBFKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() {
             return Err(Failed::because(
@@ -229,12 +212,10 @@ impl<'a> Kernel<'a> for RBFKernel<'a> {
         let v_diff = x_i.sub(x_j);
         Ok((-self.gamma.unwrap() * v_diff.mul(&v_diff).sum()).exp())
     }
-    fn name(&self) -> &'a str {
-        "RBF"
-    }
 }
 
-impl<'a> Kernel<'a> for PolynomialKernel<'a> {
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
+impl Kernel for PolynomialKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() || self.degree.is_none() {
             return Err(Failed::because(
@@ -245,12 +226,10 @@ impl<'a> Kernel<'a> for PolynomialKernel<'a> {
         let dot = x_i.dot(x_j);
         Ok((self.gamma.unwrap() * dot + self.coef0.unwrap()).powf(self.degree.unwrap()))
     }
-    fn name(&self) -> &'a str {
-        "Polynomial"
-    }
 }
 
-impl<'a> Kernel<'a> for SigmoidKernel<'a> {
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
+impl Kernel for SigmoidKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() {
             return Err(Failed::because(
@@ -260,9 +239,6 @@ impl<'a> Kernel<'a> for SigmoidKernel<'a> {
         }
         let dot = x_i.dot(x_j);
         Ok(self.gamma.unwrap() * dot + self.coef0.unwrap().tanh())
-    }
-    fn name(&self) -> &'a str {
-        "Sigmoid"
     }
 }
 

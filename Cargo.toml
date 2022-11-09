@@ -1,9 +1,9 @@
 [package]
 name = "smartcore"
-description = "The most advanced machine learning library in rust."
+description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.org"
-version = "0.4.0"
-authors = ["SmartCore Developers"]
+version = "0.3.0"
+authors = ["smartcore Developers"]
 edition = "2021"
 license = "Apache-2.0"
 documentation = "https://docs.rs/smartcore"
@@ -11,6 +11,13 @@ repository = "https://github.com/smartcorelib/smartcore"
 readme = "README.md"
 keywords = ["machine-learning", "statistical", "ai", "optimization", "linear-algebra"]
 categories = ["science"]
+exclude = [
+    ".github",
+    ".gitignore",
+    "smartcore.iml",
+    "smartcore.svg",
+    "tests/"
+]
 
 [dependencies]
 approx = "0.5.1"
@@ -22,38 +29,37 @@ rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+typetag = { version = "0.2", optional = true }
+
 [features]
-default = ["serde", "datasets"]
-serde = ["dep:serde"]
+default = []
+serde = ["dep:serde", "dep:typetag"]
 ndarray-bindings = ["dep:ndarray"]
-datasets = ["dep:rand_distr", "std"]
-std = ["rand/std_rng", "rand/std"]
-# wasm32 only
+datasets = ["dep:rand_distr", "std_rand", "serde"]
+std_rand = ["rand/std_rng", "rand/std"]
+# used by wasm32-unknown-unknown for in-browser usage
 js = ["getrandom/js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", optional = true }
-
-[dev-dependencies]
-itertools = "*"
-criterion = { version = "0.4", default-features = false }
-serde_json = "1.0"
-bincode = "1.3.1"
+getrandom = { version = "0.2.8", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "wasi")))'.dev-dependencies]
 wasm-bindgen-test = "0.3"
 
+[dev-dependencies]
+itertools = "0.10.5"
+serde_json = "1.0"
+bincode = "1.3.1"
+
 [workspace]
-resolver = "2"
 
 [profile.test]
 debug = 1
 opt-level = 3
-split-debuginfo = "unpacked"
 
 [profile.release]
 strip = true 
-debug = 1
 lto = true
 codegen-units = 1
 overflow-checks = true

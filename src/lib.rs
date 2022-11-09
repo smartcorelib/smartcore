@@ -8,24 +8,37 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
 
-//! # SmartCore
+//! # smartcore
 //!
-//! Welcome to SmartCore, machine learning in Rust!
+//! Welcome to `smartcore`, machine learning in Rust!
 //!
-//! SmartCore features various classification, regression and clustering algorithms including support vector machines, random forests, k-means and DBSCAN,
+//! `smartcore` features various classification, regression and clustering algorithms including support vector machines, random forests, k-means and DBSCAN,
 //! as well as tools for model selection and model evaluation.
 //!
-//! SmartCore provides its own traits system that extends Rust standard library, to deal with linear algebra and common
+//! `smartcore` provides its own traits system that extends Rust standard library, to deal with linear algebra and common
 //! computational models. Its API is designed using well recognizable patterns. Extra features (like support for [ndarray](https://docs.rs/ndarray)
 //! structures) is available via optional features.
 //!
 //! ## Getting Started
 //!
-//! To start using SmartCore simply add the following to your Cargo.toml file:
+//! To start using `smartcore` latest stable version simply add the following to your `Cargo.toml` file:
+//! ```ignore
+//! [dependencies]
+//! smartcore = "*"
+//! ```
+//!
+//! To start using smartcore development version with latest unstable additions:
 //! ```ignore
 //! [dependencies]
 //! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "development" }
 //! ```
+//!
+//! There are different features that can be added to the base library, for example to add sample datasets:
+//! ```ignore
+//! [dependencies]
+//! smartcore = { git = "https://github.com/smartcorelib/smartcore", features = ["datasets"] }
+//! ```
+//! Check `smartcore`'s `Cargo.toml` for available features.
 //!
 //! ## Using Jupyter
 //! For quick introduction, Jupyter Notebooks are available [here](https://github.com/smartcorelib/smartcore-jupyter/tree/main/notebooks).
@@ -37,7 +50,7 @@
 //! For example, you can use this code to fit a [K Nearest Neighbors classifier](neighbors/knn_classifier/index.html) to a dataset that is defined as standard Rust vector:
 //!
 //! ```
-//! // DenseMatrix defenition
+//! // DenseMatrix definition
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! // KNNClassifier
 //! use smartcore::neighbors::knn_classifier::*;
@@ -62,7 +75,9 @@
 //! ```
 //!
 //! ## Overview
-//! All machine learning algorithms in SmartCore are grouped into these broad categories:
+//!
+//! ### Supported algorithms
+//! All machine learning algorithms are grouped into these broad categories:
 //! * [Clustering](cluster/index.html), unsupervised clustering of unlabeled data.
 //! * [Matrix Decomposition](decomposition/index.html), various methods for matrix decomposition.
 //! * [Linear Models](linear/index.html), regression and classification methods where output is assumed to have linear relation to explanatory variables
@@ -71,11 +86,14 @@
 //! * [Nearest Neighbors](neighbors/index.html), K Nearest Neighbors for classification and regression
 //! * [Naive Bayes](naive_bayes/index.html), statistical classification technique based on Bayes Theorem
 //! * [SVM](svm/index.html), support vector machines
+//!
+//! ### Linear Algebra traits system
+//! For an introduction to `smartcore`'s traits system see [this notebook](https://github.com/smartcorelib/smartcore-jupyter/blob/5523993c53c6ec1fd72eea130ef4e7883121c1ea/notebooks/01-A-little-bit-about-numbers.ipynb)
 
 /// Foundamental numbers traits
 pub mod numbers;
 
-/// Various algorithms and helper methods that are used elsewhere in SmartCore
+/// Various algorithms and helper methods that are used elsewhere in smartcore
 pub mod algorithm;
 pub mod api;
 
@@ -89,7 +107,7 @@ pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor
 pub mod ensemble;
 pub mod error;
-/// Diverse collection of linear algebra abstractions and methods that power SmartCore algorithms
+/// Diverse collection of linear algebra abstractions and methods that power smartcore algorithms
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.
 pub mod linear;
@@ -105,8 +123,9 @@ pub mod neighbors;
 pub mod optimization;
 /// Preprocessing utilities
 pub mod preprocessing;
-// /// Reading in Data.
-// pub mod readers;
+/// Reading in data from serialized formats
+#[cfg(feature = "serde")]
+pub mod readers;
 /// Support Vector Machines
 pub mod svm;
 /// Supervised tree-based learning methods

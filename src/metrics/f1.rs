@@ -15,7 +15,7 @@
 //! let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 //!
 //! let beta = 1.0; // beta default is equal 1.0 anyway
-//! let score: f64 = F1::new_with(beta).get_score(&y_pred, &y_true);
+//! let score: f64 = F1::new_with(beta).get_score( &y_true, &y_pred);
 //! ```
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -92,7 +92,7 @@ mod tests {
         let y_true: Vec<f64> = vec![0., 1., 1., 0., 1., 0.];
 
         let beta = 1.0;
-        let score1: f64 = F1::new_with(beta).get_score(&y_pred, &y_true);
+        let score1: f64 = F1::new_with(beta).get_score(&y_true, &y_pred);
         let score2: f64 = F1::new_with(beta).get_score(&y_true, &y_true);
 
         println!("{:?}", score1);

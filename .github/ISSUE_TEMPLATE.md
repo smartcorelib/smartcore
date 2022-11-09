@@ -1,5 +1,6 @@
 ### I'm submitting a 
 - [ ] bug report.
+- [ ] improvement.
 - [ ] feature request.
 
 ### Current Behaviour:
