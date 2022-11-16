@@ -279,7 +279,7 @@ impl<
     > fmt::Display for GaussianNB<TX, TY, X, Y>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "GaussianNB:\ninner: {:?}", self.inner.as_ref().unwrap())?;
+        writeln!(f, "GaussianNB:\ninner: {:#?}", self.inner.as_ref().unwrap())?;
         Ok(())
     }
 }
