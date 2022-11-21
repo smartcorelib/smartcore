@@ -101,17 +101,17 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
                     .iter()
                     .enumerate()
                     .map(|(class_index, class)| {
-                        let mut log_likelihood = self.distribution.log_likelihood(class_index, &row);
+                        let mut log_likelihood =
+                            self.distribution.log_likelihood(class_index, &row);
                         if log_likelihood.is_nan() {
                             log_likelihood = 0f64;
                             log_likehood_is_nan = true;
                         }
                         (
                             class,
-                            log_likelihood
-                                + self.distribution.prior(class_index).ln(),
+                            log_likelihood + self.distribution.prior(class_index).ln(),
                         )
-                      })
+                    })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
                     .unwrap();
                 *prediction
