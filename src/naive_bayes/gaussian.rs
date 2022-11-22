@@ -59,17 +59,18 @@ impl<
     > fmt::Display for BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "BaseNaiveBayes: {{\n distribution: {}}}", self.distribution)?;
+        writeln!(
+            f,
+            "BaseNaiveBayes: {{\n distribution: {}}}",
+            self.distribution
+        )?;
         Ok(())
     }
 }
 
 impl<T: Number + Ord + Unsigned> fmt::Display for GaussianNBDistribution<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            f,
-            "GaussianNBDistribution: {{"
-        )?;
+        writeln!(f, "GaussianNBDistribution: {{")?;
         writeln!(f, "    class_labels: {:?},", self.class_labels)?;
         writeln!(f, "    class_count: {:?},", self.class_count)?;
         writeln!(f, "    class_priors: {:?},", self.class_priors)?;
