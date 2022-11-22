@@ -51,14 +51,31 @@ struct GaussianNBDistribution<T: Number> {
     theta: Vec<Vec<f64>>,
 }
 
+impl<
+        TX: Number + RealNumber + RealNumber,
+        TY: Number + Ord + Unsigned,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+    > fmt::Display for BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "BaseNaiveBayes: {{\n distribution: {}}}", self.distribution)?;
+        Ok(())
+    }
+}
+
 impl<T: Number + Ord + Unsigned> fmt::Display for GaussianNBDistribution<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
-            "GaussianNBDistribution: class_count: {:?}",
-            self.class_count
+            "GaussianNBDistribution: {{"
         )?;
-        writeln!(f, "class_labels: {:?}", self.class_labels)?;
+        writeln!(f, "    class_labels: {:?},", self.class_labels)?;
+        writeln!(f, "    class_count: {:?},", self.class_count)?;
+        writeln!(f, "    class_priors: {:?},", self.class_priors)?;
+        writeln!(f, "    var: {:?},", self.var)?;
+        writeln!(f, "    theta: {:?}", self.theta)?;
+        write!(f, "}}")?;
         Ok(())
     }
 }
@@ -279,7 +296,7 @@ impl<
     > fmt::Display for GaussianNB<TX, TY, X, Y>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "GaussianNB:\ninner: {:#?}", self.inner.as_ref().unwrap().distribution)?;
+        writeln!(f, "GaussianNB:\n inner: {}", self.inner.as_ref().unwrap())?;
         Ok(())
     }
 }
