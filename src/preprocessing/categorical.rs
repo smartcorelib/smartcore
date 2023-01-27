@@ -132,8 +132,7 @@ impl OneHotEncoder {
                     data.copy_col_as_vec(idx, &mut col_buf);
                     if !validate_col_is_categorical(&col_buf) {
                         let msg = format!(
-                            "Column {} of data matrix containts non categorizable (integer) values",
-                            idx
+                            "Column {idx} of data matrix containts non categorizable (integer) values"
                         );
                         return Err(Failed::fit(&msg[..]));
                     }
@@ -182,7 +181,7 @@ impl OneHotEncoder {
                 match oh_vec {
                     None => {
                         // Since we support T types, bad value in a series causes in to be invalid
-                        let msg = format!("At least one value in column {} doesn't conform to category definition", old_cidx);
+                        let msg = format!("At least one value in column {old_cidx} doesn't conform to category definition");
                         return Err(Failed::transform(&msg[..]));
                     }
                     Some(v) => {
@@ -338,11 +337,7 @@ mod tests {
         ]);
 
         let params = OneHotEncoderParams::from_cat_idx(&[1]);
-        match OneHotEncoder::fit(&m, params) {
-            Err(_) => {
-                assert!(true);
-            }
-            _ => assert!(false),
-        }
+        let result = OneHotEncoder::fit(&m, params);
+        assert!(result.is_err());
     }
 }

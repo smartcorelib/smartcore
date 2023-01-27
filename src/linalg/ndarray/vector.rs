@@ -152,7 +152,7 @@ mod tests {
     fn test_iterator() {
         let a = arr1(&[1, 2, 3]);
 
-        let v: Vec<i32> = a.iterator(0).map(|&v| v).collect();
+        let v: Vec<i32> = a.iterator(0).copied().collect();
         assert_eq!(v, vec!(1, 2, 3));
     }
 

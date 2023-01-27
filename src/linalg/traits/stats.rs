@@ -286,7 +286,7 @@ mod tests {
         }
 
         {
-            let mut m = m.clone();
+            let mut m = m;
             m.standard_scale_mut(&m.mean(1), &m.std(1), 1);
             assert_eq!(&m, &expected_1);
         }
