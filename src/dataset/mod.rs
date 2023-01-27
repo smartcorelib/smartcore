@@ -78,7 +78,7 @@ pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
                 .collect();
             file.write_all(&y)?;
         }
-        Err(why) => panic!("couldn't create {}: {}", filename, why),
+        Err(why) => panic!("couldn't create {filename}: {why}"),
     }
     Ok(())
 }

@@ -113,12 +113,13 @@ mod tests {
             g[1] = 200. * (x[1] - x[0].powf(2.));
         };
 
-        let mut ls: Backtracking<f64> = Default::default();
-        ls.order = FunctionOrder::THIRD;
+        let ls: Backtracking<f64> = Backtracking::<f64> {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
+        };
         let optimizer: GradientDescent = Default::default();
 
         let result = optimizer.optimize(&f, &df, &x0, &ls);
-        println!("{:?}", result);
 
         assert!((result.f_x - 0.0).abs() < 1e-5);
         assert!((result.x[0] - 1.0).abs() < 1e-2);

@@ -662,7 +662,7 @@ mod tests {
         .unwrap();
 
         let t = mean_squared_error(&y_hat, &y);
-        println!("{:?}", t);
+        println!("{t:?}");
         assert!(t < 2.5);
     }
 

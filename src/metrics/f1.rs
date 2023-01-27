@@ -95,8 +95,8 @@ mod tests {
         let score1: f64 = F1::new_with(beta).get_score(&y_true, &y_pred);
         let score2: f64 = F1::new_with(beta).get_score(&y_true, &y_true);
 
-        println!("{:?}", score1);
-        println!("{:?}", score2);
+        println!("{score1:?}");
+        println!("{score2:?}");
 
         assert!((score1 - 0.57142857).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);

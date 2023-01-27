@@ -498,8 +498,8 @@ mod tests {
 
         let y: Vec<usize> = kmeans.predict(&x).unwrap();
 
-        for i in 0..y.len() {
-            assert_eq!(y[i] as usize, kmeans._y[i]);
+        for (i, _y_i) in y.iter().enumerate() {
+            assert_eq!({ y[i] }, kmeans._y[i]);
         }
     }
 

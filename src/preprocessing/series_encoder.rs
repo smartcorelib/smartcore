@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn from_categories() {
         let fake_categories: Vec<usize> = vec![1, 2, 3, 4, 5, 3, 5, 3, 1, 2, 4];
-        let it = fake_categories.iter().map(|&a| a);
+        let it = fake_categories.iter().copied();
         let enc = CategoryMapper::<usize>::fit_to_iter(it);
         let oh_vec: Vec<f64> = match enc.get_one_hot(&1) {
             None => panic!("Wrong categories"),
@@ -218,8 +218,8 @@ mod tests {
 
     fn build_fake_str_enc<'a>() -> CategoryMapper<&'a str> {
         let fake_category_pos = vec!["background", "dog", "cat"];
-        let enc = CategoryMapper::<&str>::from_positional_category_vec(fake_category_pos);
-        enc
+
+        CategoryMapper::<&str>::from_positional_category_vec(fake_category_pos)
     }
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
@@ -275,7 +275,7 @@ mod tests {
         let lab = enc.invert_one_hot(res).unwrap();
         assert_eq!(lab, "dog");
         if let Err(e) = enc.invert_one_hot(vec![0.0, 0.0, 0.0]) {
-            let pos_entries = format!("Expected a single positive entry, 0 entires found");
+            let pos_entries = "Expected a single positive entry, 0 entires found".to_string();
             assert_eq!(e, Failed::transform(&pos_entries[..]));
         };
     }

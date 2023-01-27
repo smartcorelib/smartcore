@@ -449,8 +449,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
 
         match k.cmp(&2) {
             Ordering::Less => Err(Failed::fit(&format!(
-                "incorrect number of classes: {}. Should be >= 2.",
-                k
+                "incorrect number of classes: {k}. Should be >= 2."
             ))),
             Ordering::Equal => {
                 let x0 = Vec::zeros(num_attributes + 1);
@@ -636,19 +635,19 @@ mod tests {
 
         assert!((g[0] + 33.000068218163484).abs() < std::f64::EPSILON);
 
-        let f = objective.f(&vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
+        let f = objective.f(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
         assert!((f - 408.0052230582765).abs() < std::f64::EPSILON);
 
         let objective_reg = MultiClassObjectiveFunction {
             x: &x,
-            y: y.clone(),
+            y,
             k: 3,
             alpha: 1.0,
             _phantom_t: PhantomData,
         };
 
-        let f = objective_reg.f(&vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
+        let f = objective_reg.f(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]);
         assert!((f - 487.5052).abs() < 1e-4);
 
         objective_reg.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
@@ -697,18 +696,18 @@ mod tests {
         assert!((g[1] - 10.239000702928523).abs() < std::f64::EPSILON);
         assert!((g[2] - 3.869294270156324).abs() < std::f64::EPSILON);
 
-        let f = objective.f(&vec![1., 2., 3.]);
+        let f = objective.f(&[1., 2., 3.]);
 
         assert!((f - 59.76994756647412).abs() < std::f64::EPSILON);
 
         let objective_reg = BinaryObjectiveFunction {
             x: &x,
-            y: y.clone(),
+            y,
             alpha: 1.0,
             _phantom_t: PhantomData,
         };
 
-        let f = objective_reg.f(&vec![1., 2., 3.]);
+        let f = objective_reg.f(&[1., 2., 3.]);
         assert!((f - 62.2699).abs() < 1e-4);
 
         objective_reg.df(&mut g, &vec![1., 2., 3.]);

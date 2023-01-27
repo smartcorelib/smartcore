@@ -217,7 +217,7 @@ mod tests {
     fn test_iterator() {
         let a = arr2(&[[1, 2, 3], [4, 5, 6]]);
 
-        let v: Vec<i32> = a.iterator(0).map(|&v| v).collect();
+        let v: Vec<i32> = a.iterator(0).copied().collect();
         assert_eq!(v, vec!(1, 2, 3, 4, 5, 6));
     }
 
@@ -236,7 +236,7 @@ mod tests {
         let x = arr2(&[[1, 2, 3], [4, 5, 6]]);
         let x_slice = Array2::slice(&x, 0..2, 1..2);
         assert_eq!((2, 1), x_slice.shape());
-        let v: Vec<i32> = x_slice.iterator(0).map(|&v| v).collect();
+        let v: Vec<i32> = x_slice.iterator(0).copied().collect();
         assert_eq!(v, [2, 5]);
     }
 
@@ -245,11 +245,11 @@ mod tests {
         let x = arr2(&[[1, 2, 3], [4, 5, 6]]);
         let x_slice = Array2::slice(&x, 0..2, 0..3);
         assert_eq!(
-            x_slice.iterator(0).map(|&v| v).collect::<Vec<i32>>(),
+            x_slice.iterator(0).copied().collect::<Vec<i32>>(),
             vec![1, 2, 3, 4, 5, 6]
         );
         assert_eq!(
-            x_slice.iterator(1).map(|&v| v).collect::<Vec<i32>>(),
+            x_slice.iterator(1).copied().collect::<Vec<i32>>(),
             vec![1, 4, 2, 5, 3, 6]
         );
     }
@@ -279,8 +279,8 @@ mod tests {
     fn test_c_from_iterator() {
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
         let a: NDArray2<i32> = Array2::from_iterator(data.clone().into_iter(), 4, 3, 0);
-        println!("{}", a);
+        println!("{a}");
         let a: NDArray2<i32> = Array2::from_iterator(data.into_iter(), 4, 3, 1);
-        println!("{}", a);
+        println!("{a}");
     }
 }
