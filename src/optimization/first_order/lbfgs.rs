@@ -291,8 +291,10 @@ mod tests {
             g[0] = -2. * (1. - x[0]) - 400. * (x[1] - x[0].powf(2.)) * x[0];
             g[1] = 200. * (x[1] - x[0].powf(2.));
         };
-        let mut ls: Backtracking<f64> = Default::default();
-        ls.order = FunctionOrder::THIRD;
+        let ls: Backtracking<f64> = Backtracking::<f64> {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
+        };
         let optimizer: LBFGS = Default::default();
 
         let result = optimizer.optimize(&f, &df, &x0, &ls);

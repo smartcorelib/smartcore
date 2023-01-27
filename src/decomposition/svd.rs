@@ -225,7 +225,6 @@ mod tests {
     fn search_parameters() {
         let parameters = SVDSearchParameters {
             n_components: vec![10, 100],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();

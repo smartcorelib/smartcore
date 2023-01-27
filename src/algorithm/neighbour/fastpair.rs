@@ -276,17 +276,13 @@ mod tests_fastpair {
         // We expect an error when we run `FastPair` on this dataset,
         // becuase `FastPair` currently only works on a minimum of 3
         // points.
-        let _fastpair = FastPair::new(&dataset);
+        let fastpair = FastPair::new(&dataset);
+        assert!(fastpair.is_err());
 
-        match _fastpair {
-            Err(e) => {
-                let expected_error =
-                    Failed::because(FailedError::FindFailed, "min number of rows should be 3");
-                assert_eq!(e, expected_error)
-            }
-            _ => {
-                assert!(false);
-            }
+        if let Err(e) = fastpair {
+            let expected_error =
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3");
+            assert_eq!(e, expected_error)
         }
     }
 

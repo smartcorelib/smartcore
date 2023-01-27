@@ -373,7 +373,6 @@ mod tests {
     fn search_parameters() {
         let parameters = GaussianNBSearchParameters {
             priors: vec![Some(vec![1.]), Some(vec![2.])],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();

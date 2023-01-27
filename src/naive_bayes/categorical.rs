@@ -425,7 +425,6 @@ mod tests {
     fn search_parameters() {
         let parameters = CategoricalNBSearchParameters {
             alpha: vec![1., 2.],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();

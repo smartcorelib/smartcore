@@ -337,11 +337,7 @@ mod tests {
         ]);
 
         let params = OneHotEncoderParams::from_cat_idx(&[1]);
-        match OneHotEncoder::fit(&m, params) {
-            Err(_) => {
-                assert!(true);
-            }
-            _ => assert!(false),
-        }
+        let result = OneHotEncoder::fit(&m, params);
+        assert!(result.is_err());
     }
 }

@@ -509,8 +509,8 @@ mod tests {
 
         assert!(relative_eq!(V.abs(), svd.V.abs(), epsilon = 1e-4));
         assert!(relative_eq!(U.abs(), svd.U.abs(), epsilon = 1e-4));
-        for i in 0..s.len() {
-            assert!((s[i] - svd.s[i]).abs() < 1e-4);
+        for (i, s_i) in s.iter().enumerate() {
+            assert!((s_i - svd.s[i]).abs() < 1e-4);
         }
     }
     #[cfg_attr(
@@ -713,8 +713,8 @@ mod tests {
 
         assert!(relative_eq!(V.abs(), svd.V.abs(), epsilon = 1e-4));
         assert!(relative_eq!(U.abs(), svd.U.abs(), epsilon = 1e-4));
-        for i in 0..s.len() {
-            assert!((s[i] - svd.s[i]).abs() < 1e-4);
+        for (i, s_i) in s.iter().enumerate() {
+            assert!((s_i - svd.s[i]).abs() < 1e-4);
         }
     }
     #[cfg_attr(
