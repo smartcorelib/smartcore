@@ -511,6 +511,6 @@ mod tests {
             .and_then(|dbscan| dbscan.predict(&x))
             .unwrap();
 
-        println!("{:?}", labels);
+        println!("{labels:?}");
     }
 }

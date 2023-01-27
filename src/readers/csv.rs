@@ -208,7 +208,7 @@ where
     match value_string.parse::<T>().ok() {
         Some(value) => Ok(value),
         None => Err(ReadingError::InvalidField {
-            msg: format!("Value '{}' could not be read.", value_string,),
+            msg: format!("Value '{value_string}' could not be read.",),
         }),
     }
 }

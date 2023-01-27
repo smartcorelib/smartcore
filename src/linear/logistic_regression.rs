@@ -641,7 +641,7 @@ mod tests {
 
         let objective_reg = MultiClassObjectiveFunction {
             x: &x,
-            y: y,
+            y,
             k: 3,
             alpha: 1.0,
             _phantom_t: PhantomData,
@@ -702,7 +702,7 @@ mod tests {
 
         let objective_reg = BinaryObjectiveFunction {
             x: &x,
-            y: y,
+            y,
             alpha: 1.0,
             _phantom_t: PhantomData,
         };
