@@ -837,7 +837,7 @@ mod tests {
             evd.V.abs(),
             epsilon = 1e-4
         ));
-	for (i, eigen_values_i) in eigen_values.iter().enumerate() {
+        for (i, eigen_values_i) in eigen_values.iter().enumerate() {
             assert!((eigen_values_i - evd.d[i]).abs() < 1e-4);
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }
@@ -869,7 +869,7 @@ mod tests {
             evd.V.abs(),
             epsilon = 1e-4
         ));
-	for (i, eigen_values_i) in eigen_values.iter().enumerate() {
+        for (i, eigen_values_i) in eigen_values.iter().enumerate() {
             assert!((eigen_values_i - evd.d[i]).abs() < 1e-4);
             assert!((0f64 - evd.e[i]).abs() < std::f64::EPSILON);
         }

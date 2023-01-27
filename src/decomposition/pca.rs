@@ -692,7 +692,7 @@ mod tests {
             epsilon = 1e-4
         ));
 
-	for (i, pca_eigenvalues_i) in pca.eigenvalues.iter().enumerate() {
+        for (i, pca_eigenvalues_i) in pca.eigenvalues.iter().enumerate() {
             assert!((pca_eigenvalues_i.abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
