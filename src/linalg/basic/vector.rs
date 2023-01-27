@@ -160,8 +160,8 @@ mod tests {
     fn dot_product<T: Number, V: Array1<T>>(v: &V) -> T {
         let vv = V::zeros(10);
         let v_s = vv.slice(0..3);
-        let dot = v_s.dot(v);
-        dot
+
+        v_s.dot(v)
     }
 
     fn vector_ops<T: Number + PartialOrd, V: Array1<T>>(_: &V) -> T {
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn test_mut_iterator() {
         let mut x = vec![1, 2, 3];
-        x.iterator_mut(0).for_each(|v| *v = *v * 2);
+        x.iterator_mut(0).for_each(|v| *v *= 2);
         assert_eq!(vec![2, 4, 6], x);
     }
 

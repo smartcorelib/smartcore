@@ -196,9 +196,9 @@ impl LBFGS {
     }
 
     ///
-    fn update_hessian<'a, T: FloatNumber, X: Array1<T>>(
+    fn update_hessian<T: FloatNumber, X: Array1<T>>(
         &self,
-        _: &'a DF<'_, X>,
+        _: &DF<'_, X>,
         state: &mut LBFGSState<T, X>,
     ) {
         state.dg = state.x_df.sub(&state.x_df_prev);

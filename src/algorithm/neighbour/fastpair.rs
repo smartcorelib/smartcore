@@ -260,8 +260,8 @@ mod tests_fastpair {
         let distances = fastpair.distances;
         let neighbours = fastpair.neighbours;
 
-        assert!(distances.len() != 0);
-        assert!(neighbours.len() != 0);
+        assert!(!distances.is_empty());
+        assert!(!neighbours.is_empty());
 
         assert_eq!(10, neighbours.len());
         assert_eq!(10, distances.len());
@@ -582,7 +582,7 @@ mod tests_fastpair {
         };
         for p in dissimilarities.iter() {
             if p.distance.unwrap() < min_dissimilarity.distance.unwrap() {
-                min_dissimilarity = p.clone()
+                min_dissimilarity = *p
             }
         }
 

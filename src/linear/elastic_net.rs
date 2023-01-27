@@ -425,10 +425,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         for (i, col_std_i) in col_std.iter().enumerate() {
             if (*col_std_i - TX::zero()).abs() < TX::epsilon() {
-                return Err(Failed::fit(&format!(
-                    "Cannot rescale constant column {}",
-                    i
-                )));
+                return Err(Failed::fit(&format!("Cannot rescale constant column {i}")));
             }
         }
 

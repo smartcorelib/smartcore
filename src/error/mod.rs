@@ -98,7 +98,7 @@ impl fmt::Display for FailedError {
             FailedError::SolutionFailed => "Can't find solution",
             FailedError::ParametersError => "Error in input, check parameters",
         };
-        write!(f, "{}", failed_err_str)
+        write!(f, "{failed_err_str}")
     }
 }
 

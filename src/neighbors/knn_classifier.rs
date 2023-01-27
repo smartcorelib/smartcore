@@ -236,8 +236,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 
         if x_n != y_n {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                x_n, y_n
+                "Size of x should equal size of y; |x|=[{x_n}], |y|=[{y_n}]"
             )));
         }
 

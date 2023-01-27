@@ -560,8 +560,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let k = classes.len();
         if k < 2 {
             return Err(Failed::fit(&format!(
-                "Incorrect number of classes: {}. Should be >= 2.",
-                k
+                "Incorrect number of classes: {k}. Should be >= 2."
             )));
         }
 
@@ -901,15 +900,13 @@ mod tests {
     )]
     #[test]
     fn gini_impurity() {
+        assert!((impurity(&SplitCriterion::Gini, &[7, 3], 10) - 0.42).abs() < std::f64::EPSILON);
         assert!(
-            (impurity(&SplitCriterion::Gini, &vec![7, 3], 10) - 0.42).abs() < std::f64::EPSILON
-        );
-        assert!(
-            (impurity(&SplitCriterion::Entropy, &vec![7, 3], 10) - 0.8812908992306927).abs()
+            (impurity(&SplitCriterion::Entropy, &[7, 3], 10) - 0.8812908992306927).abs()
                 < std::f64::EPSILON
         );
         assert!(
-            (impurity(&SplitCriterion::ClassificationError, &vec![7, 3], 10) - 0.3).abs()
+            (impurity(&SplitCriterion::ClassificationError, &[7, 3], 10) - 0.3).abs()
                 < std::f64::EPSILON
         );
     }

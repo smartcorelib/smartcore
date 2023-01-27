@@ -231,8 +231,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         if parameters.n_components > n {
             return Err(Failed::fit(&format!(
-                "Number of components, n_components should be <= number of attributes ({})",
-                n
+                "Number of components, n_components should be <= number of attributes ({n})"
             )));
         }
 

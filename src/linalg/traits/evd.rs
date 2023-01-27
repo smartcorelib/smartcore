@@ -66,7 +66,7 @@ pub trait EVDDecomposable<T: Number + RealNumber>: Array2<T> {
     fn evd_mut(mut self, symmetric: bool) -> Result<EVD<T, Self>, Failed> {
         let (nrows, ncols) = self.shape();
         if ncols != nrows {
-            panic!("Matrix is not square: {} x {}", nrows, ncols);
+            panic!("Matrix is not square: {nrows} x {ncols}");
         }
 
         let n = nrows;

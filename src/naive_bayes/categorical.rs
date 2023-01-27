@@ -158,8 +158,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
     pub fn fit<X: Array2<T>, Y: Array1<T>>(x: &X, y: &Y, alpha: f64) -> Result<Self, Failed> {
         if alpha < 0f64 {
             return Err(Failed::fit(&format!(
-                "alpha should be >= 0, alpha=[{}]",
-                alpha
+                "alpha should be >= 0, alpha=[{alpha}]"
             )));
         }
 
@@ -167,15 +166,13 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                n_samples, y_samples
+                "Size of x should equal size of y; |x|=[{n_samples}], |y|=[{y_samples}]"
             )));
         }
 
         if n_samples == 0 {
             return Err(Failed::fit(&format!(
-                "Size of x and y should greater than 0; |x|=[{}]",
-                n_samples
+                "Size of x and y should greater than 0; |x|=[{n_samples}]"
             )));
         }
         let y: Vec<usize> = y.iterator(0).map(|y_i| y_i.to_usize().unwrap()).collect();
@@ -202,8 +199,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
                 .max()
                 .ok_or_else(|| {
                     Failed::fit(&format!(
-                        "Failed to get the categories for feature = {}",
-                        feature
+                        "Failed to get the categories for feature = {feature}"
                     ))
                 })?;
             n_categories.push(feature_max + 1);

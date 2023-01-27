@@ -118,7 +118,7 @@ mod tests {
         let optimizer: GradientDescent = Default::default();
 
         let result = optimizer.optimize(&f, &df, &x0, &ls);
-        println!("{:?}", result);
+        println!("{result:?}");
 
         assert!((result.f_x - 0.0).abs() < 1e-5);
         assert!((result.x[0] - 1.0).abs() < 1e-2);

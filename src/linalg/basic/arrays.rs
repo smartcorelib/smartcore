@@ -548,7 +548,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         let (nrows, ncols) = self.shape();
         for r in 0..nrows {
             let row: Vec<T> = (0..ncols).map(|c| *self.get((r, c))).collect();
-            writeln!(f, "{:?}", row)?
+            writeln!(f, "{row:?}")?
         }
         Ok(())
     }
@@ -918,8 +918,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         let len = self.shape();
         assert!(
             index.iter().all(|&i| i < len),
-            "All indices in `take` should be < {}",
-            len
+            "All indices in `take` should be < {len}"
         );
         Self::from_iterator(index.iter().map(move |&i| *self.get(i)), index.len())
     }
@@ -990,10 +989,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         };
         assert!(
             d1 == len,
-            "Can not multiply {}x{} matrix by {} vector",
-            nrows,
-            ncols,
-            len
+            "Can not multiply {nrows}x{ncols} matrix by {len} vector"
         );
         let mut result = Self::zeros(d2);
         for i in 0..d2 {
@@ -1111,11 +1107,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         assert!(
             nrows * ncols == onrows * oncols,
-            "Can't reshape {}x{} array into a {}x{} array",
-            onrows,
-            oncols,
-            nrows,
-            ncols
+            "Can't reshape {onrows}x{oncols} array into a {nrows}x{ncols} array"
         );
 
         Self::from_iterator(self.iterator(0).cloned(), nrows, ncols, axis)
@@ -1129,11 +1121,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         let (o_nrows, o_ncols) = other.shape();
         assert!(
             ncols == o_nrows,
-            "Can't multiply {}x{} and {}x{} matrices",
-            nrows,
-            ncols,
-            o_nrows,
-            o_ncols
+            "Can't multiply {nrows}x{ncols} and {o_nrows}x{o_ncols} matrices"
         );
         let inner_d = ncols;
         let mut result = Self::zeros(nrows, o_ncols);
@@ -1166,7 +1154,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                 _ => (nrows, ncols, o_nrows, o_ncols),
             };
             if d1 != d4 {
-                panic!("Can not multiply {}x{} by {}x{} matrices", d2, d1, d4, d3);
+                panic!("Can not multiply {d2}x{d1} by {d4}x{d3} matrices");
             }
             let mut result = Self::zeros(d2, d3);
             for r in 0..d2 {
@@ -1198,10 +1186,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         };
         assert!(
             d2 == len,
-            "Can not multiply {}x{} matrix by {} vector",
-            nrows,
-            ncols,
-            len
+            "Can not multiply {nrows}x{ncols} matrix by {len} vector"
         );
         let mut result = Self::zeros(d1, 1);
         for i in 0..d1 {
@@ -1432,8 +1417,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             0 => {
                 assert!(
                     index.iter().all(|&i| i < nrows),
-                    "All indices in `take` should be < {}",
-                    nrows
+                    "All indices in `take` should be < {nrows}"
                 );
                 Self::from_iterator(
                     index
@@ -1448,8 +1432,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             _ => {
                 assert!(
                     index.iter().all(|&i| i < ncols),
-                    "All indices in `take` should be < {}",
-                    ncols
+                    "All indices in `take` should be < {ncols}"
                 );
                 Self::from_iterator(
                     (0..nrows)
@@ -1736,7 +1719,7 @@ mod tests {
         let r = Vec::<f32>::rand(4);
         assert!(r.iterator(0).all(|&e| e <= 1f32));
         assert!(r.iterator(0).all(|&e| e >= 0f32));
-        assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
+        assert!(r.iterator(0).copied().sum::<f32>() > 0f32);
     }
 
     #[test]
@@ -1954,7 +1937,7 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[1, 3], &[2, 4]])
         );
         assert_eq!(
-            DenseMatrix::concatenate_2d(&[&a.clone(), &b.clone()], 0),
+            DenseMatrix::concatenate_2d(&[&a, &b], 0),
             DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]])
         );
         assert_eq!(
@@ -2025,7 +2008,7 @@ mod tests {
         let r = DenseMatrix::<f32>::rand(2, 2);
         assert!(r.iterator(0).all(|&e| e <= 1f32));
         assert!(r.iterator(0).all(|&e| e >= 0f32));
-        assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
+        assert!(r.iterator(0).copied().sum::<f32>() > 0f32);
     }
 
     #[test]
