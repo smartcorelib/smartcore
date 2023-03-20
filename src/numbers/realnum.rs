@@ -2,13 +2,14 @@
 //! Most algorithms in `smartcore` rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
-use num_traits::Float;
-
-use crate::numbers::basenum::Number;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
-const SEEDS: [u8; 32] = [1u8; 32];
+use num_traits::Float;
+
+use crate::numbers::basenum::Number;
+use crate::rand_custom::get_rng_impl;
+
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 pub trait RealNumber: Number + Float {
@@ -66,7 +67,7 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
-        let mut small_rng = SmallRng::from_seed(SEEDS);
+        let mut small_rng = get_rng_impl(Some(100101010));
 
         let mut rngs: Vec<SmallRng> = (0..3)
             .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
@@ -115,7 +116,7 @@ impl RealNumber for f32 {
     }
 
     fn rand() -> f32 {
-        let mut small_rng = SmallRng::from_seed(SEEDS);
+        let mut small_rng = get_rng_impl(Some(100101010));
 
         let mut rngs: Vec<SmallRng> = (0..3)
             .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())

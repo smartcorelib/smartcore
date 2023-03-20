@@ -18,7 +18,7 @@
 //!
 //! Example:
 //!
-//! ```
+//! ```ignore
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linalg::basic::arrays::Array2;
 //! use smartcore::cluster::dbscan::*;

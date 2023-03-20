@@ -18,7 +18,6 @@
 //! Example:
 //!
 //! ```
-//! use rand::thread_rng;
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_regressor::*;
 //!
