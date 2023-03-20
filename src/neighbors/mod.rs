@@ -49,18 +49,13 @@ pub type KNNAlgorithmName = crate::algorithm::neighbour::KNNAlgorithmName;
 
 /// Weight function that is used to determine estimated value.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum KNNWeightFunction {
     /// All k nearest points are weighted equally
+    #[default]
     Uniform,
     /// k nearest points are weighted by the inverse of their distance. Closer neighbors will have a greater influence than neighbors which are further away.
     Distance,
-}
-
-impl Default for KNNWeightFunction {
-    fn default() -> Self {
-        KNNWeightFunction::Uniform
-    }
 }
 
 impl KNNWeightFunction {

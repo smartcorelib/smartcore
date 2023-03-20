@@ -137,27 +137,22 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         self.classes.as_ref()
     }
     /// Get depth of tree
-    fn depth(&self) -> u16 {
+    pub fn depth(&self) -> u16 {
         self.depth
     }
 }
 
 /// The function to measure the quality of a split.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
+    #[default]
     Gini,
     /// [Entropy](../decision_tree_classifier/index.html)
     Entropy,
     /// [Classification error](../decision_tree_classifier/index.html)
     ClassificationError,
-}
-
-impl Default for SplitCriterion {
-    fn default() -> Self {
-        SplitCriterion::Gini
-    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

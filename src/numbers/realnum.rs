@@ -5,7 +5,10 @@
 use num_traits::Float;
 
 use crate::numbers::basenum::Number;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 
+const SEEDS: [u8; 32] = [1u8; 32];
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
 pub trait RealNumber: Number + Float {
@@ -63,8 +66,12 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
-        // TODO: to be implemented, see issue smartcore#214
-        1.0
+        let mut small_rng = SmallRng::from_seed(SEEDS);
+
+        let mut rngs: Vec<SmallRng> = (0..3)
+            .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
+            .collect();
+        rngs[0].gen::<f64>()
     }
 
     fn two() -> Self {
@@ -108,7 +115,12 @@ impl RealNumber for f32 {
     }
 
     fn rand() -> f32 {
-        1.0
+        let mut small_rng = SmallRng::from_seed(SEEDS);
+
+        let mut rngs: Vec<SmallRng> = (0..3)
+            .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
+            .collect();
+        rngs[0].gen::<f32>()
     }
 
     fn two() -> Self {
@@ -148,5 +160,15 @@ mod tests {
     #[test]
     fn f64_from_string() {
         assert_eq!(f64::from_str("1.111111111").unwrap(), 1.111111111)
+    }
+
+    #[test]
+    fn f64_rand() {
+        f64::rand();
+    }
+
+    #[test]
+    fn f32_rand() {
+        f32::rand();
     }
 }
