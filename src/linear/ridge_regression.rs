@@ -71,19 +71,14 @@ use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
+    #[default]
     Cholesky,
     /// SVD decomposition, see [SVD](../../linalg/svd/index.html)
     SVD,
-}
-
-impl Default for RidgeRegressionSolverName {
-    fn default() -> Self {
-        RidgeRegressionSolverName::Cholesky
-    }
 }
 
 /// Ridge Regression parameters

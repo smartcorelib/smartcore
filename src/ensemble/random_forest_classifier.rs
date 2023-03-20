@@ -454,8 +454,12 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         y: &Y,
         parameters: RandomForestClassifierParameters,
     ) -> Result<RandomForestClassifier<TX, TY, X, Y>, Failed> {
-        let (_, num_attributes) = x.shape();
+        let (x_nrows, num_attributes) = x.shape();
         let y_ncols = y.shape();
+        if x_nrows != y_ncols {
+            return Err(Failed::fit("Number of rows in X should = len(y)"));
+        }
+
         let mut yi: Vec<usize> = vec![0; y_ncols];
         let classes = y.unique();
 
@@ -676,6 +680,30 @@ mod tests {
         .unwrap();
 
         assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
+    }
+
+    #[test]
+    fn test_random_matrix_with_wrong_rownum() {
+        let x_rand: DenseMatrix<f64> = DenseMatrix::<f64>::rand(21, 200);
+
+        let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        let fail = RandomForestClassifier::fit(
+            &x_rand,
+            &y,
+            RandomForestClassifierParameters {
+                criterion: SplitCriterion::Gini,
+                max_depth: Option::None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 100,
+                m: Option::None,
+                keep_samples: false,
+                seed: 87,
+            },
+        );
+
+        assert!(fail.is_err());
     }
 
     #[cfg_attr(
