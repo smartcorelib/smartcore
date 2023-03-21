@@ -213,17 +213,17 @@ mod tests {
 
         for t in &test_masks[0][0..11] {
             // TODO: this can be prob done better
-            assert_eq!(*t, true)
+            assert!(*t)
         }
         for t in &test_masks[0][11..22] {
-            assert_eq!(*t, false)
+            assert!(!*t)
         }
 
         for t in &test_masks[1][0..11] {
-            assert_eq!(*t, false)
+            assert!(!*t)
         }
         for t in &test_masks[1][11..22] {
-            assert_eq!(*t, true)
+            assert!(*t)
         }
     }
 

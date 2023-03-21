@@ -102,10 +102,7 @@ impl<T: Number + RealNumber, M: Array2<T>> QR<T, M> {
         let (b_nrows, b_ncols) = b.shape();
 
         if b_nrows != m {
-            panic!(
-                "Row dimensions do not agree: A is {} x {}, but B is {} x {}",
-                m, n, b_nrows, b_ncols
-            );
+            panic!("Row dimensions do not agree: A is {m} x {n}, but B is {b_nrows} x {b_ncols}");
         }
 
         if self.singular {

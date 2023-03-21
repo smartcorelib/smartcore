@@ -169,7 +169,7 @@ pub fn train_test_split<
     let n_test = ((n as f32) * test_size) as usize;
 
     if n_test < 1 {
-        panic!("number of sample is too small {}", n);
+        panic!("number of sample is too small {n}");
     }
 
     let mut indices: Vec<usize> = (0..n).collect();
@@ -553,6 +553,6 @@ mod tests {
             &accuracy,
         )
         .unwrap();
-        println!("{:?}", results);
+        println!("{results:?}");
     }
 }

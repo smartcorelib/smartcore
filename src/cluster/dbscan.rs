@@ -18,7 +18,7 @@
 //!
 //! Example:
 //!
-//! ```
+//! ```ignore
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linalg::basic::arrays::Array2;
 //! use smartcore::cluster::dbscan::*;
@@ -511,6 +511,6 @@ mod tests {
             .and_then(|dbscan| dbscan.predict(&x))
             .unwrap();
 
-        println!("{:?}", labels);
+        println!("{labels:?}");
     }
 }

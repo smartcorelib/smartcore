@@ -231,8 +231,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         if parameters.n_components > n {
             return Err(Failed::fit(&format!(
-                "Number of components, n_components should be <= number of attributes ({})",
-                n
+                "Number of components, n_components should be <= number of attributes ({n})"
             )));
         }
 
@@ -374,21 +373,20 @@ mod tests {
         let parameters = PCASearchParameters {
             n_components: vec![2, 4],
             use_correlation_matrix: vec![true, false],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 2);
-        assert_eq!(next.use_correlation_matrix, true);
+        assert!(next.use_correlation_matrix);
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 4);
-        assert_eq!(next.use_correlation_matrix, true);
+        assert!(next.use_correlation_matrix);
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 2);
-        assert_eq!(next.use_correlation_matrix, false);
+        assert!(!next.use_correlation_matrix);
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 4);
-        assert_eq!(next.use_correlation_matrix, false);
+        assert!(!next.use_correlation_matrix);
         assert!(iter.next().is_none());
     }
 
@@ -572,8 +570,8 @@ mod tests {
             epsilon = 1e-4
         ));
 
-        for i in 0..pca.eigenvalues.len() {
-            assert!((pca.eigenvalues[i].abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
+        for (i, pca_eigenvalues_i) in pca.eigenvalues.iter().enumerate() {
+            assert!((pca_eigenvalues_i.abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
         let us_arrests_t = pca.transform(&us_arrests).unwrap();
@@ -694,8 +692,8 @@ mod tests {
             epsilon = 1e-4
         ));
 
-        for i in 0..pca.eigenvalues.len() {
-            assert!((pca.eigenvalues[i].abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
+        for (i, pca_eigenvalues_i) in pca.eigenvalues.iter().enumerate() {
+            assert!((pca_eigenvalues_i.abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
         let us_arrests_t = pca.transform(&us_arrests).unwrap();

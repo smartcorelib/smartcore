@@ -220,21 +220,18 @@ impl<TY: Number + Ord + Unsigned> MultinomialNBDistribution<TY> {
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                n_samples, y_samples
+                "Size of x should equal size of y; |x|=[{n_samples}], |y|=[{y_samples}]"
             )));
         }
 
         if n_samples == 0 {
             return Err(Failed::fit(&format!(
-                "Size of x and y should greater than 0; |x|=[{}]",
-                n_samples
+                "Size of x and y should greater than 0; |x|=[{n_samples}]"
             )));
         }
         if alpha < 0f64 {
             return Err(Failed::fit(&format!(
-                "Alpha should be greater than 0; |alpha|=[{}]",
-                alpha
+                "Alpha should be greater than 0; |alpha|=[{alpha}]"
             )));
         }
 
@@ -266,8 +263,7 @@ impl<TY: Number + Ord + Unsigned> MultinomialNBDistribution<TY> {
                 feature_in_class_counter[class_index][idx] +=
                     row_i.to_usize().ok_or_else(|| {
                         Failed::fit(&format!(
-                            "Elements of the matrix should be convertible to usize |found|=[{}]",
-                            row_i
+                            "Elements of the matrix should be convertible to usize |found|=[{row_i}]"
                         ))
                     })?;
             }
