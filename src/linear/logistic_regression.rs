@@ -71,17 +71,12 @@ use crate::optimization::line_search::Backtracking;
 use crate::optimization::FunctionOrder;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 /// Solver options for Logistic regression. Right now only LBFGS solver is supported.
 pub enum LogisticRegressionSolverName {
     /// Limited-memory Broyden–Fletcher–Goldfarb–Shanno method, see [LBFGS paper](http://users.iems.northwestern.edu/~nocedal/lbfgsb.html)
+    #[default]
     LBFGS,
-}
-
-impl Default for LogisticRegressionSolverName {
-    fn default() -> Self {
-        LogisticRegressionSolverName::LBFGS
-    }
 }
 
 /// Logistic Regression parameters

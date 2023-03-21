@@ -30,7 +30,7 @@ pub enum FailedError {
     DecompositionFailed,
     /// Can't solve for x
     SolutionFailed,
-    /// Erro in input
+    /// Error in input parameters
     ParametersError,
 }
 

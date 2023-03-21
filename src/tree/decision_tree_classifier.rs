@@ -137,27 +137,22 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         self.classes.as_ref()
     }
     /// Get depth of tree
-    fn depth(&self) -> u16 {
+    pub fn depth(&self) -> u16 {
         self.depth
     }
 }
 
 /// The function to measure the quality of a split.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum SplitCriterion {
     /// [Gini index](../decision_tree_classifier/index.html)
+    #[default]
     Gini,
     /// [Entropy](../decision_tree_classifier/index.html)
     Entropy,
     /// [Classification error](../decision_tree_classifier/index.html)
     ClassificationError,
-}
-
-impl Default for SplitCriterion {
-    fn default() -> Self {
-        SplitCriterion::Gini
-    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -543,6 +538,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         parameters: DecisionTreeClassifierParameters,
     ) -> Result<DecisionTreeClassifier<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
+        if x_nrows != y.shape() {
+            return Err(Failed::fit("Size of x should equal size of y"));
+        }
+
         let samples = vec![1; x_nrows];
         DecisionTreeClassifier::fit_weak_learner(x, y, samples, num_attributes, parameters)
     }
@@ -966,6 +965,17 @@ mod tests {
             .unwrap()
             .depth
         );
+    }
+
+    #[test]
+    fn test_random_matrix_with_wrong_rownum() {
+        let x_rand: DenseMatrix<f64> = DenseMatrix::<f64>::rand(21, 200);
+
+        let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        let fail = DecisionTreeClassifier::fit(&x_rand, &y, Default::default());
+
+        assert!(fail.is_err());
     }
 
     #[cfg_attr(

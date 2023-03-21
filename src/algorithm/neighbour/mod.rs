@@ -49,18 +49,13 @@ pub mod linear_search;
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum KNNAlgorithmName {
     /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
     LinearSearch,
     /// Cover Tree Search algorithm, see [`CoverTree`](../algorithm/neighbour/cover_tree/index.html)
+    #[default]
     CoverTree,
-}
-
-impl Default for KNNAlgorithmName {
-    fn default() -> Self {
-        KNNAlgorithmName::CoverTree
-    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
