@@ -185,15 +185,13 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                n_samples, y_samples
+                "Size of x should equal size of y; |x|=[{n_samples}], |y|=[{y_samples}]"
             )));
         }
 
         if n_samples == 0 {
             return Err(Failed::fit(&format!(
-                "Size of x and y should greater than 0; |x|=[{}]",
-                n_samples
+                "Size of x and y should greater than 0; |x|=[{n_samples}]"
             )));
         }
         let (class_labels, indices) = y.unique_with_indices();
@@ -375,7 +373,6 @@ mod tests {
     fn search_parameters() {
         let parameters = GaussianNBSearchParameters {
             priors: vec![Some(vec![1.]), Some(vec![2.])],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();

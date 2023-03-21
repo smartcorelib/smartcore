@@ -294,7 +294,7 @@ mod tests {
                     &[0.5708488802, 0.1846414616, 0.9590802982, 0.5591871046],
                     &[0.8387612750, 0.5754861361, 0.5537109852, 0.1077646442],
                 ]));
-            println!("{}", transformed_values);
+            println!("{transformed_values}");
             assert!(transformed_values.approximate_eq(
                 &DenseMatrix::from_2d_array(&[
                     &[-1.1154020653, -0.4031985330, 0.9284605204, -0.4271473866],

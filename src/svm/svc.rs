@@ -983,11 +983,7 @@ mod tests {
             .unwrap();
         let acc = accuracy(&y, &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
 
-        assert!(
-            acc >= 0.9,
-            "accuracy ({}) is not larger or equal to 0.9",
-            acc
-        );
+        assert!(acc >= 0.9, "accuracy ({acc}) is not larger or equal to 0.9");
     }
 
     #[cfg_attr(
@@ -1076,11 +1072,7 @@ mod tests {
 
         let acc = accuracy(&y, &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
 
-        assert!(
-            acc >= 0.9,
-            "accuracy ({}) is not larger or equal to 0.9",
-            acc
-        );
+        assert!(acc >= 0.9, "accuracy ({acc}) is not larger or equal to 0.9");
     }
 
     #[cfg_attr(

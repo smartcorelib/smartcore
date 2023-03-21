@@ -2,9 +2,13 @@
 //! Most algorithms in `smartcore` rely on basic linear algebra operations like dot product, matrix decomposition and other subroutines that are defined for a set of real numbers, ℝ.
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
+
 use num_traits::Float;
 
 use crate::numbers::basenum::Number;
+use crate::rand_custom::get_rng_impl;
 
 /// Defines real number
 /// <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML"></script>
@@ -63,8 +67,12 @@ impl RealNumber for f64 {
     }
 
     fn rand() -> f64 {
-        // TODO: to be implemented, see issue smartcore#214
-        1.0
+        let mut small_rng = get_rng_impl(None);
+
+        let mut rngs: Vec<SmallRng> = (0..3)
+            .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
+            .collect();
+        rngs[0].gen::<f64>()
     }
 
     fn two() -> Self {
@@ -108,7 +116,12 @@ impl RealNumber for f32 {
     }
 
     fn rand() -> f32 {
-        1.0
+        let mut small_rng = get_rng_impl(None);
+
+        let mut rngs: Vec<SmallRng> = (0..3)
+            .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
+            .collect();
+        rngs[0].gen::<f32>()
     }
 
     fn two() -> Self {
@@ -148,5 +161,15 @@ mod tests {
     #[test]
     fn f64_from_string() {
         assert_eq!(f64::from_str("1.111111111").unwrap(), 1.111111111)
+    }
+
+    #[test]
+    fn f64_rand() {
+        f64::rand();
+    }
+
+    #[test]
+    fn f32_rand() {
+        f32::rand();
     }
 }

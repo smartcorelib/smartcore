@@ -581,9 +581,9 @@ mod tests {
             vec![4, 5, 6],
             DenseMatrix::from_slice(&(*x.slice(1..2, 0..3))).values
         );
-        let second_row: Vec<i32> = x.slice(1..2, 0..3).iterator(0).map(|x| *x).collect();
+        let second_row: Vec<i32> = x.slice(1..2, 0..3).iterator(0).copied().collect();
         assert_eq!(vec![4, 5, 6], second_row);
-        let second_col: Vec<i32> = x.slice(0..3, 1..2).iterator(0).map(|x| *x).collect();
+        let second_col: Vec<i32> = x.slice(0..3, 1..2).iterator(0).copied().collect();
         assert_eq!(vec![2, 5, 8], second_col);
     }
 
@@ -640,12 +640,12 @@ mod tests {
         let x = DenseMatrix::<&str>::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"]]);
 
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
-        assert!(x.column_major == true);
+        assert!(x.column_major);
 
         // transpose
         let x = x.transpose();
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
-        assert!(x.column_major == false); // should change column_major
+        assert!(!x.column_major); // should change column_major
     }
 
     #[test]
@@ -659,7 +659,7 @@ mod tests {
             vec![1, 2, 3, 4, 5, 6],
             m.values.iter().map(|e| **e).collect::<Vec<i32>>()
         );
-        assert!(m.column_major == false);
+        assert!(!m.column_major);
     }
 
     #[test]
@@ -667,10 +667,10 @@ mod tests {
         let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
         let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
 
-        println!("{}", a);
+        println!("{a}");
         // take column 0 and 2
         assert_eq!(vec![1, 3, 4, 6], a.take(&[0, 2], 1).values);
-        println!("{}", b);
+        println!("{b}");
         // take rows 0 and 2
         assert_eq!(vec![1, 2, 5, 6], b.take(&[0, 2], 0).values);
     }
@@ -692,11 +692,11 @@ mod tests {
 
         let a = a.reshape(2, 6, 0);
         assert_eq!(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], a.values);
-        assert!(a.ncols == 6 && a.nrows == 2 && a.column_major == false);
+        assert!(a.ncols == 6 && a.nrows == 2 && !a.column_major);
 
         let a = a.reshape(3, 4, 1);
         assert_eq!(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], a.values);
-        assert!(a.ncols == 4 && a.nrows == 3 && a.column_major == true);
+        assert!(a.ncols == 4 && a.nrows == 3 && a.column_major);
     }
 
     #[test]

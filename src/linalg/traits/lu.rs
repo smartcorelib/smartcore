@@ -126,7 +126,7 @@ impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
         let (m, n) = self.LU.shape();
 
         if m != n {
-            panic!("Matrix is not square: {}x{}", m, n);
+            panic!("Matrix is not square: {m}x{n}");
         }
 
         let mut inv = M::zeros(n, n);
@@ -143,10 +143,7 @@ impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
         let (b_m, b_n) = b.shape();
 
         if b_m != m {
-            panic!(
-                "Row dimensions do not agree: A is {} x {}, but B is {} x {}",
-                m, n, b_m, b_n
-            );
+            panic!("Row dimensions do not agree: A is {m} x {n}, but B is {b_m} x {b_n}");
         }
 
         if self.singular {

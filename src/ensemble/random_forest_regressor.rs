@@ -399,6 +399,10 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     ) -> Result<RandomForestRegressor<TX, TY, X, Y>, Failed> {
         let (n_rows, num_attributes) = x.shape();
 
+        if n_rows != y.shape() {
+            return Err(Failed::fit("Number of rows in X should = len(y)"));
+        }
+
         let mtry = parameters
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
@@ -593,6 +597,32 @@ mod tests {
         .unwrap();
 
         assert!(mean_absolute_error(&y, &y_hat) < 1.0);
+    }
+
+    #[test]
+    fn test_random_matrix_with_wrong_rownum() {
+        let x_rand: DenseMatrix<f64> = DenseMatrix::<f64>::rand(17, 200);
+
+        let y = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
+
+        let fail = RandomForestRegressor::fit(
+            &x_rand,
+            &y,
+            RandomForestRegressorParameters {
+                max_depth: Option::None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 1000,
+                m: Option::None,
+                keep_samples: false,
+                seed: 87,
+            },
+        );
+
+        assert!(fail.is_err());
     }
 
     #[cfg_attr(

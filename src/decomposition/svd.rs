@@ -180,8 +180,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         if parameters.n_components >= p {
             return Err(Failed::fit(&format!(
-                "Number of components, n_components should be < number of attributes ({})",
-                p
+                "Number of components, n_components should be < number of attributes ({p})"
             )));
         }
 
@@ -202,8 +201,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
         let (p_c, k) = self.components.shape();
         if p_c != p {
             return Err(Failed::transform(&format!(
-                "Can not transform a {}x{} matrix into {}x{} matrix, incorrect input dimentions",
-                n, p, n, k
+                "Can not transform a {n}x{p} matrix into {n}x{k} matrix, incorrect input dimentions"
             )));
         }
 
@@ -227,7 +225,6 @@ mod tests {
     fn search_parameters() {
         let parameters = SVDSearchParameters {
             n_components: vec![10, 100],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();

@@ -18,7 +18,6 @@
 //! Example:
 //!
 //! ```
-//! use rand::thread_rng;
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::tree::decision_tree_regressor::*;
 //!
@@ -422,6 +421,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         parameters: DecisionTreeRegressorParameters,
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
+        if x_nrows != y.shape() {
+            return Err(Failed::fit("Size of x should equal size of y"));
+        }
+
         let samples = vec![1; x_nrows];
         DecisionTreeRegressor::fit_weak_learner(x, y, samples, num_attributes, parameters)
     }

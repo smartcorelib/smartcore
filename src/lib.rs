@@ -3,7 +3,8 @@
     clippy::too_many_arguments,
     clippy::many_single_char_names,
     clippy::unnecessary_wraps,
-    clippy::upper_case_acronyms
+    clippy::upper_case_acronyms,
+    clippy::approx_constant
 )]
 #![warn(missing_docs)]
 

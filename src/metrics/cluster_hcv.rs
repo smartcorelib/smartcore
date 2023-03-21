@@ -98,8 +98,8 @@ mod tests {
         let mut scores = HCVScore::new();
         scores.compute(&v1, &v2);
 
-        assert!((0.2548 - scores.homogeneity.unwrap() as f64).abs() < 1e-4);
-        assert!((0.5440 - scores.completeness.unwrap() as f64).abs() < 1e-4);
-        assert!((0.3471 - scores.v_measure.unwrap() as f64).abs() < 1e-4);
+        assert!((0.2548 - scores.homogeneity.unwrap()).abs() < 1e-4);
+        assert!((0.5440 - scores.completeness.unwrap()).abs() < 1e-4);
+        assert!((0.3471 - scores.v_measure.unwrap()).abs() < 1e-4);
     }
 }

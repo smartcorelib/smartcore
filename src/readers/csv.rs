@@ -167,7 +167,7 @@ where
 }
 
 /// Ensure that a string containing a csv row conforms to a specified row format.
-fn validate_csv_row<'a>(row: &'a str, row_format: &CSVRowFormat<'_>) -> Result<(), ReadingError> {
+fn validate_csv_row(row: &str, row_format: &CSVRowFormat<'_>) -> Result<(), ReadingError> {
     let actual_number_of_fields = row.split(row_format.field_seperator).count();
     if row_format.n_fields == actual_number_of_fields {
         Ok(())
@@ -208,7 +208,7 @@ where
     match value_string.parse::<T>().ok() {
         Some(value) => Ok(value),
         None => Err(ReadingError::InvalidField {
-            msg: format!("Value '{}' could not be read.", value_string,),
+            msg: format!("Value '{value_string}' could not be read.",),
         }),
     }
 }
