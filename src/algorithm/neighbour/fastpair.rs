@@ -179,6 +179,18 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         }
     }
 
+    ///
+    /// Return order dissimilarities from closest to furthest
+    /// 
+    #[allow(dead_code)]
+    pub fn ordered_pairs(&self) -> std::vec::IntoIter<&PairwiseDistance<T>> {
+        // improvement: implement this to return `impl Iterator<Item = &PairwiseDistance<T>>`
+        // need to implement trait `Iterator` for `Vec<&PairwiseDistance<T>>`
+        let mut distances = self.distances.values().collect::<Vec<&PairwiseDistance<T>>>();
+        distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        distances.into_iter()
+    }
+
     //
     // Compute distances from input to all other points in data-structure.
     // input is the row index of the sample matrix
@@ -589,5 +601,40 @@ mod tests_fastpair {
         };
 
         assert_eq!(closest, min_dissimilarity);
+    }
+
+    #[test]
+    fn fastpair_ordered_pairs() {
+        let x = DenseMatrix::<f64>::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+        ]);
+        let fastpair = FastPair::new(&x).unwrap();
+
+        let ordered = fastpair.ordered_pairs();
+
+        let mut previous: f64 = -1.0;
+        for p in ordered {
+            if previous == -1.0 {
+                previous = p.distance.unwrap();
+            } else {
+                let current = p.distance.unwrap(); 
+                assert!(current >= previous);
+                previous = current;
+            }
+        }
     }
 }
