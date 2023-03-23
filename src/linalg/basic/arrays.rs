@@ -1570,7 +1570,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         mean
     }
 
-    /// copy coumn as a vector
+    /// copy column as a vector
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
         for (r, result_r) in result.iter_mut().enumerate().take(self.shape().0) {
             *result_r = *self.get((r, col));
