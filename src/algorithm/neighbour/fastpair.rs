@@ -181,12 +181,15 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
     ///
     /// Return order dissimilarities from closest to furthest
-    /// 
+    ///
     #[allow(dead_code)]
     pub fn ordered_pairs(&self) -> std::vec::IntoIter<&PairwiseDistance<T>> {
         // improvement: implement this to return `impl Iterator<Item = &PairwiseDistance<T>>`
         // need to implement trait `Iterator` for `Vec<&PairwiseDistance<T>>`
-        let mut distances = self.distances.values().collect::<Vec<&PairwiseDistance<T>>>();
+        let mut distances = self
+            .distances
+            .values()
+            .collect::<Vec<&PairwiseDistance<T>>>();
         distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
         distances.into_iter()
     }
@@ -631,7 +634,7 @@ mod tests_fastpair {
             if previous == -1.0 {
                 previous = p.distance.unwrap();
             } else {
-                let current = p.distance.unwrap(); 
+                let current = p.distance.unwrap();
                 assert!(current >= previous);
                 previous = current;
             }
