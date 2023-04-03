@@ -903,4 +903,29 @@ mod tests {
 
         assert!(reg_coeff_sum < coeff);
     }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn lr_fit_predict_random() {
+        let x: DenseMatrix<f32> = DenseMatrix::rand(52181, 94);
+        let y1: Vec<i32> = vec![1; 2181];
+        let y2: Vec<i32> = vec![0; 50000];
+        let y: Vec<i32> = y1.into_iter().chain(y2.into_iter()).collect();
+
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
+        let lr_reg = LogisticRegression::fit(
+            &x,
+            &y,
+            LogisticRegressionParameters::default().with_alpha(1.0),
+        )
+        .unwrap();
+
+        let y_hat = lr.predict(&x).unwrap();
+        let y_hat_reg = lr_reg.predict(&x).unwrap();
+
+        assert_eq!(y.len(), y_hat.len());
+        assert_eq!(y.len(), y_hat_reg.len());
+    }
 }
