@@ -818,37 +818,37 @@ mod tests {
         assert!(reg_coeff_sum < coeff);
     }
 
-    // TODO: serialization for the new DenseMatrix needs to be implemented
-    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[1., -5.],
-    //         &[2., 5.],
-    //         &[3., -2.],
-    //         &[1., 2.],
-    //         &[2., 0.],
-    //         &[6., -5.],
-    //         &[7., 5.],
-    //         &[6., -2.],
-    //         &[7., 2.],
-    //         &[6., 0.],
-    //         &[8., -5.],
-    //         &[9., 5.],
-    //         &[10., -2.],
-    //         &[8., 2.],
-    //         &[9., 0.],
-    //     ]);
-    //     let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
+    //TODO: serialization for the new DenseMatrix needs to be implemented
+    #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[1., -5.],
+            &[2., 5.],
+            &[3., -2.],
+            &[1., 2.],
+            &[2., 0.],
+            &[6., -5.],
+            &[7., 5.],
+            &[6., -2.],
+            &[7., 2.],
+            &[6., 0.],
+            &[8., -5.],
+            &[9., 5.],
+            &[10., -2.],
+            &[8., 2.],
+            &[9., 0.],
+        ]);
+        let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
-    //     let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 
-    //     let deserialized_lr: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
-    //         serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
+        let deserialized_lr: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
-    //     assert_eq!(lr, deserialized_lr);
-    // }
+        assert_eq!(lr, deserialized_lr);
+    }
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),

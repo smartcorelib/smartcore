@@ -36,6 +36,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, usize> for Vec<T> {
 
 impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for Vec<T> {
     fn set(&mut self, i: usize, x: T) {
+        // NOTE: this panics in case of out of bounds index
         self[i] = x
     }
 
