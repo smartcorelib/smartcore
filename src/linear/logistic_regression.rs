@@ -931,4 +931,22 @@ mod tests {
         assert_eq!(y.len(), y_hat.len());
         assert_eq!(y.len(), y_hat_reg.len());
     }
+
+    #[test]
+    fn test_logit() {
+        let x: &DenseMatrix<f64> = &DenseMatrix::rand(52181, 94);
+        let y1: Vec<u32> = vec![1; 2181];
+        let y2: Vec<u32> = vec![0; 50000];
+        let y: &Vec<u32> = &(y1.into_iter().chain(y2.into_iter()).collect());
+        println!("y vec height: {:?}", y.len());
+        println!("x matrix shape: {:?}", x.shape());
+     
+	    let lr = LogisticRegression::fit(x, y, Default::default()).unwrap();
+        let y_hat = lr.predict(&x).unwrap();
+
+        println!("y_hat shape: {:?}", y_hat.shape());
+
+        assert_eq!(y_hat.shape(), 52181);
+
+    }
 }
