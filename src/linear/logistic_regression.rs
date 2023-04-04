@@ -940,13 +940,12 @@ mod tests {
         let y: &Vec<u32> = &(y1.into_iter().chain(y2.into_iter()).collect());
         println!("y vec height: {:?}", y.len());
         println!("x matrix shape: {:?}", x.shape());
-     
-	    let lr = LogisticRegression::fit(x, y, Default::default()).unwrap();
+
+        let lr = LogisticRegression::fit(x, y, Default::default()).unwrap();
         let y_hat = lr.predict(&x).unwrap();
 
         println!("y_hat shape: {:?}", y_hat.shape());
 
         assert_eq!(y_hat.shape(), 52181);
-
     }
 }
