@@ -13,7 +13,7 @@
 //!                 &[0.9, 0.4, 0.7],
 //!                 &[0.4, 0.5, 0.3],
 //!                 &[0.7, 0.3, 0.8]
-//!         ]);
+//!         ]).unwrap();
 //!
 //! let qr = A.qr().unwrap();
 //! let orthogonal: DenseMatrix<f64> = qr.Q();
@@ -201,17 +201,20 @@ mod tests {
     )]
     #[test]
     fn decompose() {
-        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]])
+            .unwrap();
         let q = DenseMatrix::from_2d_array(&[
             &[-0.7448, 0.2436, 0.6212],
             &[-0.331, -0.9432, -0.027],
             &[-0.5793, 0.2257, -0.7832],
-        ]);
+        ])
+        .unwrap();
         let r = DenseMatrix::from_2d_array(&[
             &[-1.2083, -0.6373, -1.0842],
             &[0.0, -0.3064, 0.0682],
             &[0.0, 0.0, -0.1999],
-        ]);
+        ])
+        .unwrap();
         let qr = a.qr().unwrap();
         assert!(relative_eq!(qr.Q().abs(), q.abs(), epsilon = 1e-4));
         assert!(relative_eq!(qr.R().abs(), r.abs(), epsilon = 1e-4));
@@ -223,13 +226,15 @@ mod tests {
     )]
     #[test]
     fn qr_solve_mut() {
-        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
-        let b = DenseMatrix::from_2d_array(&[&[0.5, 0.2], &[0.5, 0.8], &[0.5, 0.3]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]])
+            .unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[0.5, 0.2], &[0.5, 0.8], &[0.5, 0.3]]).unwrap();
         let expected_w = DenseMatrix::from_2d_array(&[
             &[-0.2027027, -1.2837838],
             &[0.8783784, 2.2297297],
             &[0.4729730, 0.6621622],
-        ]);
+        ])
+        .unwrap();
         let w = a.qr_solve_mut(b).unwrap();
         assert!(relative_eq!(w, expected_w, epsilon = 1e-2));
     }

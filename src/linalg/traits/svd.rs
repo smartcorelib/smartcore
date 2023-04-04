@@ -17,7 +17,7 @@
 //!                 &[0.9, 0.4, 0.7],
 //!                 &[0.4, 0.5, 0.3],
 //!                 &[0.7, 0.3, 0.8]
-//!         ]);
+//!         ]).unwrap();
 //!
 //! let svd = A.svd().unwrap();
 //! let u: DenseMatrix<f64> = svd.U;
@@ -489,7 +489,8 @@ mod tests {
             &[0.9000, 0.4000, 0.7000],
             &[0.4000, 0.5000, 0.3000],
             &[0.7000, 0.3000, 0.8000],
-        ]);
+        ])
+        .unwrap();
 
         let s: Vec<f64> = vec![1.7498382, 0.3165784, 0.1335834];
 
@@ -497,13 +498,15 @@ mod tests {
             &[0.6881997, -0.07121225, 0.7220180],
             &[0.3700456, 0.89044952, -0.2648886],
             &[0.6240573, -0.44947578, -0.639158],
-        ]);
+        ])
+        .unwrap();
 
         let V = DenseMatrix::from_2d_array(&[
             &[0.6881997, -0.07121225, 0.7220180],
             &[0.3700456, 0.89044952, -0.2648886],
             &[0.6240573, -0.44947578, -0.6391588],
-        ]);
+        ])
+        .unwrap();
 
         let svd = A.svd().unwrap();
 
@@ -577,7 +580,8 @@ mod tests {
                 -0.2158704,
                 -0.27529472,
             ],
-        ]);
+        ])
+        .unwrap();
 
         let s: Vec<f64> = vec![
             3.8589375, 3.4396766, 2.6487176, 2.2317399, 1.5165054, 0.8109055, 0.2706515,
@@ -647,7 +651,8 @@ mod tests {
                 0.73034065,
                 -0.43965505,
             ],
-        ]);
+        ])
+        .unwrap();
 
         let V = DenseMatrix::from_2d_array(&[
             &[
@@ -707,7 +712,8 @@ mod tests {
                 0.1654796,
                 -0.32346758,
             ],
-        ]);
+        ])
+        .unwrap();
 
         let svd = A.svd().unwrap();
 
@@ -723,10 +729,11 @@ mod tests {
     )]
     #[test]
     fn solve() {
-        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]]);
-        let b = DenseMatrix::from_2d_array(&[&[0.5, 0.2], &[0.5, 0.8], &[0.5, 0.3]]);
+        let a = DenseMatrix::from_2d_array(&[&[0.9, 0.4, 0.7], &[0.4, 0.5, 0.3], &[0.7, 0.3, 0.8]])
+            .unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[0.5, 0.2], &[0.5, 0.8], &[0.5, 0.3]]).unwrap();
         let expected_w =
-            DenseMatrix::from_2d_array(&[&[-0.20, -1.28], &[0.87, 2.22], &[0.47, 0.66]]);
+            DenseMatrix::from_2d_array(&[&[-0.20, -1.28], &[0.87, 2.22], &[0.47, 0.66]]).unwrap();
         let w = a.svd_solve_mut(b).unwrap();
         assert!(relative_eq!(w, expected_w, epsilon = 1e-2));
     }
@@ -737,7 +744,8 @@ mod tests {
     )]
     #[test]
     fn decompose_restore() {
-        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0, 4.0], &[5.0, 6.0, 7.0, 8.0]]);
+        let a =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0, 4.0], &[5.0, 6.0, 7.0, 8.0]]).unwrap();
         let svd = a.svd().unwrap();
         let u: &DenseMatrix<f32> = &svd.U; //U
         let v: &DenseMatrix<f32> = &svd.V; // V

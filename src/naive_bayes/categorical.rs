@@ -24,7 +24,7 @@
 //!              &[3, 4, 2, 4],
 //!              &[0, 3, 1, 2],
 //!              &[0, 4, 1, 2],
-//!          ]);
+//!          ]).unwrap();
 //! let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
 //!
 //! let nb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
@@ -455,7 +455,8 @@ mod tests {
             &[1, 1, 1, 1],
             &[1, 2, 0, 0],
             &[2, 1, 1, 1],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
@@ -513,7 +514,7 @@ mod tests {
             ]
         );
 
-        let x_test = DenseMatrix::from_2d_array(&[&[0, 2, 1, 0], &[2, 2, 0, 0]]);
+        let x_test = DenseMatrix::from_2d_array(&[&[0, 2, 1, 0], &[2, 2, 0, 0]]).unwrap();
         let y_hat = cnb.predict(&x_test).unwrap();
         assert_eq!(y_hat, vec![0, 1]);
     }
@@ -539,7 +540,8 @@ mod tests {
             &[3, 4, 2, 4],
             &[0, 3, 1, 2],
             &[0, 4, 1, 2],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
@@ -571,7 +573,8 @@ mod tests {
             &[3, 4, 2, 4],
             &[0, 3, 1, 2],
             &[0, 4, 1, 2],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();

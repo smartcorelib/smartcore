@@ -41,7 +41,7 @@
 //!            &[4.9, 2.4, 3.3, 1.0],
 //!            &[6.6, 2.9, 4.6, 1.3],
 //!            &[5.2, 2.7, 3.9, 1.4],
-//!            ]);
+//!            ]).unwrap();
 //!
 //! let kmeans = KMeans::fit(&x, KMeansParameters::default().with_k(2)).unwrap(); // Fit to data, 2 clusters
 //! let y_hat: Vec<u8> = kmeans.predict(&x).unwrap(); // use the same points for prediction
@@ -249,7 +249,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
 
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> {
     /// Fit algorithm to _NxM_ matrix where _N_ is number of samples and _M_ is number of features.
-    /// * `data` - training instances to cluster    
+    /// * `data` - training instances to cluster
     /// * `parameters` - cluster parameters
     pub fn fit(data: &X, parameters: KMeansParameters) -> Result<KMeans<TX, TY, X, Y>, Failed> {
         let bbd = BBDTree::new(data);
@@ -424,7 +424,7 @@ mod tests {
     )]
     #[test]
     fn invalid_k() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
 
         assert!(KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
             &x,
@@ -492,7 +492,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
 
         let kmeans = KMeans::fit(&x, Default::default()).unwrap();
 
@@ -531,7 +532,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
 
         let kmeans: KMeans<f32, f32, DenseMatrix<f32>, Vec<f32>> =
             KMeans::fit(&x, Default::default()).unwrap();
