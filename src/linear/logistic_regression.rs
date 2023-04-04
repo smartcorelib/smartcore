@@ -448,7 +448,6 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
             ))),
             Ordering::Equal => {
                 let x0 = Vec::zeros(num_attributes + 1);
-                dbg!(&x.shape());
 
                 let objective = BinaryObjectiveFunction {
                     x,
