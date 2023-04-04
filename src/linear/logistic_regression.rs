@@ -561,7 +561,6 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
         };
         let optimizer: LBFGS = Default::default();
 
-        println!("------ optimizer 🦀 ------");
         optimizer.optimize(&f, &df, &x0, &ls)
     }
 }

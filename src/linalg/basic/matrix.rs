@@ -386,11 +386,6 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
         let (row, col) = pos;
         let idx_target = col * self.nrows + row;
 
-        println!("------ 🦀 ----- 📋 target: {}", self.values.len());
-        println!("------ 🦀 ----- 📋 nrows: {}", &self.nrows);
-        println!("row: {} col: {}", &row, &col);
-        println!("DenseMatrix get target: {}", idx_target);
-
         if row >= self.nrows || col >= self.ncols {
             panic!(
                 "Invalid index ({},{}) for {}x{} matrix",
