@@ -35,7 +35,7 @@
 //!           &[4.9, 2.4, 3.3, 1.0],
 //!           &[6.6, 2.9, 4.6, 1.3],
 //!           &[5.2, 2.7, 3.9, 1.4],
-//!           ]);
+//!           ]).unwrap();
 //! let y: Vec<i32> = vec![
 //!           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 //! ];
@@ -416,7 +416,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Fits Logistic Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target class values
-    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.    
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
         x: &X,
         y: &Y,
@@ -611,7 +611,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]);
+        ])
+        .unwrap();
 
         let y = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
@@ -671,7 +672,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]);
+        ])
+        .unwrap();
 
         let y = vec![0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1];
 
@@ -733,7 +735,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
@@ -818,6 +821,7 @@ mod tests {
         assert!(reg_coeff_sum < coeff);
     }
 
+
     //TODO: serialization for the new DenseMatrix needs to be implemented
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
@@ -880,7 +884,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<i32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();

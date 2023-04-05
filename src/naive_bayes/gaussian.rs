@@ -16,7 +16,7 @@
 //!              &[ 1.,  1.],
 //!              &[ 2.,  1.],
 //!              &[ 3.,  2.],
-//!          ]);
+//!          ]).unwrap();
 //! let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 //!
 //! let nb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
@@ -395,7 +395,8 @@ mod tests {
             &[1., 1.],
             &[2., 1.],
             &[3., 2.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
         let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
@@ -435,7 +436,8 @@ mod tests {
             &[1., 1.],
             &[2., 1.],
             &[3., 2.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
         let priors = vec![0.3, 0.7];
@@ -462,7 +464,8 @@ mod tests {
             &[1., 1.],
             &[2., 1.],
             &[3., 2.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
         let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();

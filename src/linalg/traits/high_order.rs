@@ -12,9 +12,9 @@ pub trait HighOrderOperations<T: Number>: Array2<T> {
     /// use smartcore::linalg::traits::high_order::HighOrderOperations;
     /// use smartcore::linalg::basic::arrays::Array2;
     ///
-    /// let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
-    /// let b = DenseMatrix::from_2d_array(&[&[5., 6.], &[7., 8.], &[9., 10.]]);
-    /// let expected = DenseMatrix::from_2d_array(&[&[71., 80.], &[92., 104.]]);
+    /// let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.]]).unwrap();
+    /// let b = DenseMatrix::from_2d_array(&[&[5., 6.], &[7., 8.], &[9., 10.]]).unwrap();
+    /// let expected = DenseMatrix::from_2d_array(&[&[71., 80.], &[92., 104.]]).unwrap();
     ///
     /// assert_eq!(a.ab(true, &b, false), expected);
     /// ```

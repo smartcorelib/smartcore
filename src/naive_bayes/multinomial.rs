@@ -20,13 +20,13 @@
 //!                   &[0, 2, 0, 0, 1, 0],
 //!                   &[0, 1, 0, 1, 0, 0],
 //!                   &[0, 1, 1, 0, 0, 1],
-//!         ]);
+//!         ]).unwrap();
 //! let y: Vec<u32> = vec![0, 0, 0, 1];
 //! let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Testing data point is:
 //! //  Chinese Chinese Chinese Tokyo Japan
-//! let x_test = DenseMatrix::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]);
+//! let x_test = DenseMatrix::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]).unwrap();
 //! let y_hat = nb.predict(&x_test).unwrap();
 //! ```
 //!
@@ -433,7 +433,8 @@ mod tests {
             &[0, 2, 0, 0, 1, 0],
             &[0, 1, 0, 1, 0, 0],
             &[0, 1, 1, 0, 0, 1],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 0, 1];
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
@@ -467,7 +468,7 @@ mod tests {
 
         // Testing data point is:
         //  Chinese Chinese Chinese Tokyo Japan
-        let x_test = DenseMatrix::<u32>::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]);
+        let x_test = DenseMatrix::<u32>::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]).unwrap();
         let y_hat = mnb.predict(&x_test).unwrap();
 
         assert_eq!(y_hat, &[0]);
@@ -495,7 +496,8 @@ mod tests {
             &[2, 0, 3, 3, 1, 2, 0, 2, 4, 1],
             &[2, 4, 0, 4, 2, 4, 1, 3, 1, 4],
             &[0, 2, 2, 3, 4, 0, 4, 4, 4, 4],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![2, 2, 0, 0, 0, 2, 1, 1, 0, 1, 0, 0, 2, 0, 2];
         let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
@@ -554,7 +556,8 @@ mod tests {
             &[0, 1, 0, 0, 1, 0],
             &[0, 1, 0, 1, 0, 0],
             &[0, 1, 1, 0, 0, 1],
-        ]);
+        ])
+        .unwrap();
         let y = vec![0, 0, 0, 1];
 
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();

@@ -17,7 +17,7 @@
 ///     &[4.6, 3.1, 1.5, 0.2],
 ///     &[5.0, 3.6, 1.4, 0.2],
 ///     &[5.4, 3.9, 1.7, 0.4],
-/// ]);
+/// ]).unwrap();
 /// let fastpair = FastPair::new(&x);
 /// let closest_pair: PairwiseDistance<f64> = fastpair.unwrap().closest_pair();
 /// ```
@@ -271,7 +271,7 @@ mod tests_fastpair {
     fn dataset_has_at_least_three_points() {
         // Create a dataset which consists of only two points:
         // A(0.0, 0.0) and B(1.0, 1.0).
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]).unwrap();
 
         // We expect an error when we run `FastPair` on this dataset,
         // becuase `FastPair` currently only works on a minimum of 3
@@ -288,7 +288,7 @@ mod tests_fastpair {
 
     #[test]
     fn one_dimensional_dataset_minimal() {
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]).unwrap();
 
         let result = FastPair::new(&dataset);
         assert!(result.is_ok());
@@ -308,7 +308,8 @@ mod tests_fastpair {
 
     #[test]
     fn one_dimensional_dataset_2() {
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
+        let dataset =
+            DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]).unwrap();
 
         let result = FastPair::new(&dataset);
         assert!(result.is_ok());
@@ -343,7 +344,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
@@ -516,7 +518,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         // compute
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
@@ -564,7 +567,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         // compute
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());

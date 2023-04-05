@@ -1777,7 +1777,7 @@ mod tests {
 
     #[test]
     fn test_xa() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(vec![7, 8].xa(false, &a), vec![39, 54, 69]);
         assert_eq!(vec![7, 8, 9].xa(true, &a), vec![50, 122]);
     }
@@ -1785,19 +1785,27 @@ mod tests {
     #[test]
     fn test_min_max() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).max(0),
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+                .unwrap()
+                .max(0),
             vec!(4, 5, 6)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).max(1),
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+                .unwrap()
+                .max(1),
             vec!(3, 6)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).min(0),
+            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]])
+                .unwrap()
+                .min(0),
             vec!(1., 2., 3.)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).min(1),
+            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]])
+                .unwrap()
+                .min(1),
             vec!(1., 4.)
         );
     }
@@ -1805,11 +1813,15 @@ mod tests {
     #[test]
     fn test_argmax() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 5, 3], &[4, 2, 6]]).argmax(0),
+            DenseMatrix::from_2d_array(&[&[1, 5, 3], &[4, 2, 6]])
+                .unwrap()
+                .argmax(0),
             vec!(1, 0, 1)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[4, 2, 3], &[1, 5, 6]]).argmax(1),
+            DenseMatrix::from_2d_array(&[&[4, 2, 3], &[1, 5, 6]])
+                .unwrap()
+                .argmax(1),
             vec!(0, 2)
         );
     }
@@ -1817,168 +1829,181 @@ mod tests {
     #[test]
     fn test_sum() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).sum(0),
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+                .unwrap()
+                .sum(0),
             vec!(5, 7, 9)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).sum(1),
+            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]])
+                .unwrap()
+                .sum(1),
             vec!(6., 15.)
         );
     }
 
     #[test]
     fn test_abs() {
-        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]);
+        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]).unwrap();
         x.abs_mut();
-        assert_eq!(x, DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]));
+        assert_eq!(
+            x,
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap()
+        );
     }
 
     #[test]
     fn test_neg() {
-        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]);
+        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]).unwrap();
         x.neg_mut();
-        assert_eq!(x, DenseMatrix::from_2d_array(&[&[1, -2, 3], &[-4, 5, -6]]));
+        assert_eq!(
+            x,
+            DenseMatrix::from_2d_array(&[&[1, -2, 3], &[-4, 5, -6]]).unwrap()
+        );
     }
 
     #[test]
     fn test_copy_from() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         let mut y = DenseMatrix::<i32>::zeros(2, 3);
         y.copy_from(&x);
-        assert_eq!(y, DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]));
+        assert_eq!(
+            y,
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap()
+        );
     }
 
     #[test]
     fn test_init() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             DenseMatrix::<i32>::zeros(2, 2),
-            DenseMatrix::from_2d_array(&[&[0, 0], &[0, 0]])
+            DenseMatrix::from_2d_array(&[&[0, 0], &[0, 0]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::<i32>::ones(2, 2),
-            DenseMatrix::from_2d_array(&[&[1, 1], &[1, 1]])
+            DenseMatrix::from_2d_array(&[&[1, 1], &[1, 1]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::<i32>::eye(3),
-            DenseMatrix::from_2d_array(&[&[1, 0, 0], &[0, 1, 0], &[0, 0, 1]])
+            DenseMatrix::from_2d_array(&[&[1, 0, 0], &[0, 1, 0], &[0, 0, 1]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_slice(x.slice(0..2, 0..2).as_ref()),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[4, 5]])
+            DenseMatrix::from_slice(x.slice(0..2, 0..2).as_ref()), // internal only?
+            DenseMatrix::from_2d_array(&[&[1, 2], &[4, 5]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_row(x.get_row(0).as_ref()),
-            DenseMatrix::from_2d_array(&[&[1, 2, 3]])
+            DenseMatrix::from_row(x.get_row(0).as_ref()), // internal only?
+            DenseMatrix::from_2d_array(&[&[1, 2, 3]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_column(x.get_col(0).as_ref()),
-            DenseMatrix::from_2d_array(&[&[1], &[4]])
+            DenseMatrix::from_column(x.get_col(0).as_ref()), // internal only?
+            DenseMatrix::from_2d_array(&[&[1], &[4]]).unwrap()
         );
     }
 
     #[test]
     fn test_transpose() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             x.transpose(),
-            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]]).unwrap()
         );
     }
 
     #[test]
     fn test_reshape() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             x.reshape(3, 2, 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap()
         );
         assert_eq!(
             x.reshape(3, 2, 1),
-            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]]).unwrap()
         );
     }
 
     #[test]
     #[should_panic]
     fn test_failed_reshape() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             x.reshape(4, 2, 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap()
         );
     }
 
     #[test]
     fn test_matmul() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
         assert_eq!(
             a.matmul(&(*b.slice(0..3, 0..2))),
-            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]])
+            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]]).unwrap()
         );
         assert_eq!(
             a.matmul(&b),
-            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]])
+            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]]).unwrap()
         );
     }
 
     #[test]
     fn test_concat() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
-        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]).unwrap();
 
         assert_eq!(
             DenseMatrix::concatenate_1d(&[&vec!(1, 2, 3), &vec!(4, 5, 6)], 0),
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::concatenate_1d(&[&vec!(1, 2), &vec!(3, 4)], 1),
-            DenseMatrix::from_2d_array(&[&[1, 3], &[2, 4]])
+            DenseMatrix::from_2d_array(&[&[1, 3], &[2, 4]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::concatenate_2d(&[&a, &b], 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::concatenate_2d(&[&a, &b], 1),
-            DenseMatrix::from_2d_array(&[&[1, 2, 5, 6], &[3, 4, 7, 8]])
+            DenseMatrix::from_2d_array(&[&[1, 2, 5, 6], &[3, 4, 7, 8]]).unwrap()
         );
     }
 
     #[test]
     fn test_take() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
 
         assert_eq!(
             a.take(&[0, 2], 1),
-            DenseMatrix::from_2d_array(&[&[1, 3], &[4, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 3], &[4, 6]]).unwrap()
         );
         assert_eq!(
             b.take(&[0, 2], 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[5, 6]]).unwrap()
         );
     }
 
     #[test]
     fn test_merge() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
 
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]),
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 0, true)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8], &[1, 2], &[3, 4]]),
+            DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8], &[1, 2], &[3, 4]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 0, false)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 5, 7], &[3, 4, 6, 8]]),
+            DenseMatrix::from_2d_array(&[&[1, 2, 5, 7], &[3, 4, 6, 8]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 1, true)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[5, 7, 1, 2], &[6, 8, 3, 4]]),
+            DenseMatrix::from_2d_array(&[&[5, 7, 1, 2], &[6, 8, 3, 4]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 1, false)
         );
     }
@@ -1986,20 +2011,28 @@ mod tests {
     #[test]
     fn test_ops() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).mul_scalar(2),
-            DenseMatrix::from_2d_array(&[&[2, 4], &[6, 8]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .mul_scalar(2),
+            DenseMatrix::from_2d_array(&[&[2, 4], &[6, 8]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).add_scalar(2),
-            DenseMatrix::from_2d_array(&[&[3, 4], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .add_scalar(2),
+            DenseMatrix::from_2d_array(&[&[3, 4], &[5, 6]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).sub_scalar(1),
-            DenseMatrix::from_2d_array(&[&[0, 1], &[2, 3]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .sub_scalar(1),
+            DenseMatrix::from_2d_array(&[&[0, 1], &[2, 3]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).div_scalar(2),
-            DenseMatrix::from_2d_array(&[&[0, 1], &[1, 2]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .div_scalar(2),
+            DenseMatrix::from_2d_array(&[&[0, 1], &[1, 2]]).unwrap()
         );
     }
 
@@ -2013,42 +2046,45 @@ mod tests {
 
     #[test]
     fn test_vstack() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         let expected = DenseMatrix::from_2d_array(&[
             &[1, 2, 3],
             &[4, 5, 6],
             &[7, 8, 9],
             &[1, 2, 3],
             &[4, 5, 6],
-        ]);
+        ])
+        .unwrap();
         let result = a.v_stack(&b);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_hstack() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
         let expected =
-            DenseMatrix::from_2d_array(&[&[1, 2, 3, 1, 2], &[4, 5, 6, 3, 4], &[7, 8, 9, 5, 6]]);
+            DenseMatrix::from_2d_array(&[&[1, 2, 3, 1, 2], &[4, 5, 6, 3, 4], &[7, 8, 9, 5, 6]])
+                .unwrap();
         let result = a.h_stack(&b);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_map() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
         let result: DenseMatrix<f64> = a.map(|&v| v as f64);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn scale() {
-        let mut m = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
-        let expected_0 = DenseMatrix::from_2d_array(&[&[-1., -1., -1.], &[1., 1., 1.]]);
-        let expected_1 = DenseMatrix::from_2d_array(&[&[-1.22, 0.0, 1.22], &[-1.22, 0.0, 1.22]]);
+        let mut m = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).unwrap();
+        let expected_0 = DenseMatrix::from_2d_array(&[&[-1., -1., -1.], &[1., 1., 1.]]).unwrap();
+        let expected_1 =
+            DenseMatrix::from_2d_array(&[&[-1.22, 0.0, 1.22], &[-1.22, 0.0, 1.22]]).unwrap();
 
         {
             let mut m = m.clone();
@@ -2062,52 +2098,52 @@ mod tests {
 
     #[test]
     fn test_pow_mut() {
-        let mut a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]);
+        let mut a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
         a.pow_mut(2.0);
         assert_eq!(
             a,
-            DenseMatrix::from_2d_array(&[&[1.0, 4.0, 9.0], &[16.0, 25.0, 36.0]])
+            DenseMatrix::from_2d_array(&[&[1.0, 4.0, 9.0], &[16.0, 25.0, 36.0]]).unwrap()
         );
     }
 
     #[test]
     fn test_ab() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
-        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]).unwrap();
         assert_eq!(
             a.ab(false, &b, false),
-            DenseMatrix::from_2d_array(&[&[19, 22], &[43, 50]])
+            DenseMatrix::from_2d_array(&[&[19, 22], &[43, 50]]).unwrap()
         );
         assert_eq!(
             a.ab(true, &b, false),
-            DenseMatrix::from_2d_array(&[&[26, 30], &[38, 44]])
+            DenseMatrix::from_2d_array(&[&[26, 30], &[38, 44]]).unwrap()
         );
         assert_eq!(
             a.ab(false, &b, true),
-            DenseMatrix::from_2d_array(&[&[17, 23], &[39, 53]])
+            DenseMatrix::from_2d_array(&[&[17, 23], &[39, 53]]).unwrap()
         );
         assert_eq!(
             a.ab(true, &b, true),
-            DenseMatrix::from_2d_array(&[&[23, 31], &[34, 46]])
+            DenseMatrix::from_2d_array(&[&[23, 31], &[34, 46]]).unwrap()
         );
     }
 
     #[test]
     fn test_ax() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             a.ax(false, &vec![7, 8, 9]).transpose(),
-            DenseMatrix::from_2d_array(&[&[50, 122]])
+            DenseMatrix::from_2d_array(&[&[50, 122]]).unwrap()
         );
         assert_eq!(
             a.ax(true, &vec![7, 8]).transpose(),
-            DenseMatrix::from_2d_array(&[&[39, 54, 69]])
+            DenseMatrix::from_2d_array(&[&[39, 54, 69]]).unwrap()
         );
     }
 
     #[test]
     fn diag() {
-        let x = DenseMatrix::from_2d_array(&[&[0, 1, 2], &[3, 4, 5], &[6, 7, 8]]);
+        let x = DenseMatrix::from_2d_array(&[&[0, 1, 2], &[3, 4, 5], &[6, 7, 8]]).unwrap();
         assert_eq!(x.diag(), vec![0, 4, 8]);
     }
 
@@ -2119,13 +2155,15 @@ mod tests {
             &[68, 590, 37],
             &[69, 660, 46],
             &[73, 600, 55],
-        ]);
+        ])
+        .unwrap();
         let mut result = DenseMatrix::zeros(3, 3);
         let expected = DenseMatrix::from_2d_array(&[
             &[11.5, 50.0, 34.75],
             &[50.0, 1250.0, 205.0],
             &[34.75, 205.0, 110.0],
-        ]);
+        ])
+        .unwrap();
 
         a.cov(&mut result);
 

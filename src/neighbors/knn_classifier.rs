@@ -22,7 +22,7 @@
 //!     &[3., 4.],
 //!     &[5., 6.],
 //!     &[7., 8.],
-//! &[9., 10.]]);
+//! &[9., 10.]]).unwrap();
 //! let y = vec![2, 2, 2, 3, 3]; //your class labels
 //!
 //! let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
@@ -211,7 +211,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 {
     /// Fits KNN classifier to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
-    /// * `y` - vector with target values (classes) of length N    
+    /// * `y` - vector with target values (classes) of length N
     /// * `parameters` - additional parameters like search algorithm and k
     pub fn fit(
         x: &X,
@@ -311,7 +311,8 @@ mod tests {
     #[test]
     fn knn_fit_predict() {
         let x =
-            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]])
+                .unwrap();
         let y = vec![2, 2, 2, 3, 3];
         let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
         let y_hat = knn.predict(&x).unwrap();
@@ -325,7 +326,7 @@ mod tests {
     )]
     #[test]
     fn knn_fit_predict_weighted() {
-        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]);
+        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]).unwrap();
         let y = vec![2, 2, 2, 3, 3];
         let knn = KNNClassifier::fit(
             &x,
@@ -336,7 +337,9 @@ mod tests {
                 .with_weight(KNNWeightFunction::Distance),
         )
         .unwrap();
-        let y_hat = knn.predict(&DenseMatrix::from_2d_array(&[&[4.1]])).unwrap();
+        let y_hat = knn
+            .predict(&DenseMatrix::from_2d_array(&[&[4.1]]).unwrap())
+            .unwrap();
         assert_eq!(vec![3], y_hat);
     }
 
@@ -348,7 +351,8 @@ mod tests {
     #[cfg(feature = "serde")]
     fn serde() {
         let x =
-            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
+            DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]])
+                .unwrap();
         let y = vec![2, 2, 2, 3, 3];
 
         let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
