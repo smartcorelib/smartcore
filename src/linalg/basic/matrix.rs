@@ -107,7 +107,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
 
         if is_valid_matrix_window(mrows, mcols, &vrows, &vcols) {
             Err(Failed::input(
-                "The specified window is outside of the matrix range"
+                "The specified window is outside of the matrix range",
             ))
         } else {
             let (start, end, stride) =
@@ -160,7 +160,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
         let (mrows, mcols) = m.shape();
         if is_valid_matrix_window(mrows, mcols, &vrows, &vcols) {
             Err(Failed::input(
-                "The specified window is outside of the matrix range"
+                "The specified window is outside of the matrix range",
             ))
         } else {
             let (start, end, stride) =
@@ -272,7 +272,7 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
 
         if values.is_empty() || values[0].is_empty() {
             Err(Failed::input(
-                "The 2d vec provided is empty; cannot instantiate the matrix"
+                "The 2d vec provided is empty; cannot instantiate the matrix",
             ))
         } else {
             let nrows = values.len();
