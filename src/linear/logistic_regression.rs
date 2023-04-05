@@ -821,7 +821,6 @@ mod tests {
         assert!(reg_coeff_sum < coeff);
     }
 
-
     //TODO: serialization for the new DenseMatrix needs to be implemented
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),

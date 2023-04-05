@@ -106,9 +106,9 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
         let (mrows, mcols) = m.shape();
 
         if is_valid_matrix_window(mrows, mcols, &vrows, &vcols) {
-            Err(Failed::input(&format!(
+            Err(Failed::input(
                 "The specified window is outside of the matrix range"
-            )))
+            ))
         } else {
             let (start, end, stride) =
                 start_end_stride(mrows, mcols, &vrows, &vcols, m.column_major);
@@ -159,9 +159,9 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     ) -> Result<Self, Failed> {
         let (mrows, mcols) = m.shape();
         if is_valid_matrix_window(mrows, mcols, &vrows, &vcols) {
-            Err(Failed::input(&format!(
+            Err(Failed::input(
                 "The specified window is outside of the matrix range"
-            )))
+            ))
         } else {
             let (start, end, stride) =
                 start_end_stride(mrows, mcols, &vrows, &vcols, m.column_major);
@@ -271,9 +271,9 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         );
 
         if values.is_empty() || values[0].is_empty() {
-            Err(Failed::input(&format!(
+            Err(Failed::input(
                 "The 2d vec provided is empty; cannot instantiate the matrix"
-            )))
+            ))
         } else {
             let nrows = values.len();
             let ncols = values
@@ -384,7 +384,6 @@ where
 impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix<T> {
     fn get(&self, pos: (usize, usize)) -> &T {
         let (row, col) = pos;
-        let idx_target = col * self.nrows + row;
 
         if row >= self.nrows || col >= self.ncols {
             panic!(
