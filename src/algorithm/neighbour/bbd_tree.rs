@@ -40,11 +40,11 @@ impl BBDTreeNode {
 
 impl BBDTree {
     pub fn new<T: Number, M: Array2<T>>(data: &M) -> BBDTree {
-        let nodes = Vec::new();
+        let nodes: Vec<BBDTreeNode> = Vec::new();
 
         let (n, _) = data.shape();
 
-        let index = (0..n).collect::<Vec<_>>();
+        let index = (0..n).collect::<Vec<usize>>();
 
         let mut tree = BBDTree {
             nodes,
