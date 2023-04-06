@@ -51,7 +51,6 @@ pub struct DenseMatrixMutView<'a, T: Debug + Display + Copy + Sized> {
     column_major: bool,
 }
 
-
 impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
     fn new(
         m: &'a DenseMatrix<T>,
@@ -60,7 +59,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
     ) -> Result<Self, Failed> {
         if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
-                "The specified view is outside of the matrix range"
+                "The specified view is outside of the matrix range",
             ))
         } else {
             let (start, end, stride) =
@@ -112,7 +111,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     ) -> Result<Self, Failed> {
         if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
-                "The specified view is outside of the matrix range"
+                "The specified view is outside of the matrix range",
             ))
         } else {
             let (start, end, stride) =
@@ -215,7 +214,7 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
         if values.is_empty() || values[0].is_empty() {
             Err(Failed::input(
-                "The 2d vec provided is empty; cannot instantiate the matrix"
+                "The 2d vec provided is empty; cannot instantiate the matrix",
             ))
         } else {
             let nrows = values.len();
@@ -250,10 +249,13 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         vrows: &Range<usize>,
         vcols: &Range<usize>,
     ) -> bool {
-        !(vrows.end <= n_rows && vcols.end <= n_cols && vrows.start <= n_rows && vcols.start <= n_cols)
+        !(vrows.end <= n_rows
+            && vcols.end <= n_cols
+            && vrows.start <= n_rows
+            && vcols.start <= n_cols)
     }
 
-    ///  Compute the range of the requested view: start, end, size of the slice 
+    ///  Compute the range of the requested view: start, end, size of the slice
     fn stride_range(
         &self,
         n_rows: usize,
@@ -277,7 +279,6 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         };
         (start, end, stride)
     }
-
 }
 
 impl<T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrix<T> {
