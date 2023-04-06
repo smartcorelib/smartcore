@@ -51,51 +51,6 @@ pub struct DenseMatrixMutView<'a, T: Debug + Display + Copy + Sized> {
     column_major: bool,
 }
 
-// functional utility functions used across types
-fn is_valid_matrix_window(
-    mrows: usize,
-    mcols: usize,
-    vrows: &Range<usize>,
-    vcols: &Range<usize>,
-) -> bool {
-    debug_assert!(
-        vrows.end <= mrows && vcols.end <= mcols,
-        "The window end is outside of the matrix range"
-    );
-    debug_assert!(
-        vrows.start <= mrows && vcols.start <= mcols,
-        "The window start is outside of the matrix range"
-    );
-    debug_assert!(
-        // depends on a properly formed range
-        vrows.start <= vrows.end && vcols.start <= vcols.end,
-        "Invalid range: start <= end failed"
-    );
-
-    !(vrows.end <= mrows && vcols.end <= mcols && vrows.start <= mrows && vcols.start <= mcols)
-}
-fn start_end_stride(
-    mrows: usize,
-    mcols: usize,
-    vrows: &Range<usize>,
-    vcols: &Range<usize>,
-    column_major: bool,
-) -> (usize, usize, usize) {
-    let (start, end, stride) = if column_major {
-        (
-            vrows.start + vcols.start * mrows,
-            vrows.end + (vcols.end - 1) * mrows,
-            mrows,
-        )
-    } else {
-        (
-            vrows.start * mcols + vcols.start,
-            (vrows.end - 1) * mcols + vcols.end,
-            mcols,
-        )
-    };
-    (start, end, stride)
-}
 
 impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
     fn new(
@@ -103,15 +58,13 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
         vrows: Range<usize>,
         vcols: Range<usize>,
     ) -> Result<Self, Failed> {
-        let (mrows, mcols) = m.shape();
-
-        if is_valid_matrix_window(mrows, mcols, &vrows, &vcols) {
+        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
-                "The specified window is outside of the matrix range",
+                "The specified view is outside of the matrix range"
             ))
         } else {
             let (start, end, stride) =
-                start_end_stride(mrows, mcols, &vrows, &vcols, m.column_major);
+                m.stride_range(m.shape().0, m.shape().1, &vrows, &vcols, m.column_major);
 
             Ok(DenseMatrixView {
                 values: &m.values[start..end],
@@ -157,14 +110,13 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
         vrows: Range<usize>,
         vcols: Range<usize>,
     ) -> Result<Self, Failed> {
-        let (mrows, mcols) = m.shape();
-        if is_valid_matrix_window(mrows, mcols, &vrows, &vcols) {
+        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
-                "The specified window is outside of the matrix range",
+                "The specified view is outside of the matrix range"
             ))
         } else {
             let (start, end, stride) =
-                start_end_stride(mrows, mcols, &vrows, &vcols, m.column_major);
+                m.stride_range(m.shape().0, m.shape().1, &vrows, &vcols, m.column_major);
 
             Ok(DenseMatrixMutView {
                 values: &mut m.values[start..end],
@@ -239,10 +191,6 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         values: Vec<T>,
         column_major: bool,
     ) -> Result<Self, Failed> {
-        debug_assert!(
-            nrows * ncols == values.len(),
-            "Instantiatint DenseMatrix requires nrows * ncols == values.len()"
-        );
         let data_len = values.len();
         if nrows * ncols != values.len() {
             Err(Failed::input(&format!(
@@ -265,14 +213,9 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
 
     /// New instance of `DenseMatrix` from 2d vector.
     pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
-        debug_assert!(
-            !(values.is_empty() || values[0].is_empty()),
-            "Instantiating DenseMatrix requires a non-empty 2d_vec"
-        );
-
         if values.is_empty() || values[0].is_empty() {
             Err(Failed::input(
-                "The 2d vec provided is empty; cannot instantiate the matrix",
+                "The 2d vec provided is empty; cannot instantiate the matrix"
             ))
         } else {
             let nrows = values.len();
@@ -298,6 +241,43 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     pub fn iter(&self) -> Iter<'_, T> {
         self.values.iter()
     }
+
+    ///  Check if the size of the requested view is bounded to matrix rows/cols count
+    fn is_valid_view(
+        &self,
+        n_rows: usize,
+        n_cols: usize,
+        vrows: &Range<usize>,
+        vcols: &Range<usize>,
+    ) -> bool {
+        !(vrows.end <= n_rows && vcols.end <= n_cols && vrows.start <= n_rows && vcols.start <= n_cols)
+    }
+
+    ///  Compute the range of the requested view: start, end, size of the slice 
+    fn stride_range(
+        &self,
+        n_rows: usize,
+        n_cols: usize,
+        vrows: &Range<usize>,
+        vcols: &Range<usize>,
+        column_major: bool,
+    ) -> (usize, usize, usize) {
+        let (start, end, stride) = if column_major {
+            (
+                vrows.start + vcols.start * n_rows,
+                vrows.end + (vcols.end - 1) * n_rows,
+                n_rows,
+            )
+        } else {
+            (
+                vrows.start * n_cols + vcols.start,
+                (vrows.end - 1) * n_cols + vcols.end,
+                n_cols,
+            )
+        };
+        (start, end, stride)
+    }
+
 }
 
 impl<T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrix<T> {
