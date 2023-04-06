@@ -845,7 +845,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]).unwrap();
+        ])
+        .unwrap();
         let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
