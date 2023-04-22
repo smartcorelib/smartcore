@@ -322,16 +322,18 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         let (n, _) = x.shape();
         let mut y_hat: Vec<TX> = Array1::zeros(n);
 
+        let mut row = Vec::with_capacity(n);
         for i in 0..n {
-            let row_pred: TX =
-                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).copied(), n));
+            row.clear();
+            row.extend(x.get_row(i).iterator(0).copied());
+            let row_pred: TX = self.predict_for_row(&row);
             y_hat.set(i, row_pred);
         }
 
         Ok(y_hat)
     }
 
-    fn predict_for_row(&self, x: Vec<TX>) -> TX {
+    fn predict_for_row(&self, x: &[TX]) -> TX {
         let mut f = self.b.unwrap();
 
         for i in 0..self.instances.as_ref().unwrap().len() {
@@ -472,14 +474,12 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         let tol = self.parameters.tol;
         let good_enough = TX::from_i32(1000).unwrap();
 
+        let mut x = Vec::with_capacity(n);
         for _ in 0..self.parameters.epoch {
             for i in self.permutate(n) {
-                self.process(
-                    i,
-                    Vec::from_iterator(self.x.get_row(i).iterator(0).copied(), n),
-                    *self.y.get(i),
-                    &mut cache,
-                );
+                x.clear();
+                x.extend(self.x.get_row(i).iterator(0).take(n).copied());
+                self.process(i, &x, *self.y.get(i), &mut cache);
                 loop {
                     self.reprocess(tol, &mut cache);
                     self.find_min_max_gradient();
@@ -511,24 +511,17 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         let mut cp = 0;
         let mut cn = 0;
 
+        let mut x = Vec::with_capacity(n);
         for i in self.permutate(n) {
+            x.clear();
+            x.extend(self.x.get_row(i).iterator(0).take(n).copied());
             if *self.y.get(i) == TY::one() && cp < few {
-                if self.process(
-                    i,
-                    Vec::from_iterator(self.x.get_row(i).iterator(0).copied(), n),
-                    *self.y.get(i),
-                    cache,
-                ) {
+                if self.process(i, &x, *self.y.get(i), cache) {
                     cp += 1;
                 }
             } else if *self.y.get(i) == TY::from(-1).unwrap()
                 && cn < few
-                && self.process(
-                    i,
-                    Vec::from_iterator(self.x.get_row(i).iterator(0).copied(), n),
-                    *self.y.get(i),
-                    cache,
-                )
+                && self.process(i, &x, *self.y.get(i), cache)
             {
                 cn += 1;
             }
@@ -539,7 +532,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         }
     }
 
-    fn process(&mut self, i: usize, x: Vec<TX>, y: TY, cache: &mut Cache<TX, TY, X, Y>) -> bool {
+    fn process(&mut self, i: usize, x: &[TX], y: TY, cache: &mut Cache<TX, TY, X, Y>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
