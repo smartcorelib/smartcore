@@ -336,7 +336,12 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     fn predict_for_row(&self, x: &[TX]) -> TX {
         let mut f = self.b.unwrap();
 
+        let xi: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
         for i in 0..self.instances.as_ref().unwrap().len() {
+            let xj: Vec<_> = self.instances.as_ref().unwrap()[i]
+                .iter()
+                .map(|e| e.to_f64().unwrap())
+                .collect();
             f += self.w.as_ref().unwrap()[i]
                 * TX::from(
                     self.parameters
@@ -345,13 +350,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
                         .kernel
                         .as_ref()
                         .unwrap()
-                        .apply(
-                            &x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            &self.instances.as_ref().unwrap()[i]
-                                .iter()
-                                .map(|e| e.to_f64().unwrap())
-                                .collect(),
-                        )
+                        .apply(&xi, &xj)
                         .unwrap(),
                 )
                 .unwrap();
@@ -544,15 +543,14 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         let mut cache_values: Vec<((usize, usize), TX)> = Vec::new();
 
         for v in self.sv.iter() {
+            let xi: Vec<_> = v.x.iter().map(|e| e.to_f64().unwrap()).collect();
+            let xj: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
             let k = self
                 .parameters
                 .kernel
                 .as_ref()
                 .unwrap()
-                .apply(
-                    &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                    &x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                )
+                .apply(&xi, &xj)
                 .unwrap();
             cache_values.push(((i, v.index), TX::from(k).unwrap()));
             g -= v.alpha * k;
@@ -571,7 +569,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             cache.insert(v.0, v.1.to_f64().unwrap());
         }
 
-        let x_f64 = x.iter().map(|e| e.to_f64().unwrap()).collect();
+        let x_f64: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
         let k_v = self
             .parameters
             .kernel
@@ -694,8 +692,10 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 let km = sv1.k;
                 let gm = sv1.grad;
                 let mut best = 0f64;
+                let xi: Vec<_> = sv1.x.iter().map(|e| e.to_f64().unwrap()).collect();
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
+                    let xj: Vec<_> = v.x.iter().map(|e| e.to_f64().unwrap()).collect();
                     let z = v.grad - gm;
                     let k = cache.get(
                         sv1,
@@ -704,10 +704,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                             .kernel
                             .as_ref()
                             .unwrap()
-                            .apply(
-                                &sv1.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                                &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            )
+                            .apply(&xi, &xj)
                             .unwrap(),
                     );
                     let mut curv = km + v.k - 2f64 * k;
@@ -725,6 +722,12 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                     }
                 }
 
+                let xi: Vec<_> = self.sv[idx_1]
+                    .x
+                    .iter()
+                    .map(|e| e.to_f64().unwrap())
+                    .collect::<Vec<_>>();
+
                 idx_2.map(|idx_2| {
                     (
                         idx_1,
@@ -735,16 +738,12 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                                 .as_ref()
                                 .unwrap()
                                 .apply(
-                                    &self.sv[idx_1]
-                                        .x
-                                        .iter()
-                                        .map(|e| e.to_f64().unwrap())
-                                        .collect(),
+                                    &xi,
                                     &self.sv[idx_2]
                                         .x
                                         .iter()
                                         .map(|e| e.to_f64().unwrap())
-                                        .collect(),
+                                        .collect::<Vec<_>>(),
                                 )
                                 .unwrap()
                         }),
@@ -758,8 +757,11 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 let km = sv2.k;
                 let gm = sv2.grad;
                 let mut best = 0f64;
+
+                let xi: Vec<_> = sv2.x.iter().map(|e| e.to_f64().unwrap()).collect();
                 for i in 0..self.sv.len() {
                     let v = &self.sv[i];
+                    let xj: Vec<_> = v.x.iter().map(|e| e.to_f64().unwrap()).collect();
                     let z = gm - v.grad;
                     let k = cache.get(
                         sv2,
@@ -768,10 +770,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                             .kernel
                             .as_ref()
                             .unwrap()
-                            .apply(
-                                &sv2.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                                &v.x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            )
+                            .apply(&xi, &xj)
                             .unwrap(),
                     );
                     let mut curv = km + v.k - 2f64 * k;
@@ -790,6 +789,12 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                     }
                 }
 
+                let xj: Vec<_> = self.sv[idx_2]
+                    .x
+                    .iter()
+                    .map(|e| e.to_f64().unwrap())
+                    .collect();
+
                 idx_1.map(|idx_1| {
                     (
                         idx_1,
@@ -804,12 +809,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                                         .x
                                         .iter()
                                         .map(|e| e.to_f64().unwrap())
-                                        .collect(),
-                                    &self.sv[idx_2]
-                                        .x
-                                        .iter()
-                                        .map(|e| e.to_f64().unwrap())
-                                        .collect(),
+                                        .collect::<Vec<_>>(),
+                                    &xj,
                                 )
                                 .unwrap()
                         }),
@@ -828,12 +829,12 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                             .x
                             .iter()
                             .map(|e| e.to_f64().unwrap())
-                            .collect(),
+                            .collect::<Vec<_>>(),
                         &self.sv[idx_2]
                             .x
                             .iter()
                             .map(|e| e.to_f64().unwrap())
-                            .collect(),
+                            .collect::<Vec<_>>(),
                     )
                     .unwrap(),
             )),
@@ -888,7 +889,10 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         self.sv[v1].alpha -= step.to_f64().unwrap();
         self.sv[v2].alpha += step.to_f64().unwrap();
 
+        let xi_v1: Vec<_> = self.sv[v1].x.iter().map(|e| e.to_f64().unwrap()).collect();
+        let xi_v2: Vec<_> = self.sv[v2].x.iter().map(|e| e.to_f64().unwrap()).collect();
         for i in 0..self.sv.len() {
+            let xj: Vec<_> = self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect();
             let k2 = cache.get(
                 &self.sv[v2],
                 &self.sv[i],
@@ -896,10 +900,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                     .kernel
                     .as_ref()
                     .unwrap()
-                    .apply(
-                        &self.sv[v2].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                        &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                    )
+                    .apply(&xi_v2, &xj)
                     .unwrap(),
             );
             let k1 = cache.get(
@@ -909,10 +910,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                     .kernel
                     .as_ref()
                     .unwrap()
-                    .apply(
-                        &self.sv[v1].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                        &self.sv[i].x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                    )
+                    .apply(&xi_v1, &xj)
                     .unwrap(),
             );
             self.sv[i].grad -= step.to_f64().unwrap() * (k2 - k1);
