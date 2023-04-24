@@ -431,9 +431,9 @@ impl<T: Number + RealNumber> SVDDecomposable<T> for DenseMatrix<T> {}
 impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixView<'a, T> {
     fn get(&self, pos: (usize, usize)) -> &T {
         if self.column_major {
-            &self.values[(pos.0 + pos.1 * self.stride)]
+            &self.values[pos.0 + pos.1 * self.stride]
         } else {
-            &self.values[(pos.0 * self.stride + pos.1)]
+            &self.values[pos.0 * self.stride + pos.1]
         }
     }
 
@@ -495,9 +495,9 @@ impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for DenseMatrixView<'a
 impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixMutView<'a, T> {
     fn get(&self, pos: (usize, usize)) -> &T {
         if self.column_major {
-            &self.values[(pos.0 + pos.1 * self.stride)]
+            &self.values[pos.0 + pos.1 * self.stride]
         } else {
-            &self.values[(pos.0 * self.stride + pos.1)]
+            &self.values[pos.0 * self.stride + pos.1]
         }
     }
 
@@ -519,9 +519,9 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
 {
     fn set(&mut self, pos: (usize, usize), x: T) {
         if self.column_major {
-            self.values[(pos.0 + pos.1 * self.stride)] = x;
+            self.values[pos.0 + pos.1 * self.stride] = x;
         } else {
-            self.values[(pos.0 * self.stride + pos.1)] = x;
+            self.values[pos.0 * self.stride + pos.1] = x;
         }
     }
 
