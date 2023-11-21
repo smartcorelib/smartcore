@@ -160,7 +160,7 @@ mod tests {
     fn bg_solver() {
         let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
         let b = vec![40., 51., 28.];
-        let expected = vec![1.0, 2.0, 3.0];
+        let expected = [1.0, 2.0, 3.0];
 
         let mut x = Vec::zeros(3);
 

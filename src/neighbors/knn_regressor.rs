@@ -297,7 +297,7 @@ mod tests {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y: Vec<f64> = vec![1., 2., 3., 4., 5.];
-        let y_exp = vec![1., 2., 3., 4., 5.];
+        let y_exp = [1., 2., 3., 4., 5.];
         let knn = KNNRegressor::fit(
             &x,
             &y,
@@ -324,7 +324,7 @@ mod tests {
         let x =
             DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.], &[9., 10.]]);
         let y: Vec<f64> = vec![1., 2., 3., 4., 5.];
-        let y_exp = vec![2., 2., 3., 4., 4.];
+        let y_exp = [2., 2., 3., 4., 4.];
         let knn = KNNRegressor::fit(&x, &y, Default::default()).unwrap();
         let y_hat = knn.predict(&x).unwrap();
         assert_eq!(5, Vec::len(&y_hat));

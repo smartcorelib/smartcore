@@ -56,7 +56,7 @@ pub struct Kernels;
 impl Kernels {
     /// Return a default linear
     pub fn linear() -> LinearKernel {
-        LinearKernel::default()
+        LinearKernel
     }
     /// Return a default RBF
     pub fn rbf() -> RBFKernel {
