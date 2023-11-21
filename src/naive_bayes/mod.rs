@@ -35,7 +35,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use crate::error::Failed;
+use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
@@ -93,6 +93,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let y_classes = self.distribution.classes();
         let (rows, _) = x.shape();
+        let mut log_likehood_is_nan = false;
         let predictions = (0..rows)
             .map(|row_index| {
                 let row = x.get_row(row_index);
@@ -100,10 +101,15 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
                     .iter()
                     .enumerate()
                     .map(|(class_index, class)| {
+                        let mut log_likelihood =
+                            self.distribution.log_likelihood(class_index, &row);
+                        if log_likelihood.is_nan() {
+                            log_likelihood = 0f64;
+                            log_likehood_is_nan = true;
+                        }
                         (
                             class,
-                            self.distribution.log_likelihood(class_index, &row)
-                                + self.distribution.prior(class_index).ln(),
+                            log_likelihood + self.distribution.prior(class_index).ln(),
                         )
                     })
                     .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
@@ -111,6 +117,12 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
                 *prediction
             })
             .collect::<Vec<TY>>();
+        if log_likehood_is_nan {
+            return Err(Failed::because(
+                FailedError::SolutionFailed,
+                "log_likelihood for distribution of one of the rows is NaN",
+            ));
+        }
         let y_hat = Y::from_vec_slice(&predictions);
         Ok(y_hat)
     }

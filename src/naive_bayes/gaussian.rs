@@ -422,6 +422,23 @@ mod tests {
         );
     }
 
+    #[test]
+    fn run_gaussian_naive_bayes_with_few_samples() {
+        let x =
+            DenseMatrix::<f64>::from_2d_array(&[&[-1., -1.], &[-2., -1.], &[-3., -2.], &[1., 1.]]);
+        let y: Vec<u32> = vec![1, 1, 1, 2];
+
+        let gnb = GaussianNB::fit(&x, &y, Default::default());
+
+        match gnb.unwrap().predict(&x) {
+            Ok(_) => assert!(false, "test should return Failed"),
+            Err(err) => {
+                assert!(err.to_string() == "Can't find solution: log_likelihood for distribution of one of the rows is NaN");
+                assert!(true)
+            }
+        }
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
