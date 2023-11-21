@@ -25,16 +25,14 @@ pub fn load_dataset() -> Dataset<f32, f32> {
         target: y,
         num_samples,
         num_features,
-        feature_names: vec![
-            "sepal length (cm)",
+        feature_names: ["sepal length (cm)",
             "sepal width (cm)",
             "petal length (cm)",
-            "petal width (cm)",
-        ]
+            "petal width (cm)"]
         .iter()
         .map(|s| s.to_string())
         .collect(),
-        target_names: vec!["setosa", "versicolor", "virginica"]
+        target_names: ["setosa", "versicolor", "virginica"]
             .iter()
             .map(|s| s.to_string())
             .collect(),

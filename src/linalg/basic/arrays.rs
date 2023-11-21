@@ -188,8 +188,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
                 _ => max,
             }
         };
-        self.iterator(0)
-            .fold(T::min_value(), |max, x| max_f(max, x))
+        self.iterator(0).fold(T::min_value(), max_f)
     }
     /// return min value from  the view
     fn min(&self) -> T
@@ -202,8 +201,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
                 _ => min,
             }
         };
-        self.iterator(0)
-            .fold(T::max_value(), |max, x| min_f(max, x))
+        self.iterator(0).fold(T::max_value(), min_f)
     }
     /// return the position of the max value of the view
     fn argmax(&self) -> usize

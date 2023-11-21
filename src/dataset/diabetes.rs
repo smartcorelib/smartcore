@@ -40,7 +40,7 @@ pub fn load_dataset() -> Dataset<f32, u32> {
         target: y,
         num_samples,
         num_features,
-        feature_names: vec![
+        feature_names: [
             "Age", "Sex", "BMI", "BP", "S1", "S2", "S3", "S4", "S5", "S6",
         ]
         .iter()

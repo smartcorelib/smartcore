@@ -650,7 +650,7 @@ mod tests {
 
     #[test]
     fn test_from_iterator() {
-        let data = vec![1, 2, 3, 4, 5, 6];
+        let data = [1, 2, 3, 4, 5, 6];
 
         let m = DenseMatrix::from_iterator(data.iter(), 2, 3, 0);
 

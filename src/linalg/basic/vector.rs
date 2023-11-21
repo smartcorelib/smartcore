@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_len() {
-        let x = vec![1, 2, 3];
+        let x = [1, 2, 3];
         assert_eq!(3, x.len());
     }
 
