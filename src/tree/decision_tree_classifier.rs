@@ -683,6 +683,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
+        // TODO: Always calculate the impurity. It is needed for the feature importance.
+
         if is_pure {
             return false;
         }
