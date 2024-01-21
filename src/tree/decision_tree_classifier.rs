@@ -164,6 +164,7 @@ struct Node {
     split_score: Option<f64>,
     true_child: Option<usize>,
     false_child: Option<usize>,
+    impurity: Option<f64>,
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
@@ -408,6 +409,7 @@ impl Node {
             split_score: Option::None,
             true_child: Option::None,
             false_child: Option::None,
+            impurity: Option::None,
         }
     }
 }
@@ -696,7 +698,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        let parent_impurity = impurity(&self.parameters().criterion, &count, n);
+        self.nodes[visitor.node].impurity = Some(impurity(&self.parameters().criterion, &count, n));
 
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
@@ -705,14 +707,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         for variable in variables.iter().take(mtry) {
-            self.find_best_split(
-                visitor,
-                n,
-                &count,
-                &mut false_count,
-                parent_impurity,
-                *variable,
-            );
+            self.find_best_split(visitor, n, &count, &mut false_count, *variable);
         }
 
         self.nodes()[visitor.node].split_score.is_some()
@@ -724,7 +719,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         n: usize,
         count: &[usize],
         false_count: &mut [usize],
-        parent_impurity: f64,
         j: usize,
     ) {
         let mut true_count = vec![0; self.num_classes];
@@ -760,6 +754,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
                 let true_label = which_max(&true_count);
                 let false_label = which_max(false_count);
+                let parent_impurity = self.nodes()[visitor.node].impurity.unwrap();
                 let gain = parent_impurity
                     - tc as f64 / n as f64
                         * impurity(&self.parameters().criterion, &true_count, tc)
