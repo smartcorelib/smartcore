@@ -866,33 +866,31 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         true
     }
 
-    pub fn compute_feature_importances(&self) -> f64 {
+    pub fn compute_feature_importances(&self, normalize: bool) -> Vec<f64> {
         let mut importances = vec![0f64; self.num_features];
 
         for node in self.nodes().iter() {
             if node.true_child.is_none() && node.false_child.is_none() {
                 continue;
             }
-            let left = self.nodes()[node.true_child.unwrap()];
-            let right = self.nodes()[node.false_child.unwrap()];
+            let left = &self.nodes()[node.true_child.unwrap()];
+            let right = &self.nodes()[node.false_child.unwrap()];
 
-            importances[node.split_feature] += (node.impurity.unwrap()
-                * node.impurity.unwrap()
-                * node.impurity.unwrap()
-                - left.impurity.unwrap() * left.impurity.unwrap() * left.impurity.unwrap()
-                - right.impurity.unwrap() * right.impurity.unwrap() * right.impurity.unwrap(),)
+            importances[node.split_feature] += node.n_node_samples as f64
+                * (node.impurity.unwrap()
+                    - left.n_node_samples as f64 * left.impurity.unwrap()
+                    - right.n_node_samples as f64 * right.impurity.unwrap());
         }
-
-        let sum = importances.iter().sum::<f64>();
-
-        for importance in importances.iter_mut() {
-            *importance /= sum;
+        for i in 0..self.num_features {
+            importances[i] /= self.nodes()[0].n_node_samples as f64;
         }
-
-        *importances
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+        if normalize {
+            let sum = importances.iter().sum::<f64>();
+            for importance in importances.iter_mut() {
+                *importance /= sum;
+            }
+        }
+        importances
     }
 }
 
