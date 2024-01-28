@@ -166,6 +166,7 @@ struct Node {
     true_child: Option<usize>,
     false_child: Option<usize>,
     impurity: Option<f64>,
+    n_node_samples: usize,
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
@@ -411,6 +412,7 @@ impl Node {
             true_child: Option::None,
             false_child: Option::None,
             impurity: Option::None,
+            n_node_samples: 0,
         }
     }
 }
