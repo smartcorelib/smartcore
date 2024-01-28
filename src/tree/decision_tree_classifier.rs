@@ -160,13 +160,13 @@ pub enum SplitCriterion {
 #[derive(Debug, Clone)]
 struct Node {
     output: usize,
+    n_node_samples: usize,
     split_feature: usize,
     split_value: Option<f64>,
     split_score: Option<f64>,
     true_child: Option<usize>,
     false_child: Option<usize>,
     impurity: Option<f64>,
-    n_node_samples: usize,
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
@@ -403,16 +403,16 @@ impl Default for DecisionTreeClassifierSearchParameters {
 }
 
 impl Node {
-    fn new(output: usize) -> Self {
+    fn new(output: usize, n_node_samples: usize) -> Self {
         Node {
             output,
+            n_node_samples,
             split_feature: 0,
             split_value: Option::None,
             split_score: Option::None,
             true_child: Option::None,
             false_child: Option::None,
             impurity: Option::None,
-            n_node_samples: 0,
         }
     }
 }
@@ -584,7 +584,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             count[yi[i]] += samples[i];
         }
 
-        let root = Node::new(which_max(&count));
+        let root = Node::new(which_max(&count), y_ncols);
         change_nodes.push(root);
         let mut order: Vec<Vec<usize>> = Vec::new();
 
@@ -829,9 +829,9 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         let true_child_idx = self.nodes().len();
 
-        self.nodes.push(Node::new(visitor.true_child_output));
+        self.nodes.push(Node::new(visitor.true_child_output, tc));
         let false_child_idx = self.nodes().len();
-        self.nodes.push(Node::new(visitor.false_child_output));
+        self.nodes.push(Node::new(visitor.false_child_output, fc));
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);
 
