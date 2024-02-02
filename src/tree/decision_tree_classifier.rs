@@ -866,6 +866,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         true
     }
 
+    /// Compute feature importances for the fitted tree.
     pub fn compute_feature_importances(&self, normalize: bool) -> Vec<f64> {
         let mut importances = vec![0f64; self.num_features];
 
@@ -1042,6 +1043,42 @@ mod tests {
             DecisionTreeClassifier::fit(&x, &y, Default::default())
                 .and_then(|t| t.predict(&x))
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_compute_feature_importances() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[1., 1., 1., 0.],
+            &[1., 1., 1., 0.],
+            &[1., 1., 1., 1.],
+            &[1., 1., 0., 0.],
+            &[1., 1., 0., 1.],
+            &[1., 0., 1., 0.],
+            &[1., 0., 1., 0.],
+            &[1., 0., 1., 1.],
+            &[1., 0., 0., 0.],
+            &[1., 0., 0., 1.],
+            &[0., 1., 1., 0.],
+            &[0., 1., 1., 0.],
+            &[0., 1., 1., 1.],
+            &[0., 1., 0., 0.],
+            &[0., 1., 0., 1.],
+            &[0., 0., 1., 0.],
+            &[0., 0., 1., 0.],
+            &[0., 0., 1., 1.],
+            &[0., 0., 0., 0.],
+            &[0., 0., 0., 1.],
+        ]);
+        let y: Vec<u32> = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
+        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        assert_eq!(
+            tree.compute_feature_importances(false),
+            vec![0.0, 0.0, 0.0, 0.0]
+        );
+        assert_eq!(
+            tree.compute_feature_importances(true),
+            vec![0.0, 0.0, 0.0, 0.0]
         );
     }
 
