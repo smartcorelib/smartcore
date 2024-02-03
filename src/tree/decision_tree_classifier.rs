@@ -685,18 +685,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        // TODO: Always calculate the impurity. It is needed for the feature importance.
-
-        if is_pure {
-            return false;
-        }
-
         let n = visitor.samples.iter().sum();
-
-        if n <= self.parameters().min_samples_split {
-            return false;
-        }
-
         let mut count = vec![0; self.num_classes];
         let mut false_count = vec![0; self.num_classes];
         for i in 0..n_rows {
@@ -706,6 +695,14 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         self.nodes[visitor.node].impurity = Some(impurity(&self.parameters().criterion, &count, n));
+
+        if is_pure {
+            return false;
+        }
+
+        if n <= self.parameters().min_samples_split {
+            return false;
+        }
 
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
@@ -1078,7 +1075,7 @@ mod tests {
         );
         assert_eq!(
             tree.compute_feature_importances(true),
-            vec![0.0, 0.0, 0.0, 0.0]
+            vec![0., 0., 0.44444444, 0.55555556]
         );
     }
 
