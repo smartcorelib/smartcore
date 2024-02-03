@@ -874,10 +874,9 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             let left = &self.nodes()[node.true_child.unwrap()];
             let right = &self.nodes()[node.false_child.unwrap()];
 
-            importances[node.split_feature] += node.n_node_samples as f64
-                * (node.impurity.unwrap()
-                    - left.n_node_samples as f64 * left.impurity.unwrap()
-                    - right.n_node_samples as f64 * right.impurity.unwrap());
+            importances[node.split_feature] += node.n_node_samples as f64 * node.impurity.unwrap()
+                - left.n_node_samples as f64 * left.impurity.unwrap()
+                - right.n_node_samples as f64 * right.impurity.unwrap();
         }
         for i in 0..self.num_features {
             importances[i] /= self.nodes()[0].n_node_samples as f64;
@@ -1071,11 +1070,11 @@ mod tests {
         let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
         assert_eq!(
             tree.compute_feature_importances(false),
-            vec![0.0, 0.0, 0.0, 0.0]
+            vec![0., 0., 0.21333333333333332, 0.26666666666666666]
         );
         assert_eq!(
             tree.compute_feature_importances(true),
-            vec![0., 0., 0.44444444, 0.55555556]
+            vec![0., 0., 0.4444444444444444, 0.5555555555555556]
         );
     }
 
