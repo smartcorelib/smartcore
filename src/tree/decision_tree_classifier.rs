@@ -878,8 +878,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 - left.n_node_samples as f64 * left.impurity.unwrap()
                 - right.n_node_samples as f64 * right.impurity.unwrap();
         }
-        for i in 0..self.num_features {
-            importances[i] /= self.nodes()[0].n_node_samples as f64;
+        for item in importances.iter_mut() {
+            *item /= self.nodes()[0].n_node_samples as f64;
         }
         if normalize {
             let sum = importances.iter().sum::<f64>();
