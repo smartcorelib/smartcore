@@ -197,11 +197,11 @@ mod tests {
         fn combine_three_columns() {
             assert_eq!(
                 build_matrix_from_columns(vec![
-                    DenseMatrix::from_2d_vec(&vec![vec![1.0], vec![1.0], vec![1.0],]),
-                    DenseMatrix::from_2d_vec(&vec![vec![2.0], vec![2.0], vec![2.0],]),
-                    DenseMatrix::from_2d_vec(&vec![vec![3.0], vec![3.0], vec![3.0],])
+                    DenseMatrix::from_2d_vec(&[vec![1.0], vec![1.0], vec![1.0]]),
+                    DenseMatrix::from_2d_vec(&[vec![2.0], vec![2.0], vec![2.0]]),
+                    DenseMatrix::from_2d_vec(&[vec![3.0], vec![3.0], vec![3.0]])
                 ]),
-                Some(DenseMatrix::from_2d_vec(&vec![
+                Some(DenseMatrix::from_2d_vec(&[
                     vec![1.0, 2.0, 3.0],
                     vec![1.0, 2.0, 3.0],
                     vec![1.0, 2.0, 3.0]
@@ -365,7 +365,7 @@ mod tests {
             );
 
             assert!(
-                &DenseMatrix::<f64>::from_2d_vec(&vec![fitted_scaler.stds]).approximate_eq(
+                &DenseMatrix::<f64>::from_2d_vec(&[fitted_scaler.stds]).approximate_eq(
                     &DenseMatrix::from_2d_array(&[&[
                         0.29426447500954,
                         0.16758497615485,
