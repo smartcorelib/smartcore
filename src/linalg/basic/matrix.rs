@@ -193,11 +193,11 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
 
     /// New instance of `DenseMatrix` from 2d array.
     pub fn from_2d_array(values: &[&[T]]) -> Self {
-        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect())
+        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect::<Vec<_>>())
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
-    pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Self {
+    pub fn from_2d_vec(values: &[Vec<T>]) -> Self {
         let nrows = values.len();
         let ncols = values
             .first()
