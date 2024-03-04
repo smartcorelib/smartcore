@@ -8,8 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 - WARNING: Breaking changes!
-- `DenseMatrix` constructor now returns `Result` to avoid user instantiating inconsistent rows/cols count
-- Every call to `DenseMatrix::new` and `DenseMatrix::from_2d_array` needs to be unwrapped with `unwrap()`, see tests
+- `DenseMatrix` constructor now returns `Result` to avoid user instantiating inconsistent rows/cols count. Their return values need to be unwrapped with `unwrap()`, see tests
 
 ## [0.3.0] - 2022-11-09 
 

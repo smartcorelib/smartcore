@@ -1067,7 +1067,8 @@ mod tests {
             &[0., 0., 1., 1.],
             &[0., 0., 0., 0.],
             &[0., 0., 0., 1.],
-        ]).unwrap();
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
         let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
         assert_eq!(
