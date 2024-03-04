@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_predict() {
-        let matrix = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
+        let matrix = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
 
         let val = vec![];
         match Model::fit(TestDistribution(&val)).unwrap().predict(&matrix) {

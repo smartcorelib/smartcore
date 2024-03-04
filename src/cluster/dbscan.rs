@@ -442,7 +442,8 @@ mod tests {
             &[2.2, 1.2],
             &[1.8, 0.8],
             &[3.0, 5.0],
-        ]);
+        ])
+        .unwrap();
 
         let expected_labels = vec![1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 0];
 
@@ -487,7 +488,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
 
         let dbscan = DBSCAN::fit(&x, Default::default()).unwrap();
 

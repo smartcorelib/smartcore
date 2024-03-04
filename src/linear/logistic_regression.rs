@@ -35,7 +35,7 @@
 //!           &[4.9, 2.4, 3.3, 1.0],
 //!           &[6.6, 2.9, 4.6, 1.3],
 //!           &[5.2, 2.7, 3.9, 1.4],
-//!           ]);
+//!           ]).unwrap();
 //! let y: Vec<i32> = vec![
 //!           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 //! ];
@@ -416,7 +416,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Fits Logistic Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target class values
-    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.    
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
         x: &X,
         y: &Y,
@@ -611,7 +611,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]);
+        ])
+        .unwrap();
 
         let y = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
@@ -671,7 +672,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]);
+        ])
+        .unwrap();
 
         let y = vec![0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1];
 
@@ -733,7 +735,8 @@ mod tests {
             &[10., -2.],
             &[8., 2.],
             &[9., 0.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
@@ -818,37 +821,41 @@ mod tests {
         assert!(reg_coeff_sum < coeff);
     }
 
-    // TODO: serialization for the new DenseMatrix needs to be implemented
-    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[1., -5.],
-    //         &[2., 5.],
-    //         &[3., -2.],
-    //         &[1., 2.],
-    //         &[2., 0.],
-    //         &[6., -5.],
-    //         &[7., 5.],
-    //         &[6., -2.],
-    //         &[7., 2.],
-    //         &[6., 0.],
-    //         &[8., -5.],
-    //         &[9., 5.],
-    //         &[10., -2.],
-    //         &[8., 2.],
-    //         &[9., 0.],
-    //     ]);
-    //     let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
+    //TODO: serialization for the new DenseMatrix needs to be implemented
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[1., -5.],
+            &[2., 5.],
+            &[3., -2.],
+            &[1., 2.],
+            &[2., 0.],
+            &[6., -5.],
+            &[7., 5.],
+            &[6., -2.],
+            &[7., 2.],
+            &[6., 0.],
+            &[8., -5.],
+            &[9., 5.],
+            &[10., -2.],
+            &[8., 2.],
+            &[9., 0.],
+        ])
+        .unwrap();
+        let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
-    //     let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
 
-    //     let deserialized_lr: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
-    //         serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
+        let deserialized_lr: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
-    //     assert_eq!(lr, deserialized_lr);
-    // }
+        assert_eq!(lr, deserialized_lr);
+    }
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
@@ -877,7 +884,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<i32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
@@ -898,5 +906,47 @@ mod tests {
         let coeff: f32 = lr.coefficients().abs().iter().sum();
 
         assert!(reg_coeff_sum < coeff);
+    }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn lr_fit_predict_random() {
+        let x: DenseMatrix<f32> = DenseMatrix::rand(52181, 94);
+        let y1: Vec<i32> = vec![1; 2181];
+        let y2: Vec<i32> = vec![0; 50000];
+        let y: Vec<i32> = y1.into_iter().chain(y2.into_iter()).collect();
+
+        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
+        let lr_reg = LogisticRegression::fit(
+            &x,
+            &y,
+            LogisticRegressionParameters::default().with_alpha(1.0),
+        )
+        .unwrap();
+
+        let y_hat = lr.predict(&x).unwrap();
+        let y_hat_reg = lr_reg.predict(&x).unwrap();
+
+        assert_eq!(y.len(), y_hat.len());
+        assert_eq!(y.len(), y_hat_reg.len());
+    }
+
+    #[test]
+    fn test_logit() {
+        let x: &DenseMatrix<f64> = &DenseMatrix::rand(52181, 94);
+        let y1: Vec<u32> = vec![1; 2181];
+        let y2: Vec<u32> = vec![0; 50000];
+        let y: &Vec<u32> = &(y1.into_iter().chain(y2.into_iter()).collect());
+        println!("y vec height: {:?}", y.len());
+        println!("x matrix shape: {:?}", x.shape());
+
+        let lr = LogisticRegression::fit(x, y, Default::default()).unwrap();
+        let y_hat = lr.predict(&x).unwrap();
+
+        println!("y_hat shape: {:?}", y_hat.shape());
+
+        assert_eq!(y_hat.shape(), 52181);
     }
 }

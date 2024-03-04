@@ -136,8 +136,8 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
     /// ```rust
     /// use smartcore::linalg::basic::matrix::DenseMatrix;
     /// use smartcore::linalg::traits::stats::MatrixPreprocessing;
-    /// let mut a = DenseMatrix::from_2d_array(&[&[0., 2., 3.], &[-5., -6., -7.]]);
-    /// let expected = DenseMatrix::from_2d_array(&[&[0., 1., 1.],&[0., 0., 0.]]);
+    /// let mut a = DenseMatrix::from_2d_array(&[&[0., 2., 3.], &[-5., -6., -7.]]).unwrap();
+    /// let expected = DenseMatrix::from_2d_array(&[&[0., 1., 1.],&[0., 0., 0.]]).unwrap();
     /// a.binarize_mut(0.);
     ///
     /// assert_eq!(a, expected);
@@ -159,8 +159,8 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
     /// ```rust
     /// use smartcore::linalg::basic::matrix::DenseMatrix;
     /// use smartcore::linalg::traits::stats::MatrixPreprocessing;
-    /// let a = DenseMatrix::from_2d_array(&[&[0., 2., 3.], &[-5., -6., -7.]]);
-    /// let expected = DenseMatrix::from_2d_array(&[&[0., 1., 1.],&[0., 0., 0.]]);
+    /// let a = DenseMatrix::from_2d_array(&[&[0., 2., 3.], &[-5., -6., -7.]]).unwrap();
+    /// let expected = DenseMatrix::from_2d_array(&[&[0., 1., 1.],&[0., 0., 0.]]).unwrap();
     ///
     /// assert_eq!(a.binarize(0.), expected);
     /// ```
@@ -186,7 +186,8 @@ mod tests {
             &[1., 2., 3., 1., 2.],
             &[4., 5., 6., 3., 4.],
             &[7., 8., 9., 5., 6.],
-        ]);
+        ])
+        .unwrap();
         let expected_0 = vec![4., 5., 6., 3., 4.];
         let expected_1 = vec![1.8, 4.4, 7.];
 
@@ -196,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_var() {
-        let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
+        let m = DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]).unwrap();
         let expected_0 = vec![4., 4., 4., 4.];
         let expected_1 = vec![1.25, 1.25];
 
@@ -211,7 +212,8 @@ mod tests {
         let m = DenseMatrix::from_2d_array(&[
             &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
             &[0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25],
-        ]);
+        ])
+        .unwrap();
         let expected_0 = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let expected_1 = vec![1.25, 1.25];
 
@@ -230,7 +232,8 @@ mod tests {
             &[1., 2., 3., 1., 2.],
             &[4., 5., 6., 3., 4.],
             &[7., 8., 9., 5., 6.],
-        ]);
+        ])
+        .unwrap();
         let expected_0 = vec![
             2.449489742783178,
             2.449489742783178,
@@ -251,10 +254,10 @@ mod tests {
     #[test]
     fn test_scale() {
         let m: DenseMatrix<f64> =
-            DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]);
+            DenseMatrix::from_2d_array(&[&[1., 2., 3., 4.], &[5., 6., 7., 8.]]).unwrap();
 
         let expected_0: DenseMatrix<f64> =
-            DenseMatrix::from_2d_array(&[&[-1., -1., -1., -1.], &[1., 1., 1., 1.]]);
+            DenseMatrix::from_2d_array(&[&[-1., -1., -1., -1.], &[1., 1., 1., 1.]]).unwrap();
         let expected_1: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
             &[
                 -1.3416407864998738,
@@ -268,7 +271,8 @@ mod tests {
                 0.4472135954999579,
                 1.3416407864998738,
             ],
-        ]);
+        ])
+        .unwrap();
 
         assert_eq!(m.mean(0), vec![3.0, 4.0, 5.0, 6.0]);
         assert_eq!(m.mean(1), vec![2.5, 6.5]);

@@ -19,6 +19,8 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
+use crate::error::Failed;
+
 /// Dense matrix
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -50,26 +52,26 @@ pub struct DenseMatrixMutView<'a, T: Debug + Display + Copy + Sized> {
 }
 
 impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
-    fn new(m: &'a DenseMatrix<T>, rows: Range<usize>, cols: Range<usize>) -> Self {
-        let (start, end, stride) = if m.column_major {
-            (
-                rows.start + cols.start * m.nrows,
-                rows.end + (cols.end - 1) * m.nrows,
-                m.nrows,
-            )
+    fn new(
+        m: &'a DenseMatrix<T>,
+        vrows: Range<usize>,
+        vcols: Range<usize>,
+    ) -> Result<Self, Failed> {
+        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
+            Err(Failed::input(
+                "The specified view is outside of the matrix range",
+            ))
         } else {
-            (
-                rows.start * m.ncols + cols.start,
-                (rows.end - 1) * m.ncols + cols.end,
-                m.ncols,
-            )
-        };
-        DenseMatrixView {
-            values: &m.values[start..end],
-            stride,
-            nrows: rows.end - rows.start,
-            ncols: cols.end - cols.start,
-            column_major: m.column_major,
+            let (start, end, stride) =
+                m.stride_range(m.shape().0, m.shape().1, &vrows, &vcols, m.column_major);
+
+            Ok(DenseMatrixView {
+                values: &m.values[start..end],
+                stride,
+                nrows: vrows.end - vrows.start,
+                ncols: vcols.end - vcols.start,
+                column_major: m.column_major,
+            })
         }
     }
 
@@ -102,26 +104,26 @@ impl<'a, T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixView<'a,
 }
 
 impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
-    fn new(m: &'a mut DenseMatrix<T>, rows: Range<usize>, cols: Range<usize>) -> Self {
-        let (start, end, stride) = if m.column_major {
-            (
-                rows.start + cols.start * m.nrows,
-                rows.end + (cols.end - 1) * m.nrows,
-                m.nrows,
-            )
+    fn new(
+        m: &'a mut DenseMatrix<T>,
+        vrows: Range<usize>,
+        vcols: Range<usize>,
+    ) -> Result<Self, Failed> {
+        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
+            Err(Failed::input(
+                "The specified view is outside of the matrix range",
+            ))
         } else {
-            (
-                rows.start * m.ncols + cols.start,
-                (rows.end - 1) * m.ncols + cols.end,
-                m.ncols,
-            )
-        };
-        DenseMatrixMutView {
-            values: &mut m.values[start..end],
-            stride,
-            nrows: rows.end - rows.start,
-            ncols: cols.end - cols.start,
-            column_major: m.column_major,
+            let (start, end, stride) =
+                m.stride_range(m.shape().0, m.shape().1, &vrows, &vcols, m.column_major);
+
+            Ok(DenseMatrixMutView {
+                values: &mut m.values[start..end],
+                stride,
+                nrows: vrows.end - vrows.start,
+                ncols: vcols.end - vcols.start,
+                column_major: m.column_major,
+            })
         }
     }
 
@@ -182,41 +184,101 @@ impl<'a, T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixMutView<
 impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     /// Create new instance of `DenseMatrix` without copying data.
     /// `values` should be in column-major order.
-    pub fn new(nrows: usize, ncols: usize, values: Vec<T>, column_major: bool) -> Self {
-        DenseMatrix {
-            ncols,
-            nrows,
-            values,
-            column_major,
+    pub fn new(
+        nrows: usize,
+        ncols: usize,
+        values: Vec<T>,
+        column_major: bool,
+    ) -> Result<Self, Failed> {
+        let data_len = values.len();
+        if nrows * ncols != values.len() {
+            Err(Failed::input(&format!(
+                "The specified shape: (cols: {ncols}, rows: {nrows}) does not align with data len: {data_len}"
+            )))
+        } else {
+            Ok(DenseMatrix {
+                ncols,
+                nrows,
+                values,
+                column_major,
+            })
         }
     }
 
     /// New instance of `DenseMatrix` from 2d array.
-    pub fn from_2d_array(values: &[&[T]]) -> Self {
-        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect::<Vec<_>>())
+    pub fn from_2d_array(values: &[&[T]]) -> Result<Self, Failed> {
+        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect())
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
-    pub fn from_2d_vec(values: &[Vec<T>]) -> Self {
-        let nrows = values.len();
-        let ncols = values
-            .first()
-            .unwrap_or_else(|| panic!("Cannot create 2d matrix from an empty vector"))
-            .len();
-        let mut m_values = Vec::with_capacity(nrows * ncols);
+    #[allow(clippy::ptr_arg)]
+    pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
+        if values.is_empty() || values[0].is_empty() {
+            Err(Failed::input(
+                "The 2d vec provided is empty; cannot instantiate the matrix",
+            ))
+        } else {
+            let nrows = values.len();
+            let ncols = values
+                .first()
+                .unwrap_or_else(|| {
+                    panic!("Invalid state: Cannot create 2d matrix from an empty vector")
+                })
+                .len();
+            let mut m_values = Vec::with_capacity(nrows * ncols);
 
-        for c in 0..ncols {
-            for r in values.iter().take(nrows) {
-                m_values.push(r[c])
+            for c in 0..ncols {
+                for r in values.iter().take(nrows) {
+                    m_values.push(r[c])
+                }
             }
-        }
 
-        DenseMatrix::new(nrows, ncols, m_values, true)
+            DenseMatrix::new(nrows, ncols, m_values, true)
+        }
     }
 
     /// Iterate over values of matrix
     pub fn iter(&self) -> Iter<'_, T> {
         self.values.iter()
+    }
+
+    ///  Check if the size of the requested view is bounded to matrix rows/cols count
+    fn is_valid_view(
+        &self,
+        n_rows: usize,
+        n_cols: usize,
+        vrows: &Range<usize>,
+        vcols: &Range<usize>,
+    ) -> bool {
+        !(vrows.end <= n_rows
+            && vcols.end <= n_cols
+            && vrows.start <= n_rows
+            && vcols.start <= n_cols)
+    }
+
+    ///  Compute the range of the requested view: start, end, size of the slice
+    fn stride_range(
+        &self,
+        n_rows: usize,
+        n_cols: usize,
+        vrows: &Range<usize>,
+        vcols: &Range<usize>,
+        column_major: bool,
+    ) -> (usize, usize, usize) {
+        let (start, end, stride) = if column_major {
+            (
+                vrows.start + vcols.start * n_rows,
+                vrows.end + (vcols.end - 1) * n_rows,
+                n_rows,
+            )
+        } else {
+            (
+                vrows.start * n_cols + vcols.start,
+                (vrows.end - 1) * n_cols + vcols.end,
+                n_cols,
+            )
+        };
+        (start, end, stride)
     }
 }
 
@@ -304,6 +366,7 @@ where
 impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix<T> {
     fn get(&self, pos: (usize, usize)) -> &T {
         let (row, col) = pos;
+
         if row >= self.nrows || col >= self.ncols {
             panic!(
                 "Invalid index ({},{}) for {}x{} matrix",
@@ -383,15 +446,15 @@ impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for DenseMatrix<T> {}
 
 impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
     fn get_row<'a>(&'a self, row: usize) -> Box<dyn ArrayView1<T> + 'a> {
-        Box::new(DenseMatrixView::new(self, row..row + 1, 0..self.ncols))
+        Box::new(DenseMatrixView::new(self, row..row + 1, 0..self.ncols).unwrap())
     }
 
     fn get_col<'a>(&'a self, col: usize) -> Box<dyn ArrayView1<T> + 'a> {
-        Box::new(DenseMatrixView::new(self, 0..self.nrows, col..col + 1))
+        Box::new(DenseMatrixView::new(self, 0..self.nrows, col..col + 1).unwrap())
     }
 
     fn slice<'a>(&'a self, rows: Range<usize>, cols: Range<usize>) -> Box<dyn ArrayView2<T> + 'a> {
-        Box::new(DenseMatrixView::new(self, rows, cols))
+        Box::new(DenseMatrixView::new(self, rows, cols).unwrap())
     }
 
     fn slice_mut<'a>(
@@ -402,15 +465,17 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
     where
         Self: Sized,
     {
-        Box::new(DenseMatrixMutView::new(self, rows, cols))
+        Box::new(DenseMatrixMutView::new(self, rows, cols).unwrap())
     }
 
+    // private function so for now assume infalible
     fn fill(nrows: usize, ncols: usize, value: T) -> Self {
-        DenseMatrix::new(nrows, ncols, vec![value; nrows * ncols], true)
+        DenseMatrix::new(nrows, ncols, vec![value; nrows * ncols], true).unwrap()
     }
 
+    // private function so for now assume infalible
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
-        DenseMatrix::new(nrows, ncols, iter.collect(), axis != 0)
+        DenseMatrix::new(nrows, ncols, iter.collect(), axis != 0).unwrap()
     }
 
     fn transpose(&self) -> Self {
@@ -544,15 +609,74 @@ mod tests {
     use approx::relative_eq;
 
     #[test]
-    fn test_display() {
+    fn test_instantiate_from_2d() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        assert!(x.is_ok());
+    }
+    #[test]
+    fn test_instantiate_from_2d_empty() {
+        let input: &[&[f64]] = &[&[]];
+        let x = DenseMatrix::from_2d_array(input);
+        assert!(x.is_err());
+    }
+    #[test]
+    fn test_instantiate_from_2d_empty2() {
+        let input: &[&[f64]] = &[&[], &[]];
+        let x = DenseMatrix::from_2d_array(input);
+        assert!(x.is_err());
+    }
+    #[test]
+    fn test_instantiate_ok_view1() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 0..2, 0..2);
+        assert!(v.is_ok());
+    }
+    #[test]
+    fn test_instantiate_ok_view2() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 0..3, 0..3);
+        assert!(v.is_ok());
+    }
+    #[test]
+    fn test_instantiate_ok_view3() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 2..3, 0..3);
+        assert!(v.is_ok());
+    }
+    #[test]
+    fn test_instantiate_ok_view4() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 3..3, 0..3);
+        assert!(v.is_ok());
+    }
+    #[test]
+    fn test_instantiate_err_view1() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 3..4, 0..3);
+        assert!(v.is_err());
+    }
+    #[test]
+    fn test_instantiate_err_view2() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 0..3, 3..4);
+        assert!(v.is_err());
+    }
+    #[test]
+    fn test_instantiate_err_view3() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 0..3, 4..3);
+        assert!(v.is_err());
+    }
+    #[test]
+    fn test_display() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
 
         println!("{}", &x);
     }
 
     #[test]
     fn test_get_row_col() {
-        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
 
         assert_eq!(15.0, x.get_col(1).sum());
         assert_eq!(15.0, x.get_row(1).sum());
@@ -561,7 +685,7 @@ mod tests {
 
     #[test]
     fn test_row_major() {
-        let mut x = DenseMatrix::new(2, 3, vec![1, 2, 3, 4, 5, 6], false);
+        let mut x = DenseMatrix::new(2, 3, vec![1, 2, 3, 4, 5, 6], false).unwrap();
 
         assert_eq!(5, *x.get_col(1).get(1));
         assert_eq!(7, x.get_col(1).sum());
@@ -575,7 +699,8 @@ mod tests {
 
     #[test]
     fn test_get_slice() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9], &[10, 11, 12]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9], &[10, 11, 12]])
+            .unwrap();
 
         assert_eq!(
             vec![4, 5, 6],
@@ -589,7 +714,7 @@ mod tests {
 
     #[test]
     fn test_iter_mut() {
-        let mut x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
+        let mut x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
 
         assert_eq!(vec![1, 4, 7, 2, 5, 8, 3, 6, 9], x.values);
         // add +2 to some elements
@@ -625,7 +750,8 @@ mod tests {
     #[test]
     fn test_str_array() {
         let mut x =
-            DenseMatrix::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"], &["7", "8", "9"]]);
+            DenseMatrix::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"], &["7", "8", "9"]])
+                .unwrap();
 
         assert_eq!(vec!["1", "4", "7", "2", "5", "8", "3", "6", "9"], x.values);
         x.iterator_mut(0).for_each(|v| *v = "str");
@@ -637,7 +763,7 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let x = DenseMatrix::<&str>::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"]]);
+        let x = DenseMatrix::<&str>::from_2d_array(&[&["1", "2", "3"], &["4", "5", "6"]]).unwrap();
 
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
         assert!(x.column_major);
@@ -664,8 +790,8 @@ mod tests {
 
     #[test]
     fn test_take() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
 
         println!("{a}");
         // take column 0 and 2
@@ -677,7 +803,7 @@ mod tests {
 
     #[test]
     fn test_mut() {
-        let a = DenseMatrix::from_2d_array(&[&[1.3, -2.1, 3.4], &[-4., -5.3, 6.1]]);
+        let a = DenseMatrix::from_2d_array(&[&[1.3, -2.1, 3.4], &[-4., -5.3, 6.1]]).unwrap();
 
         let a = a.abs();
         assert_eq!(vec![1.3, 4.0, 2.1, 5.3, 3.4, 6.1], a.values);
@@ -688,7 +814,8 @@ mod tests {
 
     #[test]
     fn test_reshape() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9], &[10, 11, 12]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9], &[10, 11, 12]])
+            .unwrap();
 
         let a = a.reshape(2, 6, 0);
         assert_eq!(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], a.values);
@@ -701,13 +828,15 @@ mod tests {
 
     #[test]
     fn test_eq() {
-        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
-        let b = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
         let c = DenseMatrix::from_2d_array(&[
             &[1. + f32::EPSILON, 2., 3.],
             &[4., 5., 6. + f32::EPSILON],
-        ]);
-        let d = DenseMatrix::from_2d_array(&[&[1. + 0.5, 2., 3.], &[4., 5., 6. + f32::EPSILON]]);
+        ])
+        .unwrap();
+        let d = DenseMatrix::from_2d_array(&[&[1. + 0.5, 2., 3.], &[4., 5., 6. + f32::EPSILON]])
+            .unwrap();
 
         assert!(!relative_eq!(a, b));
         assert!(!relative_eq!(a, d));

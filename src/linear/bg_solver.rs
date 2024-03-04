@@ -12,7 +12,8 @@
 //! pub struct BGSolver {}
 //! impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X> for BGSolver {}
 //!
-//! let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
+//! let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0.,
+//! 11.]]).unwrap();
 //! let b = vec![40., 51., 28.];
 //! let expected = vec![1.0, 2.0, 3.0];
 //! let mut x = Vec::zeros(3);
@@ -158,7 +159,8 @@ mod tests {
 
     #[test]
     fn bg_solver() {
-        let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
+        let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]])
+            .unwrap();
         let b = vec![40., 51., 28.];
         let expected = [1.0, 2.0, 3.0];
 
