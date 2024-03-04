@@ -211,7 +211,8 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
-    pub fn from_2d_vec(values: &[Vec<T>]) -> Result<Self, Failed> {
+    #[allow(clippy::ptr_arg)]
+    pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
         if values.is_empty() || values[0].is_empty() {
             Err(Failed::input(
                 "The 2d vec provided is empty; cannot instantiate the matrix",
