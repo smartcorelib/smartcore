@@ -248,19 +248,20 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
 
         let mut y_hat: Vec<T> = Vec::<T>::zeros(n);
 
+        let mut x_i = Vec::with_capacity(n);
         for i in 0..n {
-            y_hat.set(
-                i,
-                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).copied(), n)),
-            );
+            x_i.clear();
+            x_i.extend(x.get_row(i).iterator(0).copied());
+            y_hat.set(i, self.predict_for_row(&x_i));
         }
 
         Ok(y_hat)
     }
 
-    pub(crate) fn predict_for_row(&self, x: Vec<T>) -> T {
+    pub(crate) fn predict_for_row(&self, x: &[T]) -> T {
         let mut f = self.b;
 
+        let xi: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
         for i in 0..self.instances.as_ref().unwrap().len() {
             f += self.w.as_ref().unwrap()[i]
                 * T::from(
@@ -270,10 +271,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
                         .kernel
                         .as_ref()
                         .unwrap()
-                        .apply(
-                            &x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            &self.instances.as_ref().unwrap()[i],
-                        )
+                        .apply(&xi, &self.instances.as_ref().unwrap()[i])
                         .unwrap(),
                 )
                 .unwrap()

@@ -283,9 +283,7 @@ mod tests {
             (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
             (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
         ];
-        for ((train, test), (expected_train, expected_test)) in
-            k.split(&x).into_iter().zip(expected)
-        {
+        for ((train, test), (expected_train, expected_test)) in k.split(&x).zip(expected) {
             assert_eq!(test, expected_test);
             assert_eq!(train, expected_train);
         }
@@ -307,9 +305,7 @@ mod tests {
             (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
             (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
         ];
-        for ((train, test), (expected_train, expected_test)) in
-            k.split(&x).into_iter().zip(expected)
-        {
+        for ((train, test), (expected_train, expected_test)) in k.split(&x).zip(expected) {
             assert_eq!(test.len(), expected_test.len());
             assert_eq!(train.len(), expected_train.len());
         }

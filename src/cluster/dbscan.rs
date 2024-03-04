@@ -315,8 +315,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
                         }
                     }
 
-                    while !neighbors.is_empty() {
-                        let neighbor = neighbors.pop().unwrap();
+                    while let Some(neighbor) = neighbors.pop() {
                         let index = neighbor.0;
 
                         if y[index] == outlier {

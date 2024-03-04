@@ -898,11 +898,7 @@ mod tests {
 
         let y_hat = lr.predict(&x).unwrap();
 
-        let error: i32 = y
-            .into_iter()
-            .zip(y_hat.into_iter())
-            .map(|(a, b)| (a - b).abs())
-            .sum();
+        let error: i32 = y.into_iter().zip(y_hat).map(|(a, b)| (a - b).abs()).sum();
 
         assert!(error <= 1);
 

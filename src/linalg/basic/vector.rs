@@ -15,6 +15,25 @@ pub struct VecView<'a, T: Debug + Display + Copy + Sized> {
     ptr: &'a [T],
 }
 
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for &[T] {
+    fn get(&self, i: usize) -> &T {
+        &self[i]
+    }
+
+    fn shape(&self) -> usize {
+        self.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() > 0
+    }
+
+    fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
+        assert!(axis == 0, "For one dimensional array `axis` should == 0");
+        Box::new(self.iter())
+    }
+}
+
 impl<T: Debug + Display + Copy + Sized> Array<T, usize> for Vec<T> {
     fn get(&self, i: usize) -> &T {
         &self[i]
@@ -47,6 +66,7 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for Vec<T> {
 }
 
 impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for Vec<T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for &[T] {}
 
 impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for Vec<T> {}
 
@@ -192,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_len() {
-        let x = vec![1, 2, 3];
+        let x = [1, 2, 3];
         assert_eq!(3, x.len());
     }
 

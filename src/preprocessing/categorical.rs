@@ -281,7 +281,7 @@ mod tests {
     )]
     #[test]
     fn hash_encode_f64_series() {
-        let series = vec![3.0, 1.0, 2.0, 1.0];
+        let series = [3.0, 1.0, 2.0, 1.0];
         let hashable_series: Vec<CategoricalFloat> =
             series.iter().map(|v| v.to_category()).collect();
         let enc = CategoryMapper::from_positional_category_vec(hashable_series);

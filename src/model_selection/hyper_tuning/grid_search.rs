@@ -3,9 +3,9 @@
 use crate::{
     api::{Predictor, SupervisedEstimator},
     error::{Failed, FailedError},
-    linalg::basic::arrays::{Array2, Array1},
-    numbers::realnum::RealNumber,
+    linalg::basic::arrays::{Array1, Array2},
     numbers::basenum::Number,
+    numbers::realnum::RealNumber,
 };
 
 use crate::model_selection::{cross_validate, BaseKFold, CrossValidationResult};

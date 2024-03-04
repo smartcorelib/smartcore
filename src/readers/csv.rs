@@ -83,7 +83,7 @@ where
     Matrix: Array2<T>,
 {
     let csv_text = read_string_from_source(source)?;
-    let rows: Vec<Vec<T>> = extract_row_vectors_from_csv_text::<T, RowVector, Matrix>(
+    let rows: Vec<Vec<T>> = extract_row_vectors_from_csv_text(
         &csv_text,
         &definition,
         detect_row_format(&csv_text, &definition)?,
@@ -103,12 +103,7 @@ where
 
 /// Given a string containing the contents of a csv file, extract its value
 /// into row-vectors.
-fn extract_row_vectors_from_csv_text<
-    'a,
-    T: Number + RealNumber + std::str::FromStr,
-    RowVector: Array1<T>,
-    Matrix: Array2<T>,
->(
+fn extract_row_vectors_from_csv_text<'a, T: Number + RealNumber + std::str::FromStr>(
     csv_text: &'a str,
     definition: &'a CSVDefinition<'_>,
     row_format: CSVRowFormat<'_>,
@@ -306,12 +301,11 @@ mod tests {
     }
     mod extract_row_vectors_from_csv_text {
         use super::super::{extract_row_vectors_from_csv_text, CSVDefinition, CSVRowFormat};
-        use crate::linalg::basic::matrix::DenseMatrix;
 
         #[test]
         fn read_default_csv() {
             assert_eq!(
-                extract_row_vectors_from_csv_text::<f64, Vec<_>, DenseMatrix<_>>(
+                extract_row_vectors_from_csv_text::<f64>(
                     "column 1, column 2, column3\n1.0,2.0,3.0\n4.0,5.0,6.0",
                     &CSVDefinition::default(),
                     CSVRowFormat {
