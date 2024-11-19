@@ -731,34 +731,34 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
 pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
     MutArray<T, (usize, usize)> + ArrayView2<T>
 {
-    ///
+    /// copy values from another array
     fn copy_from(&mut self, other: &dyn Array<T, (usize, usize)>) {
         self.iterator_mut(0)
             .zip(other.iterator(0))
             .for_each(|(s, o)| *s = *o);
     }
-    ///
+    /// update view with absolute values
     fn abs_mut(&mut self)
     where
         T: Number + Signed,
     {
         self.iterator_mut(0).for_each(|v| *v = v.abs());
     }
-    ///
+    /// update view values with opposite sign
     fn neg_mut(&mut self)
     where
         T: Number + Neg<Output = T>,
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
-    ///
+    /// update view values at power `p`
     fn pow_mut(&mut self, p: T)
     where
         T: RealNumber,
     {
         self.iterator_mut(0).for_each(|v| *v = v.powf(p));
     }
-    ///
+    /// scale view values
     fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8)
     where
         T: Number,
