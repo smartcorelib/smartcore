@@ -312,7 +312,7 @@ mod tests {
         let y_hat = knn.predict(&x).unwrap();
         assert_eq!(5, Vec::len(&y_hat));
         for i in 0..y_hat.len() {
-            assert!((y_hat[i] - y_exp[i]).abs() < std::f64::EPSILON);
+            assert!((y_hat[i] - y_exp[i]).abs() < f64::EPSILON);
         }
     }
 

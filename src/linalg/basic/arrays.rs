@@ -265,11 +265,11 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+                .fold(f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::INFINITY, |a, b| a.min(b))
+                .fold(f64::INFINITY, |a, b| a.min(b))
         } else {
             let mut norm = 0f64;
 
@@ -558,11 +558,11 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+                .fold(f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::INFINITY, |a, b| a.min(b))
+                .fold(f64::INFINITY, |a, b| a.min(b))
         } else {
             let mut norm = 0f64;
 
@@ -1631,8 +1631,8 @@ mod tests {
         let v = vec![3., -2., 6.];
         assert_eq!(v.norm(1.), 11.);
         assert_eq!(v.norm(2.), 7.);
-        assert_eq!(v.norm(std::f64::INFINITY), 6.);
-        assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
+        assert_eq!(v.norm(f64::INFINITY), 6.);
+        assert_eq!(v.norm(f64::NEG_INFINITY), 2.);
     }
 
     #[test]

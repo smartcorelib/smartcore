@@ -173,7 +173,7 @@ impl LBFGS {
         }
 
         if state.x.max_diff(&state.x_prev)
-            <= T::from_f64(self.x_rtol * state.x.norm(std::f64::INFINITY)).unwrap()
+            <= T::from_f64(self.x_rtol * state.x.norm(f64::INFINITY)).unwrap()
         {
             x_converged = true;
         }
@@ -188,7 +188,7 @@ impl LBFGS {
             state.counter_f_tol += 1;
         }
 
-        if state.x_df.norm(std::f64::INFINITY) <= self.g_atol {
+        if state.x_df.norm(f64::INFINITY) <= self.g_atol {
             g_converged = true;
         }
 
@@ -248,7 +248,7 @@ impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
 
         df(&mut state.x_df, x0);
 
-        let g_converged = state.x_df.norm(std::f64::INFINITY) < self.g_atol;
+        let g_converged = state.x_df.norm(f64::INFINITY) < self.g_atol;
         let mut converged = g_converged;
         let stopped = false;
 
@@ -299,7 +299,7 @@ mod tests {
 
         let result = optimizer.optimize(&f, &df, &x0, &ls);
 
-        assert!((result.f_x - 0.0).abs() < std::f64::EPSILON);
+        assert!((result.f_x - 0.0).abs() < f64::EPSILON);
         assert!((result.x[0] - 1.0).abs() < 1e-8);
         assert!((result.x[1] - 1.0).abs() < 1e-8);
         assert!(result.iterations <= 24);

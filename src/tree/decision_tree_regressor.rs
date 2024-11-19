@@ -311,15 +311,15 @@ impl Node {
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        (self.output - other.output).abs() < std::f64::EPSILON
+        (self.output - other.output).abs() < f64::EPSILON
             && self.split_feature == other.split_feature
             && match (self.split_value, other.split_value) {
-                (Some(a), Some(b)) => (a - b).abs() < std::f64::EPSILON,
+                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
                 (None, None) => true,
                 _ => false,
             }
             && match (self.split_score, other.split_score) {
-                (Some(a), Some(b)) => (a - b).abs() < std::f64::EPSILON,
+                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
                 (None, None) => true,
                 _ => false,
             }
@@ -478,7 +478,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth() < tree.parameters().max_depth.unwrap_or(std::u16::MAX) {
+        while tree.depth() < tree.parameters().max_depth.unwrap_or(u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -515,7 +515,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                     if node.true_child.is_none() && node.false_child.is_none() {
                         result = node.output;
                     } else if x.get((row, node.split_feature)).to_f64().unwrap()
-                        <= node.split_value.unwrap_or(std::f64::NAN)
+                        <= node.split_value.unwrap_or(f64::NAN)
                     {
                         queue.push_back(node.true_child.unwrap());
                     } else {
@@ -640,9 +640,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                     .get((i, self.nodes()[visitor.node].split_feature))
                     .to_f64()
                     .unwrap()
-                    <= self.nodes()[visitor.node]
-                        .split_value
-                        .unwrap_or(std::f64::NAN)
+                    <= self.nodes()[visitor.node].split_value.unwrap_or(f64::NAN)
                 {
                     *true_sample = visitor.samples[i];
                     tc += *true_sample;

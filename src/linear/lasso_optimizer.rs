@@ -101,7 +101,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
 
             // CALCULATE DUALITY GAP
             let xnu = nu.xa(false, x);
-            let max_xnu = xnu.norm(std::f64::INFINITY);
+            let max_xnu = xnu.norm(f64::INFINITY);
             if max_xnu > lambda_f64 {
                 let lnu = T::from_f64(lambda_f64 / max_xnu).unwrap();
                 nu.mul_scalar_mut(lnu);

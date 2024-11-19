@@ -95,7 +95,7 @@ impl<T: Number + Unsigned> PartialEq for CategoricalNBDistribution<T> {
                         return false;
                     }
                     for (a_i_j, b_i_j) in a_i.iter().zip(b_i.iter()) {
-                        if (*a_i_j - *b_i_j).abs() > std::f64::EPSILON {
+                        if (*a_i_j - *b_i_j).abs() > f64::EPSILON {
                             return false;
                         }
                     }

@@ -629,11 +629,11 @@ mod tests {
         objective.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
         objective.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
-        assert!((g[0] + 33.000068218163484).abs() < std::f64::EPSILON);
+        assert!((g[0] + 33.000068218163484).abs() < f64::EPSILON);
 
         let f = objective.f(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
-        assert!((f - 408.0052230582765).abs() < std::f64::EPSILON);
+        assert!((f - 408.0052230582765).abs() < f64::EPSILON);
 
         let objective_reg = MultiClassObjectiveFunction {
             x: &x,
@@ -689,13 +689,13 @@ mod tests {
         objective.df(&mut g, &vec![1., 2., 3.]);
         objective.df(&mut g, &vec![1., 2., 3.]);
 
-        assert!((g[0] - 26.051064349381285).abs() < std::f64::EPSILON);
-        assert!((g[1] - 10.239000702928523).abs() < std::f64::EPSILON);
-        assert!((g[2] - 3.869294270156324).abs() < std::f64::EPSILON);
+        assert!((g[0] - 26.051064349381285).abs() < f64::EPSILON);
+        assert!((g[1] - 10.239000702928523).abs() < f64::EPSILON);
+        assert!((g[2] - 3.869294270156324).abs() < f64::EPSILON);
 
         let f = objective.f(&[1., 2., 3.]);
 
-        assert!((f - 59.76994756647412).abs() < std::f64::EPSILON);
+        assert!((f - 59.76994756647412).abs() < f64::EPSILON);
 
         let objective_reg = BinaryObjectiveFunction {
             x: &x,

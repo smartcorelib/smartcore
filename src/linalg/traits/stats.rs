@@ -217,8 +217,8 @@ mod tests {
         let expected_0 = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let expected_1 = vec![1.25, 1.25];
 
-        assert!(m.var(0).approximate_eq(&expected_0, std::f64::EPSILON));
-        assert!(m.var(1).approximate_eq(&expected_1, std::f64::EPSILON));
+        assert!(m.var(0).approximate_eq(&expected_0, f64::EPSILON));
+        assert!(m.var(1).approximate_eq(&expected_1, f64::EPSILON));
         assert_eq!(
             m.mean(0),
             vec![0.0, 0.25, 0.25, 1.25, 1.5, 1.75, 2.75, 3.25]

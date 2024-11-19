@@ -292,7 +292,7 @@ mod tests {
             .unwrap()
             .abs();
 
-        assert!((4913f64 - result) < std::f64::EPSILON);
+        assert!((4913f64 - result).abs() < f64::EPSILON);
     }
 
     #[cfg_attr(

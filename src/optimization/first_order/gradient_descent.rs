@@ -23,8 +23,8 @@ impl Default for GradientDescent {
     fn default() -> Self {
         GradientDescent {
             max_iter: 10000,
-            g_rtol: std::f64::EPSILON.sqrt(),
-            g_atol: std::f64::EPSILON,
+            g_rtol: f64::EPSILON.sqrt(),
+            g_atol: f64::EPSILON,
         }
     }
 }
