@@ -1,5 +1,3 @@
-// TODO: missing documentation
-
 ///
 pub mod first_order;
 ///

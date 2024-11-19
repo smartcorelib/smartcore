@@ -54,7 +54,7 @@ pub struct FastPair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
 impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     ///
     /// Constructor
-    /// Instantiate and inizialise the algorithm
+    /// Instantiate and initialize the algorithm
     ///
     pub fn new(m: &'a M) -> Result<Self, Failed> {
         if m.shape().0 < 3 {

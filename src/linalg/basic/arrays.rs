@@ -1003,7 +1003,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result
     }
 
-    ///
+    /// check if two arrays are approximately equal
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,

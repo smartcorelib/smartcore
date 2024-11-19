@@ -51,7 +51,6 @@ impl Default for LBFGS {
     }
 }
 
-///
 impl LBFGS {
     ///
     fn two_loops<T: FloatNumber + RealNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) {

@@ -1,9 +1,7 @@
-// TODO: missing documentation
-
 use crate::optimization::FunctionOrder;
 use num_traits::Float;
 
-///
+/// Line search method is an iterative approach to find a local minimum of a multidimensional nonlinear function using the function's gradients
 pub trait LineSearchMethod<T: Float> {
     ///
     fn search(
@@ -16,7 +14,7 @@ pub trait LineSearchMethod<T: Float> {
     ) -> LineSearchResult<T>;
 }
 
-///
+/// Line search result
 #[derive(Debug, Clone)]
 pub struct LineSearchResult<T: Float> {
     ///

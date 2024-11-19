@@ -1,5 +1,3 @@
-// TODO: missing documentation
-
 use std::default::Default;
 
 use crate::linalg::basic::arrays::Array1;
