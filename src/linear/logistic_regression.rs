@@ -916,7 +916,7 @@ mod tests {
         let x: DenseMatrix<f32> = DenseMatrix::rand(52181, 94);
         let y1: Vec<i32> = vec![1; 2181];
         let y2: Vec<i32> = vec![0; 50000];
-        let y: Vec<i32> = y1.into_iter().chain(y2.into_iter()).collect();
+        let y: Vec<i32> = y1.into_iter().chain(y2).collect();
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
         let lr_reg = LogisticRegression::fit(
@@ -938,12 +938,12 @@ mod tests {
         let x: &DenseMatrix<f64> = &DenseMatrix::rand(52181, 94);
         let y1: Vec<u32> = vec![1; 2181];
         let y2: Vec<u32> = vec![0; 50000];
-        let y: &Vec<u32> = &(y1.into_iter().chain(y2.into_iter()).collect());
+        let y: &Vec<u32> = &(y1.into_iter().chain(y2).collect());
         println!("y vec height: {:?}", y.len());
         println!("x matrix shape: {:?}", x.shape());
 
         let lr = LogisticRegression::fit(x, y, Default::default()).unwrap();
-        let y_hat = lr.predict(&x).unwrap();
+        let y_hat = lr.predict(x).unwrap();
 
         println!("y_hat shape: {:?}", y_hat.shape());
 

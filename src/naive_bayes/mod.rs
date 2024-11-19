@@ -163,7 +163,7 @@ mod tests {
         }
 
         fn classes(&self) -> &Vec<i32> {
-            &self.0
+            self.0
         }
     }
 
