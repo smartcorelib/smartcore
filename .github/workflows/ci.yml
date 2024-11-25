@@ -36,7 +36,7 @@ jobs:
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.81 # 1.82 seems to break wasm32 tests https://github.com/rustwasm/wasm-bindgen/issues/4274
           target: ${{ matrix.platform.target }}
           profile: minimal
           default: true

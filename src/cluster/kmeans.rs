@@ -96,7 +96,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for KMeans<
                     return false;
                 }
                 for j in 0..self.centroids[i].len() {
-                    if (self.centroids[i][j] - other.centroids[i][j]).abs() > std::f64::EPSILON {
+                    if (self.centroids[i][j] - other.centroids[i][j]).abs() > f64::EPSILON {
                         return false;
                     }
                 }
@@ -270,7 +270,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
 
         let (n, d) = data.shape();
 
-        let mut distortion = std::f64::MAX;
+        let mut distortion = f64::MAX;
         let mut y = KMeans::<TX, TY, X, Y>::kmeans_plus_plus(data, parameters.k, parameters.seed);
         let mut size = vec![0; parameters.k];
         let mut centroids = vec![vec![0f64; d]; parameters.k];
@@ -331,7 +331,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         let mut row = vec![0f64; x.shape().1];
 
         for i in 0..n {
-            let mut min_dist = std::f64::MAX;
+            let mut min_dist = f64::MAX;
             let mut best_cluster = 0;
 
             for j in 0..self.k {
@@ -361,7 +361,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             .cloned()
             .collect();
 
-        let mut d = vec![std::f64::MAX; n];
+        let mut d = vec![f64::MAX; n];
         let mut row = vec![TX::zero(); data.shape().1];
 
         for j in 1..k {

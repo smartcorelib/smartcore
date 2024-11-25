@@ -52,10 +52,8 @@ pub struct FastPair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
 }
 
 impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
-    ///
     /// Constructor
-    /// Instantiate and inizialise the algorithm
-    ///
+    /// Instantiate and initialize the algorithm
     pub fn new(m: &'a M) -> Result<Self, Failed> {
         if m.shape().0 < 3 {
             return Err(Failed::because(
@@ -74,10 +72,8 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         Ok(init)
     }
 
-    ///
     /// Initialise `FastPair` by passing a `Array2`.
     /// Build a FastPairs data-structure from a set of (new) points.
-    ///
     fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
@@ -158,9 +154,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         self.neighbours = neighbours;
     }
 
-    ///
     /// Find closest pair by scanning list of nearest neighbors.
-    ///
     #[allow(dead_code)]
     pub fn closest_pair(&self) -> PairwiseDistance<T> {
         let mut a = self.neighbours[0]; // Start with first point
@@ -217,9 +211,7 @@ mod tests_fastpair {
     use super::*;
     use crate::linalg::basic::{arrays::Array, matrix::DenseMatrix};
 
-    ///
     /// Brute force algorithm, used only for comparison and testing
-    ///
     pub fn closest_pair_brute(fastpair: &FastPair<f64, DenseMatrix<f64>>) -> PairwiseDistance<f64> {
         use itertools::Itertools;
         let m = fastpair.samples.shape().0;

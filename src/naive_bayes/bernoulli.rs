@@ -258,7 +258,7 @@ impl<TY: Number + Ord + Unsigned> BernoulliNBDistribution<TY> {
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    /// priors are adjusted according to the data.
+    ///     priors are adjusted according to the data.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter.
     /// * `binarize` - Threshold for binarizing.
     fn fit<TX: Number + PartialOrd, X: Array2<TX>, Y: Array1<TY>>(
@@ -402,10 +402,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 {
     /// Fits BernoulliNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
-    /// binarizing threshold.
+    ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         let distribution = if let Some(threshold) = parameters.binarize {
             BernoulliNBDistribution::fit(
@@ -427,6 +427,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         if let Some(threshold) = self.binarize {

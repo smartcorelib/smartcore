@@ -95,7 +95,7 @@ impl<T: Number + Unsigned> PartialEq for CategoricalNBDistribution<T> {
                         return false;
                     }
                     for (a_i_j, b_i_j) in a_i.iter().zip(b_i.iter()) {
-                        if (*a_i_j - *b_i_j).abs() > std::f64::EPSILON {
+                        if (*a_i_j - *b_i_j).abs() > f64::EPSILON {
                             return false;
                         }
                     }
@@ -363,7 +363,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> Predictor<X, Y> for Categ
 impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// Fits CategoricalNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like alpha for smoothing
     pub fn fit(x: &X, y: &Y, parameters: CategoricalNBParameters) -> Result<Self, Failed> {
@@ -375,6 +375,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.as_ref().unwrap().predict(x)

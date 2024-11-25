@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn test_add1() {
         let mut heap = HeapSelection::with_capacity(3);
-        heap.add(std::f64::INFINITY);
+        heap.add(f64::INFINITY);
         heap.add(-5f64);
         heap.add(4f64);
         heap.add(-1f64);
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn test_add2() {
         let mut heap = HeapSelection::with_capacity(3);
-        heap.add(std::f64::INFINITY);
+        heap.add(f64::INFINITY);
         heap.add(0.0);
         heap.add(8.4852);
         heap.add(5.6568);

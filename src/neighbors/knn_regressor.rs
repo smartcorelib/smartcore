@@ -88,25 +88,21 @@ pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D:
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     KNNRegressor<TX, TY, X, Y, D>
 {
-    ///
     fn y(&self) -> &Y {
         self.y.as_ref().unwrap()
     }
 
-    ///
     fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
         self.knn_algorithm
             .as_ref()
             .expect("Missing parameter: KNNAlgorithm")
     }
 
-    ///
     fn weight(&self) -> &KNNWeightFunction {
         self.weight.as_ref().expect("Missing parameter: weight")
     }
 
     #[allow(dead_code)]
-    ///
     fn k(&self) -> usize {
         self.k.unwrap()
     }
@@ -250,6 +246,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 
     /// Predict the target for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let mut result = Y::zeros(x.shape().0);
@@ -312,7 +309,7 @@ mod tests {
         let y_hat = knn.predict(&x).unwrap();
         assert_eq!(5, Vec::len(&y_hat));
         for i in 0..y_hat.len() {
-            assert!((y_hat[i] - y_exp[i]).abs() < std::f64::EPSILON);
+            assert!((y_hat[i] - y_exp[i]).abs() < f64::EPSILON);
         }
     }
 

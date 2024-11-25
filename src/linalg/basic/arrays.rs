@@ -265,11 +265,11 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+                .fold(f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::INFINITY, |a, b| a.min(b))
+                .fold(f64::INFINITY, |a, b| a.min(b))
         } else {
             let mut norm = 0f64;
 
@@ -558,11 +558,11 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+                .fold(f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::INFINITY, |a, b| a.min(b))
+                .fold(f64::INFINITY, |a, b| a.min(b))
         } else {
             let mut norm = 0f64;
 
@@ -731,34 +731,34 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
 pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
     MutArray<T, (usize, usize)> + ArrayView2<T>
 {
-    ///
+    /// copy values from another array
     fn copy_from(&mut self, other: &dyn Array<T, (usize, usize)>) {
         self.iterator_mut(0)
             .zip(other.iterator(0))
             .for_each(|(s, o)| *s = *o);
     }
-    ///
+    /// update view with absolute values
     fn abs_mut(&mut self)
     where
         T: Number + Signed,
     {
         self.iterator_mut(0).for_each(|v| *v = v.abs());
     }
-    ///
+    /// update view values with opposite sign
     fn neg_mut(&mut self)
     where
         T: Number + Neg<Output = T>,
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
-    ///
+    /// update view values at power `p`
     fn pow_mut(&mut self, p: T)
     where
         T: RealNumber,
     {
         self.iterator_mut(0).for_each(|v| *v = v.powf(p));
     }
-    ///
+    /// scale view values
     fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8)
     where
         T: Number,
@@ -784,27 +784,27 @@ pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
 
 /// Trait for mutable 1D-array view
 pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + Clone {
-    ///
+    /// return a view of the array
     fn slice<'a>(&'a self, range: Range<usize>) -> Box<dyn ArrayView1<T> + 'a>;
-    ///
+    /// return a mutable view of the array
     fn slice_mut<'a>(&'a mut self, range: Range<usize>) -> Box<dyn MutArrayView1<T> + 'a>;
-    ///
+    /// fill array with a given value
     fn fill(len: usize, value: T) -> Self
     where
         Self: Sized;
-    ///
+    /// create array from iterator
     fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
     where
         Self: Sized;
-    ///
+    /// create array from vector
     fn from_vec_slice(slice: &[T]) -> Self
     where
         Self: Sized;
-    ///
+    /// create array from slice
     fn from_slice(slice: &'_ dyn ArrayView1<T>) -> Self
     where
         Self: Sized;
-    ///
+    /// create a zero array
     fn zeros(len: usize) -> Self
     where
         T: Number,
@@ -812,7 +812,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         Self::fill(len, T::zero())
     }
-    ///
+    /// create an array of ones
     fn ones(len: usize) -> Self
     where
         T: Number,
@@ -820,7 +820,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         Self::fill(len, T::one())
     }
-    ///
+    /// create an array of random values
     fn rand(len: usize) -> Self
     where
         T: RealNumber,
@@ -828,7 +828,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         Self::from_iterator((0..len).map(|_| T::rand()), len)
     }
-    ///
+    /// add a scalar to the array
     fn add_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -838,7 +838,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.add_scalar_mut(x);
         result
     }
-    ///
+    /// subtract a scalar from the array
     fn sub_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -848,7 +848,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.sub_scalar_mut(x);
         result
     }
-    ///
+    /// divide a scalar from the array
     fn div_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -858,7 +858,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.div_scalar_mut(x);
         result
     }
-    ///
+    /// multiply a scalar to the array
     fn mul_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -868,7 +868,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.mul_scalar_mut(x);
         result
     }
-    ///
+    /// sum of two arrays
     fn add(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
@@ -878,7 +878,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.add_mut(other);
         result
     }
-    ///
+    /// subtract two arrays
     fn sub(&self, other: &impl Array1<T>) -> Self
     where
         T: Number,
@@ -888,7 +888,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.sub_mut(other);
         result
     }
-    ///
+    /// multiply two arrays
     fn mul(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
@@ -898,7 +898,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.mul_mut(other);
         result
     }
-    ///
+    /// divide two arrays
     fn div(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
@@ -908,7 +908,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.div_mut(other);
         result
     }
-    ///
+    /// replace values with another array
     fn take(&self, index: &[usize]) -> Self
     where
         Self: Sized,
@@ -920,7 +920,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         );
         Self::from_iterator(index.iter().map(move |&i| *self.get(i)), index.len())
     }
-    ///
+    /// create a view of the array with absolute values
     fn abs(&self) -> Self
     where
         T: Number + Signed,
@@ -930,7 +930,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.abs_mut();
         result
     }
-    ///
+    /// create a view of the array with opposite sign
     fn neg(&self) -> Self
     where
         T: Number + Neg<Output = T>,
@@ -940,7 +940,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.neg_mut();
         result
     }
-    ///
+    /// create a view of the array with values at power `p`
     fn pow(&self, p: T) -> Self
     where
         T: RealNumber,
@@ -950,7 +950,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.pow_mut(p);
         result
     }
-    ///
+    /// apply argsort to the array
     fn argsort(&self) -> Vec<usize>
     where
         T: Number + PartialOrd,
@@ -958,12 +958,12 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         let mut v = self.clone();
         v.argsort_mut()
     }
-    ///
+    /// map values of the array
     fn map<O: Debug + Display + Copy + Sized, A: Array1<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
         let len = self.shape();
         A::from_iterator(self.iterator(0).map(f), len)
     }
-    ///
+    /// apply softmax to the array
     fn softmax(&self) -> Self
     where
         T: RealNumber,
@@ -973,7 +973,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.softmax_mut();
         result
     }
-    ///
+    /// multiply array by matrix
     fn xa(&self, a_transpose: bool, a: &dyn ArrayView2<T>) -> Self
     where
         T: Number,
@@ -1003,7 +1003,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result
     }
 
-    ///
+    /// check if two arrays are approximately equal
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,
@@ -1015,13 +1015,13 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
 
 /// Trait for mutable 2D-array view
 pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + Clone {
-    ///
+    /// fill 2d array with a given value
     fn fill(nrows: usize, ncols: usize, value: T) -> Self;
-    ///
+    /// get a view of the 2d array
     fn slice<'a>(&'a self, rows: Range<usize>, cols: Range<usize>) -> Box<dyn ArrayView2<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// get a mutable view of the 2d array
     fn slice_mut<'a>(
         &'a mut self,
         rows: Range<usize>,
@@ -1029,31 +1029,31 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     ) -> Box<dyn MutArrayView2<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// create 2d array from iterator
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self;
-    ///
+    /// get row from 2d array
     fn get_row<'a>(&'a self, row: usize) -> Box<dyn ArrayView1<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// get column from 2d array
     fn get_col<'a>(&'a self, col: usize) -> Box<dyn ArrayView1<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// create a zero 2d array
     fn zeros(nrows: usize, ncols: usize) -> Self
     where
         T: Number,
     {
         Self::fill(nrows, ncols, T::zero())
     }
-    ///
+    /// create a 2d array of ones
     fn ones(nrows: usize, ncols: usize) -> Self
     where
         T: Number,
     {
         Self::fill(nrows, ncols, T::one())
     }
-    ///
+    /// create an identity matrix
     fn eye(size: usize) -> Self
     where
         T: Number,
@@ -1066,29 +1066,29 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         matrix
     }
-    ///
+    /// create a 2d array of random values
     fn rand(nrows: usize, ncols: usize) -> Self
     where
         T: RealNumber,
     {
         Self::from_iterator((0..nrows * ncols).map(|_| T::rand()), nrows, ncols, 0)
     }
-    ///
+    /// crate from 2d slice
     fn from_slice(slice: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = slice.shape();
         Self::from_iterator(slice.iterator(0).cloned(), nrows, ncols, 0)
     }
-    ///
+    /// create from row
     fn from_row(slice: &dyn ArrayView1<T>) -> Self {
         let ncols = slice.shape();
         Self::from_iterator(slice.iterator(0).cloned(), 1, ncols, 0)
     }
-    ///
+    /// create from column
     fn from_column(slice: &dyn ArrayView1<T>) -> Self {
         let nrows = slice.shape();
         Self::from_iterator(slice.iterator(0).cloned(), nrows, 1, 0)
     }
-    ///
+    /// transpose 2d array
     fn transpose(&self) -> Self {
         let (nrows, ncols) = self.shape();
         let mut m = Self::fill(ncols, nrows, *self.get((0, 0)));
@@ -1099,7 +1099,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
         m
     }
-    ///
+    /// change shape of 2d array
     fn reshape(&self, nrows: usize, ncols: usize, axis: u8) -> Self {
         let (onrows, oncols) = self.shape();
 
@@ -1110,7 +1110,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         Self::from_iterator(self.iterator(0).cloned(), nrows, ncols, axis)
     }
-    ///
+    /// multiply two 2d arrays
     fn matmul(&self, other: &dyn ArrayView2<T>) -> Self
     where
         T: Number,
@@ -1136,7 +1136,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         result
     }
-    ///
+    /// matrix multiplication
     fn ab(&self, a_transpose: bool, b: &dyn ArrayView2<T>, b_transpose: bool) -> Self
     where
         T: Number,
@@ -1171,7 +1171,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             result
         }
     }
-    ///
+    /// matrix vector multiplication
     fn ax(&self, a_transpose: bool, x: &dyn ArrayView1<T>) -> Self
     where
         T: Number,
@@ -1199,7 +1199,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
         result
     }
-    ///
+    /// concatenate 1d array
     fn concatenate_1d<'a>(arrays: &'a [&'a dyn ArrayView1<T>], axis: u8) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1237,7 +1237,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             ),
         }
     }
-    ///
+    /// concatenate 2d array
     fn concatenate_2d<'a>(arrays: &'a [&'a dyn ArrayView2<T>], axis: u8) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1294,7 +1294,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
-    ///
+    /// merge 1d arrays
     fn merge_1d<'a>(&'a self, arrays: &'a [&'a dyn ArrayView1<T>], axis: u8, append: bool) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1362,7 +1362,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
-    ///
+    /// Stack arrays in sequence vertically
     fn v_stack(&self, other: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = self.shape();
         let (other_nrows, other_ncols) = other.shape();
@@ -1378,7 +1378,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             0,
         )
     }
-    ///
+    /// Stack arrays in sequence horizontally
     fn h_stack(&self, other: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = self.shape();
         let (other_nrows, other_ncols) = other.shape();
@@ -1394,20 +1394,20 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             1,
         )
     }
-    ///
+    /// map  array values
     fn map<O: Debug + Display + Copy + Sized, A: Array2<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
         let (nrows, ncols) = self.shape();
         A::from_iterator(self.iterator(0).map(f), nrows, ncols, 0)
     }
-    ///
+    /// iter rows
     fn row_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
         Box::new((0..self.shape().0).map(move |r| self.get_row(r)))
     }
-    ///
+    /// iter cols
     fn col_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
         Box::new((0..self.shape().1).map(move |r| self.get_col(r)))
     }
-    ///
+    /// take elements from 2d array
     fn take(&self, index: &[usize], axis: u8) -> Self {
         let (nrows, ncols) = self.shape();
 
@@ -1447,7 +1447,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     fn take_column(&self, column_index: usize) -> Self {
         self.take(&[column_index], 1)
     }
-    ///
+    /// add a scalar to the array
     fn add_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1456,7 +1456,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.add_scalar_mut(x);
         result
     }
-    ///
+    /// subtract a scalar from the array
     fn sub_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1465,7 +1465,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.sub_scalar_mut(x);
         result
     }
-    ///
+    /// divide a scalar from the array
     fn div_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1474,7 +1474,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.div_scalar_mut(x);
         result
     }
-    ///
+    /// multiply a scalar to the array
     fn mul_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1483,7 +1483,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.mul_scalar_mut(x);
         result
     }
-    ///
+    /// sum of two arrays
     fn add(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1492,7 +1492,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.add_mut(other);
         result
     }
-    ///
+    /// subtract two arrays
     fn sub(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1501,7 +1501,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.sub_mut(other);
         result
     }
-    ///
+    /// multiply two arrays
     fn mul(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1510,7 +1510,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.mul_mut(other);
         result
     }
-    ///
+    /// divide two arrays
     fn div(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1519,7 +1519,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.div_mut(other);
         result
     }
-    ///
+    /// absolute values of the array
     fn abs(&self) -> Self
     where
         T: Number + Signed,
@@ -1528,7 +1528,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.abs_mut();
         result
     }
-    ///
+    /// negation of the array
     fn neg(&self) -> Self
     where
         T: Number + Neg<Output = T>,
@@ -1537,7 +1537,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.neg_mut();
         result
     }
-    ///
+    /// values at power `p`
     fn pow(&self, p: T) -> Self
     where
         T: RealNumber,
@@ -1575,7 +1575,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
     }
 
-    /// appriximate equality of the elements of a matrix according to a given error
+    /// approximate equality of the elements of a matrix according to a given error
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,
@@ -1631,8 +1631,8 @@ mod tests {
         let v = vec![3., -2., 6.];
         assert_eq!(v.norm(1.), 11.);
         assert_eq!(v.norm(2.), 7.);
-        assert_eq!(v.norm(std::f64::INFINITY), 6.);
-        assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
+        assert_eq!(v.norm(f64::INFINITY), 6.);
+        assert_eq!(v.norm(f64::NEG_INFINITY), 2.);
     }
 
     #[test]

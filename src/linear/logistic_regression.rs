@@ -183,14 +183,11 @@ pub struct LogisticRegression<
 }
 
 trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
-    ///
     fn f(&self, w_bias: &[T]) -> T;
 
-    ///
     #[allow(clippy::ptr_arg)]
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
 
-    ///
     #[allow(clippy::ptr_arg)]
     fn partial_dot(w: &[T], x: &X, v_col: usize, m_row: usize) -> T {
         let mut sum = T::zero();
@@ -629,11 +626,11 @@ mod tests {
         objective.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
         objective.df(&mut g, &vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
-        assert!((g[0] + 33.000068218163484).abs() < std::f64::EPSILON);
+        assert!((g[0] + 33.000068218163484).abs() < f64::EPSILON);
 
         let f = objective.f(&[1., 2., 3., 4., 5., 6., 7., 8., 9.]);
 
-        assert!((f - 408.0052230582765).abs() < std::f64::EPSILON);
+        assert!((f - 408.0052230582765).abs() < f64::EPSILON);
 
         let objective_reg = MultiClassObjectiveFunction {
             x: &x,
@@ -689,13 +686,13 @@ mod tests {
         objective.df(&mut g, &vec![1., 2., 3.]);
         objective.df(&mut g, &vec![1., 2., 3.]);
 
-        assert!((g[0] - 26.051064349381285).abs() < std::f64::EPSILON);
-        assert!((g[1] - 10.239000702928523).abs() < std::f64::EPSILON);
-        assert!((g[2] - 3.869294270156324).abs() < std::f64::EPSILON);
+        assert!((g[0] - 26.051064349381285).abs() < f64::EPSILON);
+        assert!((g[1] - 10.239000702928523).abs() < f64::EPSILON);
+        assert!((g[2] - 3.869294270156324).abs() < f64::EPSILON);
 
         let f = objective.f(&[1., 2., 3.]);
 
-        assert!((f - 59.76994756647412).abs() < std::f64::EPSILON);
+        assert!((f - 59.76994756647412).abs() < f64::EPSILON);
 
         let objective_reg = BinaryObjectiveFunction {
             x: &x,
@@ -916,7 +913,7 @@ mod tests {
         let x: DenseMatrix<f32> = DenseMatrix::rand(52181, 94);
         let y1: Vec<i32> = vec![1; 2181];
         let y2: Vec<i32> = vec![0; 50000];
-        let y: Vec<i32> = y1.into_iter().chain(y2.into_iter()).collect();
+        let y: Vec<i32> = y1.into_iter().chain(y2).collect();
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
         let lr_reg = LogisticRegression::fit(
@@ -938,12 +935,12 @@ mod tests {
         let x: &DenseMatrix<f64> = &DenseMatrix::rand(52181, 94);
         let y1: Vec<u32> = vec![1; 2181];
         let y2: Vec<u32> = vec![0; 50000];
-        let y: &Vec<u32> = &(y1.into_iter().chain(y2.into_iter()).collect());
+        let y: &Vec<u32> = &(y1.into_iter().chain(y2).collect());
         println!("y vec height: {:?}", y.len());
         println!("x matrix shape: {:?}", x.shape());
 
         let lr = LogisticRegression::fit(x, y, Default::default()).unwrap();
-        let y_hat = lr.predict(&x).unwrap();
+        let y_hat = lr.predict(x).unwrap();
 
         println!("y_hat shape: {:?}", y_hat.shape());
 

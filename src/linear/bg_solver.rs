@@ -27,9 +27,9 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array, Array1, Array2, ArrayView1, MutArrayView1};
 use crate::numbers::floatnum::FloatNumber;
 
-///
+/// Trait for Biconjugate Gradient Solver
 pub trait BiconjugateGradientSolver<'a, T: FloatNumber, X: Array2<T>> {
-    ///
+    /// Solve Ax = b
     fn solve_mut(
         &self,
         a: &'a X,
@@ -109,7 +109,7 @@ pub trait BiconjugateGradientSolver<'a, T: FloatNumber, X: Array2<T>> {
         Ok(err)
     }
 
-    ///
+    /// solve preconditioner
     fn solve_preconditioner(&self, a: &'a X, b: &[T], x: &mut [T]) {
         let diag = Self::diag(a);
         let n = diag.len();
@@ -133,7 +133,7 @@ pub trait BiconjugateGradientSolver<'a, T: FloatNumber, X: Array2<T>> {
         y.copy_from(&x.xa(true, a));
     }
 
-    ///
+    /// Extract the diagonal from a matrix
     fn diag(a: &X) -> Vec<T> {
         let (nrows, ncols) = a.shape();
         let n = nrows.min(ncols);

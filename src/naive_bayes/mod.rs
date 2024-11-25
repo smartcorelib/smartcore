@@ -89,6 +89,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let y_classes = self.distribution.classes();
@@ -163,7 +164,7 @@ mod tests {
         }
 
         fn classes(&self) -> &Vec<i32> {
-            &self.0
+            self.0
         }
     }
 

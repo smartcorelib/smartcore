@@ -175,7 +175,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    /// priors are adjusted according to the data.
+    ///     priors are adjusted according to the data.
     pub fn fit<TX: Number + RealNumber, X: Array2<TX>, Y: Array1<TY>>(
         x: &X,
         y: &Y,
@@ -317,7 +317,7 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 {
     /// Fits GaussianNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors.
     pub fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
@@ -328,6 +328,7 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.as_ref().unwrap().predict(x)
