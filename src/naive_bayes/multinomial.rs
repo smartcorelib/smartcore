@@ -208,7 +208,7 @@ impl<TY: Number + Ord + Unsigned> MultinomialNBDistribution<TY> {
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    /// priors are adjusted according to the data.
+    ///     priors are adjusted according to the data.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter.
     pub fn fit<TX: Number + Unsigned, X: Array2<TX>, Y: Array1<TY>>(
         x: &X,
@@ -345,10 +345,10 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
 {
     /// Fits MultinomialNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
-    /// binarizing threshold.
+    ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         let distribution =
             MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?;
@@ -358,6 +358,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.as_ref().unwrap().predict(x)

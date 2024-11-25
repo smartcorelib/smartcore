@@ -6,13 +6,13 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
-///
+/// Gradient Descent optimization algorithm
 pub struct GradientDescent {
     /// Maximum number of iterations
     pub max_iter: usize,
-    ///
+    /// Relative tolerance for the gradient norm
     pub g_rtol: f64,
-    ///
+    /// Absolute tolerance for the gradient norm
     pub g_atol: f64,
 }
 

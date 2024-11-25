@@ -11,25 +11,25 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
-///
+/// Limited-memory BFGS optimization algorithm
 pub struct LBFGS {
     /// Maximum number of iterations
     pub max_iter: usize,
-    ///
+    /// TODO: Add documentation
     pub g_rtol: f64,
-    ///
+    /// TODO: Add documentation
     pub g_atol: f64,
-    ///
+    /// TODO: Add documentation
     pub x_atol: f64,
-    ///
+    /// TODO: Add documentation
     pub x_rtol: f64,
-    ///
+    /// TODO: Add documentation
     pub f_abstol: f64,
-    ///
+    /// TODO: Add documentation
     pub f_reltol: f64,
-    ///
+    /// TODO: Add documentation
     pub successive_f_tol: usize,
-    ///
+    /// TODO: Add documentation
     pub m: usize,
 }
 
@@ -204,7 +204,6 @@ impl LBFGS {
     }
 }
 
-///
 #[derive(Debug)]
 struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     x: X,

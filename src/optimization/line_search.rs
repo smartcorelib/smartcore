@@ -17,23 +17,23 @@ pub trait LineSearchMethod<T: Float> {
 /// Line search result
 #[derive(Debug, Clone)]
 pub struct LineSearchResult<T: Float> {
-    /// Alpha
+    /// Alpha value
     pub alpha: T,
-    ///
+    /// f(alpha) value
     pub f_x: T,
 }
 
-///
+/// Backtracking line search method.
 pub struct Backtracking<T: Float> {
-    ///
+    /// TODO: Add documentation
     pub c1: T,
     /// Maximum number of iterations for Backtracking single run
     pub max_iterations: usize,
-    ///
+    /// TODO: Add documentation
     pub max_infinity_iterations: usize,
-    ///
+    /// TODO: Add documentation
     pub phi: T,
-    ///
+    /// TODO: Add documentation
     pub plo: T,
     /// function order
     pub order: FunctionOrder,

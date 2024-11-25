@@ -48,9 +48,7 @@ pub struct SVD<T: Number + RealNumber, M: SVDDecomposable<T>> {
     pub V: M,
     /// Singular values of the original matrix
     pub s: Vec<T>,
-    ///
     m: usize,
-    ///
     n: usize,
     /// Tolerance
     tol: T,

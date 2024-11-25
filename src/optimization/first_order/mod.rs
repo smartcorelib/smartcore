@@ -1,6 +1,6 @@
-///  
+/// Gradient descent optimization algorithm
 pub mod gradient_descent;
-///
+/// Limited-memory BFGS optimization algorithm
 pub mod lbfgs;
 
 use std::clone::Clone;
