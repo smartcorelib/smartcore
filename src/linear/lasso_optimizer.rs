@@ -208,7 +208,6 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         Ok(w)
     }
 
-    ///
     fn sumlogneg(f: &X) -> T {
         let (n, _) = f.shape();
         let mut sum = T::zero();
@@ -220,11 +219,9 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
     }
 }
 
-///
 impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
     for InteriorPointOptimizer<T, X>
 {
-    ///
     fn solve_preconditioner(&self, a: &'a X, b: &[T], x: &mut [T]) {
         let (_, p) = a.shape();
 
@@ -234,7 +231,6 @@ impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
         }
     }
 
-    ///
     fn mat_vec_mul(&self, _: &X, x: &Vec<T>, y: &mut Vec<T>) {
         let (_, p) = self.ata.shape();
         let x_slice = Vec::from_slice(x.slice(0..p).as_ref());
@@ -246,7 +242,6 @@ impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
         }
     }
 
-    ///
     fn mat_t_vec_mul(&self, a: &X, x: &Vec<T>, y: &mut Vec<T>) {
         self.mat_vec_mul(a, x, y);
     }

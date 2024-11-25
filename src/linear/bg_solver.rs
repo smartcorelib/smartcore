@@ -133,7 +133,7 @@ pub trait BiconjugateGradientSolver<'a, T: FloatNumber, X: Array2<T>> {
         y.copy_from(&x.xa(true, a));
     }
 
-    ///
+    /// Extract the diagonal from a matrix
     fn diag(a: &X) -> Vec<T> {
         let (nrows, ncols) = a.shape();
         let n = nrows.min(ncols);

@@ -33,9 +33,7 @@ pub struct LBFGS {
     pub m: usize,
 }
 
-///
 impl Default for LBFGS {
-    ///
     fn default() -> Self {
         LBFGS {
             max_iter: 1000,
@@ -52,7 +50,6 @@ impl Default for LBFGS {
 }
 
 impl LBFGS {
-    ///
     fn two_loops<T: FloatNumber + RealNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) {
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;
@@ -94,7 +91,6 @@ impl LBFGS {
         state.s.mul_scalar_mut(-T::one());
     }
 
-    ///
     fn init_state<T: FloatNumber + RealNumber, X: Array1<T>>(&self, x: &X) -> LBFGSState<T, X> {
         LBFGSState {
             x: x.clone(),
@@ -118,7 +114,6 @@ impl LBFGS {
         }
     }
 
-    ///
     fn update_state<'a, T: FloatNumber + RealNumber, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,
@@ -160,7 +155,6 @@ impl LBFGS {
         df(&mut state.x_df, &state.x);
     }
 
-    ///
     fn assess_convergence<T: FloatNumber, X: Array1<T>>(
         &self,
         state: &mut LBFGSState<T, X>,
@@ -194,7 +188,6 @@ impl LBFGS {
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    ///
     fn update_hessian<T: FloatNumber, X: Array1<T>>(
         &self,
         _: &DF<'_, X>,
@@ -233,9 +226,7 @@ struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     alpha: T,
 }
 
-///
 impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
-    ///
     fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &F<'_, T, X>,

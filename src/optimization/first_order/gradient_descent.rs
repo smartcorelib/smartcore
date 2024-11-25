@@ -16,7 +16,6 @@ pub struct GradientDescent {
     pub g_atol: f64,
 }
 
-///
 impl Default for GradientDescent {
     fn default() -> Self {
         GradientDescent {
@@ -27,9 +26,7 @@ impl Default for GradientDescent {
     }
 }
 
-///
 impl<T: FloatNumber> FirstOrderOptimizer<T> for GradientDescent {
-    ///
     fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,

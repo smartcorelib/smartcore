@@ -74,10 +74,8 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         Ok(init)
     }
 
-    ///
     /// Initialise `FastPair` by passing a `Array2`.
     /// Build a FastPairs data-structure from a set of (new) points.
-    ///
     fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;

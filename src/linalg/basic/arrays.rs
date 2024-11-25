@@ -1294,7 +1294,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
-    ///
+    /// merge 1d arrays
     fn merge_1d<'a>(&'a self, arrays: &'a [&'a dyn ArrayView1<T>], axis: u8, append: bool) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1362,7 +1362,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
-    ///
+    /// Stack arrays in sequence vertically
     fn v_stack(&self, other: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = self.shape();
         let (other_nrows, other_ncols) = other.shape();
@@ -1378,7 +1378,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             0,
         )
     }
-    ///
+    /// Stack arrays in sequence horizontally
     fn h_stack(&self, other: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = self.shape();
         let (other_nrows, other_ncols) = other.shape();
@@ -1407,7 +1407,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     fn col_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
         Box::new((0..self.shape().1).map(move |r| self.get_col(r)))
     }
-    ///
+    /// take elements from 2d array
     fn take(&self, index: &[usize], axis: u8) -> Self {
         let (nrows, ncols) = self.shape();
 

@@ -88,25 +88,21 @@ pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D:
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     KNNRegressor<TX, TY, X, Y, D>
 {
-    ///
     fn y(&self) -> &Y {
         self.y.as_ref().unwrap()
     }
 
-    ///
     fn knn_algorithm(&self) -> &KNNAlgorithm<TX, D> {
         self.knn_algorithm
             .as_ref()
             .expect("Missing parameter: KNNAlgorithm")
     }
 
-    ///
     fn weight(&self) -> &KNNWeightFunction {
         self.weight.as_ref().expect("Missing parameter: weight")
     }
 
     #[allow(dead_code)]
-    ///
     fn k(&self) -> usize {
         self.k.unwrap()
     }
