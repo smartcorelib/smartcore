@@ -125,11 +125,11 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
 
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
         let a = Array::from_iter(iter.take(nrows * ncols))
-            .into_shape((nrows, ncols))
+            .to_shape((nrows, ncols))
             .unwrap();
         match axis {
             0 => a,
-            _ => a.reversed_axes().into_shape((nrows, ncols)).unwrap(),
+            _ => a.reversed_axes().to_shape((nrows, ncols)).unwrap(),
         }
     }
 
