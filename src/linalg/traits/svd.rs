@@ -52,7 +52,7 @@ pub struct SVD<T: Number + RealNumber, M: SVDDecomposable<T>> {
     m: usize,
     ///
     n: usize,
-    ///
+    /// Tolerance
     tol: T,
 }
 

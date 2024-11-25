@@ -26,9 +26,9 @@ pub trait FirstOrderOptimizer<T: FloatNumber> {
 /// Result of optimization
 #[derive(Debug, Clone)]
 pub struct OptimizerResult<T: FloatNumber, X: Array1<T>> {
-    ///
+    /// Solution
     pub x: X,
-    ///
+    /// f(x) value
     pub f_x: T,
     /// number of iterations
     pub iterations: usize,

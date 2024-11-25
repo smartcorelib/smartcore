@@ -8,7 +8,7 @@ use crate::optimization::{DF, F};
 
 ///
 pub struct GradientDescent {
-    ///
+    /// Maximum number of iterations
     pub max_iter: usize,
     ///
     pub g_rtol: f64,

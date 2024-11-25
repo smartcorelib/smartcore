@@ -183,14 +183,11 @@ pub struct LogisticRegression<
 }
 
 trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
-    ///
     fn f(&self, w_bias: &[T]) -> T;
 
-    ///
     #[allow(clippy::ptr_arg)]
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
 
-    ///
     #[allow(clippy::ptr_arg)]
     fn partial_dot(w: &[T], x: &X, v_col: usize, m_row: usize) -> T {
         let mut sum = T::zero();

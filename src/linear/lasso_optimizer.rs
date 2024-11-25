@@ -16,7 +16,7 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray, MutArra
 use crate::linear::bg_solver::BiconjugateGradientSolver;
 use crate::numbers::floatnum::FloatNumber;
 
-///
+/// Interior Point Optimizer
 pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     ata: X,
     d1: Vec<T>,
@@ -25,9 +25,8 @@ pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     prs: Vec<T>,
 }
 
-///
 impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
-    ///
+    /// Initialize a new Interior Point Optimizer
     pub fn new(a: &X, n: usize) -> InteriorPointOptimizer<T, X> {
         InteriorPointOptimizer {
             ata: a.ab(true, a, false),
@@ -38,7 +37,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         }
     }
 
-    ///
+    /// Run the optimization
     pub fn optimize(
         &mut self,
         x: &X,

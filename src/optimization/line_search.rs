@@ -1,9 +1,9 @@
 use crate::optimization::FunctionOrder;
 use num_traits::Float;
 
-/// Line search method is an iterative approach to find a local minimum of a multidimensional nonlinear function using the function's gradients
+/// Line search optimization.
 pub trait LineSearchMethod<T: Float> {
-    ///
+    /// Find alpha that satisfies strong Wolfe conditions.
     fn search(
         &self,
         f: &(dyn Fn(T) -> T),
@@ -17,7 +17,7 @@ pub trait LineSearchMethod<T: Float> {
 /// Line search result
 #[derive(Debug, Clone)]
 pub struct LineSearchResult<T: Float> {
-    ///
+    /// Alpha
     pub alpha: T,
     ///
     pub f_x: T,
@@ -27,7 +27,7 @@ pub struct LineSearchResult<T: Float> {
 pub struct Backtracking<T: Float> {
     ///
     pub c1: T,
-    ///
+    /// Maximum number of iterations for Backtracking single run
     pub max_iterations: usize,
     ///
     pub max_infinity_iterations: usize,
@@ -35,11 +35,10 @@ pub struct Backtracking<T: Float> {
     pub phi: T,
     ///
     pub plo: T,
-    ///
+    /// function order
     pub order: FunctionOrder,
 }
 
-///
 impl<T: Float> Default for Backtracking<T> {
     fn default() -> Self {
         Backtracking {

@@ -973,7 +973,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.softmax_mut();
         result
     }
-    ///
+    /// multiply array by matrix
     fn xa(&self, a_transpose: bool, a: &dyn ArrayView2<T>) -> Self
     where
         T: Number,
@@ -1136,7 +1136,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         result
     }
-    ///
+    /// matrix multiplication
     fn ab(&self, a_transpose: bool, b: &dyn ArrayView2<T>, b_transpose: bool) -> Self
     where
         T: Number,
@@ -1171,7 +1171,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             result
         }
     }
-    ///
+    /// matrix vector multiplication
     fn ax(&self, a_transpose: bool, x: &dyn ArrayView1<T>) -> Self
     where
         T: Number,
