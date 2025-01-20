@@ -1110,7 +1110,7 @@ mod tests {
         let svc = SVC::fit(&x, &y, &params).unwrap();
 
         // serialization
-        let deserialized_svc: SVC<f64, i32, _, _> =
+        let deserialized_svc: SVC<'_, f64, i32, _, _> =
             serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
         assert_eq!(svc, deserialized_svc);

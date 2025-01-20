@@ -142,7 +142,6 @@ pub trait MatrixPreprocessing<T: RealNumber>: MutArrayView2<T> + Clone {
     ///
     /// assert_eq!(a, expected);
     /// ```
-
     fn binarize_mut(&mut self, threshold: T) {
         let (nrows, ncols) = self.shape();
         for row in 0..nrows {

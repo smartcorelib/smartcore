@@ -212,7 +212,7 @@ mod tests_fastpair {
     use crate::linalg::basic::{arrays::Array, matrix::DenseMatrix};
 
     /// Brute force algorithm, used only for comparison and testing
-    pub fn closest_pair_brute(fastpair: &FastPair<f64, DenseMatrix<f64>>) -> PairwiseDistance<f64> {
+    pub fn closest_pair_brute(fastpair: &FastPair<'_, f64, DenseMatrix<f64>>) -> PairwiseDistance<f64> {
         use itertools::Itertools;
         let m = fastpair.samples.shape().0;
 

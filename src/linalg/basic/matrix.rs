@@ -142,7 +142,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
         }
     }
 
-    fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &mut T> + 'b> {
+    fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
         let column_major = self.column_major;
         let stride = self.stride;
         let ptr = self.values.as_mut_ptr();
@@ -604,6 +604,7 @@ impl<T: RealNumber> MatrixStats<T> for DenseMatrix<T> {}
 impl<T: RealNumber> MatrixPreprocessing<T> for DenseMatrix<T> {}
 
 #[cfg(test)]
+#[warn(clippy::reversed_empty_ranges)]
 mod tests {
     use super::*;
     use approx::relative_eq;
