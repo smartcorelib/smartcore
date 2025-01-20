@@ -70,3 +70,15 @@ $ rust-code-analysis-cli -p src/algorithm/neighbour/fastpair.rs --ls 22 --le 213
 * **PRs on develop**: any change should be PRed first in `development`
 
 * **testing**:  everything should work and be tested as defined in the workflow. If any is failing for non-related reasons, annotate the test failure in the PR comment.
+
+
+## Suggestions for debugging
+1. Install `lldb` for your platform
+2. Run `rust-lldb target/debug/libsmartcore.rlib` in your command-line
+3. In lldb, set up some breakpoints using `b func_name` or `b src/path/to/file.rs:linenumber`
+4. In lldb, run a single test with `r the_name_of_your_test`
+
+Display variables in scope: `frame variable <name>` 
+
+Execute expression: `p <expr>`
+
