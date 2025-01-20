@@ -655,12 +655,10 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
         for tree in self.trees.as_ref().unwrap().iter() {
             let tree_predictions: Y = tree.predict(x).unwrap();
-            
-            let mut i = 0;
-            for &class_idx in tree_predictions.iterator(0) {
+
+            for (i, &class_idx) in tree_predictions.iterator(0).enumerate() {
                 let class_ = class_idx.to_usize().unwrap();
                 probas.add_element_mut((i, class_), 1.0);
-                i += 1;
             }
         }
 
