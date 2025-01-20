@@ -146,9 +146,7 @@ impl<T: Number + RealNumber> SVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2>
 
 impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayView<'_, T, Ix2> {}
 
-impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
-    for ArrayViewMut<'_, T, Ix2>
-{
+impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayViewMut<'_, T, Ix2> {
     fn get(&self, pos: (usize, usize)) -> &T {
         &self[[pos.0, pos.1]]
     }
@@ -175,9 +173,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     }
 }
 
-impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
-    for ArrayViewMut<'_, T, Ix2>
-{
+impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayViewMut<'_, T, Ix2> {
     fn set(&mut self, pos: (usize, usize), x: T) {
         self[[pos.0, pos.1]] = x
     }

@@ -579,9 +579,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 }
 
-impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
-    for DenseMatrixMutView<'_, T>
-{
+impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMatrixMutView<'_, T> {
     fn set(&mut self, pos: (usize, usize), x: T) {
         if self.column_major {
             self.values[pos.0 + pos.1 * self.stride] = x;

@@ -172,12 +172,14 @@ where
     T: Number + RealNumber,
     M: Array2<T>,
 {
-    columns.first().cloned().map(|output_matrix| columns
-                .iter()
-                .skip(1)
-                .fold(output_matrix, |current_matrix, new_colum| {
-                    current_matrix.h_stack(new_colum)
-                }))
+    columns.first().cloned().map(|output_matrix| {
+        columns
+            .iter()
+            .skip(1)
+            .fold(output_matrix, |current_matrix, new_colum| {
+                current_matrix.h_stack(new_colum)
+            })
+    })
 }
 
 #[cfg(test)]

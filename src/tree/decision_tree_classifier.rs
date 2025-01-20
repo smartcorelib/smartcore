@@ -77,9 +77,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
+use crate::linalg::basic::arrays::MutArray;
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::linalg::basic::matrix::DenseMatrix;
-use crate::linalg::basic::arrays::MutArray;
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
 
@@ -890,7 +890,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         importances
     }
 
-
     /// Predict class probabilities for the input samples.
     ///
     /// # Arguments
@@ -933,7 +932,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     /// of the input sample belonging to each class.
     fn predict_proba_for_row(&self, x: &X, row: usize) -> Vec<f64> {
         let mut node = 0;
-        
+
         while let Some(current_node) = self.nodes().get(node) {
             if current_node.true_child.is_none() && current_node.false_child.is_none() {
                 // Leaf node reached
@@ -941,17 +940,17 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 probs[current_node.output] = 1.0;
                 return probs;
             }
-            
+
             let split_feature = current_node.split_feature;
             let split_value = current_node.split_value.unwrap_or(f64::NAN);
-            
+
             if x.get((row, split_feature)).to_f64().unwrap() <= split_value {
                 node = current_node.true_child.unwrap();
             } else {
                 node = current_node.false_child.unwrap();
             }
         }
-        
+
         // This should never happen if the tree is properly constructed
         vec![0.0; self.classes().len()]
     }
@@ -960,8 +959,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::basic::matrix::DenseMatrix;
     use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
     fn search_parameters() {
@@ -1020,24 +1019,28 @@ mod tests {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]).unwrap();
+        ])
+        .unwrap();
         let y: Vec<usize> = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
-    
+
         let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
         let probabilities = tree.predict_proba(&x).unwrap();
-    
+
         assert_eq!(probabilities.shape(), (10, 2));
-    
+
         for row in 0..10 {
             let row_sum: f64 = probabilities.get_row(row).sum();
-            assert!((row_sum - 1.0).abs() < 1e-6, "Row probabilities should sum to 1");
+            assert!(
+                (row_sum - 1.0).abs() < 1e-6,
+                "Row probabilities should sum to 1"
+            );
         }
-    
+
         // Check if the first 5 samples have higher probability for class 0
         for i in 0..5 {
             assert!(probabilities.get((i, 0)) > probabilities.get((i, 1)));
         }
-    
+
         // Check if the last 5 samples have higher probability for class 1
         for i in 5..10 {
             assert!(probabilities.get((i, 1)) > probabilities.get((i, 0)));
