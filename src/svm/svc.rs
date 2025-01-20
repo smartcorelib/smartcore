@@ -360,8 +360,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     }
 }
 
-impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
-    for SVC<'a, TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for SVC<'_, TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         if (self.b.unwrap().sub(other.b.unwrap())).abs() > TX::epsilon() * TX::two()

@@ -147,7 +147,7 @@ mod tests {
     #[derive(Debug, PartialEq, Clone)]
     struct TestDistribution<'d>(&'d Vec<i32>);
 
-    impl<'d> NBDistribution<i32, i32> for TestDistribution<'d> {
+    impl NBDistribution<i32, i32> for TestDistribution<'_> {
         fn prior(&self, _class_index: usize) -> f64 {
             1.
         }

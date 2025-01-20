@@ -119,7 +119,7 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for Vec<T> {
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecMutView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecMutView<'_, T> {
     fn get(&self, i: usize) -> &T {
         &self.ptr[i]
     }
@@ -138,7 +138,7 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecMutView<'a, T
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'_, T> {
     fn set(&mut self, i: usize, x: T) {
         self.ptr[i] = x;
     }
@@ -149,10 +149,10 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'a
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for VecMutView<'a, T> {}
-impl<'a, T: Debug + Display + Copy + Sized> MutArrayView1<T> for VecMutView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecMutView<'_, T> {}
+impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for VecMutView<'_, T> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'_, T> {
     fn get(&self, i: usize) -> &T {
         &self.ptr[i]
     }
@@ -171,7 +171,7 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'a, T> {
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'_, T> {}
 
 #[cfg(test)]
 mod tests {

@@ -91,7 +91,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixView<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
@@ -169,7 +169,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixMutView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> fmt::Display for DenseMatrixMutView<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
@@ -493,7 +493,7 @@ impl<T: Number + RealNumber> EVDDecomposable<T> for DenseMatrix<T> {}
 impl<T: Number + RealNumber> LUDecomposable<T> for DenseMatrix<T> {}
 impl<T: Number + RealNumber> SVDDecomposable<T> for DenseMatrix<T> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixView<'_, T> {
     fn get(&self, pos: (usize, usize)) -> &T {
         if self.column_major {
             &self.values[pos.0 + pos.1 * self.stride]
@@ -515,7 +515,7 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMa
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for DenseMatrixView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for DenseMatrixView<'_, T> {
     fn get(&self, i: usize) -> &T {
         if self.nrows == 1 {
             if self.column_major {
@@ -553,11 +553,11 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for DenseMatrixView<
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for DenseMatrixView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for DenseMatrixView<'_, T> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for DenseMatrixView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for DenseMatrixView<'_, T> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixMutView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrixMutView<'_, T> {
     fn get(&self, pos: (usize, usize)) -> &T {
         if self.column_major {
             &self.values[pos.0 + pos.1 * self.stride]
@@ -579,8 +579,8 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMa
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
-    for DenseMatrixMutView<'a, T>
+impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
+    for DenseMatrixMutView<'_, T>
 {
     fn set(&mut self, pos: (usize, usize), x: T) {
         if self.column_major {
@@ -595,9 +595,9 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArrayView2<T> for DenseMatrixMutView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for DenseMatrixMutView<'_, T> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for DenseMatrixMutView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for DenseMatrixMutView<'_, T> {}
 
 impl<T: RealNumber> MatrixStats<T> for DenseMatrix<T> {}
 

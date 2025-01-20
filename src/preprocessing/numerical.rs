@@ -172,18 +172,12 @@ where
     T: Number + RealNumber,
     M: Array2<T>,
 {
-    if let Some(output_matrix) = columns.first().cloned() {
-        return Some(
-            columns
+    columns.first().cloned().map(|output_matrix| columns
                 .iter()
                 .skip(1)
                 .fold(output_matrix, |current_matrix, new_colum| {
                     current_matrix.h_stack(new_colum)
-                }),
-        );
-    } else {
-        None
-    }
+                }))
 }
 
 #[cfg(test)]

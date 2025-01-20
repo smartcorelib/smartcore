@@ -258,8 +258,8 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     }
 }
 
-impl<'a, T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
-    for BinaryObjectiveFunction<'a, T, X>
+impl<T: Number + FloatNumber, X: Array2<T>> ObjectiveFunction<T, X>
+    for BinaryObjectiveFunction<'_, T, X>
 {
     fn f(&self, w_bias: &[T]) -> T {
         let mut f = T::zero();
@@ -313,8 +313,8 @@ struct MultiClassObjectiveFunction<'a, T: Number + FloatNumber, X: Array2<T>> {
     _phantom_t: PhantomData<T>,
 }
 
-impl<'a, T: Number + FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T, X>
-    for MultiClassObjectiveFunction<'a, T, X>
+impl<T: Number + FloatNumber + RealNumber, X: Array2<T>> ObjectiveFunction<T, X>
+    for MultiClassObjectiveFunction<'_, T, X>
 {
     fn f(&self, w_bias: &[T]) -> T {
         let mut f = T::zero();

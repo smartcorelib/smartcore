@@ -30,7 +30,7 @@ pub struct CSVDefinition<'a> {
     /// What seperates the fields in your csv-file?
     field_seperator: &'a str,
 }
-impl<'a> Default for CSVDefinition<'a> {
+impl Default for CSVDefinition<'_> {
     fn default() -> Self {
         Self {
             n_rows_header: 1,
