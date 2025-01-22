@@ -40,7 +40,7 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, marker::PhantomData};
+use std::marker::PhantomData;
 
 /// Distribution used in the Naive Bayes classifier.
 pub(crate) trait NBDistribution<X: Number, Y: Number>: Clone {
