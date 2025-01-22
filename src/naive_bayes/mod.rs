@@ -40,7 +40,7 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+use std::{cmp::Ordering, marker::PhantomData};
 
 /// Distribution used in the Naive Bayes classifier.
 pub(crate) trait NBDistribution<X: Number, Y: Number>: Clone {
@@ -93,6 +93,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let y_classes = self.distribution.classes();
+
         if y_classes.is_empty() {
             return Err(Failed::predict("Failed to predict, no classes available"));
         }
