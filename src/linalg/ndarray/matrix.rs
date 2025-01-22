@@ -68,7 +68,7 @@ impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayBase<OwnedRepr<T>
 
 impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayView<'a, T, Ix2> {
+impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayView<'_, T, Ix2> {
     fn get(&self, pos: (usize, usize)) -> &T {
         &self[[pos.0, pos.1]]
     }
@@ -144,11 +144,9 @@ impl<T: Number + RealNumber> EVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2>
 impl<T: Number + RealNumber> LUDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 impl<T: Number + RealNumber> SVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayView<'a, T, Ix2> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayView<'_, T, Ix2> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
-    for ArrayViewMut<'a, T, Ix2>
-{
+impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayViewMut<'_, T, Ix2> {
     fn get(&self, pos: (usize, usize)) -> &T {
         &self[[pos.0, pos.1]]
     }
@@ -175,9 +173,7 @@ impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
-    for ArrayViewMut<'a, T, Ix2>
-{
+impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayViewMut<'_, T, Ix2> {
     fn set(&mut self, pos: (usize, usize), x: T) {
         self[[pos.0, pos.1]] = x
     }
@@ -195,9 +191,9 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'a, T, Ix2> {}
+impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayViewMut<'a, T, Ix2> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
 
 #[cfg(test)]
 mod tests {

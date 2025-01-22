@@ -35,7 +35,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use crate::error::{Failed, FailedError};
+use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::numbers::basenum::Number;
 #[cfg(feature = "serde")]
@@ -89,45 +89,107 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: NBDistribution<TX,
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let y_classes = self.distribution.classes();
-        let (rows, _) = x.shape();
-        let mut log_likehood_is_nan = false;
-        let predictions = (0..rows)
-            .map(|row_index| {
-                let row = x.get_row(row_index);
-                let (prediction, _probability) = y_classes
-                    .iter()
-                    .enumerate()
-                    .map(|(class_index, class)| {
-                        let mut log_likelihood =
-                            self.distribution.log_likelihood(class_index, &row);
-                        if log_likelihood.is_nan() {
-                            log_likelihood = 0f64;
-                            log_likehood_is_nan = true;
-                        }
-                        (
-                            class,
-                            log_likelihood + self.distribution.prior(class_index).ln(),
-                        )
-                    })
-                    .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
-                    .unwrap();
-                *prediction
-            })
-            .collect::<Vec<TY>>();
-        if log_likehood_is_nan {
-            return Err(Failed::because(
-                FailedError::SolutionFailed,
-                "log_likelihood for distribution of one of the rows is NaN",
-            ));
+        if y_classes.is_empty() {
+            return Err(Failed::predict("Failed to predict, no classes available"));
         }
-        let y_hat = Y::from_vec_slice(&predictions);
-        Ok(y_hat)
+
+        let (rows, _) = x.shape();
+        let mut predictions = Vec::with_capacity(rows);
+        let mut all_probs_nan = true;
+
+        for row_index in 0..rows {
+            let row = x.get_row(row_index);
+            let mut max_log_prob = f64::NEG_INFINITY;
+            let mut max_class = None;
+
+            for (class_index, class) in y_classes.iter().enumerate() {
+                let log_likelihood = self.distribution.log_likelihood(class_index, &row);
+                let log_prob = log_likelihood + self.distribution.prior(class_index).ln();
+
+                if !log_prob.is_nan() && log_prob > max_log_prob {
+                    max_log_prob = log_prob;
+                    max_class = Some(*class);
+                    all_probs_nan = false;
+                }
+            }
+
+            predictions.push(max_class.unwrap_or(y_classes[0]));
+        }
+
+        if all_probs_nan {
+            Err(Failed::predict(
+                "Failed to predict, all probabilities were NaN",
+            ))
+        } else {
+            Ok(Y::from_vec_slice(&predictions))
+        }
     }
 }
 pub mod bernoulli;
 pub mod categorical;
 pub mod gaussian;
 pub mod multinomial;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use num_traits::float::Float;
+
+    type Model<'d> = BaseNaiveBayes<i32, i32, DenseMatrix<i32>, Vec<i32>, TestDistribution<'d>>;
+
+    #[derive(Debug, PartialEq, Clone)]
+    struct TestDistribution<'d>(&'d Vec<i32>);
+
+    impl NBDistribution<i32, i32> for TestDistribution<'_> {
+        fn prior(&self, _class_index: usize) -> f64 {
+            1.
+        }
+
+        fn log_likelihood<'a>(
+            &'a self,
+            class_index: usize,
+            _j: &'a Box<dyn ArrayView1<i32> + 'a>,
+        ) -> f64 {
+            match self.0.get(class_index) {
+                &v @ 2 | &v @ 10 | &v @ 20 => v as f64,
+                _ => f64::nan(),
+            }
+        }
+
+        fn classes(&self) -> &Vec<i32> {
+            self.0
+        }
+    }
+
+    #[test]
+    fn test_predict() {
+        let matrix = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
+
+        let val = vec![];
+        match Model::fit(TestDistribution(&val)).unwrap().predict(&matrix) {
+            Ok(_) => panic!("Should return error in case of empty classes"),
+            Err(err) => assert_eq!(
+                err.to_string(),
+                "Predict failed: Failed to predict, no classes available"
+            ),
+        }
+
+        let val = vec![1, 2, 3];
+        match Model::fit(TestDistribution(&val)).unwrap().predict(&matrix) {
+            Ok(r) => assert_eq!(r, vec![2, 2, 2]),
+            Err(_) => panic!("Should success in normal case with NaNs"),
+        }
+
+        let val = vec![20, 2, 10];
+        match Model::fit(TestDistribution(&val)).unwrap().predict(&matrix) {
+            Ok(r) => assert_eq!(r, vec![20, 20, 20]),
+            Err(_) => panic!("Should success in normal case without NaNs"),
+        }
+    }
+}

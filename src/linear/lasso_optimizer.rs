@@ -16,7 +16,7 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray, MutArra
 use crate::linear::bg_solver::BiconjugateGradientSolver;
 use crate::numbers::floatnum::FloatNumber;
 
-///
+/// Interior Point Optimizer
 pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     ata: X,
     d1: Vec<T>,
@@ -25,9 +25,8 @@ pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     prs: Vec<T>,
 }
 
-///
 impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
-    ///
+    /// Initialize a new Interior Point Optimizer
     pub fn new(a: &X, n: usize) -> InteriorPointOptimizer<T, X> {
         InteriorPointOptimizer {
             ata: a.ab(true, a, false),
@@ -38,7 +37,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         }
     }
 
-    ///
+    /// Run the optimization
     pub fn optimize(
         &mut self,
         x: &X,
@@ -101,7 +100,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
 
             // CALCULATE DUALITY GAP
             let xnu = nu.xa(false, x);
-            let max_xnu = xnu.norm(std::f64::INFINITY);
+            let max_xnu = xnu.norm(f64::INFINITY);
             if max_xnu > lambda_f64 {
                 let lnu = T::from_f64(lambda_f64 / max_xnu).unwrap();
                 nu.mul_scalar_mut(lnu);
@@ -208,7 +207,6 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         Ok(w)
     }
 
-    ///
     fn sumlogneg(f: &X) -> T {
         let (n, _) = f.shape();
         let mut sum = T::zero();
@@ -220,11 +218,9 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
     }
 }
 
-///
 impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
     for InteriorPointOptimizer<T, X>
 {
-    ///
     fn solve_preconditioner(&self, a: &'a X, b: &[T], x: &mut [T]) {
         let (_, p) = a.shape();
 
@@ -234,7 +230,6 @@ impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
         }
     }
 
-    ///
     fn mat_vec_mul(&self, _: &X, x: &Vec<T>, y: &mut Vec<T>) {
         let (_, p) = self.ata.shape();
         let x_slice = Vec::from_slice(x.slice(0..p).as_ref());
@@ -246,7 +241,6 @@ impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
         }
     }
 
-    ///
     fn mat_t_vec_mul(&self, a: &X, x: &Vec<T>, y: &mut Vec<T>) {
         self.mat_vec_mul(a, x, y);
     }

@@ -124,7 +124,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
         current_cover_set.push((d, &self.root));
 
         let mut heap = HeapSelection::with_capacity(k);
-        heap.add(std::f64::MAX);
+        heap.add(f64::MAX);
 
         let mut empty_heap = true;
         if !self.identical_excluded || self.get_data_value(self.root.idx) != p {
@@ -145,7 +145,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
                     }
 
                     let upper_bound = if empty_heap {
-                        std::f64::INFINITY
+                        f64::INFINITY
                     } else {
                         *heap.peek()
                     };
@@ -291,7 +291,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
         } else {
             let max_dist = self.max(point_set);
             let next_scale = (max_scale - 1).min(self.get_scale(max_dist));
-            if next_scale == std::i64::MIN {
+            if next_scale == i64::MIN {
                 let mut children: Vec<Node> = Vec::new();
                 let mut leaf = self.new_leaf(p);
                 children.push(leaf);
@@ -435,7 +435,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
 
     fn get_scale(&self, d: f64) -> i64 {
         if d == 0f64 {
-            std::i64::MIN
+            i64::MIN
         } else {
             (self.inv_log_base * d.ln()).ceil() as i64
         }

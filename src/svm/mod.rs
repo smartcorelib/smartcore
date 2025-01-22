@@ -56,7 +56,7 @@ pub struct Kernels;
 impl Kernels {
     /// Return a default linear
     pub fn linear() -> LinearKernel {
-        LinearKernel::default()
+        LinearKernel
     }
     /// Return a default RBF
     pub fn rbf() -> RBFKernel {
@@ -292,7 +292,7 @@ mod tests {
             .unwrap()
             .abs();
 
-        assert!((4913f64 - result) < std::f64::EPSILON);
+        assert!((4913f64 - result).abs() < f64::EPSILON);
     }
 
     #[cfg_attr(

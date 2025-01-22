@@ -48,7 +48,7 @@
 //!            &[4.9, 2.4, 3.3, 1.0],
 //!            &[6.6, 2.9, 4.6, 1.3],
 //!            &[5.2, 2.7, 3.9, 1.4],
-//!         ]);
+//!         ]).unwrap();
 //! let y = vec![ 0, 0, 0, 0, 0, 0, 0, 0,
 //!            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 //!
@@ -77,7 +77,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
+use crate::linalg::basic::arrays::MutArray;
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
+use crate::linalg::basic::matrix::DenseMatrix;
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
 
@@ -116,6 +118,7 @@ pub struct DecisionTreeClassifier<
     num_classes: usize,
     classes: Vec<TY>,
     depth: u16,
+    num_features: usize,
     _phantom_tx: PhantomData<TX>,
     _phantom_x: PhantomData<X>,
     _phantom_y: PhantomData<Y>,
@@ -159,11 +162,13 @@ pub enum SplitCriterion {
 #[derive(Debug, Clone)]
 struct Node {
     output: usize,
+    n_node_samples: usize,
     split_feature: usize,
     split_value: Option<f64>,
     split_score: Option<f64>,
     true_child: Option<usize>,
     false_child: Option<usize>,
+    impurity: Option<f64>,
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
@@ -194,12 +199,12 @@ impl PartialEq for Node {
         self.output == other.output
             && self.split_feature == other.split_feature
             && match (self.split_value, other.split_value) {
-                (Some(a), Some(b)) => (a - b).abs() < std::f64::EPSILON,
+                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
                 (None, None) => true,
                 _ => false,
             }
             && match (self.split_score, other.split_score) {
-                (Some(a), Some(b)) => (a - b).abs() < std::f64::EPSILON,
+                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
                 (None, None) => true,
                 _ => false,
             }
@@ -400,14 +405,16 @@ impl Default for DecisionTreeClassifierSearchParameters {
 }
 
 impl Node {
-    fn new(output: usize) -> Self {
+    fn new(output: usize, n_node_samples: usize) -> Self {
         Node {
             output,
+            n_node_samples,
             split_feature: 0,
             split_value: Option::None,
             split_score: Option::None,
             true_child: Option::None,
             false_child: Option::None,
+            impurity: Option::None,
         }
     }
 }
@@ -507,6 +514,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             num_classes: 0usize,
             classes: vec![],
             depth: 0u16,
+            num_features: 0usize,
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -578,7 +586,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             count[yi[i]] += samples[i];
         }
 
-        let root = Node::new(which_max(&count));
+        let root = Node::new(which_max(&count), y_ncols);
         change_nodes.push(root);
         let mut order: Vec<Vec<usize>> = Vec::new();
 
@@ -593,6 +601,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             num_classes: k,
             classes,
             depth: 0u16,
+            num_features: num_attributes,
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -606,7 +615,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth() < tree.parameters().max_depth.unwrap_or(std::u16::MAX) {
+        while tree.depth() < tree.parameters().max_depth.unwrap_or(u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -643,7 +652,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                     if node.true_child.is_none() && node.false_child.is_none() {
                         result = node.output;
                     } else if x.get((row, node.split_feature)).to_f64().unwrap()
-                        <= node.split_value.unwrap_or(std::f64::NAN)
+                        <= node.split_value.unwrap_or(f64::NAN)
                     {
                         queue.push_back(node.true_child.unwrap());
                     } else {
@@ -678,16 +687,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        if is_pure {
-            return false;
-        }
-
         let n = visitor.samples.iter().sum();
-
-        if n <= self.parameters().min_samples_split {
-            return false;
-        }
-
         let mut count = vec![0; self.num_classes];
         let mut false_count = vec![0; self.num_classes];
         for i in 0..n_rows {
@@ -696,7 +696,15 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        let parent_impurity = impurity(&self.parameters().criterion, &count, n);
+        self.nodes[visitor.node].impurity = Some(impurity(&self.parameters().criterion, &count, n));
+
+        if is_pure {
+            return false;
+        }
+
+        if n <= self.parameters().min_samples_split {
+            return false;
+        }
 
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
@@ -705,14 +713,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         }
 
         for variable in variables.iter().take(mtry) {
-            self.find_best_split(
-                visitor,
-                n,
-                &count,
-                &mut false_count,
-                parent_impurity,
-                *variable,
-            );
+            self.find_best_split(visitor, n, &count, &mut false_count, *variable);
         }
 
         self.nodes()[visitor.node].split_score.is_some()
@@ -724,7 +725,6 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         n: usize,
         count: &[usize],
         false_count: &mut [usize],
-        parent_impurity: f64,
         j: usize,
     ) {
         let mut true_count = vec![0; self.num_classes];
@@ -760,6 +760,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
                 let true_label = which_max(&true_count);
                 let false_label = which_max(false_count);
+                let parent_impurity = self.nodes()[visitor.node].impurity.unwrap();
                 let gain = parent_impurity
                     - tc as f64 / n as f64
                         * impurity(&self.parameters().criterion, &true_count, tc)
@@ -804,9 +805,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                     .get((i, self.nodes()[visitor.node].split_feature))
                     .to_f64()
                     .unwrap()
-                    <= self.nodes()[visitor.node]
-                        .split_value
-                        .unwrap_or(std::f64::NAN)
+                    <= self.nodes()[visitor.node].split_value.unwrap_or(f64::NAN)
                 {
                     *true_sample = visitor.samples[i];
                     tc += *true_sample;
@@ -827,9 +826,9 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         let true_child_idx = self.nodes().len();
 
-        self.nodes.push(Node::new(visitor.true_child_output));
+        self.nodes.push(Node::new(visitor.true_child_output, tc));
         let false_child_idx = self.nodes().len();
-        self.nodes.push(Node::new(visitor.false_child_output));
+        self.nodes.push(Node::new(visitor.false_child_output, fc));
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);
 
@@ -863,11 +862,104 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         true
     }
+
+    /// Compute feature importances for the fitted tree.
+    pub fn compute_feature_importances(&self, normalize: bool) -> Vec<f64> {
+        let mut importances = vec![0f64; self.num_features];
+
+        for node in self.nodes().iter() {
+            if node.true_child.is_none() && node.false_child.is_none() {
+                continue;
+            }
+            let left = &self.nodes()[node.true_child.unwrap()];
+            let right = &self.nodes()[node.false_child.unwrap()];
+
+            importances[node.split_feature] += node.n_node_samples as f64 * node.impurity.unwrap()
+                - left.n_node_samples as f64 * left.impurity.unwrap()
+                - right.n_node_samples as f64 * right.impurity.unwrap();
+        }
+        for item in importances.iter_mut() {
+            *item /= self.nodes()[0].n_node_samples as f64;
+        }
+        if normalize {
+            let sum = importances.iter().sum::<f64>();
+            for importance in importances.iter_mut() {
+                *importance /= sum;
+            }
+        }
+        importances
+    }
+
+    /// Predict class probabilities for the input samples.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The input samples as a matrix where each row is a sample and each column is a feature.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `DenseMatrix<f64>` where each row corresponds to a sample and each column
+    /// corresponds to a class. The values represent the probability of the sample belonging to each class.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if at least one row prediction process fails.
+    pub fn predict_proba(&self, x: &X) -> Result<DenseMatrix<f64>, Failed> {
+        let (n_samples, _) = x.shape();
+        let n_classes = self.classes().len();
+        let mut result = DenseMatrix::<f64>::zeros(n_samples, n_classes);
+
+        for i in 0..n_samples {
+            let probs = self.predict_proba_for_row(x, i)?;
+            for (j, &prob) in probs.iter().enumerate() {
+                result.set((i, j), prob);
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Predict class probabilities for a single input sample.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The input matrix containing all samples.
+    /// * `row` - The index of the row in `x` for which to predict probabilities.
+    ///
+    /// # Returns
+    ///
+    /// A vector of probabilities, one for each class, representing the probability
+    /// of the input sample belonging to each class.
+    fn predict_proba_for_row(&self, x: &X, row: usize) -> Result<Vec<f64>, Failed> {
+        let mut node = 0;
+
+        while let Some(current_node) = self.nodes().get(node) {
+            if current_node.true_child.is_none() && current_node.false_child.is_none() {
+                // Leaf node reached
+                let mut probs = vec![0.0; self.classes().len()];
+                probs[current_node.output] = 1.0;
+                return Ok(probs);
+            }
+
+            let split_feature = current_node.split_feature;
+            let split_value = current_node.split_value.unwrap_or(f64::NAN);
+
+            if x.get((row, split_feature)).to_f64().unwrap() <= split_value {
+                node = current_node.true_child.unwrap();
+            } else {
+                node = current_node.false_child.unwrap();
+            }
+        }
+
+        // This should never happen if the tree is properly constructed
+        Err(Failed::predict("Nodes iteration did not reach leaf"))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
@@ -899,15 +991,60 @@ mod tests {
     )]
     #[test]
     fn gini_impurity() {
-        assert!((impurity(&SplitCriterion::Gini, &[7, 3], 10) - 0.42).abs() < std::f64::EPSILON);
+        assert!((impurity(&SplitCriterion::Gini, &[7, 3], 10) - 0.42).abs() < f64::EPSILON);
         assert!(
             (impurity(&SplitCriterion::Entropy, &[7, 3], 10) - 0.8812908992306927).abs()
-                < std::f64::EPSILON
+                < f64::EPSILON
         );
         assert!(
             (impurity(&SplitCriterion::ClassificationError, &[7, 3], 10) - 0.3).abs()
-                < std::f64::EPSILON
+                < f64::EPSILON
         );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn test_predict_proba() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+        ])
+        .unwrap();
+        let y: Vec<usize> = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
+
+        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        let probabilities = tree.predict_proba(&x).unwrap();
+
+        assert_eq!(probabilities.shape(), (10, 2));
+
+        for row in 0..10 {
+            let row_sum: f64 = probabilities.get_row(row).sum();
+            assert!(
+                (row_sum - 1.0).abs() < 1e-6,
+                "Row probabilities should sum to 1"
+            );
+        }
+
+        // Check if the first 5 samples have higher probability for class 0
+        for i in 0..5 {
+            assert!(probabilities.get((i, 0)) > probabilities.get((i, 1)));
+        }
+
+        // Check if the last 5 samples have higher probability for class 1
+        for i in 5..10 {
+            assert!(probabilities.get((i, 1)) > probabilities.get((i, 0)));
+        }
     }
 
     #[cfg_attr(
@@ -938,7 +1075,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         assert_eq!(
@@ -1005,7 +1143,8 @@ mod tests {
             &[0., 0., 1., 1.],
             &[0., 0., 0., 0.],
             &[0., 0., 0., 1.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
 
         assert_eq!(
@@ -1013,6 +1152,43 @@ mod tests {
             DecisionTreeClassifier::fit(&x, &y, Default::default())
                 .and_then(|t| t.predict(&x))
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_compute_feature_importances() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[1., 1., 1., 0.],
+            &[1., 1., 1., 0.],
+            &[1., 1., 1., 1.],
+            &[1., 1., 0., 0.],
+            &[1., 1., 0., 1.],
+            &[1., 0., 1., 0.],
+            &[1., 0., 1., 0.],
+            &[1., 0., 1., 1.],
+            &[1., 0., 0., 0.],
+            &[1., 0., 0., 1.],
+            &[0., 1., 1., 0.],
+            &[0., 1., 1., 0.],
+            &[0., 1., 1., 1.],
+            &[0., 1., 0., 0.],
+            &[0., 1., 0., 1.],
+            &[0., 0., 1., 0.],
+            &[0., 0., 1., 0.],
+            &[0., 0., 1., 1.],
+            &[0., 0., 0., 0.],
+            &[0., 0., 0., 1.],
+        ])
+        .unwrap();
+        let y: Vec<u32> = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
+        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        assert_eq!(
+            tree.compute_feature_importances(false),
+            vec![0., 0., 0.21333333333333332, 0.26666666666666666]
+        );
+        assert_eq!(
+            tree.compute_feature_importances(true),
+            vec![0., 0., 0.4444444444444444, 0.5555555555555556]
         );
     }
 
@@ -1044,7 +1220,8 @@ mod tests {
             &[0., 0., 1., 1.],
             &[0., 0., 0., 0.],
             &[0., 0., 0., 1.],
-        ]);
+        ])
+        .unwrap();
         let y = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
 
         let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();

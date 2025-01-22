@@ -3,6 +3,7 @@ use num_traits::Num;
 pub trait QuickArgSort {
     fn quick_argsort_mut(&mut self) -> Vec<usize>;
 
+    #[allow(dead_code)]
     fn quick_argsort(&self) -> Vec<usize>;
 }
 

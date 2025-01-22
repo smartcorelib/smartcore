@@ -44,7 +44,7 @@
 //!               &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
 //!               &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
 //!               &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-//!          ]);
+//!          ]).unwrap();
 //!
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
@@ -248,19 +248,20 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
 
         let mut y_hat: Vec<T> = Vec::<T>::zeros(n);
 
+        let mut x_i = Vec::with_capacity(n);
         for i in 0..n {
-            y_hat.set(
-                i,
-                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).copied(), n)),
-            );
+            x_i.clear();
+            x_i.extend(x.get_row(i).iterator(0).copied());
+            y_hat.set(i, self.predict_for_row(&x_i));
         }
 
         Ok(y_hat)
     }
 
-    pub(crate) fn predict_for_row(&self, x: Vec<T>) -> T {
+    pub(crate) fn predict_for_row(&self, x: &[T]) -> T {
         let mut f = self.b;
 
+        let xi: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
         for i in 0..self.instances.as_ref().unwrap().len() {
             f += self.w.as_ref().unwrap()[i]
                 * T::from(
@@ -270,10 +271,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
                         .kernel
                         .as_ref()
                         .unwrap()
-                        .apply(
-                            &x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            &self.instances.as_ref().unwrap()[i],
-                        )
+                        .apply(&xi, &self.instances.as_ref().unwrap()[i])
                         .unwrap(),
                 )
                 .unwrap()
@@ -283,8 +281,8 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
     }
 }
 
-impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PartialEq
-    for SVR<'a, T, X, Y>
+impl<T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PartialEq
+    for SVR<'_, T, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         if (self.b - other.b).abs() > T::epsilon() * T::two()
@@ -642,7 +640,8 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
@@ -690,7 +689,8 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
@@ -702,7 +702,7 @@ mod tests {
 
         let svr = SVR::fit(&x, &y, &params).unwrap();
 
-        let deserialized_svr: SVR<f64, DenseMatrix<f64>, _> =
+        let deserialized_svr: SVR<'_, f64, DenseMatrix<f64>, _> =
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
         assert_eq!(svr, deserialized_svr);

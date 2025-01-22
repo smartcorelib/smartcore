@@ -12,7 +12,7 @@
 //!         &[1.5, 2.0, 1.5, 4.0],
 //!         &[1.5, 1.0, 1.5, 5.0],
 //!         &[1.5, 2.0, 1.5, 6.0],
-//!   ]);
+//!   ]).unwrap();
 //! let encoder_params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
 //! // Infer number of categories from data and return a reusable encoder
 //! let encoder = OneHotEncoder::fit(&data, encoder_params).unwrap();
@@ -240,14 +240,16 @@ mod tests {
             &[2.0, 1.5, 4.0],
             &[1.0, 1.5, 5.0],
             &[2.0, 1.5, 6.0],
-        ]);
+        ])
+        .unwrap();
 
         let oh_enc = DenseMatrix::from_2d_array(&[
             &[1.0, 0.0, 1.5, 1.0, 0.0, 0.0, 0.0],
             &[0.0, 1.0, 1.5, 0.0, 1.0, 0.0, 0.0],
             &[1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0],
             &[0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0],
-        ]);
+        ])
+        .unwrap();
 
         (orig, oh_enc)
     }
@@ -259,14 +261,16 @@ mod tests {
             &[1.5, 2.0, 1.5, 4.0],
             &[1.5, 1.0, 1.5, 5.0],
             &[1.5, 2.0, 1.5, 6.0],
-        ]);
+        ])
+        .unwrap();
 
         let oh_enc = DenseMatrix::from_2d_array(&[
             &[1.5, 1.0, 0.0, 1.5, 1.0, 0.0, 0.0, 0.0],
             &[1.5, 0.0, 1.0, 1.5, 0.0, 1.0, 0.0, 0.0],
             &[1.5, 1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0],
             &[1.5, 0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0],
-        ]);
+        ])
+        .unwrap();
 
         (orig, oh_enc)
     }
@@ -277,7 +281,7 @@ mod tests {
     )]
     #[test]
     fn hash_encode_f64_series() {
-        let series = vec![3.0, 1.0, 2.0, 1.0];
+        let series = [3.0, 1.0, 2.0, 1.0];
         let hashable_series: Vec<CategoricalFloat> =
             series.iter().map(|v| v.to_category()).collect();
         let enc = CategoryMapper::from_positional_category_vec(hashable_series);
@@ -334,7 +338,8 @@ mod tests {
             &[2.0, 1.5, 4.0],
             &[1.0, 1.5, 5.0],
             &[2.0, 1.5, 6.0],
-        ]);
+        ])
+        .unwrap();
 
         let params = OneHotEncoderParams::from_cat_idx(&[1]);
         let result = OneHotEncoder::fit(&m, params);
