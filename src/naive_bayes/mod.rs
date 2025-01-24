@@ -625,8 +625,8 @@ mod tests {
         //    X = np.reshape(np.array(x), (1000, 5), order='F')
         //    Y = np.array(y)
         //    gnb = GaussianNB().fit(X, Y)
-        //    preds = gnb.predict(X[[5:50], :])
-        //    expected = np.array(predictions[5:50])
+        //    preds = gnb.predict(X)
+        //    expected = np.array(predictions)
         //    assert expected == preds
         // They should match closely (or exactly) depending on floating rounding.
     }
