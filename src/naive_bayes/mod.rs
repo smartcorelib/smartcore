@@ -313,7 +313,6 @@ mod tests {
         assert_eq!(result, vec![3, 3]);
     }
 
-
     #[test]
     fn test_gaussian_naive_bayes_numerical_stability() {
         #[derive(Debug, PartialEq, Clone)]
@@ -323,15 +322,21 @@ mod tests {
             variances: Vec<Vec<f64>>,
             priors: Vec<f64>,
         }
-    
+
         impl NBDistribution<f64, u32> for GaussianTestDistribution {
-            fn classes(&self) -> &Vec<u32> { &self.classes }
-    
+            fn classes(&self) -> &Vec<u32> {
+                &self.classes
+            }
+
             fn prior(&self, class_index: usize) -> f64 {
                 self.priors[class_index]
             }
-    
-            fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<f64> + 'a>) -> f64 {
+
+            fn log_likelihood<'a>(
+                &'a self,
+                class_index: usize,
+                j: &'a Box<dyn ArrayView1<f64> + 'a>,
+            ) -> f64 {
                 let means = &self.means[class_index];
                 let variances = &self.variances[class_index];
                 j.iterator(0)
@@ -346,17 +351,22 @@ mod tests {
                     .sum()
             }
         }
-    
+
         fn train_distribution(x: &DenseMatrix<f64>, y: &[u32]) -> GaussianTestDistribution {
-            let mut classes: Vec<u32> = y.iter().cloned().collect::<std::collections::HashSet<u32>>().into_iter().collect();
+            let mut classes: Vec<u32> = y
+                .iter()
+                .cloned()
+                .collect::<std::collections::HashSet<u32>>()
+                .into_iter()
+                .collect();
             classes.sort();
             let n_classes = classes.len();
             let n_features = x.shape().1;
-        
+
             let mut means = vec![vec![0.0; n_features]; n_classes];
             let mut variances = vec![vec![0.0; n_features]; n_classes];
             let mut class_counts = vec![0; n_classes];
-        
+
             // Calculate means and count samples per class
             for (sample, &class) in x.row_iter().zip(y.iter()) {
                 let class_idx = classes.iter().position(|&c| c == class).unwrap();
@@ -365,14 +375,14 @@ mod tests {
                     means[class_idx][i] += value;
                 }
             }
-        
+
             // Normalize means
             for (class_idx, mean) in means.iter_mut().enumerate() {
                 for value in mean.iter_mut() {
                     *value /= class_counts[class_idx] as f64;
                 }
             }
-        
+
             // Calculate variances
             for (sample, &class) in x.row_iter().zip(y.iter()) {
                 let class_idx = classes.iter().position(|&c| c == class).unwrap();
@@ -381,7 +391,7 @@ mod tests {
                     variances[class_idx][i] += diff * diff;
                 }
             }
-        
+
             // Normalize variances and add small epsilon to avoid zero variance
             let epsilon = 1e-9;
             for (class_idx, variance) in variances.iter_mut().enumerate() {
@@ -389,11 +399,14 @@ mod tests {
                     *value = *value / class_counts[class_idx] as f64 + epsilon;
                 }
             }
-        
+
             // Calculate priors
             let total_samples = y.len() as f64;
-            let priors: Vec<f64> = class_counts.iter().map(|&count| count as f64 / total_samples).collect();
-        
+            let priors: Vec<f64> = class_counts
+                .iter()
+                .map(|&count| count as f64 / total_samples)
+                .collect();
+
             GaussianTestDistribution {
                 classes,
                 means,
@@ -401,87 +414,120 @@ mod tests {
                 priors,
             }
         }
-    
-        type TestNBGaussian = BaseNaiveBayes<f64, u32, DenseMatrix<f64>, Vec<u32>, GaussianTestDistribution>;
 
-    // Create a constant training dataset
-    let n_samples = 1000;
-    let n_features = 5;
-    let n_classes = 4;
+        type TestNBGaussian =
+            BaseNaiveBayes<f64, u32, DenseMatrix<f64>, Vec<u32>, GaussianTestDistribution>;
 
-    let mut x_data = Vec::with_capacity(n_samples * n_features);
-    let mut y_data = Vec::with_capacity(n_samples);
+        // Create a constant training dataset
+        let n_samples = 1000;
+        let n_features = 5;
+        let n_classes = 4;
 
-    for i in 0..n_samples {
-        for j in 0..n_features {
-            x_data.push((i * j) as f64 % 10.0);
+        let mut x_data = Vec::with_capacity(n_samples * n_features);
+        let mut y_data = Vec::with_capacity(n_samples);
+
+        for i in 0..n_samples {
+            for j in 0..n_features {
+                x_data.push((i * j) as f64 % 10.0);
+            }
+            y_data.push((i % n_classes) as u32);
         }
-        y_data.push((i % n_classes) as u32);
-    }
 
-    let x = DenseMatrix::new(n_samples, n_features, x_data, true).unwrap();
-    let y = y_data;
+        let x = DenseMatrix::new(n_samples, n_features, x_data, true).unwrap();
+        let y = y_data;
 
-    // Train the model
-    let dist = train_distribution(&x, &y);
-    let nb = TestNBGaussian::fit(dist).unwrap();
+        // Train the model
+        let dist = train_distribution(&x, &y);
+        let nb = TestNBGaussian::fit(dist).unwrap();
 
-    // Create constant test data
-    let n_test_samples = 100;
-    let mut test_x_data = Vec::with_capacity(n_test_samples * n_features);
-    for i in 0..n_test_samples {
-        for j in 0..n_features {
-            test_x_data.push((i * j * 2) as f64 % 15.0);
+        // Create constant test data
+        let n_test_samples = 100;
+        let mut test_x_data = Vec::with_capacity(n_test_samples * n_features);
+        for i in 0..n_test_samples {
+            for j in 0..n_features {
+                test_x_data.push((i * j * 2) as f64 % 15.0);
+            }
         }
+        let test_x = DenseMatrix::new(n_test_samples, n_features, test_x_data, true).unwrap();
+
+        // Make predictions
+        let predictions = nb
+            .predict(&test_x)
+            .map_err(|e| format!("Prediction failed: {}", e))
+            .unwrap();
+
+        // Check numerical stability
+        assert_eq!(
+            predictions.len(),
+            n_test_samples,
+            "Number of predictions should match number of test samples"
+        );
+
+        // Check that all predictions are valid class labels
+        for &pred in predictions.iter() {
+            assert!(pred < n_classes as u32, "Predicted class should be valid");
+        }
+
+        // Check consistency of predictions
+        let repeated_predictions = nb
+            .predict(&test_x)
+            .map_err(|e| format!("Repeated prediction failed: {}", e))
+            .unwrap();
+        assert_eq!(
+            predictions, repeated_predictions,
+            "Predictions should be consistent when repeated"
+        );
+
+        // Check extreme values
+        let extreme_x =
+            DenseMatrix::new(2, n_features, vec![f64::MAX; n_features * 2], true).unwrap();
+        let extreme_predictions = nb.predict(&extreme_x);
+        assert!(
+            extreme_predictions.is_err(),
+            "Extreme value input should result in an error"
+        );
+        assert_eq!(
+            extreme_predictions.unwrap_err().to_string(),
+            "Predict failed: Failed to predict, all probabilities were NaN",
+            "Incorrect error message for extreme values"
+        );
+
+        // Check for NaN handling
+        let nan_x = DenseMatrix::new(2, n_features, vec![f64::NAN; n_features * 2], true).unwrap();
+        let nan_predictions = nb.predict(&nan_x);
+        assert!(
+            nan_predictions.is_err(),
+            "NaN input should result in an error"
+        );
+
+        // Check for very small values
+        let small_x =
+            DenseMatrix::new(2, n_features, vec![f64::MIN_POSITIVE; n_features * 2], true).unwrap();
+        let small_predictions = nb
+            .predict(&small_x)
+            .map_err(|e| format!("Small value prediction failed: {}", e))
+            .unwrap();
+        for &pred in small_predictions.iter() {
+            assert!(
+                pred < n_classes as u32,
+                "Predictions for very small values should be valid"
+            );
+        }
+
+        // Check for values close to zero
+        let near_zero_x =
+            DenseMatrix::new(2, n_features, vec![1e-300; n_features * 2], true).unwrap();
+        let near_zero_predictions = nb
+            .predict(&near_zero_x)
+            .map_err(|e| format!("Near-zero value prediction failed: {}", e))
+            .unwrap();
+        for &pred in near_zero_predictions.iter() {
+            assert!(
+                pred < n_classes as u32,
+                "Predictions for near-zero values should be valid"
+            );
+        }
+
+        println!("All numerical stability checks passed!");
     }
-    let test_x = DenseMatrix::new(n_test_samples, n_features, test_x_data, true).unwrap();
-
-    // Make predictions
-    let predictions = nb.predict(&test_x).map_err(|e| format!("Prediction failed: {}", e)).unwrap();
-
-    // Check numerical stability
-    assert_eq!(predictions.len(), n_test_samples, "Number of predictions should match number of test samples");
-
-    // Check that all predictions are valid class labels
-    for &pred in predictions.iter() {
-        assert!(pred < n_classes as u32, "Predicted class should be valid");
-    }
-
-    // Check consistency of predictions
-    let repeated_predictions = nb.predict(&test_x).map_err(|e| format!("Repeated prediction failed: {}", e)).unwrap();
-    assert_eq!(predictions, repeated_predictions, "Predictions should be consistent when repeated");
-
-    // Check extreme values
-    let extreme_x = DenseMatrix::new(2, n_features, vec![f64::MAX; n_features * 2], true).unwrap();
-    let extreme_predictions = nb.predict(&extreme_x);
-    assert!(extreme_predictions.is_err(), "Extreme value input should result in an error");
-    assert_eq!(
-        extreme_predictions.unwrap_err().to_string(),
-        "Predict failed: Failed to predict, all probabilities were NaN",
-        "Incorrect error message for extreme values"
-    );
-
-    // Check for NaN handling
-    let nan_x = DenseMatrix::new(2, n_features, vec![f64::NAN; n_features * 2], true).unwrap();
-    let nan_predictions = nb.predict(&nan_x);
-    assert!(nan_predictions.is_err(), "NaN input should result in an error");
-
-    // Check for very small values
-    let small_x = DenseMatrix::new(2, n_features, vec![f64::MIN_POSITIVE; n_features * 2], true).unwrap();
-    let small_predictions = nb.predict(&small_x).map_err(|e| format!("Small value prediction failed: {}", e)).unwrap();
-    for &pred in small_predictions.iter() {
-        assert!(pred < n_classes as u32, "Predictions for very small values should be valid");
-    }
-
-    // Check for values close to zero
-    let near_zero_x = DenseMatrix::new(2, n_features, vec![1e-300; n_features * 2], true).unwrap();
-    let near_zero_predictions = nb.predict(&near_zero_x).map_err(|e| format!("Near-zero value prediction failed: {}", e)).unwrap();
-    for &pred in near_zero_predictions.iter() {
-        assert!(pred < n_classes as u32, "Predictions for near-zero values should be valid");
-    }
-
-    println!("All numerical stability checks passed!");
-    }
-    
-    
 }
