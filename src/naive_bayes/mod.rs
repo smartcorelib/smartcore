@@ -193,4 +193,123 @@ mod tests {
             Err(_) => panic!("Should success in normal case without NaNs"),
         }
     }
+
+    // A simple test distribution using float
+    #[derive(Debug, PartialEq, Clone)]
+    struct TestDistributionAgain {
+        classes: Vec<u32>,
+        probs: Vec<f64>,
+    }
+
+    impl NBDistribution<f64, u32> for TestDistributionAgain {
+        fn classes(&self) -> &Vec<u32> {
+            &self.classes
+        }
+        fn prior(&self, class_index: usize) -> f64 {
+            self.probs[class_index]
+        }
+        fn log_likelihood<'a>(
+            &'a self,
+            class_index: usize,
+            _j: &'a Box<dyn ArrayView1<f64> + 'a>,
+        ) -> f64 {
+            self.probs[class_index].ln()
+        }
+    }
+
+    type TestNB = BaseNaiveBayes<f64, u32, DenseMatrix<f64>, Vec<u32>, TestDistributionAgain>;
+
+    #[test]
+    fn test_predict_empty_classes() {
+        let dist = TestDistributionAgain {
+            classes: vec![],
+            probs: vec![],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        assert!(nb.predict(&x).is_err());
+    }
+
+    #[test]
+    fn test_predict_single_class() {
+        let dist = TestDistributionAgain {
+            classes: vec![1],
+            probs: vec![1.0],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = nb.predict(&x).unwrap();
+        assert_eq!(result, vec![1, 1]);
+    }
+
+    #[test]
+    fn test_predict_multiple_classes() {
+        let dist = TestDistributionAgain {
+            classes: vec![1, 2, 3],
+            probs: vec![0.2, 0.5, 0.3],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0], &[5.0, 6.0]]).unwrap();
+        let result = nb.predict(&x).unwrap();
+        assert_eq!(result, vec![2, 2, 2]);
+    }
+
+    #[test]
+    fn test_predict_with_nans() {
+        let dist = TestDistributionAgain {
+            classes: vec![1, 2],
+            probs: vec![f64::NAN, 0.5],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = nb.predict(&x).unwrap();
+        assert_eq!(result, vec![2, 2]);
+    }
+
+    #[test]
+    fn test_predict_all_nans() {
+        let dist = TestDistributionAgain {
+            classes: vec![1, 2],
+            probs: vec![f64::NAN, f64::NAN],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        assert!(nb.predict(&x).is_err());
+    }
+
+    #[test]
+    fn test_predict_extreme_probabilities() {
+        let dist = TestDistributionAgain {
+            classes: vec![1, 2],
+            probs: vec![1e-300, 1e-301],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = nb.predict(&x).unwrap();
+        assert_eq!(result, vec![1, 1]);
+    }
+
+    #[test]
+    fn test_predict_with_infinity() {
+        let dist = TestDistributionAgain {
+            classes: vec![1, 2, 3],
+            probs: vec![f64::INFINITY, 1.0, 2.0],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = nb.predict(&x).unwrap();
+        assert_eq!(result, vec![1, 1]);
+    }
+
+    #[test]
+    fn test_predict_with_negative_infinity() {
+        let dist = TestDistributionAgain {
+            classes: vec![1, 2, 3],
+            probs: vec![f64::NEG_INFINITY, 1.0, 2.0],
+        };
+        let nb = TestNB::fit(dist).unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = nb.predict(&x).unwrap();
+        assert_eq!(result, vec![3, 3]);
+    }
 }
