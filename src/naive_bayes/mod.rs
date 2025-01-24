@@ -530,4 +530,104 @@ mod tests {
 
         println!("All numerical stability checks passed!");
     }
+
+    #[test]
+    fn test_gaussian_naive_bayes_numerical_stability_random_data() {
+        #[derive(Debug)]
+        struct MySimpleRng {
+            state: u64,
+        }
+
+        impl MySimpleRng {
+            fn new(seed: u64) -> Self {
+                MySimpleRng { state: seed }
+            }
+
+            /// Get the next u64 in the sequence.
+            fn next_u64(&mut self) -> u64 {
+                // LCG parameters; these are somewhat arbitrary but commonly used.
+                // Feel free to tweak the multiplier/adder etc.
+                self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                self.state
+            }
+
+            /// Get an f64 in the range [min, max).
+            fn next_f64(&mut self, min: f64, max: f64) -> f64 {
+                let fraction = (self.next_u64() as f64) / (u64::MAX as f64);
+                min + fraction * (max - min)
+            }
+
+            /// Get a usize in the range [min, max). This floors the floating result.
+            fn gen_range_usize(&mut self, min: usize, max: usize) -> usize {
+                let v = self.next_f64(min as f64, max as f64);
+                // Truncate into the integer range. Because of floating inexactness,
+                // ensure we also clamp.
+                let int_v = v.floor() as isize;
+                // simple clamp to avoid any float rounding out of range
+                let clamped = int_v.max(min as isize).min((max - 1) as isize);
+                clamped as usize
+            }
+        }
+        use crate::naive_bayes::gaussian::GaussianNB;
+        // We will generate random data in a reproducible way (using a fixed seed).
+        // We will generate random data in a reproducible way:
+        let mut rng = MySimpleRng::new(42);
+
+        let n_samples = 1000;
+        let n_features = 5;
+        let n_classes = 4;
+
+        // Our feature matrix and label vector
+        let mut x_data = Vec::with_capacity(n_samples * n_features);
+        let mut y_data = Vec::with_capacity(n_samples);
+
+        // Fill x_data with random values and y_data with random class labels.
+        for _i in 0..n_samples {
+            for _j in 0..n_features {
+                // We’ll pick random values in [-10, 10).
+                x_data.push(rng.next_f64(-10.0, 10.0));
+            }
+            let class = rng.gen_range_usize(0, n_classes) as u32;
+            y_data.push(class);
+        }
+
+        // Create DenseMatrix from x_data
+        let x = DenseMatrix::new(n_samples, n_features, x_data, true).unwrap();
+
+        // Train GaussianNB
+        let gnb = GaussianNB::fit(&x, &y_data, Default::default())
+            .expect("Fitting GaussianNB with random data failed.");
+
+        // Predict on the same training data to verify no numerical instability
+        let predictions = gnb.predict(&x).expect("Prediction on random data failed.");
+
+        // Basic sanity checks
+        assert_eq!(
+            predictions.len(),
+            n_samples,
+            "Prediction size must match n_samples"
+        );
+        for &pred_class in &predictions {
+            assert!(
+                (pred_class as usize) < n_classes,
+                "Predicted class {} is out of range [0..n_classes).",
+                pred_class
+            );
+        }
+
+        // If you want to compare with scikit-learn, you can do something like:
+        // println!("X = {:?}", &x);
+        // println!("Y = {:?}", &y_data);
+        // println!("predictions = {:?}", &predictions);
+        // and then in Python:
+        //    import numpy as np
+        //    from sklearn.naive_bayes import GaussianNB
+        //    X = np.reshape(np.array(x), (1000, 5), order='F')
+        //    Y = np.array(y)
+        //    gnb = GaussianNB().fit(X, Y)
+        //    preds = gnb.predict(X[[5:50], :])
+        //    expected = np.array(predictions[5:50])
+        //    assert expected == preds
+        // They should match closely (or exactly) depending on floating rounding.
+    }
 }
