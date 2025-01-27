@@ -622,7 +622,8 @@ mod tests_fastpair {
             &[4.6, 3.4, 1.4, 0.3],
             &[5.0, 3.4, 1.5, 0.2],
             &[4.4, 2.9, 1.4, 0.2],
-        ]);
+        ])
+        .unwrap();
         let fastpair = FastPair::new(&x).unwrap();
 
         let ordered = fastpair.ordered_pairs();
