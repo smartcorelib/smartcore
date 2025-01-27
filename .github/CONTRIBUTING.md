@@ -37,6 +37,8 @@ $ rust-code-analysis-cli -p src/algorithm/neighbour/fastpair.rs --ls 22 --le 213
 ```
 * find more information about what happens in your binary with [`twiggy`](https://rustwasm.github.io/twiggy/install.html). This need a compiled binary so create a brief `main {}` function using `smartcore` and then point `twiggy` to that file.
 
+* Please take a look to the output of a profiler to spot most evident performance problems, see [this guide about using a profiler](http://www.codeofview.com/fix-rs/2017/01/24/how-to-optimize-rust-programs-on-linux/).
+
 ## Issue Report Process
 
 1. Go to the project's issues.

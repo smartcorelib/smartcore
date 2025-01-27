@@ -1,11 +1,9 @@
-// TODO: missing documentation
-
 use crate::optimization::FunctionOrder;
 use num_traits::Float;
 
-///
+/// Line search optimization.
 pub trait LineSearchMethod<T: Float> {
-    ///
+    /// Find alpha that satisfies strong Wolfe conditions.
     fn search(
         &self,
         f: &(dyn Fn(T) -> T),
@@ -16,32 +14,31 @@ pub trait LineSearchMethod<T: Float> {
     ) -> LineSearchResult<T>;
 }
 
-///
+/// Line search result
 #[derive(Debug, Clone)]
 pub struct LineSearchResult<T: Float> {
-    ///
+    /// Alpha value
     pub alpha: T,
-    ///
+    /// f(alpha) value
     pub f_x: T,
 }
 
-///
+/// Backtracking line search method.
 pub struct Backtracking<T: Float> {
-    ///
+    /// TODO: Add documentation
     pub c1: T,
-    ///
+    /// Maximum number of iterations for Backtracking single run
     pub max_iterations: usize,
-    ///
+    /// TODO: Add documentation
     pub max_infinity_iterations: usize,
-    ///
+    /// TODO: Add documentation
     pub phi: T,
-    ///
+    /// TODO: Add documentation
     pub plo: T,
-    ///
+    /// function order
     pub order: FunctionOrder,
 }
 
-///
 impl<T: Float> Default for Backtracking<T> {
     fn default() -> Self {
         Backtracking {
@@ -55,9 +52,7 @@ impl<T: Float> Default for Backtracking<T> {
     }
 }
 
-///
 impl<T: Float> LineSearchMethod<T> for Backtracking<T> {
-    ///
     fn search(
         &self,
         f: &(dyn Fn(T) -> T),

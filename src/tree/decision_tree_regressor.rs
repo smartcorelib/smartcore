@@ -39,7 +39,7 @@
 //!             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
 //!             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
 //!             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-//!        ]);
+//!        ]).unwrap();
 //! let y: Vec<f64> = vec![
 //!             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0,
 //!             101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9,
@@ -311,15 +311,15 @@ impl Node {
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        (self.output - other.output).abs() < std::f64::EPSILON
+        (self.output - other.output).abs() < f64::EPSILON
             && self.split_feature == other.split_feature
             && match (self.split_value, other.split_value) {
-                (Some(a), Some(b)) => (a - b).abs() < std::f64::EPSILON,
+                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
                 (None, None) => true,
                 _ => false,
             }
             && match (self.split_score, other.split_score) {
-                (Some(a), Some(b)) => (a - b).abs() < std::f64::EPSILON,
+                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
                 (None, None) => true,
                 _ => false,
             }
@@ -478,7 +478,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth() < tree.parameters().max_depth.unwrap_or(std::u16::MAX) {
+        while tree.depth() < tree.parameters().max_depth.unwrap_or(u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -515,7 +515,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                     if node.true_child.is_none() && node.false_child.is_none() {
                         result = node.output;
                     } else if x.get((row, node.split_feature)).to_f64().unwrap()
-                        <= node.split_value.unwrap_or(std::f64::NAN)
+                        <= node.split_value.unwrap_or(f64::NAN)
                     {
                         queue.push_back(node.true_child.unwrap());
                     } else {
@@ -640,9 +640,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                     .get((i, self.nodes()[visitor.node].split_feature))
                     .to_f64()
                     .unwrap()
-                    <= self.nodes()[visitor.node]
-                        .split_value
-                        .unwrap_or(std::f64::NAN)
+                    <= self.nodes()[visitor.node].split_value.unwrap_or(f64::NAN)
                 {
                     *true_sample = visitor.samples[i];
                     tc += *true_sample;
@@ -753,7 +751,8 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
             114.2, 115.7, 116.9,
@@ -767,7 +766,7 @@ mod tests {
             assert!((y_hat[i] - y[i]).abs() < 0.1);
         }
 
-        let expected_y = vec![
+        let expected_y = [
             87.3, 87.3, 87.3, 87.3, 98.9, 98.9, 98.9, 98.9, 98.9, 107.9, 107.9, 107.9, 114.85,
             114.85, 114.85, 114.85,
         ];
@@ -788,7 +787,7 @@ mod tests {
             assert!((y_hat[i] - expected_y[i]).abs() < 0.1);
         }
 
-        let expected_y = vec![
+        let expected_y = [
             83.0, 88.35, 88.35, 89.5, 97.15, 97.15, 99.5, 99.5, 101.2, 104.6, 109.6, 109.6, 113.4,
             113.4, 116.30, 116.30,
         ];
@@ -834,7 +833,8 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
             114.2, 115.7, 116.9,

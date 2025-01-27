@@ -20,13 +20,13 @@
 //!                   &[0, 2, 0, 0, 1, 0],
 //!                   &[0, 1, 0, 1, 0, 0],
 //!                   &[0, 1, 1, 0, 0, 1],
-//!         ]);
+//!         ]).unwrap();
 //! let y: Vec<u32> = vec![0, 0, 0, 1];
 //! let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Testing data point is:
 //! //  Chinese Chinese Chinese Tokyo Japan
-//! let x_test = DenseMatrix::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]);
+//! let x_test = DenseMatrix::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]).unwrap();
 //! let y_hat = nb.predict(&x_test).unwrap();
 //! ```
 //!
@@ -208,7 +208,7 @@ impl<TY: Number + Ord + Unsigned> MultinomialNBDistribution<TY> {
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
     /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    /// priors are adjusted according to the data.
+    ///     priors are adjusted according to the data.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter.
     pub fn fit<TX: Number + Unsigned, X: Array2<TX>, Y: Array1<TY>>(
         x: &X,
@@ -345,10 +345,10 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
 {
     /// Fits MultinomialNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
-    /// binarizing threshold.
+    ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         let distribution =
             MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?;
@@ -358,6 +358,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.as_ref().unwrap().predict(x)
@@ -433,7 +434,8 @@ mod tests {
             &[0, 2, 0, 0, 1, 0],
             &[0, 1, 0, 1, 0, 0],
             &[0, 1, 1, 0, 0, 1],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 0, 1];
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
@@ -467,7 +469,7 @@ mod tests {
 
         // Testing data point is:
         //  Chinese Chinese Chinese Tokyo Japan
-        let x_test = DenseMatrix::<u32>::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]);
+        let x_test = DenseMatrix::<u32>::from_2d_array(&[&[0, 3, 1, 0, 0, 1]]).unwrap();
         let y_hat = mnb.predict(&x_test).unwrap();
 
         assert_eq!(y_hat, &[0]);
@@ -495,7 +497,8 @@ mod tests {
             &[2, 0, 3, 3, 1, 2, 0, 2, 4, 1],
             &[2, 4, 0, 4, 2, 4, 1, 3, 1, 4],
             &[0, 2, 2, 3, 4, 0, 4, 4, 4, 4],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![2, 2, 0, 0, 0, 2, 1, 1, 0, 1, 0, 0, 2, 0, 2];
         let nb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();
 
@@ -554,7 +557,8 @@ mod tests {
             &[0, 1, 0, 0, 1, 0],
             &[0, 1, 0, 1, 0, 0],
             &[0, 1, 1, 0, 0, 1],
-        ]);
+        ])
+        .unwrap();
         let y = vec![0, 0, 0, 1];
 
         let mnb = MultinomialNB::fit(&x, &y, Default::default()).unwrap();

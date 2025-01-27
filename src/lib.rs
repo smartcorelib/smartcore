@@ -7,7 +7,6 @@
     clippy::approx_constant
 )]
 #![warn(missing_docs)]
-#![warn(rustdoc::missing_doc_code_examples)]
 
 //! # smartcore
 //!
@@ -64,7 +63,7 @@
 //!    &[3., 4.],
 //!    &[5., 6.],
 //!    &[7., 8.],
-//!    &[9., 10.]]);
+//!    &[9., 10.]]).unwrap();
 //! // Our classes are defined as a vector
 //! let y = vec![2, 2, 2, 3, 3];
 //!

@@ -61,7 +61,7 @@ impl<T, D: Distance<T>> LinearKNNSearch<T, D> {
 
         for _ in 0..k {
             heap.add(KNNPoint {
-                distance: std::f64::INFINITY,
+                distance: f64::INFINITY,
                 index: None,
             });
         }
@@ -215,7 +215,7 @@ mod tests {
         };
 
         let point_inf = KNNPoint {
-            distance: std::f64::INFINITY,
+            distance: f64::INFINITY,
             index: Some(3),
         };
 

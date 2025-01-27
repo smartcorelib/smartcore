@@ -15,7 +15,7 @@
 //!                 &[25., 15., -5.],
 //!                 &[15., 18., 0.],
 //!                 &[-5., 0., 11.]
-//!         ]);
+//!         ]).unwrap();
 //!
 //! let cholesky = A.cholesky().unwrap();
 //! let lower_triangular: DenseMatrix<f64> = cholesky.L();
@@ -175,11 +175,14 @@ mod tests {
     )]
     #[test]
     fn cholesky_decompose() {
-        let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
+        let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]])
+            .unwrap();
         let l =
-            DenseMatrix::from_2d_array(&[&[5.0, 0.0, 0.0], &[3.0, 3.0, 0.0], &[-1.0, 1.0, 3.0]]);
+            DenseMatrix::from_2d_array(&[&[5.0, 0.0, 0.0], &[3.0, 3.0, 0.0], &[-1.0, 1.0, 3.0]])
+                .unwrap();
         let u =
-            DenseMatrix::from_2d_array(&[&[5.0, 3.0, -1.0], &[0.0, 3.0, 1.0], &[0.0, 0.0, 3.0]]);
+            DenseMatrix::from_2d_array(&[&[5.0, 3.0, -1.0], &[0.0, 3.0, 1.0], &[0.0, 0.0, 3.0]])
+                .unwrap();
         let cholesky = a.cholesky().unwrap();
 
         assert!(relative_eq!(cholesky.L().abs(), l.abs(), epsilon = 1e-4));
@@ -197,9 +200,10 @@ mod tests {
     )]
     #[test]
     fn cholesky_solve_mut() {
-        let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]]);
-        let b = DenseMatrix::from_2d_array(&[&[40., 51., 28.]]);
-        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]);
+        let a = DenseMatrix::from_2d_array(&[&[25., 15., -5.], &[15., 18., 0.], &[-5., 0., 11.]])
+            .unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[40., 51., 28.]]).unwrap();
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]).unwrap();
 
         let cholesky = a.cholesky().unwrap();
 

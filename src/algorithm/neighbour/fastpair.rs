@@ -17,7 +17,7 @@
 ///     &[4.6, 3.1, 1.5, 0.2],
 ///     &[5.0, 3.6, 1.4, 0.2],
 ///     &[5.4, 3.9, 1.7, 0.4],
-/// ]);
+/// ]).unwrap();
 /// let fastpair = FastPair::new(&x);
 /// let closest_pair: PairwiseDistance<f64> = fastpair.unwrap().closest_pair();
 /// ```
@@ -52,10 +52,8 @@ pub struct FastPair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
 }
 
 impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
-    ///
     /// Constructor
-    /// Instantiate and inizialise the algorithm
-    ///
+    /// Instantiate and initialize the algorithm
     pub fn new(m: &'a M) -> Result<Self, Failed> {
         if m.shape().0 < 3 {
             return Err(Failed::because(
@@ -74,10 +72,8 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         Ok(init)
     }
 
-    ///
     /// Initialise `FastPair` by passing a `Array2`.
     /// Build a FastPairs data-structure from a set of (new) points.
-    ///
     fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
@@ -158,9 +154,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         self.neighbours = neighbours;
     }
 
-    ///
     /// Find closest pair by scanning list of nearest neighbors.
-    ///
     #[allow(dead_code)]
     pub fn closest_pair(&self) -> PairwiseDistance<T> {
         let mut a = self.neighbours[0]; // Start with first point
@@ -232,10 +226,10 @@ mod tests_fastpair {
     use super::*;
     use crate::linalg::basic::{arrays::Array, matrix::DenseMatrix};
 
-    ///
     /// Brute force algorithm, used only for comparison and testing
-    ///
-    pub fn closest_pair_brute(fastpair: &FastPair<f64, DenseMatrix<f64>>) -> PairwiseDistance<f64> {
+    pub fn closest_pair_brute(
+        fastpair: &FastPair<'_, f64, DenseMatrix<f64>>,
+    ) -> PairwiseDistance<f64> {
         use itertools::Itertools;
         let m = fastpair.samples.shape().0;
 
@@ -286,7 +280,7 @@ mod tests_fastpair {
     fn dataset_has_at_least_three_points() {
         // Create a dataset which consists of only two points:
         // A(0.0, 0.0) and B(1.0, 1.0).
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]).unwrap();
 
         // We expect an error when we run `FastPair` on this dataset,
         // becuase `FastPair` currently only works on a minimum of 3
@@ -303,7 +297,7 @@ mod tests_fastpair {
 
     #[test]
     fn one_dimensional_dataset_minimal() {
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]).unwrap();
 
         let result = FastPair::new(&dataset);
         assert!(result.is_ok());
@@ -323,7 +317,8 @@ mod tests_fastpair {
 
     #[test]
     fn one_dimensional_dataset_2() {
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
+        let dataset =
+            DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]).unwrap();
 
         let result = FastPair::new(&dataset);
         assert!(result.is_ok());
@@ -358,7 +353,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
@@ -531,7 +527,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         // compute
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
@@ -579,7 +576,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         // compute
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());

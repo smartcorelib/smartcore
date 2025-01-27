@@ -18,7 +18,7 @@
 //!                  &[1., 2., 3.],
 //!                  &[0., 1., 5.],
 //!                  &[5., 6., 0.]
-//!         ]);
+//!         ]).unwrap();
 //!
 //! let lu = A.lu().unwrap();
 //! let lower: DenseMatrix<f64> = lu.L();
@@ -263,13 +263,13 @@ mod tests {
     )]
     #[test]
     fn decompose() {
-        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]).unwrap();
         let expected_L =
-            DenseMatrix::from_2d_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0.2, 0.8, 1.]]);
+            DenseMatrix::from_2d_array(&[&[1., 0., 0.], &[0., 1., 0.], &[0.2, 0.8, 1.]]).unwrap();
         let expected_U =
-            DenseMatrix::from_2d_array(&[&[5., 6., 0.], &[0., 1., 5.], &[0., 0., -1.]]);
+            DenseMatrix::from_2d_array(&[&[5., 6., 0.], &[0., 1., 5.], &[0., 0., -1.]]).unwrap();
         let expected_pivot =
-            DenseMatrix::from_2d_array(&[&[0., 0., 1.], &[0., 1., 0.], &[1., 0., 0.]]);
+            DenseMatrix::from_2d_array(&[&[0., 0., 1.], &[0., 1., 0.], &[1., 0., 0.]]).unwrap();
         let lu = a.lu().unwrap();
         assert!(relative_eq!(lu.L(), expected_L, epsilon = 1e-4));
         assert!(relative_eq!(lu.U(), expected_U, epsilon = 1e-4));
@@ -281,9 +281,10 @@ mod tests {
     )]
     #[test]
     fn inverse() {
-        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]);
+        let a = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[0., 1., 5.], &[5., 6., 0.]]).unwrap();
         let expected =
-            DenseMatrix::from_2d_array(&[&[-6.0, 3.6, 1.4], &[5.0, -3.0, -1.0], &[-1.0, 0.8, 0.2]]);
+            DenseMatrix::from_2d_array(&[&[-6.0, 3.6, 1.4], &[5.0, -3.0, -1.0], &[-1.0, 0.8, 0.2]])
+                .unwrap();
         let a_inv = a.lu().and_then(|lu| lu.inverse()).unwrap();
         assert!(relative_eq!(a_inv, expected, epsilon = 1e-4));
     }
