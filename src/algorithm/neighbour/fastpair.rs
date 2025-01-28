@@ -639,4 +639,69 @@ mod tests_fastpair {
             }
         }
     }
+
+    #[test]
+    fn test_empty_set() {
+        let empty_matrix = DenseMatrix::<f64>::zeros(0, 0);
+        let result = FastPair::new(&empty_matrix);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3")
+            );
+        }
+    }
+
+    #[test]
+    fn test_single_point() {
+        let single_point = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]).unwrap();
+        let result = FastPair::new(&single_point);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3")
+            );
+        }
+    }
+
+    #[test]
+    fn test_two_points() {
+        let two_points = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = FastPair::new(&two_points);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3")
+            );
+        }
+    }
+
+    #[test]
+    fn test_three_identical_points() {
+        let identical_points = DenseMatrix::from_2d_array(&[&[1.0, 1.0], &[1.0, 1.0], &[1.0, 1.0]]).unwrap();
+        let result = FastPair::new(&identical_points);
+        assert!(result.is_ok());
+        let fastpair = result.unwrap();
+        let closest_pair = fastpair.closest_pair();
+        assert_eq!(closest_pair.distance, Some(0.0));
+    }
+
+    #[test]
+    fn test_result_unwrapping() {
+        let valid_matrix = DenseMatrix::from_2d_array(&[
+            &[1.0, 2.0],
+            &[3.0, 4.0],
+            &[5.0, 6.0],
+            &[7.0, 8.0],
+        ]).unwrap();
+        
+        let result = FastPair::new(&valid_matrix);
+        assert!(result.is_ok());
+        
+        // This should not panic
+        let _fastpair = result.unwrap();
+    }
 }
