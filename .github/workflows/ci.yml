@@ -24,7 +24,7 @@ jobs:
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache .cargo and target
         uses: actions/cache@v2
         with:
@@ -81,7 +81,7 @@ jobs:
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache .cargo and target
         uses: actions/cache@v2
         with:
