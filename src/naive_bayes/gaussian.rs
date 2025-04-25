@@ -174,8 +174,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
-    /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    ///     priors are adjusted according to the data.
+    /// * `priors` - Optional vector with prior probabilities of the classes. If not defined, priors are adjusted according to the data.
     pub fn fit<TX: Number + RealNumber, X: Array2<TX>, Y: Array1<TY>>(
         x: &X,
         y: &Y,
