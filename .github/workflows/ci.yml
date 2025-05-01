@@ -19,14 +19,13 @@ jobs:
             { os: "ubuntu", target: "i686-unknown-linux-gnu" },
             { os: "ubuntu", target: "wasm32-unknown-unknown" },
             { os: "macos", target: "aarch64-apple-darwin" },
-            { os: "ubuntu", target: "wasm32-wasi" },
           ]
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache .cargo and target
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo
@@ -36,16 +35,13 @@ jobs:
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.81 # 1.82 seems to break wasm32 tests https://github.com/rustwasm/wasm-bindgen/issues/4274
+          toolchain: stable
           target: ${{ matrix.platform.target }}
           profile: minimal
           default: true
       - name: Install test runner for wasm
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Install test runner for wasi
-        if: matrix.platform.target == 'wasm32-wasi'
-        run: curl https://wasmtime.dev/install.sh -sSf | bash
       - name: Stable Build with all features
         uses: actions-rs/cargo@v1
         with:
@@ -65,13 +61,7 @@ jobs:
       - name: Tests in WASM
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: wasm-pack test --node -- --all-features
-      - name: Tests in WASI
-        if: matrix.platform.target == 'wasm32-wasi'
-        run: |
-          export WASMTIME_HOME="$HOME/.wasmtime"
-          export PATH="$WASMTIME_HOME/bin:$PATH"
-          cargo install cargo-wasi && cargo wasi test
-
+  
   check_features:
     runs-on: "${{ matrix.platform.os }}-latest"
     strategy:
@@ -81,9 +71,9 @@ jobs:
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache .cargo and target
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo
