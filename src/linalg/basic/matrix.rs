@@ -663,6 +663,7 @@ mod tests {
     #[test]
     fn test_instantiate_err_view3() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
+        #[allow(clippy::reversed_empty_ranges)]
         let v = DenseMatrixView::new(&x, 0..3, 4..3);
         assert!(v.is_err());
     }
