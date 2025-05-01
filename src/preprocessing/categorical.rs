@@ -24,7 +24,7 @@
 //! //    &[1.5, 1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0]
 //! //    &[1.5, 0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0]
 //! ```
-use std::iter;
+use std::iter::repeat_n;
 
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
@@ -75,11 +75,7 @@ fn find_new_idxs(num_params: usize, cat_sizes: &[usize], cat_idxs: &[usize]) -> 
     let offset = (0..1).chain(offset_);
 
     let new_param_idxs: Vec<usize> = (0..num_params)
-        .zip(
-            repeats
-                .zip(offset)
-                .flat_map(|(r, o)| iter::repeat(o).take(r)),
-        )
+        .zip(repeats.zip(offset).flat_map(|(r, o)| repeat_n(o, r)))
         .map(|(idx, ofst)| idx + ofst)
         .collect();
     new_param_idxs
@@ -124,7 +120,7 @@ impl OneHotEncoder {
                 let (nrows, _) = data.shape();
 
                 // col buffer to avoid allocations
-                let mut col_buf: Vec<T> = iter::repeat(T::zero()).take(nrows).collect();
+                let mut col_buf: Vec<T> = repeat_n(T::zero(), nrows).collect();
 
                 let mut res: Vec<CategoryMapper<CategoricalFloat>> = Vec::with_capacity(idxs.len());
 
