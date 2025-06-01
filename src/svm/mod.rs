@@ -42,7 +42,10 @@ use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
 /// Defines a kernel function.
 /// This is a object-safe trait.
-#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde(tag = "type"))]
+#[cfg_attr(
+    all(feature = "serde", not(target_arch = "wasm32")),
+    typetag::serde(tag = "type")
+)]
 pub trait Kernel: Debug {
     #[allow(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
