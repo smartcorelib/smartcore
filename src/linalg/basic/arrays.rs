@@ -2190,4 +2190,32 @@ mod tests {
 
         assert_eq!(result, [65, 581, 30])
     }
+
+    #[test]
+    fn test_argsort_mut_exact_boundary() {
+        // Test index == length - 1 case
+        let boundary = DenseMatrix::from_2d_array(
+            &[&[1.0, 2.0, 3.0, f64::MAX], &[3.0, f64::MAX, 0.0, 2.0]]).unwrap();
+        let mut view0: Vec<f64> = boundary.get_col(0).iterator(0).copied().collect();
+        let indices = view0.argsort_mut();
+        assert_eq!(indices.last(), Some(&1));
+        assert_eq!(indices.first(), Some(&0));
+
+        let mut view1: Vec<f64> = boundary.get_col(3).iterator(0).copied().collect();
+        let indices = view1.argsort_mut();
+        assert_eq!(indices.last(), Some(&0));
+        assert_eq!(indices.first(), Some(&1));
+    }
+    
+
+    #[test]
+    fn test_argsort_mut_filled_array() {
+        let matrix = DenseMatrix::<f64>::rand(1000, 1000);
+        let mut view: Vec<f64> = matrix.get_col(0).iterator(0).copied().collect();
+        let sorted = view.argsort_mut();
+        assert_eq!(
+            sorted.len(),
+            1000);
+    }
+
 }
