@@ -1,105 +1,112 @@
-// /// SVR grid search parameters
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug, Clone)]
-// pub struct SVRSearchParameters<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-//     /// Epsilon in the epsilon-SVR model.
-//     pub eps: Vec<T>,
-//     /// Regularization parameter.
-//     pub c: Vec<T>,
-//     /// Tolerance for stopping eps.
-//     pub tol: Vec<T>,
-//     /// The kernel function.
-//     pub kernel: Vec<K>,
-//     /// Unused parameter.
-//     m: PhantomData<M>,
-// }
+use crate::numbers::basenum::Number;
+use crate::numbers::floatnum::FloatNumber;
+use crate::numbers::realnum::RealNumber;
+use crate::linalg::basic::arrays::Array2;
+use crate::svm::{svr, Kernel, LinearKernel, Kernels};
+use std::marker::PhantomData;
 
-// /// SVR grid search iterator
-// pub struct SVRSearchParametersIterator<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> {
-//     svr_search_parameters: SVRSearchParameters<T, M, K>,
-//     current_eps: usize,
-//     current_c: usize,
-//     current_tol: usize,
-//     current_kernel: usize,
-// }
 
-// impl<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> IntoIterator
-//     for SVRSearchParameters<T, M, K>
-// {
-//     type Item = SVRParameters<T, M, K>;
-//     type IntoIter = SVRSearchParametersIterator<T, M, K>;
+/// SVR grid search parameters
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct SVRSearchParameters<T: Number + RealNumber, M: Array2<T>> {
+    /// Epsilon in the epsilon-SVR model.
+    pub eps: Vec<T>,
+    /// Regularization parameter.
+    pub c: Vec<T>,
+    /// Tolerance for stopping eps.
+    pub tol: Vec<T>,
+    /// The kernel function.
+    pub kernel: Option<Kernels>,
+    /// Unused parameter.
+    m: PhantomData<M>,
+}
 
-//     fn into_iter(self) -> Self::IntoIter {
-//         SVRSearchParametersIterator {
-//             svr_search_parameters: self,
-//             current_eps: 0,
-//             current_c: 0,
-//             current_tol: 0,
-//             current_kernel: 0,
-//         }
-//     }
-// }
+/// SVR grid search iterator
+pub struct SVRSearchParametersIterator<T: Number + RealNumber, M: Array2<T>> {
+    svr_search_parameters: SVRSearchParameters<T, M>,
+    current_eps: usize,
+    current_c: usize,
+    current_tol: usize,
+    current_kernel: usize,
+}
 
-// impl<T: Number + RealNumber, M: Matrix<T>, K: Kernel<T, M::RowVector>> Iterator
-//     for SVRSearchParametersIterator<T, M, K>
-// {
-//     type Item = SVRParameters<T, M, K>;
+impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> IntoIterator
+    for SVRSearchParameters<T, M>
+{
+    type Item = svr::SVRParameters<T>;
+    type IntoIter = SVRSearchParametersIterator<T, M>;
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.current_eps == self.svr_search_parameters.eps.len()
-//             && self.current_c == self.svr_search_parameters.c.len()
-//             && self.current_tol == self.svr_search_parameters.tol.len()
-//             && self.current_kernel == self.svr_search_parameters.kernel.len()
-//         {
-//             return None;
-//         }
+    fn into_iter(self) -> Self::IntoIter {
+        SVRSearchParametersIterator {
+            svr_search_parameters: self,
+            current_eps: 0,
+            current_c: 0,
+            current_tol: 0,
+            current_kernel: 0,
+        }
+    }
+}
 
-//         let next = SVRParameters::<T, M, K> {
-//             eps: self.svr_search_parameters.eps[self.current_eps],
-//             c: self.svr_search_parameters.c[self.current_c],
-//             tol: self.svr_search_parameters.tol[self.current_tol],
-//             kernel: self.svr_search_parameters.kernel[self.current_kernel].clone(),
-//             m: PhantomData,
-//         };
+impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Iterator
+    for SVRSearchParametersIterator<T, M>
+{
+    type Item = svr::SVRParameters<T>;
 
-//         if self.current_eps + 1 < self.svr_search_parameters.eps.len() {
-//             self.current_eps += 1;
-//         } else if self.current_c + 1 < self.svr_search_parameters.c.len() {
-//             self.current_eps = 0;
-//             self.current_c += 1;
-//         } else if self.current_tol + 1 < self.svr_search_parameters.tol.len() {
-//             self.current_eps = 0;
-//             self.current_c = 0;
-//             self.current_tol += 1;
-//         } else if self.current_kernel + 1 < self.svr_search_parameters.kernel.len() {
-//             self.current_eps = 0;
-//             self.current_c = 0;
-//             self.current_tol = 0;
-//             self.current_kernel += 1;
-//         } else {
-//             self.current_eps += 1;
-//             self.current_c += 1;
-//             self.current_tol += 1;
-//             self.current_kernel += 1;
-//         }
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_eps == self.svr_search_parameters.eps.len()
+            && self.current_c == self.svr_search_parameters.c.len()
+            && self.current_tol == self.svr_search_parameters.tol.len()
+            && self.current_kernel == self.svr_search_parameters.kernel.len()
+        {
+            return None;
+        }
 
-//         Some(next)
-//     }
-// }
+        let next = svr::SVRParameters::<T> {
+            eps: self.svr_search_parameters.eps[self.current_eps],
+            c: self.svr_search_parameters.c[self.current_c],
+            tol: self.svr_search_parameters.tol[self.current_tol],
+            kernel: self.svr_search_parameters.kernel[self.current_kernel].clone()
+        };
 
-// impl<T: Number + RealNumber, M: Matrix<T>> Default for SVRSearchParameters<T, M, LinearKernel> {
-//     fn default() -> Self {
-//         let default_params: SVRParameters<T, M, LinearKernel> = SVRParameters::default();
+        if self.current_eps + 1 < self.svr_search_parameters.eps.len() {
+            self.current_eps += 1;
+        } else if self.current_c + 1 < self.svr_search_parameters.c.len() {
+            self.current_eps = 0;
+            self.current_c += 1;
+        } else if self.current_tol + 1 < self.svr_search_parameters.tol.len() {
+            self.current_eps = 0;
+            self.current_c = 0;
+            self.current_tol += 1;
+        } else if self.current_kernel + 1 < self.svr_search_parameters.kernel.len() {
+            self.current_eps = 0;
+            self.current_c = 0;
+            self.current_tol = 0;
+            self.current_kernel += 1;
+        } else {
+            self.current_eps += 1;
+            self.current_c += 1;
+            self.current_tol += 1;
+            self.current_kernel += 1;
+        }
 
-//         SVRSearchParameters {
-//             eps: vec![default_params.eps],
-//             c: vec![default_params.c],
-//             tol: vec![default_params.tol],
-//             kernel: vec![default_params.kernel],
-//             m: PhantomData,
-//         }
-//     }
-// }
+        Some(next)
+    }
+}
+
+impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Default for SVRSearchParameters<T, M> {
+    fn default() -> Self {
+        let default_params: svr::SVRParameters<T> = svr::SVRParameters::default();
+
+        SVRSearchParameters {
+            eps: vec![default_params.eps],
+            c: vec![default_params.c],
+            tol: vec![default_params.tol],
+            kernel: vec![default_params.kernel],
+            m: PhantomData,
+        }
+    }
+}
 
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 // #[derive(Debug)]

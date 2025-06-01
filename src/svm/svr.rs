@@ -80,7 +80,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::svm::Kernel;
+use crate::svm::{Kernel, Kernels};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
@@ -97,7 +97,7 @@ pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
         all(feature = "serde", target_arch = "wasm32"),
         serde(skip_serializing, skip_deserializing)
     )]
-    pub kernel: Option<Box<dyn Kernel>>,
+    pub kernel: Option<Kernels>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -160,8 +160,8 @@ impl<T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
         self
     }
     /// The kernel function.
-    pub fn with_kernel<K: Kernel + 'static>(mut self, kernel: K) -> Self {
-        self.kernel = Some(Box::new(kernel));
+    pub fn with_kernel(mut self, kernel: Kernels) -> Self {
+        self.kernel = Some(kernel);
         self
     }
 }
@@ -269,7 +269,6 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
                         .as_ref()
                         .unwrap()
                         .kernel
-                        .as_ref()
                         .unwrap()
                         .apply(&xi, &self.instances.as_ref().unwrap()[i])
                         .unwrap(),
@@ -597,25 +596,26 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
-    use crate::svm::Kernels;
+    use crate::svm::{Kernels, LinearKernel};
+    use crate::svm::search::svr_params::SVRSearchParameters;
 
-    // #[test]
-    // fn search_parameters() {
-    //     let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
-    //         SVRSearchParameters {
-    //             eps: vec![0., 1.],
-    //             kernel: vec![LinearKernel {}],
-    //             ..Default::default()
-    //         };
-    //     let mut iter = parameters.into_iter();
-    //     let next = iter.next().unwrap();
-    //     assert_eq!(next.eps, 0.);
-    //     assert_eq!(next.kernel, LinearKernel {});
-    //     let next = iter.next().unwrap();
-    //     assert_eq!(next.eps, 1.);
-    //     assert_eq!(next.kernel, LinearKernel {});
-    //     assert!(iter.next().is_none());
-    // }
+    #[test]
+    fn search_parameters() {
+        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+            SVRSearchParameters {
+                eps: vec![0., 1.],
+                kernel: vec![LinearKernel {}],
+                ..Default::default()
+            };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.eps, 0.);
+        // assert_eq!(next.kernel, LinearKernel {});
+        // let next = iter.next().unwrap();
+        // assert_eq!(next.eps, 1.);
+        // assert_eq!(next.kernel, LinearKernel {});
+        // assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),

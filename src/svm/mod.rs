@@ -26,7 +26,7 @@
 pub mod svc;
 pub mod svr;
 // /// search parameters space
-// pub mod search;
+pub mod search;
 
 use core::fmt::Debug;
 
