@@ -1,29 +1,33 @@
 use std::default::Default;
 
-use crate::linalg::Matrix;
-use crate::math::num::RealNumber;
+use crate::linalg::basic::arrays::Array1;
+use crate::numbers::floatnum::FloatNumber;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
-pub struct GradientDescent<T: RealNumber> {
+/// Gradient Descent optimization algorithm
+pub struct GradientDescent {
+    /// Maximum number of iterations
     pub max_iter: usize,
-    pub g_rtol: T,
-    pub g_atol: T,
+    /// Relative tolerance for the gradient norm
+    pub g_rtol: f64,
+    /// Absolute tolerance for the gradient norm
+    pub g_atol: f64,
 }
 
-impl<T: RealNumber> Default for GradientDescent<T> {
+impl Default for GradientDescent {
     fn default() -> Self {
         GradientDescent {
             max_iter: 10000,
-            g_rtol: T::epsilon().sqrt(),
-            g_atol: T::epsilon(),
+            g_rtol: f64::EPSILON.sqrt(),
+            g_atol: f64::EPSILON,
         }
     }
 }
 
-impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
-    fn optimize<'a, X: Matrix<T>, LS: LineSearchMethod<T>>(
+impl<T: FloatNumber> FirstOrderOptimizer<T> for GradientDescent {
+    fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,
         df: &'a DF<'_, X>,
@@ -45,19 +49,21 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
         while iter < self.max_iter && (iter == 0 || gnorm > gtol) {
             iter += 1;
 
-            let mut step = gvec.negative();
+            let mut step = gvec.neg();
 
             let f_alpha = |alpha: T| -> T {
                 let mut dx = step.clone();
                 dx.mul_scalar_mut(alpha);
-                f(&dx.add_mut(&x)) // f(x) = f(x .+ gvec .* alpha)
+                dx.add_mut(&x);
+                f(&dx) // f(x) = f(x .+ gvec .* alpha)
             };
 
             let df_alpha = |alpha: T| -> T {
                 let mut dx = step.clone();
                 let mut dg = gvec.clone();
                 dx.mul_scalar_mut(alpha);
-                df(&mut dg, &dx.add_mut(&x)); //df(x) = df(x .+ gvec .* alpha)
+                dx.add_mut(&x);
+                df(&mut dg, &dx); //df(x) = df(x .+ gvec .* alpha)
                 gvec.dot(&dg)
             };
 
@@ -66,7 +72,8 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
             let ls_r = ls.search(&f_alpha, &df_alpha, alpha, fx, df0);
             alpha = ls_r.alpha;
             fx = ls_r.f_x;
-            x.add_mut(&step.mul_scalar_mut(alpha));
+            step.mul_scalar_mut(alpha);
+            x.add_mut(&step);
             df(&mut gvec, &x);
             gnorm = gvec.norm2();
         }
@@ -84,35 +91,33 @@ impl<T: RealNumber> FirstOrderOptimizer<T> for GradientDescent<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::naive::dense_matrix::*;
     use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn gradient_descent() {
-        let x0 = DenseMatrix::row_vector_from_array(&[-1., 1.]);
-        let f = |x: &DenseMatrix<f64>| {
-            (1.0 - x.get(0, 0)).powf(2.) + 100.0 * (x.get(0, 1) - x.get(0, 0).powf(2.)).powf(2.)
+        let x0 = vec![-1., 1.];
+        let f = |x: &Vec<f64>| (1.0 - x[0]).powf(2.) + 100.0 * (x[1] - x[0].powf(2.)).powf(2.);
+
+        let df = |g: &mut Vec<f64>, x: &Vec<f64>| {
+            g[0] = -2. * (1. - x[0]) - 400. * (x[1] - x[0].powf(2.)) * x[0];
+            g[1] = 200. * (x[1] - x[0].powf(2.));
         };
 
-        let df = |g: &mut DenseMatrix<f64>, x: &DenseMatrix<f64>| {
-            g.set(
-                0,
-                0,
-                -2. * (1. - x.get(0, 0))
-                    - 400. * (x.get(0, 1) - x.get(0, 0).powf(2.)) * x.get(0, 0),
-            );
-            g.set(0, 1, 200. * (x.get(0, 1) - x.get(0, 0).powf(2.)));
+        let ls: Backtracking<f64> = Backtracking::<f64> {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
         };
-
-        let mut ls: Backtracking<f64> = Default::default();
-        ls.order = FunctionOrder::THIRD;
-        let optimizer: GradientDescent<f64> = Default::default();
+        let optimizer: GradientDescent = Default::default();
 
         let result = optimizer.optimize(&f, &df, &x0, &ls);
 
         assert!((result.f_x - 0.0).abs() < 1e-5);
-        assert!((result.x.get(0, 0) - 1.0).abs() < 1e-2);
-        assert!((result.x.get(0, 1) - 1.0).abs() < 1e-2);
+        assert!((result.x[0] - 1.0).abs() < 1e-2);
+        assert!((result.x[1] - 1.0).abs() < 1e-2);
     }
 }

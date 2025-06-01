@@ -17,3 +17,15 @@ smartcore.code-workspace
 
 # OS
 .DS_Store
+
+
+flamegraph.svg
+perf.data
+perf.data.old
+src.dot
+out.svg
+
+FlameGraph/
+out.stacks
+*.json
+*.txt

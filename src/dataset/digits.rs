@@ -1,4 +1,4 @@
-//! # Optical Recognition of Handwritten Digits Data Set
+//! # Optical Recognition of Handwritten Digits Dataset
 //!
 //! | Number of Instances | Number of Attributes | Missing Values? | Associated Tasks: |
 //! |-|-|-|-|
@@ -16,7 +16,7 @@ use crate::dataset::Dataset;
 pub fn load_dataset() -> Dataset<f32, f32> {
     let (x, y, num_samples, num_features) = match deserialize_data(std::include_bytes!("digits.xy"))
     {
-        Err(why) => panic!("Can't deserialize digits.xy. {}", why),
+        Err(why) => panic!("Can't deserialize digits.xy. {why}"),
         Ok((x, y, num_samples, num_features)) => (x, y, num_samples, num_features),
     };
 
@@ -25,16 +25,14 @@ pub fn load_dataset() -> Dataset<f32, f32> {
         target: y,
         num_samples,
         num_features,
-        feature_names: vec![
-            "sepal length (cm)",
+        feature_names: ["sepal length (cm)",
             "sepal width (cm)",
             "petal length (cm)",
-            "petal width (cm)",
-        ]
+            "petal width (cm)"]
         .iter()
         .map(|s| s.to_string())
         .collect(),
-        target_names: vec!["setosa", "versicolor", "virginica"]
+        target_names: ["setosa", "versicolor", "virginica"]
             .iter()
             .map(|s| s.to_string())
             .collect(),
@@ -45,9 +43,11 @@ pub fn load_dataset() -> Dataset<f32, f32> {
 #[cfg(test)]
 mod tests {
 
+    #[cfg(not(target_arch = "wasm32"))]
     use super::super::*;
     use super::*;
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     #[ignore]
     fn refresh_digits_dataset() {
@@ -55,7 +55,10 @@ mod tests {
         let dataset = load_dataset();
         assert!(serialize_data(&dataset, "digits.xy").is_ok());
     }
-
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn digits_dataset() {
         let dataset = load_dataset();

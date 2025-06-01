@@ -30,6 +30,10 @@ pub enum FailedError {
     DecompositionFailed,
     /// Can't solve for x
     SolutionFailed,
+    /// Error in input parameters
+    ParametersError,
+    /// Invalid state error (should never happen)
+    InvalidStateError,
 }
 
 impl Failed {
@@ -58,6 +62,22 @@ impl Failed {
     pub fn transform(msg: &str) -> Self {
         Failed {
             err: FailedError::TransformFailed,
+            msg: msg.to_string(),
+        }
+    }
+
+    /// new instance of `FailedError::ParametersError`
+    pub fn input(msg: &str) -> Self {
+        Failed {
+            err: FailedError::ParametersError,
+            msg: msg.to_string(),
+        }
+    }
+
+    /// new instance of `FailedError::InvalidStateError`
+    pub fn invalid_state(msg: &str) -> Self {
+        Failed {
+            err: FailedError::InvalidStateError,
             msg: msg.to_string(),
         }
     }
@@ -94,8 +114,10 @@ impl fmt::Display for FailedError {
             FailedError::FindFailed => "Find failed",
             FailedError::DecompositionFailed => "Decomposition failed",
             FailedError::SolutionFailed => "Can't find solution",
+            FailedError::ParametersError => "Error in input, check parameters",
+            FailedError::InvalidStateError => "Invalid state, this should never happen", // useful in development phase of lib
         };
-        write!(f, "{}", failed_err_str)
+        write!(f, "{failed_err_str}")
     }
 }
 
