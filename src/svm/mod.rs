@@ -33,15 +33,16 @@ use core::fmt::Debug;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+// Only import typetag if not compiling for wasm32 and serde is enabled
+#[cfg(all(feature = "serde", not(target_arch = "wasm32")))]
+use typetag;
+
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
 /// Defines a kernel function.
 /// This is a object-safe trait.
-#[cfg_attr(
-    all(feature = "serde", not(target_arch = "wasm32")),
-    typetag::serde(tag = "type")
-)]
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde(tag = "type"))]
 pub trait Kernel: Debug {
     #[allow(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
@@ -283,7 +284,7 @@ impl Kernels {
 /// - All kernel parameters must be set before calling `apply`; missing parameters will result in an error.
 ///
 /// See the [`Kernels`] enum documentation for more details on each kernel type and its parameters.
-#[cfg_attr(feature = "serde", typetag::serde)]
+#[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
 impl Kernel for Kernels {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         match self {
