@@ -2,6 +2,5 @@
 # the repo. Unless a later match takes precedence,
 # Developers in this list will be requested for
 # review when someone opens a pull request.
-*       @VolodymyrOrlov
 *       @morenol
 *       @Mec-iS
