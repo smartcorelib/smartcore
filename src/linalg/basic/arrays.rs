@@ -619,7 +619,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
         T: Number + PartialOrd,
     {
         let stack_size = 64;
-        let mut jstack = -1;
+        let mut jstack: i32 = -1;
         let mut l = 0;
         let mut istack = vec![0; stack_size];
         let mut ir = self.shape() - 1;
