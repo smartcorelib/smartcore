@@ -51,9 +51,9 @@
 //!
 //! let knl = Kernels::linear();
 //! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(knl);
-//! // let svr = SVR::fit(&x, &y, params).unwrap();
+//! let svr = SVR::fit(&x, &y, params).unwrap();
 //!
-//! // let y_hat = svr.predict(&x).unwrap();
+//! let y_hat = svr.predict(&x).unwrap();
 //! ```
 //!
 //! ## References:
@@ -269,6 +269,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
                         .as_ref()
                         .unwrap()
                         .kernel
+                        .as_ref()
                         .unwrap()
                         .apply(&xi, &self.instances.as_ref().unwrap()[i])
                         .unwrap(),
@@ -596,15 +597,15 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
-    use crate::svm::{Kernels, LinearKernel};
+    use crate::svm::Kernels;
     use crate::svm::search::svr_params::SVRSearchParameters;
 
     #[test]
     fn search_parameters() {
-        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
+        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>> =
             SVRSearchParameters {
                 eps: vec![0., 1.],
-                kernel: vec![LinearKernel {}],
+                kernel: vec![Kernels::linear()],
                 ..Default::default()
             };
         let mut iter = parameters.into_iter();
@@ -648,7 +649,7 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let knl = Kernels::linear();
+        let knl: Kernels = Kernels::linear();
         let y_hat = SVR::fit(
             &x,
             &y,

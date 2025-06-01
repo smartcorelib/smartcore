@@ -60,14 +60,14 @@ pub enum Kernels {
 impl Kernels {
     pub fn linear() -> Self { Kernels::Linear }
     pub fn rbf() -> Self { Kernels::RBF { gamma: None } }
-    pub fn polynomial() -> Self { Kernels::Polynomial { degree: None, gamma: None, coef0: Some(1.0) } }
+    pub fn polynomial() -> Self { Kernels::Polynomial { gamma: None, degree: None, coef0: Some(1.0) } }
     pub fn sigmoid() -> Self { Kernels::Sigmoid { gamma: None, coef0: Some(1.0) } }
 
     // Builder-style methods for ergonomic parameter setting
     pub fn with_gamma(self, gamma: f64) -> Self {
         match self {
             Kernels::RBF { .. } => Kernels::RBF { gamma: Some(gamma) },
-            Kernels::Polynomial { degree, coef0, .. } => Kernels::Polynomial { degree, gamma: Some(gamma), coef0 },
+            Kernels::Polynomial { degree, coef0, .. } => Kernels::Polynomial { gamma: Some(gamma), degree, coef0 },
             Kernels::Sigmoid { coef0, .. } => Kernels::Sigmoid { gamma: Some(gamma), coef0 },
             other => other,
         }
@@ -167,8 +167,8 @@ mod tests {
         let v2 = vec![4., 5., 6.];
 
         let result = Kernels::polynomial()
-            .with_gamma(3.0)
-            .with_degree(0.5)
+            .with_gamma(0.5)
+            .with_degree(3.0)
             .with_coef0(1.0)
             //.with_params(3.0, 0.5, 1.0)
             .apply(&v1, &v2)

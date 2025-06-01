@@ -102,7 +102,7 @@ impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Default for SVRSearchPa
             eps: vec![default_params.eps],
             c: vec![default_params.c],
             tol: vec![default_params.tol],
-            kernel: vec![default_params.kernel.unwrap()],
+            kernel: vec![default_params.kernel.unwrap_or_else(Kernels::linear)],
             m: PhantomData,
         }
     }
