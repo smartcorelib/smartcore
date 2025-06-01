@@ -31,6 +31,9 @@
 //!
 //! ## Note
 //! This module is intended for use with smartcore version 0.4 or later. The API is not compatible with older versions[1].
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
@@ -174,8 +177,8 @@ impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Default for SVRSearchPa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::svm::Kernels;
     use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::svm::Kernels;
 
     type T = f64;
     type M = DenseMatrix<T>;
@@ -218,7 +221,8 @@ mod tests {
             kernel: vec![Kernels::linear(), Kernels::rbf().with_gamma(0.5)],
             m: PhantomData,
         };
-        let expected_count = params.eps.len() * params.c.len() * params.tol.len() * params.kernel.len();
+        let expected_count =
+            params.eps.len() * params.c.len() * params.tol.len() * params.kernel.len();
         let results: Vec<_> = params.into_iter().collect();
         assert_eq!(results.len(), expected_count);
 
@@ -255,7 +259,10 @@ mod tests {
     fn test_kernel_enum_variants() {
         let lin = Kernels::linear();
         let rbf = Kernels::rbf().with_gamma(0.2);
-        let poly = Kernels::polynomial().with_degree(2.0).with_gamma(1.0).with_coef0(0.5);
+        let poly = Kernels::polynomial()
+            .with_degree(2.0)
+            .with_gamma(1.0)
+            .with_coef0(0.5);
         let sig = Kernels::sigmoid().with_gamma(0.3).with_coef0(0.1);
 
         assert_eq!(lin, Kernels::Linear);
@@ -264,7 +271,11 @@ mod tests {
             _ => panic!("Not RBF"),
         }
         match poly {
-            Kernels::Polynomial { degree, gamma, coef0 } => {
+            Kernels::Polynomial {
+                degree,
+                gamma,
+                coef0,
+            } => {
                 assert_eq!(degree, Some(2.0));
                 assert_eq!(gamma, Some(1.0));
                 assert_eq!(coef0, Some(0.5));

@@ -62,6 +62,7 @@ pub trait Kernel: Debug {
 /// let poly = Kernels::polynomial().with_degree(3.0).with_gamma(0.5).with_coef0(1.0);
 /// let sigmoid = Kernels::sigmoid().with_gamma(0.2).with_coef0(0.0);
 /// ```
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kernels {
     /// Linear kernel (default).
@@ -282,6 +283,7 @@ impl Kernels {
 /// - All kernel parameters must be set before calling `apply`; missing parameters will result in an error.
 ///
 /// See the [`Kernels`] enum documentation for more details on each kernel type and its parameters.
+#[cfg_attr(feature = "serde", typetag::serde)]
 impl Kernel for Kernels {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         match self {

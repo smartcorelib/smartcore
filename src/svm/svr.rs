@@ -80,11 +80,12 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
+
 use crate::svm::{Kernel, Kernels};
 
+/// SVR Parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-/// SVR Parameters
 pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: T,
