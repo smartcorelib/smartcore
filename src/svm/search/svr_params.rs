@@ -2,7 +2,7 @@ use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
 use crate::linalg::basic::arrays::Array2;
-use crate::svm::{svr, Kernel, LinearKernel, Kernels};
+use crate::svm::{svr, Kernels};
 use std::marker::PhantomData;
 
 
@@ -17,9 +17,9 @@ pub struct SVRSearchParameters<T: Number + RealNumber, M: Array2<T>> {
     /// Tolerance for stopping eps.
     pub tol: Vec<T>,
     /// The kernel function.
-    pub kernel: Option<Kernels>,
+    pub kernel: Vec<Kernels>,
     /// Unused parameter.
-    m: PhantomData<M>,
+    pub m: PhantomData<M>,
 }
 
 /// SVR grid search iterator
@@ -66,7 +66,7 @@ impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Iterator
             eps: self.svr_search_parameters.eps[self.current_eps],
             c: self.svr_search_parameters.c[self.current_c],
             tol: self.svr_search_parameters.tol[self.current_tol],
-            kernel: self.svr_search_parameters.kernel[self.current_kernel].clone()
+            kernel: Some(self.svr_search_parameters.kernel[self.current_kernel].clone())
         };
 
         if self.current_eps + 1 < self.svr_search_parameters.eps.len() {
@@ -102,7 +102,7 @@ impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Default for SVRSearchPa
             eps: vec![default_params.eps],
             c: vec![default_params.c],
             tol: vec![default_params.tol],
-            kernel: vec![default_params.kernel],
+            kernel: vec![default_params.kernel.unwrap()],
             m: PhantomData,
         }
     }
