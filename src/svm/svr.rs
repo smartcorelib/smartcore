@@ -597,17 +597,16 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
-    use crate::svm::Kernels;
     use crate::svm::search::svr_params::SVRSearchParameters;
+    use crate::svm::Kernels;
 
     #[test]
     fn search_parameters() {
-        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>> =
-            SVRSearchParameters {
-                eps: vec![0., 1.],
-                kernel: vec![Kernels::linear()],
-                ..Default::default()
-            };
+        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>> = SVRSearchParameters {
+            eps: vec![0., 1.],
+            kernel: vec![Kernels::linear()],
+            ..Default::default()
+        };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
         assert_eq!(next.eps, 0.);

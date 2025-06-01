@@ -1,12 +1,75 @@
+//! # SVR Grid Search Parameters
+//!
+//! This module provides utilities for defining and iterating over grid search parameter spaces
+//! for Support Vector Regression (SVR) models in [smartcore](https://github.com/smartcorelib/smartcore).
+//!
+//! The main struct, [`SVRSearchParameters`], allows users to specify multiple values for each
+//! SVR hyperparameter (epsilon, regularization parameter C, tolerance, and kernel function).
+//! The provided iterator yields all possible combinations (the Cartesian product) of these parameters,
+//! enabling exhaustive grid search for hyperparameter tuning.
+//!
+//!
+//! ## Example
+//! ```
+//! use smartcore::svm::Kernels;
+//! use smartcore::svm::search::svr_params::SVRSearchParameters;
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//!
+//! let params = SVRSearchParameters::<f64, DenseMatrix<f64>> {
+//!     eps: vec![0.1, 0.2],
+//!     c: vec![1.0, 10.0],
+//!     tol: vec![1e-3],
+//!     kernel: vec![Kernels::linear(), Kernels::rbf().with_gamma(0.5)],
+//!     m: std::marker::PhantomData,
+//! };
+//!
+//! // for param_set in params.into_iter() {
+//!     // Use param_set (of type svr::SVRParameters) to fit and evaluate your SVR model.
+//! // }
+//! ```
+//!
+//!
+//! ## Note
+//! This module is intended for use with smartcore version 0.4 or later. The API is not compatible with older versions[1].
+use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
-use crate::linalg::basic::arrays::Array2;
 use crate::svm::{svr, Kernels};
 use std::marker::PhantomData;
 
-
-/// SVR grid search parameters
+/// ## SVR grid search parameters
+/// A struct representing a grid of hyperparameters for SVR grid search in smartcore.
+///
+/// Each field is a vector of possible values for the corresponding SVR hyperparameter.
+/// The [`IntoIterator`] implementation yields every possible combination of these parameters
+/// as an `svr::SVRParameters` struct, suitable for use in model selection routines.
+///
+/// # Type Parameters
+/// - `T`: Numeric type for parameters (e.g., `f64`)
+/// - `M`: Matrix type implementing [`Array2<T>`]
+///
+/// # Fields
+/// - `eps`: Vector of epsilon values for the epsilon-insensitive loss in SVR.
+/// - `c`: Vector of regularization parameters (C) for SVR.
+/// - `tol`: Vector of tolerance values for the stopping criterion.
+/// - `kernel`: Vector of kernel function variants (see [`Kernels`]).
+/// - `m`: Phantom data for the matrix type parameter.
+///
+/// # Example
+/// ```
+/// use smartcore::svm::Kernels;
+/// use smartcore::svm::search::svr_params::SVRSearchParameters;
+/// use smartcore::linalg::basic::matrix::DenseMatrix;
+///
+/// let params = SVRSearchParameters::<f64, DenseMatrix<f64>> {
+///     eps: vec![0.1, 0.2],
+///     c: vec![1.0, 10.0],
+///     tol: vec![1e-3],
+///     kernel: vec![Kernels::linear(), Kernels::rbf().with_gamma(0.5)],
+///     m: std::marker::PhantomData,
+/// };
+/// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct SVRSearchParameters<T: Number + RealNumber, M: Array2<T>> {
@@ -66,7 +129,7 @@ impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Iterator
             eps: self.svr_search_parameters.eps[self.current_eps],
             c: self.svr_search_parameters.c[self.current_c],
             tol: self.svr_search_parameters.tol[self.current_tol],
-            kernel: Some(self.svr_search_parameters.kernel[self.current_kernel].clone())
+            kernel: Some(self.svr_search_parameters.kernel[self.current_kernel].clone()),
         };
 
         if self.current_eps + 1 < self.svr_search_parameters.eps.len() {
@@ -108,12 +171,112 @@ impl<T: Number + FloatNumber + RealNumber, M: Array2<T>> Default for SVRSearchPa
     }
 }
 
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// #[derive(Debug)]
-// #[cfg_attr(
-//     feature = "serde",
-//     serde(bound(
-//         serialize = "M::RowVector: Serialize, K: Serialize, T: Serialize",
-//         deserialize = "M::RowVector: Deserialize<'de>, K: Deserialize<'de>, T: Deserialize<'de>",
-//     ))
-// )]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::svm::Kernels;
+    use crate::linalg::basic::matrix::DenseMatrix;
+
+    type T = f64;
+    type M = DenseMatrix<T>;
+
+    #[test]
+    fn test_default_parameters() {
+        let params = SVRSearchParameters::<T, M>::default();
+        assert_eq!(params.eps.len(), 1);
+        assert_eq!(params.c.len(), 1);
+        assert_eq!(params.tol.len(), 1);
+        assert_eq!(params.kernel.len(), 1);
+        // Check that the default kernel is linear
+        assert_eq!(params.kernel[0], Kernels::linear());
+    }
+
+    #[test]
+    fn test_single_grid_iteration() {
+        let params = SVRSearchParameters::<T, M> {
+            eps: vec![0.1],
+            c: vec![1.0],
+            tol: vec![1e-3],
+            kernel: vec![Kernels::rbf().with_gamma(0.5)],
+            m: PhantomData,
+        };
+        let mut iter = params.into_iter();
+        let param = iter.next().unwrap();
+        assert_eq!(param.eps, 0.1);
+        assert_eq!(param.c, 1.0);
+        assert_eq!(param.tol, 1e-3);
+        assert_eq!(param.kernel, Some(Kernels::rbf().with_gamma(0.5)));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_cartesian_grid_iteration() {
+        let params = SVRSearchParameters::<T, M> {
+            eps: vec![0.1, 0.2],
+            c: vec![1.0, 2.0],
+            tol: vec![1e-3],
+            kernel: vec![Kernels::linear(), Kernels::rbf().with_gamma(0.5)],
+            m: PhantomData,
+        };
+        let expected_count = params.eps.len() * params.c.len() * params.tol.len() * params.kernel.len();
+        let results: Vec<_> = params.into_iter().collect();
+        assert_eq!(results.len(), expected_count);
+
+        // Check that all parameter combinations are present
+        let mut seen = vec![];
+        for p in &results {
+            seen.push((p.eps, p.c, p.tol, p.kernel.clone().unwrap()));
+        }
+        for &eps in &[0.1, 0.2] {
+            for &c in &[1.0, 2.0] {
+                for &tol in &[1e-3] {
+                    for kernel in &[Kernels::linear(), Kernels::rbf().with_gamma(0.5)] {
+                        assert!(seen.contains(&(eps, c, tol, kernel.clone())));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_empty_grid() {
+        let params = SVRSearchParameters::<T, M> {
+            eps: vec![],
+            c: vec![],
+            tol: vec![],
+            kernel: vec![],
+            m: PhantomData,
+        };
+        let mut iter = params.into_iter();
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_kernel_enum_variants() {
+        let lin = Kernels::linear();
+        let rbf = Kernels::rbf().with_gamma(0.2);
+        let poly = Kernels::polynomial().with_degree(2.0).with_gamma(1.0).with_coef0(0.5);
+        let sig = Kernels::sigmoid().with_gamma(0.3).with_coef0(0.1);
+
+        assert_eq!(lin, Kernels::Linear);
+        match rbf {
+            Kernels::RBF { gamma } => assert_eq!(gamma, Some(0.2)),
+            _ => panic!("Not RBF"),
+        }
+        match poly {
+            Kernels::Polynomial { degree, gamma, coef0 } => {
+                assert_eq!(degree, Some(2.0));
+                assert_eq!(gamma, Some(1.0));
+                assert_eq!(coef0, Some(0.5));
+            }
+            _ => panic!("Not Polynomial"),
+        }
+        match sig {
+            Kernels::Sigmoid { gamma, coef0 } => {
+                assert_eq!(gamma, Some(0.3));
+                assert_eq!(coef0, Some(0.1));
+            }
+            _ => panic!("Not Sigmoid"),
+        }
+    }
+}

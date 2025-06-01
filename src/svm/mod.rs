@@ -25,7 +25,7 @@
 /// search parameters
 pub mod svc;
 pub mod svr;
-// /// search parameters space
+// search parameters space
 pub mod search;
 
 use core::fmt::Debug;
@@ -48,71 +48,281 @@ pub trait Kernel: Debug {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
 }
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+/// A enumerator for all the kernels type to support.
+/// This allows kernel selection and parameterization ergonomic, type-safe, and ready for use in parameter structs like SVRParameters.
+/// You can construct kernels using the provided variants and builder-style methods.
+///
+/// # Examples
+///
+/// ```
+/// use smartcore::svm::Kernels;
+///
+/// let linear = Kernels::linear();
+/// let rbf = Kernels::rbf().with_gamma(0.5);
+/// let poly = Kernels::polynomial().with_degree(3.0).with_gamma(0.5).with_coef0(1.0);
+/// let sigmoid = Kernels::sigmoid().with_gamma(0.2).with_coef0(0.0);
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kernels {
+    /// Linear kernel (default).
+    ///
+    /// Computes the standard dot product between vectors.
     Linear,
-    RBF { gamma: Option<f64> },
-    Polynomial { degree: Option<f64>, gamma: Option<f64>, coef0: Option<f64> },
-    Sigmoid { gamma: Option<f64>, coef0: Option<f64> },
+
+    /// Radial Basis Function (RBF) kernel.
+    ///
+    /// Formula: K(x, y) = exp(-gamma * ||x-y||²)
+    RBF {
+        /// Controls the width of the Gaussian RBF kernel.
+        ///
+        /// Larger values of gamma lead to higher bias and lower variance.
+        /// This parameter is inversely proportional to the radius of influence
+        /// of samples selected by the model as support vectors.
+        gamma: Option<f64>,
+    },
+
+    /// Polynomial kernel.
+    ///
+    /// Formula: K(x, y) = (gamma * <x, y> + coef0)^degree
+    Polynomial {
+        /// The degree of the polynomial kernel.
+        ///
+        /// Integer values are typical (2 = quadratic, 3 = cubic), but any positive real value is valid.
+        /// Higher degree values create decision boundaries with higher complexity.
+        degree: Option<f64>,
+
+        /// Kernel coefficient for the dot product.
+        ///
+        /// Controls the influence of higher-degree versus lower-degree terms in the polynomial.
+        /// If None, a default value will be used.
+        gamma: Option<f64>,
+
+        /// Independent term in the polynomial kernel.
+        ///
+        /// Controls the influence of higher-degree versus lower-degree terms.
+        /// If None, a default value of 1.0 will be used.
+        coef0: Option<f64>,
+    },
+
+    /// Sigmoid kernel.
+    ///
+    /// Formula: K(x, y) = tanh(gamma * <x, y> + coef0)
+    Sigmoid {
+        /// Kernel coefficient for the dot product.
+        ///
+        /// Controls the scaling of the dot product in the sigmoid function.
+        /// If None, a default value will be used.
+        gamma: Option<f64>,
+
+        /// Independent term in the sigmoid kernel.
+        ///
+        /// Acts as a threshold/bias term in the sigmoid function.
+        /// If None, a default value of 1.0 will be used.
+        coef0: Option<f64>,
+    },
 }
 
 impl Kernels {
-    pub fn linear() -> Self { Kernels::Linear }
-    pub fn rbf() -> Self { Kernels::RBF { gamma: None } }
-    pub fn polynomial() -> Self { Kernels::Polynomial { gamma: None, degree: None, coef0: Some(1.0) } }
-    pub fn sigmoid() -> Self { Kernels::Sigmoid { gamma: None, coef0: Some(1.0) } }
+    /// Create a linear kernel.
+    ///
+    /// The linear kernel computes the dot product between two vectors:
+    /// K(x, y) = <x, y>
+    pub fn linear() -> Self {
+        Kernels::Linear
+    }
 
-    // Builder-style methods for ergonomic parameter setting
+    /// Create an RBF kernel with unspecified gamma.
+    ///
+    /// The RBF kernel is defined as:
+    /// K(x, y) = exp(-gamma * ||x-y||²)
+    ///
+    /// You should specify gamma using `with_gamma()` before using this kernel.
+    pub fn rbf() -> Self {
+        Kernels::RBF { gamma: None }
+    }
+
+    /// Create a polynomial kernel with default parameters.
+    ///
+    /// The polynomial kernel is defined as:
+    /// K(x, y) = (gamma * <x, y> + coef0)^degree
+    ///
+    /// Default values:
+    /// - gamma: None (must be specified)
+    /// - degree: None (must be specified)
+    /// - coef0: 1.0
+    pub fn polynomial() -> Self {
+        Kernels::Polynomial {
+            gamma: None,
+            degree: None,
+            coef0: Some(1.0),
+        }
+    }
+
+    /// Create a sigmoid kernel with default parameters.
+    ///
+    /// The sigmoid kernel is defined as:
+    /// K(x, y) = tanh(gamma * <x, y> + coef0)
+    ///
+    /// Default values:
+    /// - gamma: None (must be specified)
+    /// - coef0: 1.0
+    ///
+    pub fn sigmoid() -> Self {
+        Kernels::Sigmoid {
+            gamma: None,
+            coef0: Some(1.0),
+        }
+    }
+
+    /// Set the `gamma` parameter for RBF, polynomial, or sigmoid kernels.
+    ///
+    /// The gamma parameter has different interpretations depending on the kernel:
+    /// - For RBF: Controls the width of the Gaussian. Larger values mean tighter fit.
+    /// - For Polynomial: Scaling factor for the dot product.
+    /// - For Sigmoid: Scaling factor for the dot product.
+    ///
     pub fn with_gamma(self, gamma: f64) -> Self {
         match self {
             Kernels::RBF { .. } => Kernels::RBF { gamma: Some(gamma) },
-            Kernels::Polynomial { degree, coef0, .. } => Kernels::Polynomial { gamma: Some(gamma), degree, coef0 },
-            Kernels::Sigmoid { coef0, .. } => Kernels::Sigmoid { gamma: Some(gamma), coef0 },
+            Kernels::Polynomial { degree, coef0, .. } => Kernels::Polynomial {
+                gamma: Some(gamma),
+                degree,
+                coef0,
+            },
+            Kernels::Sigmoid { coef0, .. } => Kernels::Sigmoid {
+                gamma: Some(gamma),
+                coef0,
+            },
             other => other,
         }
     }
+
+    /// Set the `degree` parameter for the polynomial kernel.
+    ///
+    /// The degree parameter controls the flexibility of the decision boundary.
+    /// Higher degrees create more complex boundaries but may lead to overfitting.
+    ///
     pub fn with_degree(self, degree: f64) -> Self {
         match self {
-            Kernels::Polynomial { gamma, coef0, .. } => Kernels::Polynomial { degree: Some(degree), gamma, coef0 },
+            Kernels::Polynomial { gamma, coef0, .. } => Kernels::Polynomial {
+                degree: Some(degree),
+                gamma,
+                coef0,
+            },
             other => other,
         }
     }
+
+    /// Set the `coef0` parameter for polynomial or sigmoid kernels.
+    ///
+    /// The coef0 parameter is the independent term in the kernel function:
+    /// - For Polynomial: Controls the influence of higher-degree vs. lower-degree terms.
+    /// - For Sigmoid: Acts as a threshold/bias term.
+    ///
     pub fn with_coef0(self, coef0: f64) -> Self {
         match self {
-            Kernels::Polynomial { degree, gamma, .. } => Kernels::Polynomial { degree, gamma, coef0: Some(coef0) },
-            Kernels::Sigmoid { gamma, .. } => Kernels::Sigmoid { gamma, coef0: Some(coef0) },
+            Kernels::Polynomial { degree, gamma, .. } => Kernels::Polynomial {
+                degree,
+                gamma,
+                coef0: Some(coef0),
+            },
+            Kernels::Sigmoid { gamma, .. } => Kernels::Sigmoid {
+                gamma,
+                coef0: Some(coef0),
+            },
             other => other,
         }
     }
 }
 
+/// Implementation of the [`Kernel`] trait for the [`Kernels`] enum in smartcore.
+///
+/// This method computes the value of the kernel function between two feature vectors `x_i` and `x_j`,
+/// according to the variant and parameters of the [`Kernels`] enum. This enables flexible and type-safe
+/// selection of kernel functions for SVM and SVR models in smartcore.
+///
+/// # Supported Kernels
+///
+/// - [`Kernels::Linear`]: Computes the standard dot product between `x_i` and `x_j`.
+/// - [`Kernels::RBF`]: Computes the Radial Basis Function (Gaussian) kernel. Requires `gamma`.
+/// - [`Kernels::Polynomial`]: Computes the polynomial kernel. Requires `degree`, `gamma`, and `coef0`.
+/// - [`Kernels::Sigmoid`]: Computes the sigmoid kernel. Requires `gamma` and `coef0`.
+///
+/// # Parameters
+///
+/// - `x_i`: First input vector (feature vector).
+/// - `x_j`: Second input vector (feature vector).
+///
+/// # Returns
+///
+/// - `Ok(f64)`: The computed kernel value.
+/// - `Err(Failed)`: If any required kernel parameter is missing.
+///
+/// # Errors
+///
+/// Returns `Err(Failed)` if a required parameter (such as `gamma`, `degree`, or `coef0`)
+/// is `None` for the selected kernel variant.
+///
+/// # Example
+///
+/// ```
+/// use smartcore::svm::Kernels;
+/// use smartcore::svm::Kernel;
+///
+/// let x = vec![1.0, 2.0, 3.0];
+/// let y = vec![4.0, 5.0, 6.0];
+/// let kernel = Kernels::rbf().with_gamma(0.5);
+/// let value = kernel.apply(&x, &y).unwrap();
+/// ```
+///
+/// # Notes
+///
+/// - This implementation follows smartcore's philosophy: pure Rust, no macros, no unsafe code,
+///   and an accessible, pythonic API surface for both ML practitioners and Rust beginners.
+/// - All kernel parameters must be set before calling `apply`; missing parameters will result in an error.
+///
+/// See the [`Kernels`] enum documentation for more details on each kernel type and its parameters.
 impl Kernel for Kernels {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         match self {
             Kernels::Linear => Ok(x_i.dot(x_j)),
             Kernels::RBF { gamma } => {
-                let gamma = gamma.ok_or_else(|| Failed::because(FailedError::ParametersError, "gamma not set"))?;
+                let gamma = gamma.ok_or_else(|| {
+                    Failed::because(FailedError::ParametersError, "gamma not set")
+                })?;
                 let v_diff = x_i.sub(x_j);
                 Ok((-gamma * v_diff.mul(&v_diff).sum()).exp())
             }
-            Kernels::Polynomial { degree, gamma, coef0 } => {
-                let degree = degree.ok_or_else(|| Failed::because(FailedError::ParametersError, "degree not set"))?;
-                let gamma = gamma.ok_or_else(|| Failed::because(FailedError::ParametersError, "gamma not set"))?;
-                let coef0 = coef0.ok_or_else(|| Failed::because(FailedError::ParametersError, "coef0 not set"))?;
+            Kernels::Polynomial {
+                degree,
+                gamma,
+                coef0,
+            } => {
+                let degree = degree.ok_or_else(|| {
+                    Failed::because(FailedError::ParametersError, "degree not set")
+                })?;
+                let gamma = gamma.ok_or_else(|| {
+                    Failed::because(FailedError::ParametersError, "gamma not set")
+                })?;
+                let coef0 = coef0.ok_or_else(|| {
+                    Failed::because(FailedError::ParametersError, "coef0 not set")
+                })?;
                 let dot = x_i.dot(x_j);
                 Ok((gamma * dot + coef0).powf(degree))
             }
             Kernels::Sigmoid { gamma, coef0 } => {
-                let gamma = gamma.ok_or_else(|| Failed::because(FailedError::ParametersError, "gamma not set"))?;
-                let coef0 = coef0.ok_or_else(|| Failed::because(FailedError::ParametersError, "coef0 not set"))?;
+                let gamma = gamma.ok_or_else(|| {
+                    Failed::because(FailedError::ParametersError, "gamma not set")
+                })?;
+                let coef0 = coef0.ok_or_else(|| {
+                    Failed::because(FailedError::ParametersError, "coef0 not set")
+                })?;
                 let dot = x_i.dot(x_j);
                 Ok((gamma * dot + coef0).tanh())
             }
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -123,7 +333,11 @@ mod tests {
     fn rbf_kernel() {
         let v1 = vec![1., 2., 3.];
         let v2 = vec![4., 5., 6.];
-        let result = Kernels::rbf().with_gamma(0.055).apply(&v1, &v2).unwrap().abs();
+        let result = Kernels::rbf()
+            .with_gamma(0.055)
+            .apply(&v1, &v2)
+            .unwrap()
+            .abs();
         assert!((0.2265f64 - result) < 1e-4);
     }
 
@@ -188,9 +402,8 @@ mod tests {
         let v2 = vec![4., 5., 6.];
 
         let result = Kernels::sigmoid()
-        .with_gamma(0.01)
-        .with_coef0(0.1)
-            //.with_params(0.01, 0.1)
+            .with_gamma(0.01)
+            .with_coef0(0.1)
             .apply(&v1, &v2)
             .unwrap()
             .abs();
