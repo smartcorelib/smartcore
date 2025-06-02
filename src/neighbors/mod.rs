@@ -64,7 +64,7 @@ impl KNNWeightFunction {
             KNNWeightFunction::Distance => {
                 // if there are any points that has zero distance from one or more training points,
                 // those training points are weighted as 1.0 and the other points as 0.0
-                if distances.iter().any(|&e| e == 0f64) {
+                if distances.contains(&0f64) {
                     distances
                         .iter()
                         .map(|e| if *e == 0f64 { 1f64 } else { 0f64 })
