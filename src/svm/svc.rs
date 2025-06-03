@@ -72,6 +72,7 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+use core::f32;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -124,11 +125,11 @@ pub struct SVCParameters<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX
 /// Support Vector Classifier
 pub struct SVC<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     classes: Option<Vec<TY>>,
-    instances: Option<Vec<Vec<TX>>>,
+    instances: Option<Vec<Vec<Vec<TX>>>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     parameters: Option<&'a SVCParameters<TX, TY, X, Y>>,
-    w: Option<Vec<TX>>,
-    b: Option<TX>,
+    w: Option<Vec<Vec<TX>>>,
+    b: Option<Vec<TX>>,
     phantomdata: PhantomData<(X, Y)>,
 }
 
@@ -151,7 +152,7 @@ struct Cache<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1
 
 struct Optimizer<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     x: &'a X,
-    y: &'a Y,
+    y: Vec<i32>,
     parameters: &'a SVCParameters<TX, TY, X, Y>,
     svmin: usize,
     svmax: usize,
@@ -266,35 +267,28 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         }
 
         let classes = y.unique();
-
-        if classes.len() != 2 {
-            return Err(Failed::fit(&format!(
-                "Incorrect number of classes: {}",
-                classes.len()
-            )));
+        let mut instances = Vec::new();
+        let mut weights = Vec::new();
+        let mut biases = Vec::new();
+        for class in classes.iter() {
+            let y_transformed = y
+                .iterator(0)
+                .map(|v| if v == class { 1 } else { -1 })
+                .collect::<Vec<i32>>();
+            let optimizer: Optimizer<'_, TX, TY, X, Y> =
+                Optimizer::new(x, y_transformed, parameters);
+            let (support_vectors, weight, b) = optimizer.optimize();
+            instances.push(support_vectors);
+            weights.push(weight);
+            biases.push(b);
         }
-
-        // Make sure class labels are either 1 or -1
-        for e in y.iterator(0) {
-            let y_v = e.to_i32().unwrap();
-            if y_v != -1 && y_v != 1 {
-                return Err(Failed::because(
-                    FailedError::ParametersError,
-                    "Class labels must be 1 or -1",
-                ));
-            }
-        }
-
-        let optimizer: Optimizer<'_, TX, TY, X, Y> = Optimizer::new(x, y, parameters);
-
-        let (support_vectors, weight, b) = optimizer.optimize();
 
         Ok(SVC::<'a> {
             classes: Some(classes),
-            instances: Some(support_vectors),
+            instances: Some(instances),
             parameters: Some(parameters),
-            w: Some(weight),
-            b: Some(b),
+            w: Some(weights),
+            b: Some(biases),
             phantomdata: PhantomData,
         })
     }
@@ -302,17 +296,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
-        let mut y_hat: Vec<TX> = self.decision_function(x)?;
-
-        for i in 0..y_hat.len() {
-            let cls_idx = match *y_hat.get(i).unwrap() > TX::zero() {
-                false => TX::from(self.classes.as_ref().unwrap()[0]).unwrap(),
-                true => TX::from(self.classes.as_ref().unwrap()[1]).unwrap(),
-            };
-
-            y_hat.set(i, cls_idx);
-        }
-
+        let y_hat: Vec<TX> = self.decision_function(x)?;
         Ok(y_hat)
     }
 
@@ -334,66 +318,83 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     }
 
     fn predict_for_row(&self, x: &[TX]) -> TX {
-        let mut f = self.b.unwrap();
-
         let xi: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
-        for i in 0..self.instances.as_ref().unwrap().len() {
-            let xj: Vec<_> = self.instances.as_ref().unwrap()[i]
-                .iter()
-                .map(|e| e.to_f64().unwrap())
-                .collect();
-            f += self.w.as_ref().unwrap()[i]
-                * TX::from(
-                    self.parameters
-                        .as_ref()
-                        .unwrap()
-                        .kernel
-                        .as_ref()
-                        .unwrap()
-                        .apply(&xi, &xj)
-                        .unwrap(),
-                )
-                .unwrap();
+        let classes = self.classes.as_ref().unwrap();
+        let weights = self.w.as_ref().unwrap();
+        let biases = self.b.as_ref().unwrap();
+        let instances = self.instances.as_ref().unwrap();
+        let mut max_decision_value = Option::None;
+        let mut class = Option::None;
+        for j in 0..classes.len() {
+            let w = &weights[j];
+            let b = biases[j];
+            let instances = &instances[j];
+            let mut f = b;
+            for i in 0..instances.len() {
+                let xj: Vec<_> = instances[i].iter().map(|e| e.to_f64().unwrap()).collect();
+                f += w[i]
+                    * TX::from(
+                        self.parameters
+                            .as_ref()
+                            .unwrap()
+                            .kernel
+                            .as_ref()
+                            .unwrap()
+                            .apply(&xi, &xj)
+                            .unwrap(),
+                    )
+                    .unwrap();
+            }
+            if max_decision_value.is_some() {
+                let decision_value = max_decision_value.unwrap();
+                if f > decision_value {
+                    max_decision_value = Some(f);
+                    class = Some(TX::from(classes[j]).unwrap());
+                }
+            } else {
+                max_decision_value = Some(f);
+                class = Some(TX::from(classes[j]).unwrap());
+            }
         }
-
-        f
+        let class = class.unwrap();
+        class
     }
 }
 
-impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
-    for SVC<'_, TX, TY, X, Y>
-{
-    fn eq(&self, other: &Self) -> bool {
-        if (self.b.unwrap().sub(other.b.unwrap())).abs() > TX::epsilon() * TX::two()
-            || self.w.as_ref().unwrap().len() != other.w.as_ref().unwrap().len()
-            || self.instances.as_ref().unwrap().len() != other.instances.as_ref().unwrap().len()
-        {
-            false
-        } else {
-            if !self
-                .w
-                .as_ref()
-                .unwrap()
-                .approximate_eq(other.w.as_ref().unwrap(), TX::epsilon())
-            {
-                return false;
-            }
-            for i in 0..self.w.as_ref().unwrap().len() {
-                if (self.w.as_ref().unwrap()[i].sub(other.w.as_ref().unwrap()[i])).abs()
-                    > TX::epsilon()
-                {
-                    return false;
-                }
-            }
-            for i in 0..self.instances.as_ref().unwrap().len() {
-                if !(self.instances.as_ref().unwrap()[i] == other.instances.as_ref().unwrap()[i]) {
-                    return false;
-                }
-            }
-            true
-        }
-    }
-}
+// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+//     for SVC<'_, TX, TY, X, Y>
+// {
+//     fn eq(&self, other: &Self) -> bool {
+//         if (self.b.unwrap().sub(other.b.unwrap())).abs() > TX::epsilon() * TX::two()
+//             || self.w.as_ref().unwrap().len() != other.w.as_ref().unwrap().len()
+//             || self.instances.as_ref().unwrap().len() != other.instances.as_ref().unwrap().len()
+//         {
+//             false
+//         } else {
+//             if !self
+//                 .w
+//                 .as_ref()
+//                 .unwrap()
+//                 .approximate_eq(other.w.as_ref().unwrap(), TX::epsilon())
+//             {
+//                 return false;
+//             }
+//             for i in 0..self.w.as_ref().unwrap().len() {
+//                 if (self.w.as_ref().unwrap()[i].sub(other.w.as_ref().unwrap()[i])).abs()
+//                     > TX::epsilon()
+//                 {
+//                     return false;
+//                 }
+//             }
+//             for i in 0..self.instances.as_ref().unwrap().len() {
+//                 if !(self.instances.as_ref().unwrap()[i] == other.instances.as_ref().unwrap()[i]) {
+//                     return false;
+//                 }
+//             }
+//             true
+//         }
+//     }
+// }
 
 impl<TX: Number + RealNumber> SupportVector<TX> {
     fn new(i: usize, x: Vec<TX>, y: TX, g: f64, c: f64, k_v: f64) -> SupportVector<TX> {
@@ -444,7 +445,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
 {
     fn new(
         x: &'a X,
-        y: &'a Y,
+        y: Vec<i32>,
         parameters: &'a SVCParameters<TX, TY, X, Y>,
     ) -> Optimizer<'a, TX, TY, X, Y> {
         let (n, _) = x.shape();
@@ -478,7 +479,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             for i in self.permutate(n) {
                 x.clear();
                 x.extend(self.x.get_row(i).iterator(0).take(n).copied());
-                self.process(i, &x, *self.y.get(i), &mut cache);
+                self.process(i, &x, self.y[i], &mut cache);
                 loop {
                     self.reprocess(tol, &mut cache);
                     self.find_min_max_gradient();
@@ -514,14 +515,11 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         for i in self.permutate(n) {
             x.clear();
             x.extend(self.x.get_row(i).iterator(0).take(n).copied());
-            if *self.y.get(i) == TY::one() && cp < few {
-                if self.process(i, &x, *self.y.get(i), cache) {
+            if self.y[i] == 1 && cp < few {
+                if self.process(i, &x, self.y[i], cache) {
                     cp += 1;
                 }
-            } else if *self.y.get(i) == TY::from(-1).unwrap()
-                && cn < few
-                && self.process(i, &x, *self.y.get(i), cache)
-            {
+            } else if self.y[i] == -1 && cn < few && self.process(i, &x, self.y[i], cache) {
                 cn += 1;
             }
 
@@ -531,14 +529,14 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         }
     }
 
-    fn process(&mut self, i: usize, x: &[TX], y: TY, cache: &mut Cache<TX, TY, X, Y>) -> bool {
+    fn process(&mut self, i: usize, x: &[TX], y: i32, cache: &mut Cache<TX, TY, X, Y>) -> bool {
         for j in 0..self.sv.len() {
             if self.sv[j].index == i {
                 return true;
             }
         }
 
-        let mut g: f64 = y.to_f64().unwrap();
+        let mut g: f64 = y as f64;
 
         let mut cache_values: Vec<((usize, usize), TX)> = Vec::new();
 
@@ -559,8 +557,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
         self.find_min_max_gradient();
 
         if self.gmin < self.gmax
-            && ((y > TY::zero() && g < self.gmin.to_f64().unwrap())
-                || (y < TY::zero() && g > self.gmax.to_f64().unwrap()))
+            && ((y > 0 && g < self.gmin.to_f64().unwrap())
+                || (y < 0 && g > self.gmax.to_f64().unwrap()))
         {
             return false;
         }
@@ -590,7 +588,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             ),
         );
 
-        if y > TY::zero() {
+        if y > 0 {
             self.smo(None, Some(0), TX::zero(), cache);
         } else {
             self.smo(Some(0), None, TX::zero(), cache);
