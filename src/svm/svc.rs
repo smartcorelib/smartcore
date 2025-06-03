@@ -72,7 +72,6 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use core::f32;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -361,40 +360,43 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     }
 }
 
-// impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
-//     for SVC<'_, TX, TY, X, Y>
-// {
-//     fn eq(&self, other: &Self) -> bool {
-//         if (self.b.unwrap().sub(other.b.unwrap())).abs() > TX::epsilon() * TX::two()
-//             || self.w.as_ref().unwrap().len() != other.w.as_ref().unwrap().len()
-//             || self.instances.as_ref().unwrap().len() != other.instances.as_ref().unwrap().len()
-//         {
-//             false
-//         } else {
-//             if !self
-//                 .w
-//                 .as_ref()
-//                 .unwrap()
-//                 .approximate_eq(other.w.as_ref().unwrap(), TX::epsilon())
-//             {
-//                 return false;
-//             }
-//             for i in 0..self.w.as_ref().unwrap().len() {
-//                 if (self.w.as_ref().unwrap()[i].sub(other.w.as_ref().unwrap()[i])).abs()
-//                     > TX::epsilon()
-//                 {
-//                     return false;
-//                 }
-//             }
-//             for i in 0..self.instances.as_ref().unwrap().len() {
-//                 if !(self.instances.as_ref().unwrap()[i] == other.instances.as_ref().unwrap()[i]) {
-//                     return false;
-//                 }
-//             }
-//             true
-//         }
-//     }
-// }
+impl<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> PartialEq
+    for SVC<'_, TX, TY, X, Y>
+{
+    fn eq(&self, other: &Self) -> bool {
+        let classes = self.classes.as_ref().unwrap();
+        for j in 0..classes.len() { 
+            if (self.b.as_ref().unwrap()[j].sub(other.b.as_ref().unwrap()[j])).abs() > TX::epsilon() * TX::two()
+                || self.w.as_ref().unwrap()[j].len() != other.w.as_ref().unwrap()[j].len()
+                || self.instances.as_ref().unwrap()[j].len() != other.instances.as_ref().unwrap()[j].len()
+            {
+                return false
+            } else {
+                if !self
+                    .w
+                    .as_ref()
+                    .unwrap()[j]
+                    .approximate_eq(&other.w.as_ref().unwrap()[j], TX::epsilon())
+                {
+                    return false;
+                }
+                for i in 0..self.w.as_ref().unwrap().len() {
+                    if (self.w.as_ref().unwrap()[j][i].sub(other.w.as_ref().unwrap()[j][i])).abs()
+                        > TX::epsilon()
+                    {
+                        return false;
+                    }
+                }
+                for i in 0..self.instances.as_ref().unwrap().len() {
+                    if !(self.instances.as_ref().unwrap()[j][i] == other.instances.as_ref().unwrap()[j][i]) {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+}
 
 impl<TX: Number + RealNumber> SupportVector<TX> {
     fn new(i: usize, x: Vec<TX>, y: TX, g: f64, c: f64, k_v: f64) -> SupportVector<TX> {
