@@ -322,7 +322,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         let weights = self.w.as_ref().unwrap();
         let biases = self.b.as_ref().unwrap();
         let instances = self.instances.as_ref().unwrap();
-        let mut max_decision_value = Option::None;
+        let mut max_decision_value = TX::from(-f64::INFINITY).unwrap();
         let mut class = Option::None;
         for j in 0..classes.len() {
             let w = &weights[j];
@@ -344,14 +344,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
                     )
                     .unwrap();
             }
-            if max_decision_value.is_some() {
-                let decision_value = max_decision_value.unwrap();
-                if f > decision_value {
-                    max_decision_value = Some(f);
-                    class = Some(TX::from(classes[j]).unwrap());
-                }
-            } else {
-                max_decision_value = Some(f);
+            if f > max_decision_value {
+                max_decision_value = f;
                 class = Some(TX::from(classes[j]).unwrap());
             }
         }
