@@ -71,12 +71,15 @@ use crate::optimization::line_search::Backtracking;
 use crate::optimization::FunctionOrder;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "gpu", derive(Hash, Copy))]
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 /// Solver options for Logistic regression. Right now only LBFGS solver is supported.
 pub enum LogisticRegressionSolverName {
     /// Limited-memory Broyden–Fletcher–Goldfarb–Shanno method, see [LBFGS paper](http://users.iems.northwestern.edu/~nocedal/lbfgsb.html)
     #[default]
     LBFGS,
+    // Gradient descent, with GPU acceleration support
+    GradientDescent
 }
 
 /// Logistic Regression parameters
@@ -549,7 +552,6 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
         objective: impl ObjectiveFunction<TX, X>,
     ) -> OptimizerResult<TX, Vec<TX>> {
         let f = |w: &Vec<TX>| -> TX { objective.f(w) };
-
         let df = |g: &mut Vec<TX>, w: &Vec<TX>| objective.df(g, w);
 
         let ls: Backtracking<TX> = Backtracking {

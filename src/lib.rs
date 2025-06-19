@@ -1,3 +1,4 @@
+#![allow(warnings)]
 #![allow(
     clippy::type_complexity,
     clippy::too_many_arguments,
@@ -107,6 +108,9 @@ pub mod decomposition;
 /// Ensemble methods, including Random Forest classifier and regressor
 pub mod ensemble;
 pub mod error;
+/// GPU acceleration
+#[cfg(feature = "gpu")]
+pub mod gpu;
 /// Diverse collection of linear algebra abstractions and methods that power smartcore algorithms
 pub mod linalg;
 /// Supervised classification and regression models that assume linear relationship between dependent and explanatory variables.

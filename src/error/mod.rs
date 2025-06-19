@@ -2,6 +2,12 @@
 use std::error::Error;
 use std::fmt;
 
+#[cfg(feature = "gpu")]
+pub use self::gpu_error::GpuError;
+
+#[cfg(feature = "gpu")]
+mod gpu_error;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
