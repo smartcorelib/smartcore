@@ -584,7 +584,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         use_random_splits: bool,
     ) {
         if use_random_splits {
-            // --- EFFICIENT LOGIC for Continuous Random Splits ---
             let (min_val, max_val) = {
                 let mut min_opt = None;
                 let mut max_opt = None;
