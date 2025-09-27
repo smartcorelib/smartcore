@@ -23,6 +23,8 @@ pub mod mahalanobis;
 pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
+/// Cosine distance
+pub mod cosine;
 
 use std::cmp::{Eq, Ordering, PartialOrd};
 

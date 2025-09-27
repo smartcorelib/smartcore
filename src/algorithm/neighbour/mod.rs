@@ -43,6 +43,8 @@ pub(crate) mod bbd_tree;
 pub mod cover_tree;
 /// fastpair closest neighbour algorithm
 pub mod fastpair;
+/// a variant of fastpair using cosine distance
+pub mod cosinepair; 
 /// very simple algorithm that sequentially checks each element of the list until a match is found or the whole list has been searched.
 pub mod linear_search;
 
