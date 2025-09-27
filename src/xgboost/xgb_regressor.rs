@@ -96,7 +96,7 @@ impl Objective {
     pub fn gradient<TY: Number, Y: Array1<TY>>(&self, y_true: &Y, y_pred: &Vec<f64>) -> Vec<f64> {
         match self {
             Objective::MeanSquaredError => zip(y_true.iterator(0), y_pred)
-                .map(|(true_val, pred_val)| (*pred_val - true_val.to_f64().unwrap()))
+                .map(|(true_val, pred_val)| *pred_val - true_val.to_f64().unwrap())
                 .collect(),
         }
     }
