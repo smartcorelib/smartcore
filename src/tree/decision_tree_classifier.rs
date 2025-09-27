@@ -674,15 +674,20 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     ) -> bool {
         let (n_rows, n_attr) = visitor.x.shape();
 
-        let mut label = Option::None;
+        let mut label = None;
         let mut is_pure = true;
         for i in 0..n_rows {
             if visitor.samples[i] > 0 {
-                if label.is_none() {
-                    label = Option::Some(visitor.y[i]);
-                } else if visitor.y[i] != label.unwrap() {
-                    is_pure = false;
-                    break;
+                match label {
+                    None => {
+                        label = Some(visitor.y[i]);
+                    }
+                    Some(current_label) => {
+                        if visitor.y[i] != current_label {
+                            is_pure = false;
+                            break;
+                        }
+                    }
                 }
             }
         }

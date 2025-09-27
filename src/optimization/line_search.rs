@@ -6,8 +6,8 @@ pub trait LineSearchMethod<T: Float> {
     /// Find alpha that satisfies strong Wolfe conditions.
     fn search(
         &self,
-        f: &(dyn Fn(T) -> T),
-        df: &(dyn Fn(T) -> T),
+        f: &dyn Fn(T) -> T,
+        df: &dyn Fn(T) -> T,
         alpha: T,
         f0: T,
         df0: T,
@@ -55,8 +55,8 @@ impl<T: Float> Default for Backtracking<T> {
 impl<T: Float> LineSearchMethod<T> for Backtracking<T> {
     fn search(
         &self,
-        f: &(dyn Fn(T) -> T),
-        _: &(dyn Fn(T) -> T),
+        f: &dyn Fn(T) -> T,
+        _: &dyn Fn(T) -> T,
         alpha: T,
         f0: T,
         df0: T,

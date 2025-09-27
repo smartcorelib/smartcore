@@ -39,6 +39,8 @@ use crate::numbers::basenum::Number;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod bbd_tree;
+/// a variant of fastpair using cosine distance
+pub mod cosinepair;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
 /// fastpair closest neighbour algorithm
