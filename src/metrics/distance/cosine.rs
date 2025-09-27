@@ -60,7 +60,7 @@ impl<T: Number> Cosine<T> {
         if x.shape() != y.shape() {
             panic!("Input vector sizes are different.");
         }
-        
+
         // Use the built-in dot product method from ArrayView1 trait
         x.dot(y).to_f64().unwrap()
     }
@@ -206,14 +206,14 @@ mod tests {
         let b = vec![4.0f32, 5.0, 6.0];
 
         let dist: f64 = Cosine::new().distance(&a, &b);
-        
+
         // Calculate expected value manually
-        let dot_product = 1.0*4.0 + 2.0*5.0 + 3.0*6.0; // = 32
-        let mag_a = (1.0*1.0 + 2.0*2.0 + 3.0*3.0_f64).sqrt(); // = sqrt(14)
-        let mag_b = (4.0*4.0 + 5.0*5.0 + 6.0*6.0_f64).sqrt(); // = sqrt(77)
+        let dot_product = 1.0 * 4.0 + 2.0 * 5.0 + 3.0 * 6.0; // = 32
+        let mag_a = (1.0 * 1.0 + 2.0 * 2.0 + 3.0 * 3.0_f64).sqrt(); // = sqrt(14)
+        let mag_b = (4.0 * 4.0 + 5.0 * 5.0 + 6.0 * 6.0_f64).sqrt(); // = sqrt(77)
         let expected_similarity = dot_product / (mag_a * mag_b);
         let expected_distance = 1.0 - expected_similarity;
-        
+
         assert!((dist - expected_distance).abs() < 1e-6);
     }
 }

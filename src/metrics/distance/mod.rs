@@ -13,6 +13,8 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+/// Cosine distance
+pub mod cosine;
 /// Euclidean Distance is the straight-line distance between two points in Euclidean spacere that presents the shortest distance between these points.
 pub mod euclidian;
 /// Hamming Distance between two strings is the number of positions at which the corresponding symbols are different.
@@ -23,8 +25,6 @@ pub mod mahalanobis;
 pub mod manhattan;
 /// A generalization of both the Euclidean distance and the Manhattan distance.
 pub mod minkowski;
-/// Cosine distance
-pub mod cosine;
 
 use std::cmp::{Eq, Ordering, PartialOrd};
 

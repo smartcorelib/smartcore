@@ -159,81 +159,91 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> CosinePair<'a, T, M> {
         if query_row_index >= self.samples.shape().0 {
             return Err(Failed::because(
                 FailedError::FindFailed,
-                "Query row index out of bounds"
+                "Query row index out of bounds",
             ));
         }
-        
+
         if k == 0 {
             return Ok(Vec::new());
         }
-        
+
         // Get distances to all other points
         let mut distances = self.distances_from(query_row_index);
-        
+
         // Sort by distance (ascending)
         distances.sort_by(|a, b| {
-            a.distance.unwrap().partial_cmp(&b.distance.unwrap()).unwrap_or(std::cmp::Ordering::Equal)
+            a.distance
+                .unwrap()
+                .partial_cmp(&b.distance.unwrap())
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
-        
+
         // Take top k neighbors and convert to (distance, index) format
         let neighbors: Vec<(T, usize)> = distances
             .into_iter()
             .take(k)
             .map(|pd| (pd.distance.unwrap(), pd.neighbour.unwrap()))
             .collect();
-            
+
         Ok(neighbors)
     }
-    
+
     /// Query k nearest neighbors for an external query vector
     pub fn query(&self, query_vector: &Vec<T>, k: usize) -> Result<Vec<(T, usize)>, Failed> {
         if query_vector.len() != self.samples.shape().1 {
             return Err(Failed::because(
                 FailedError::FindFailed,
-                "Query vector dimension mismatch"
+                "Query vector dimension mismatch",
             ));
         }
-        
+
         if k == 0 {
             return Ok(Vec::new());
         }
-        
+
         // Compute distances from query vector to all points in the dataset
         let mut distances = Vec::<PairwiseDistance<T>>::with_capacity(self.samples.shape().0);
-        
+
         for i in 0..self.samples.shape().0 {
             let dataset_point = Vec::from_iterator(
                 self.samples.get_row(i).iterator(0).copied(),
                 self.samples.shape().1,
             );
-            
+
             let distance = T::from(Cosine::new().distance(query_vector, &dataset_point)).unwrap();
-            
+
             distances.push(PairwiseDistance {
                 node: i, // This represents the dataset point index
                 neighbour: Some(i),
                 distance: Some(distance),
             });
         }
-        
+
         // Sort by distance (ascending)
         distances.sort_by(|a, b| {
-            a.distance.unwrap().partial_cmp(&b.distance.unwrap()).unwrap_or(std::cmp::Ordering::Equal)
+            a.distance
+                .unwrap()
+                .partial_cmp(&b.distance.unwrap())
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
-        
+
         // Take top k neighbors and convert to (distance, index) format
         let neighbors: Vec<(T, usize)> = distances
             .into_iter()
             .take(k)
             .map(|pd| (pd.distance.unwrap(), pd.node))
             .collect();
-            
+
         Ok(neighbors)
     }
-    
+
     /// Optimized version that reuses the existing distances_from method
     /// This is more efficient for queries that are points already in the dataset
-    pub fn query_optimized(&self, query_row_index: usize, k: usize) -> Result<Vec<(T, usize)>, Failed> {
+    pub fn query_optimized(
+        &self,
+        query_row_index: usize,
+        k: usize,
+    ) -> Result<Vec<(T, usize)>, Failed> {
         // Reuse existing method and sort the results
         self.query_row(query_row_index, k)
     }
@@ -323,13 +333,14 @@ mod tests {
             &[4.6, 3.1, 1.5, 0.2],
             &[5.0, 3.6, 1.4, 0.2],
             &[5.4, 3.9, 1.7, 0.4],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x);
-        
+
         assert!(cosine_pair.is_ok());
         let cp = cosine_pair.unwrap();
-        
+
         assert_eq!(cp.samples.shape().0, 6);
         assert_eq!(cp.distances.len(), 6);
         assert_eq!(cp.neighbours.len(), 6);
@@ -341,21 +352,17 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
-    #[test] 
+    #[test]
     fn cosine_pair_minimum_rows_error() {
         // Test with only one row - should fail
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[5.1, 3.5, 1.4, 0.2],
-        ]).unwrap();
-        
+        let x = DenseMatrix::<f64>::from_2d_array(&[&[5.1, 3.5, 1.4, 0.2]]).unwrap();
+
         let result = CosinePair::new(&x);
         assert!(result.is_err());
-        
+
         if let Err(e) = result {
-            let expected_error = Failed::because(
-                FailedError::FindFailed,
-                "min number of rows should be 2"
-            );
+            let expected_error =
+                Failed::because(FailedError::FindFailed, "min number of rows should be 2");
             assert_eq!(e, expected_error);
         }
     }
@@ -371,15 +378,16 @@ mod tests {
             &[0.0, 1.0],
             &[1.0, 1.0],
             &[2.0, 2.0], // This should be closest to [1.0, 1.0] with cosine distance
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let closest_pair = cosine_pair.closest_pair();
-        
+
         // Verify structure
         assert!(closest_pair.distance.is_some());
         assert!(closest_pair.neighbour.is_some());
-        
+
         // The closest pair should have the smallest cosine distance
         let distance = closest_pair.distance.unwrap();
         assert!(distance >= 0.0 && distance <= 2.0); // Cosine distance range
@@ -395,11 +403,12 @@ mod tests {
             &[1.0, 2.0, 3.0],
             &[1.0, 2.0, 3.0], // Identical vector
             &[4.0, 5.0, 6.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let closest_pair = cosine_pair.closest_pair();
-        
+
         // Distance between identical vectors should be 0
         let distance = closest_pair.distance.unwrap();
         assert!((distance - 0.0).abs() < 1e-8);
@@ -415,18 +424,20 @@ mod tests {
             &[1.0, 0.0],
             &[0.0, 1.0], // Orthogonal to first
             &[2.0, 3.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         // Check that orthogonal vectors have cosine distance of 1.0
         let distances_from_first = cosine_pair.distances_from(0);
-        let orthogonal_distance = distances_from_first.iter()
+        let orthogonal_distance = distances_from_first
+            .iter()
             .find(|pd| pd.neighbour == Some(1))
             .unwrap()
             .distance
             .unwrap();
-        
+
         assert!((orthogonal_distance - 1.0).abs() < 1e-8);
     }
 
@@ -441,16 +452,17 @@ mod tests {
             &[2.0, 1.0],
             &[3.0, 4.0],
             &[4.0, 3.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let ordered_pairs: Vec<_> = cosine_pair.ordered_pairs().collect();
-        
+
         assert_eq!(ordered_pairs.len(), 4);
-        
+
         // Check that pairs are ordered by distance (ascending)
         for i in 1..ordered_pairs.len() {
-            let prev_distance = ordered_pairs[i-1].distance.unwrap();
+            let prev_distance = ordered_pairs[i - 1].distance.unwrap();
             let curr_distance = ordered_pairs[i].distance.unwrap();
             assert!(prev_distance <= curr_distance);
         }
@@ -468,18 +480,19 @@ mod tests {
             &[0.0, 0.0, 1.0],
             &[1.0, 1.0, 0.0],
             &[0.0, 1.0, 1.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         // Query k=2 nearest neighbors for row 0
         let neighbors = cosine_pair.query_row(0, 2).unwrap();
-        
+
         assert_eq!(neighbors.len(), 2);
-        
+
         // Check that distances are in ascending order
         assert!(neighbors[0].0 <= neighbors[1].0);
-        
+
         // All distances should be valid cosine distances (0 to 2)
         for (distance, _) in &neighbors {
             assert!(*distance >= 0.0 && *distance <= 2.0);
@@ -492,22 +505,17 @@ mod tests {
     )]
     #[test]
     fn cosine_pair_query_row_bounds_error() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1.0, 2.0],
-            &[3.0, 4.0],
-        ]).unwrap();
-        
+        let x = DenseMatrix::<f64>::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         // Query with out-of-bounds row index
         let result = cosine_pair.query_row(5, 1);
         assert!(result.is_err());
-        
+
         if let Err(e) = result {
-            let expected_error = Failed::because(
-                FailedError::FindFailed,
-                "Query row index out of bounds"
-            );
+            let expected_error =
+                Failed::because(FailedError::FindFailed, "Query row index out of bounds");
             assert_eq!(e, expected_error);
         }
     }
@@ -518,15 +526,12 @@ mod tests {
     )]
     #[test]
     fn cosine_pair_query_row_k_zero() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1.0, 2.0],
-            &[3.0, 4.0],
-            &[5.0, 6.0],
-        ]).unwrap();
-        
+        let x =
+            DenseMatrix::<f64>::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0], &[5.0, 6.0]]).unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let neighbors = cosine_pair.query_row(0, 0).unwrap();
-        
+
         assert_eq!(neighbors.len(), 0);
     }
 
@@ -538,19 +543,20 @@ mod tests {
     fn cosine_pair_query_external_vector() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[1.0, 0.0, 0.0],
-            &[0.0, 1.0, 0.0], 
+            &[0.0, 1.0, 0.0],
             &[0.0, 0.0, 1.0],
             &[1.0, 1.0, 0.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         // Query with external vector
         let query_vector = vec![1.0, 0.5, 0.0];
         let neighbors = cosine_pair.query(&query_vector, 2).unwrap();
-        
+
         assert_eq!(neighbors.len(), 2);
-        
+
         // Verify distances are valid and ordered
         assert!(neighbors[0].0 <= neighbors[1].0);
         for (distance, index) in &neighbors {
@@ -561,23 +567,18 @@ mod tests {
 
     #[test]
     fn cosine_pair_query_dimension_mismatch() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1.0, 2.0, 3.0],
-            &[4.0, 5.0, 6.0],
-        ]).unwrap();
-        
+        let x = DenseMatrix::<f64>::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         // Query with mismatched dimensions
         let query_vector = vec![1.0, 2.0]; // Only 2 dimensions, but data has 3
         let result = cosine_pair.query(&query_vector, 1);
-        
+
         assert!(result.is_err());
         if let Err(e) = result {
-            let expected_error = Failed::because(
-                FailedError::FindFailed,
-                "Query vector dimension mismatch"
-            );
+            let expected_error =
+                Failed::because(FailedError::FindFailed, "Query vector dimension mismatch");
             assert_eq!(e, expected_error);
         }
     }
@@ -588,15 +589,12 @@ mod tests {
     )]
     #[test]
     fn cosine_pair_query_k_zero_external() {
-        let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1.0, 2.0],
-            &[3.0, 4.0],
-        ]).unwrap();
-        
+        let x = DenseMatrix::<f64>::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let query_vector = vec![1.0, 1.0];
         let neighbors = cosine_pair.query(&query_vector, 0).unwrap();
-        
+
         assert_eq!(neighbors.len(), 0);
     }
 
@@ -619,19 +617,20 @@ mod tests {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         assert_eq!(cosine_pair.samples.shape().0, 15);
         assert_eq!(cosine_pair.distances.len(), 15);
         assert_eq!(cosine_pair.neighbours.len(), 15);
-        
+
         // Test closest pair computation
         let closest_pair = cosine_pair.closest_pair();
         assert!(closest_pair.distance.is_some());
         assert!(closest_pair.neighbour.is_some());
-        
+
         let distance = closest_pair.distance.unwrap();
         assert!(distance >= 0.0 && distance <= 2.0);
     }
@@ -643,15 +642,16 @@ mod tests {
             &[1.0f32, 2.0, 3.0],
             &[4.0f32, 5.0, 6.0],
             &[7.0f32, 8.0, 9.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let closest_pair = cosine_pair.closest_pair();
-        
+
         assert!(closest_pair.distance.is_some());
         let distance = closest_pair.distance.unwrap();
         assert!(distance >= 0.0 && distance <= 2.0);
-        
+
         // Test querying
         let neighbors = cosine_pair.query_row(0, 2).unwrap();
         assert_eq!(neighbors.len(), 2);
@@ -665,21 +665,22 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
-    #[test] 
+    #[test]
     fn cosine_pair_distances_from() {
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[1.0, 0.0],
             &[0.0, 1.0],
             &[1.0, 1.0],
             &[2.0, 0.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let distances = cosine_pair.distances_from(0);
-        
+
         // Should have 3 distances (excluding self)
         assert_eq!(distances.len(), 3);
-        
+
         // All should be from node 0
         for pd in &distances {
             assert_eq!(pd.node, 0);
@@ -698,19 +699,20 @@ mod tests {
         // Verify that different query methods return consistent results
         let x = DenseMatrix::<f64>::from_2d_array(&[
             &[1.0, 2.0, 3.0],
-            &[4.0, 5.0, 6.0], 
+            &[4.0, 5.0, 6.0],
             &[7.0, 8.0, 9.0],
             &[2.0, 3.0, 4.0],
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
-        
+
         // Query row 0 using internal method
         let neighbors_internal = cosine_pair.query_row(0, 2).unwrap();
-        
+
         // Query row 0 using optimized method (should be same)
         let neighbors_optimized = cosine_pair.query_optimized(0, 2).unwrap();
-        
+
         assert_eq!(neighbors_internal.len(), neighbors_optimized.len());
         for i in 0..neighbors_internal.len() {
             let (dist1, idx1) = neighbors_internal[i];
@@ -721,16 +723,18 @@ mod tests {
     }
 
     // Brute force algorithm for testing/comparison
-    fn closest_pair_brute_force(cosine_pair: &CosinePair<'_, f64, DenseMatrix<f64>>) -> PairwiseDistance<f64> {
+    fn closest_pair_brute_force(
+        cosine_pair: &CosinePair<'_, f64, DenseMatrix<f64>>,
+    ) -> PairwiseDistance<f64> {
         use itertools::Itertools;
-        
+
         let m = cosine_pair.samples.shape().0;
         let mut closest_pair = PairwiseDistance {
             node: 0,
             neighbour: None,
             distance: Some(f64::MAX),
         };
-        
+
         for pair in (0..m).combinations(2) {
             let d = Cosine::new().distance(
                 &Vec::from_iterator(
@@ -742,14 +746,14 @@ mod tests {
                     cosine_pair.samples.shape().1,
                 ),
             );
-            
+
             if d < closest_pair.distance.unwrap() {
                 closest_pair.node = pair[0];
                 closest_pair.neighbour = Some(pair[1]);
                 closest_pair.distance = Some(d);
             }
         }
-        
+
         closest_pair
     }
 
@@ -760,12 +764,13 @@ mod tests {
             &[4.0, 5.0, 6.0],
             &[7.0, 8.0, 9.0],
             &[1.1, 2.1, 3.1], // Close to first point
-        ]).unwrap();
-        
+        ])
+        .unwrap();
+
         let cosine_pair = CosinePair::new(&x).unwrap();
         let cp_result = cosine_pair.closest_pair();
         let brute_result = closest_pair_brute_force(&cosine_pair);
-        
+
         // Results should be identical or very close
         assert!((cp_result.distance.unwrap() - brute_result.distance.unwrap()).abs() < 1e-10);
     }
