@@ -92,7 +92,7 @@ impl<T: Number> Cosine<T> {
         let magnitude_y = Self::magnitude(y);
 
         if magnitude_x == 0.0 || magnitude_y == 0.0 {
-            panic!("Cannot compute cosine distance for zero-magnitude vectors.");
+            return f64::MAX;
         }
 
         dot_product / (magnitude_x * magnitude_y)
