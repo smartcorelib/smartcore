@@ -92,7 +92,7 @@ impl<T: Number> Cosine<T> {
         let magnitude_y = Self::magnitude(y);
 
         if magnitude_x == 0.0 || magnitude_y == 0.0 {
-            return f64::MAX;
+            return f64::MIN;
         }
 
         dot_product / (magnitude_x * magnitude_y)
@@ -188,12 +188,12 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    #[should_panic(expected = "Cannot compute cosine distance for zero-magnitude vectors.")]
     fn cosine_distance_zero_vector() {
         let a = vec![0, 0, 0];
         let b = vec![1, 2, 3];
 
-        let _dist: f64 = Cosine::new().distance(&a, &b);
+        let dist: f64 = Cosine::new().distance(&a, &b);
+        assert!(dist > 1e300)
     }
 
     #[cfg_attr(
