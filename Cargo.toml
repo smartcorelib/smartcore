@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.org"
-version = "0.4.4"
+version = "0.4.5"
 authors = ["smartcore Developers"]
 edition = "2021"
 license = "Apache-2.0"
@@ -28,6 +28,7 @@ num = "0.4"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 rand_distr = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
+ordered-float = "*"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 typetag = { version = "0.2", optional = true }
