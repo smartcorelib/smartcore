@@ -46,6 +46,7 @@ pub struct CosinePairParameters {
     pub approximate: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for CosinePairParameters {
     fn default() -> Self {
         Self {
@@ -112,12 +113,12 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
 
     /// Helper function to create ordered float wrapper
     fn ordered_float(value: T) -> OrderedFloat<T> {
-        return OrderedFloat(value);
+        OrderedFloat(value)
     }
 
     /// Helper function to extract value from ordered float wrapper
     fn extract_float(ordered: OrderedFloat<T>) -> T {
-        return ordered.into_inner();
+        ordered.into_inner()
     }
 
     /// Optimized initialization with top-k neighbor limiting
