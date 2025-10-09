@@ -25,8 +25,8 @@
 /// <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use ordered_float::{FloatCore, OrderedFloat};
 
-use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 
 use num::Bounded;
 
@@ -36,7 +36,6 @@ use crate::metrics::distance::cosine::Cosine;
 use crate::metrics::distance::{Distance, PairwiseDistance};
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
-
 
 /// Parameters for CosinePair construction
 #[derive(Debug, Clone)]
@@ -83,10 +82,13 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
 
     /// Constructor with top-k limiting for faster performance
     pub fn with_top_k(m: &'a M, top_k: usize) -> Result<Self, Failed> {
-        Self::with_parameters(m, CosinePairParameters {
-            top_k: Some(top_k),
-            approximate: false,
-        })
+        Self::with_parameters(
+            m,
+            CosinePairParameters {
+                top_k: Some(top_k),
+                approximate: false,
+            },
+        )
     }
 
     /// Constructor with full parameter control
@@ -109,7 +111,7 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
     }
 
     /// Helper function to create ordered float wrapper
-    fn ordered_float(value: T) -> OrderedFloat<T> {    
+    fn ordered_float(value: T) -> OrderedFloat<T> {
         return OrderedFloat(value);
     }
 
@@ -155,7 +157,8 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
                             self.samples.get_row(j).iterator(0).copied(),
                             self.samples.shape().1,
                         ),
-                    )).unwrap();
+                    ))
+                    .unwrap();
 
                     // Use OrderedFloat for stable ordering
                     candidate_distances.push(Reverse((Self::ordered_float(distance), j)));
@@ -167,8 +170,9 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
             }
 
             // Find the closest neighbor from candidates
-            if let Some(Reverse((closest_distance, closest_neighbor))) = 
-                candidate_distances.iter().min_by_key(|Reverse((d, _))| *d) {
+            if let Some(Reverse((closest_distance, closest_neighbor))) =
+                candidate_distances.iter().min_by_key(|Reverse((d, _))| *d)
+            {
                 distances.entry(i).and_modify(|e| {
                     e.distance = Some(Self::extract_float(*closest_distance));
                     e.neighbour = Some(*closest_neighbor);
@@ -181,7 +185,11 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
     }
 
     /// Fast query using top-k pre-computed neighbors with ordered-float
-    pub fn query_row_top_k(&self, query_row_index: usize, k: usize) -> Result<Vec<(T, usize)>, Failed> {
+    pub fn query_row_top_k(
+        &self,
+        query_row_index: usize,
+        k: usize,
+    ) -> Result<Vec<(T, usize)>, Failed> {
         if query_row_index >= self.samples.shape().0 {
             return Err(Failed::because(
                 FailedError::FindFailed,
@@ -198,7 +206,7 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
 
         // Use binary heap with ordered-float for reliable ordering
         let mut heap = BinaryHeap::with_capacity(actual_k + 1);
-        
+
         let candidates = if let Some(top_k) = self.parameters.top_k {
             let step = (self.samples.shape().0 / top_k).max(1);
             (0..self.samples.shape().0)
@@ -222,25 +230,25 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
                     self.samples.get_row(candidate_idx).iterator(0).copied(),
                     self.samples.shape().1,
                 ),
-            )).unwrap();
+            ))
+            .unwrap();
 
             heap.push(Reverse((Self::ordered_float(distance), candidate_idx)));
-            
+
             if heap.len() > actual_k {
                 heap.pop();
             }
         }
 
         // Convert heap to sorted vector
-        let mut neighbors: Vec<_> = heap.into_vec()
+        let mut neighbors: Vec<_> = heap
+            .into_vec()
             .into_iter()
             .map(|Reverse((dist, idx))| (Self::extract_float(dist), idx))
             .collect();
-        
-        neighbors.sort_by(|a, b| {
-            Self::ordered_float(a.0).cmp(&Self::ordered_float(b.0))
-        });
-        
+
+        neighbors.sort_by(|a, b| Self::ordered_float(a.0).cmp(&Self::ordered_float(b.0)));
+
         Ok(neighbors)
     }
 
@@ -408,7 +416,7 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
 mod tests {
     use super::*;
     use crate::linalg::basic::{arrays::Array, matrix::DenseMatrix};
-    use approx::{relative_eq, assert_relative_eq};
+    use approx::{assert_relative_eq, relative_eq};
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
@@ -721,68 +729,92 @@ mod tests {
     fn query_row_top_k_top_k_limiting() {
         // Test that query_row_top_k respects top_k parameter and returns correct results
         let x = DenseMatrix::<f64>::from_2d_array(&[
-            &[1.0, 0.0, 0.0],  // Point 0
-            &[0.0, 1.0, 0.0],  // Point 1 - orthogonal to point 0
-            &[0.0, 0.0, 1.0],  // Point 2 - orthogonal to point 0
-            &[1.0, 1.0, 0.0],  // Point 3 - closer to point 0 than points 1,2
-            &[0.5, 0.0, 0.0],  // Point 4 - very close to point 0 (parallel)
-            &[2.0, 0.0, 0.0],  // Point 5 - very close to point 0 (parallel)
-            &[0.0, 1.0, 1.0],  // Point 6 - far from point 0
-            &[3.0, 3.0, 3.0],  // Point 7 - moderately close to point 0
-        ]).unwrap();
+            &[1.0, 0.0, 0.0], // Point 0
+            &[0.0, 1.0, 0.0], // Point 1 - orthogonal to point 0
+            &[0.0, 0.0, 1.0], // Point 2 - orthogonal to point 0
+            &[1.0, 1.0, 0.0], // Point 3 - closer to point 0 than points 1,2
+            &[0.5, 0.0, 0.0], // Point 4 - very close to point 0 (parallel)
+            &[2.0, 0.0, 0.0], // Point 5 - very close to point 0 (parallel)
+            &[0.0, 1.0, 1.0], // Point 6 - far from point 0
+            &[3.0, 3.0, 3.0], // Point 7 - moderately close to point 0
+        ])
+        .unwrap();
 
         // Create CosinePair with top_k=4 to limit candidates
         let cosine_pair = CosinePair::with_top_k(&x, 4).unwrap();
-        
+
         // Query for 3 nearest neighbors to point 0
         let neighbors = cosine_pair.query_row_top_k(0, 3).unwrap();
-        
+
         // Should return exactly 3 neighbors
         assert_eq!(neighbors.len(), 3);
-        
+
         // Verify that distances are in ascending order
         for i in 1..neighbors.len() {
-            assert!(neighbors[i-1].0 <= neighbors[i].0, 
-                "Distances should be in ascending order: {} <= {}", 
-                neighbors[i-1].0, neighbors[i].0);
+            assert!(
+                neighbors[i - 1].0 <= neighbors[i].0,
+                "Distances should be in ascending order: {} <= {}",
+                neighbors[i - 1].0,
+                neighbors[i].0
+            );
         }
-        
+
         // All distances should be valid cosine distances (0 to 2)
         for (distance, index) in &neighbors {
-            assert!(*distance >= 0.0 && *distance <= 2.0, 
-                "Cosine distance {} should be between 0 and 2", distance);
-            assert!(*index < x.shape().0, 
-                "Neighbor index {} should be less than dataset size {}", index, x.shape().0);
-            assert!(*index != 0, 
-                "Neighbor index should not include query point itself");
+            assert!(
+                *distance >= 0.0 && *distance <= 2.0,
+                "Cosine distance {} should be between 0 and 2",
+                distance
+            );
+            assert!(
+                *index < x.shape().0,
+                "Neighbor index {} should be less than dataset size {}",
+                index,
+                x.shape().0
+            );
+            assert!(
+                *index != 0,
+                "Neighbor index should not include query point itself"
+            );
         }
-        
+
         // The closest neighbor should be either point 4 or 5 (parallel vectors)
         // These should have cosine distance ≈ 0
         let closest_distance = neighbors[0].0;
-        assert!(closest_distance < 0.01, 
-            "Closest parallel vector should have distance close to 0, got {}", closest_distance);
-        
+        assert!(
+            closest_distance < 0.01,
+            "Closest parallel vector should have distance close to 0, got {}",
+            closest_distance
+        );
+
         // Verify that we get different results with different top_k values
         let cosine_pair_full = CosinePair::new(&x).unwrap();
         let neighbors_full = cosine_pair_full.query_row(0, 3).unwrap();
-        
+
         // Results should be the same or very close since we're asking for top 3
         // but the algorithm might find different candidates due to top_k limiting
         assert_eq!(neighbors.len(), neighbors_full.len());
-        
+
         // The closest neighbor should be the same in both cases
         let closest_idx_fast = neighbors[0].1;
         let closest_idx_full = neighbors_full[0].1;
         let closest_dist_fast = neighbors[0].0;
         let closest_dist_full = neighbors_full[0].0;
-        
+
         // Either we get the same closest neighbor, or distances are very close
         if closest_idx_fast == closest_idx_full {
-            assert!(relative_eq!(closest_dist_fast, closest_dist_full, epsilon = 1e-10));
+            assert!(relative_eq!(
+                closest_dist_fast,
+                closest_dist_full,
+                epsilon = 1e-10
+            ));
         } else {
             // Different neighbors, but distances should be very close (parallel vectors)
-            assert!(relative_eq!(closest_dist_fast, closest_dist_full, epsilon = 1e-6));
+            assert!(relative_eq!(
+                closest_dist_fast,
+                closest_dist_full,
+                epsilon = 1e-6
+            ));
         }
     }
 
@@ -803,72 +835,88 @@ mod tests {
             &[1.0f32, 0.0, 0.0, 0.0],     // Point 9 - partially similar
             &[0.0f32, 2.0, 0.0, 0.0],     // Point 10 - partially similar
             &[0.0f32, 0.0, 3.0, 0.0],     // Point 11 - partially similar
-        ]).unwrap();
+        ])
+        .unwrap();
 
         // Test with aggressive top_k limiting (only consider 5 out of 11 other points)
         let cosine_pair_limited = CosinePair::with_top_k(&large_dataset, 5).unwrap();
-        
+
         // Query for 4 nearest neighbors
         let neighbors_limited = cosine_pair_limited.query_row_top_k(0, 4).unwrap();
-        
+
         // Should return exactly 4 neighbors
         assert_eq!(neighbors_limited.len(), 4);
-        
+
         // Test error handling - out of bounds query
         let result_oob = cosine_pair_limited.query_row_top_k(15, 2);
         assert!(result_oob.is_err());
         if let Err(e) = result_oob {
-            assert_eq!(e, Failed::because(
-                FailedError::FindFailed, 
-                "Query row index out of bounds"
-            ));
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "Query row index out of bounds")
+            );
         }
-        
+
         // Test k=0 case
         let neighbors_zero = cosine_pair_limited.query_row_top_k(0, 0).unwrap();
         assert_eq!(neighbors_zero.len(), 0);
-        
+
         // Test k > available candidates
         let neighbors_large_k = cosine_pair_limited.query_row_top_k(0, 20).unwrap();
         assert!(neighbors_large_k.len() <= 11); // At most 11 other points
-        
+
         // Verify ordering is correct
         for i in 1..neighbors_limited.len() {
-            assert!(neighbors_limited[i-1].0 <= neighbors_limited[i].0,
-                "Distance ordering violation at position {}: {} > {}", 
-                i, neighbors_limited[i-1].0, neighbors_limited[i].0);
+            assert!(
+                neighbors_limited[i - 1].0 <= neighbors_limited[i].0,
+                "Distance ordering violation at position {}: {} > {}",
+                i,
+                neighbors_limited[i - 1].0,
+                neighbors_limited[i].0
+            );
         }
-        
+
         // The closest neighbors should be the parallel vectors (points 1, 2, 3, 4)
         // since they have the smallest cosine distances
         let closest_distance = neighbors_limited[0].0;
-        assert!(closest_distance < 0.1, 
-            "Closest neighbor should be nearly parallel, distance: {}", closest_distance);
-        
+        assert!(
+            closest_distance < 0.1,
+            "Closest neighbor should be nearly parallel, distance: {}",
+            closest_distance
+        );
+
         // Compare with full algorithm for accuracy assessment
         let cosine_pair_full = CosinePair::new(&large_dataset).unwrap();
         let neighbors_full = cosine_pair_full.query_row(0, 4).unwrap();
-        
+
         // The fast version might not find the exact same neighbors due to sampling,
         // but the closest neighbor's distance should be very similar
         let dist_diff = (neighbors_limited[0].0 - neighbors_full[0].0).abs();
-        assert!(dist_diff < 0.01, 
-            "Fast and full algorithms should give similar closest distances. Diff: {}", dist_diff);
-        
+        assert!(
+            dist_diff < 0.01,
+            "Fast and full algorithms should give similar closest distances. Diff: {}",
+            dist_diff
+        );
+
         // Verify that all returned indices are valid and unique
         let mut indices: Vec<usize> = neighbors_limited.iter().map(|(_, idx)| *idx).collect();
         indices.sort();
         indices.dedup();
-        assert_eq!(indices.len(), neighbors_limited.len(), 
-            "All neighbor indices should be unique");
-        
+        assert_eq!(
+            indices.len(),
+            neighbors_limited.len(),
+            "All neighbor indices should be unique"
+        );
+
         for &idx in &indices {
-            assert!(idx < large_dataset.shape().0, 
-                "Neighbor index {} should be valid", idx);
-            assert!(idx != 0, 
-                "Neighbor should not include query point itself");
+            assert!(
+                idx < large_dataset.shape().0,
+                "Neighbor index {} should be valid",
+                idx
+            );
+            assert!(idx != 0, "Neighbor should not include query point itself");
         }
-        
+
         // Test with f32 precision to ensure type compatibility
         for (distance, _) in &neighbors_limited {
             assert!(!distance.is_nan(), "Distance should not be NaN");
