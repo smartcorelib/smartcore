@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg, clippy::needless_range_loop)]
 //! Datasets
 //!
 //! In this module you will find small datasets that are used in `smartcore` mostly for demonstration purposes.
