@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg, clippy::needless_range_loop)]
 //! # Clustering
 //!
 //! Clustering is the type of unsupervised learning where you divide the population or data points into a number of groups such that data points in the same groups

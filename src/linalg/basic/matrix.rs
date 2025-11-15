@@ -385,7 +385,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 
     fn is_empty(&self) -> bool {
-        self.ncols > 0 && self.nrows > 0
+        self.ncols < 1 || self.nrows < 1
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
