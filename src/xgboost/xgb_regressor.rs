@@ -60,6 +60,7 @@ use serde::{Deserialize, Serialize};
 /// The objective function provides the loss, gradient (first derivative), and
 /// hessian (second derivative) required for the XGBoost algorithm.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Objective {
     /// The objective for regression tasks using Mean Squared Error.
     /// Loss: 0.5 * (y_true - y_pred)^2
@@ -125,6 +126,7 @@ impl Objective {
 /// This is a recursive data structure where each `TreeRegressor` is a node
 /// that can have a left and a right child, also of type `TreeRegressor`.
 #[allow(dead_code)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 struct TreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     left: Option<Box<TreeRegressor<TX, TY, X, Y>>>,
