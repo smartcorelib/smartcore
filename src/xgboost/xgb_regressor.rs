@@ -53,6 +53,9 @@ use crate::{
     rand_custom::get_rng_impl,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Defines the objective function to be optimized.
 /// The objective function provides the loss, gradient (first derivative), and
 /// hessian (second derivative) required for the XGBoost algorithm.
