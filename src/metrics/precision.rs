@@ -84,10 +84,8 @@ impl<T: RealNumber> Metrics<T> for Precision<T> {
                     if t == positive {
                         tp += 1;
                     }
-                } else {
-                    if t != positive {
-                        fp_count += 1;
-                    }
+                } else if t != positive {
+                    fp_count += 1;
                 }
             }
             if tp + fp_count == 0 {

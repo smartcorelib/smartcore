@@ -23,7 +23,6 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
@@ -85,10 +84,8 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
                     if t == positive {
                         tp += 1;
                     }
-                } else {
-                    if t == positive {
-                        fn_count += 1;
-                    }
+                } else if t == positive {
+                    fn_count += 1;
                 }
             }
             if tp + fn_count == 0 {
