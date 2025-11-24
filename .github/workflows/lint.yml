@@ -1,10 +1,12 @@
 name: Lint checks
 
+
 on:
   push:
     branches: [ main, development ]
   pull_request:
     branches: [ development ]
+
 
 jobs:
   lint:
@@ -12,30 +14,20 @@ jobs:
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Cache .cargo and target
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo
             ./target
-          key: ${{ runner.os }}-lint-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-lint-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-lint-cargo-${{ hashFiles('Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-lint-cargo
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          profile: minimal
-          default: true
-      - run: rustup component add rustfmt
-      - name: Check formt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      - run: rustup component add clippy
+          components: rustfmt, clippy
+      - name: Check format
+        run: cargo fmt --all -- --check
       - name: Run clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-features -- -Drust-2018-idioms -Dwarnings
+        run: cargo clippy --all-features -- -Drust-2018-idioms -Dwarnings
