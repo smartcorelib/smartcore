@@ -19,26 +19,15 @@ jobs:
           path: |
             ~/.cargo
             ./target
-          key: ${{ runner.os }}-coverage-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: ${{ runner.os }}-coverage-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-coverage-cargo-${{ hashFiles('Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-coverage-cargo
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          default: true
+        uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-tarpaulin
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-tarpaulin
-          version: latest
-          use-tool-cache: true
+        run: cargo install cargo-tarpaulin
       - name: Run cargo-tarpaulin
-        uses: actions-rs/cargo@v1
-        with:
-          command: tarpaulin
-          args: --out Lcov --all-features -- --test-threads 1
+        run: cargo tarpaulin --out Lcov --all-features -- --test-threads 1
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false
