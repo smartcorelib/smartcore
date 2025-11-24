@@ -1,12 +1,10 @@
 name: CI
 
-
 on:
   push:
     branches: [main, development]
   pull_request:
     branches: [development]
-
 
 jobs:
   tests:
@@ -32,34 +30,22 @@ jobs:
           path: |
             ~/.cargo
             ./target
-          key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-${{ matrix.platform.target }}
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.platform.target }}
-          profile: minimal
-          default: true
+          targets: ${{ matrix.platform.target }}
       - name: Install test runner for wasm
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Stable Build with all features
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --all-features --target ${{ matrix.platform.target }}
+        run: cargo build --all-features --target ${{ matrix.platform.target }}
       - name: Stable Build without features
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --target ${{ matrix.platform.target }}
+        run: cargo build --target ${{ matrix.platform.target }}
       - name: Tests
         if: matrix.platform.target == 'x86_64-unknown-linux-gnu' || matrix.platform.target == 'x86_64-pc-windows-msvc' || matrix.platform.target == 'aarch64-apple-darwin'
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
+        run: cargo test --all-features
       - name: Tests in WASM
         if: matrix.platform.target == 'wasm32-unknown-unknown'
         run: wasm-pack test --node -- --all-features
@@ -83,14 +69,6 @@ jobs:
           key: ${{ runner.os }}-cargo-features-${{ hashFiles('Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-features
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.platform.target }}
-          profile: minimal
-          default: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Stable Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --no-default-features ${{ matrix.features }}
+        run: cargo build --no-default-features ${{ matrix.features }}
