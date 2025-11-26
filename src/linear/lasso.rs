@@ -9,7 +9,7 @@
 //!
 //! Lasso coefficient estimates solve the problem:
 //!
-//! \\[\underset{\beta}{minimize} \space \space \sum_{i=1}^n \left( y_i - \beta_0 - \sum_{j=1}^p \beta_jx_{ij} \right)^2 + \alpha \sum_{j=1}^p \lVert \beta_j \rVert_1\\]
+//! \\[\underset{\beta}{minimize} \space \space \frac{1}{n} \sum_{i=1}^n \left( y_i - \beta_0 - \sum_{j=1}^p \beta_jx_{ij} \right)^2 + \alpha \sum_{j=1}^p \lVert \beta_j \rVert_1\\]
 //!
 //! This problem is solved with an interior-point method that is comparable to coordinate descent in solving large problems with modest accuracy,
 //! but is able to solve them with high accuracy with relatively small additional computational cost.
@@ -246,7 +246,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
     pub fn fit(x: &X, y: &Y, parameters: LassoParameters) -> Result<Lasso<TX, TY, X, Y>, Failed> {
         let (n, p) = x.shape();
 
-        if n <= p {
+        if n < p {
             return Err(Failed::fit(
                 "Number of rows in X should be >= number of columns in X",
             ));
