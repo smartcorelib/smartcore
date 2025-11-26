@@ -45,6 +45,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         lambda: T,
         max_iter: usize,
         tol: T,
+        fit_intercept: bool,
     ) -> Result<Vec<T>, Failed> {
         let (n, p) = x.shape();
         let p_f64 = T::from_usize(p).unwrap();
@@ -61,7 +62,11 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         let mu = T::two();
 
         // let y = M::from_row_vector(y.sub_scalar(y.mean_by())).transpose();
-        let y = y.sub_scalar(T::from_f64(y.mean_by()).unwrap());
+        let y = if fit_intercept {
+            y.sub_scalar(T::from_f64(y.mean_by()).unwrap())
+        } else {
+            y.to_owned()
+        };
 
         let mut max_ls_iter = 100;
         let mut pitr = 0;
