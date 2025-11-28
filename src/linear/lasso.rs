@@ -128,8 +128,8 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new() -> Self {
         Self {
-            coefficients: Option::None,
-            intercept: Option::None,
+            coefficients: None,
+            intercept: None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -558,7 +558,7 @@ mod tests {
             0.,
         ];
         assert!(mean_absolute_error(&w, &expected_w) < 1e-6);
-        assert_eq!(fit_result.intercept, None); // zero by definition
+        assert_eq!(fit_result.intercept, None);
     }
 
     // TODO: serialization for the new DenseMatrix needs to be implemented
