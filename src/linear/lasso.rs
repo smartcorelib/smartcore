@@ -316,14 +316,16 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
                 w[j] /= *col_std_j;
             }
 
-            let mut b = TX::zero();
-            if parameters.fit_intercept {
+            let b = if parameters.fit_intercept {
+                let mut xw_mean = TX::zero();
                 for (i, col_mean_i) in col_mean.iter().enumerate().take(p) {
-                    b += w[i] * *col_mean_i;
+                    xw_mean += w[i] * *col_mean_i;
                 }
 
-                b = TX::from_f64(y.mean_by()).unwrap() - b;
-            }
+                Some(TX::from_f64(y.mean_by()).unwrap() - xw_mean)
+            } else {
+                None
+            };
             (X::from_column(&w), b)
         } else {
             let mut optimizer = InteriorPointOptimizer::new(x, p);
@@ -340,15 +342,15 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
             (
                 X::from_column(&w),
                 if parameters.fit_intercept {
-                    TX::from_f64(y.mean_by()).unwrap()
+                    Some(TX::from_f64(y.mean_by()).unwrap())
                 } else {
-                    TX::zero()
+                    None
                 },
             )
         };
 
         Ok(Lasso {
-            intercept: Some(b),
+            intercept: b,
             coefficients: Some(w),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
@@ -556,7 +558,7 @@ mod tests {
             0.,
         ];
         assert!(mean_absolute_error(&w, &expected_w) < 1e-6);
-        assert_eq!(fit_result.intercept, Some(0.0)); // zero by definition
+        assert_eq!(fit_result.intercept, None); // zero by definition
     }
 
     // TODO: serialization for the new DenseMatrix needs to be implemented
