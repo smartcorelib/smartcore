@@ -345,6 +345,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 l1_reg * gamma,
                 parameters.max_iter,
                 TX::from_f64(parameters.tol).unwrap(),
+                true,
             )?;
 
             for i in 0..p {
@@ -371,6 +372,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 l1_reg * gamma,
                 parameters.max_iter,
                 TX::from_f64(parameters.tol).unwrap(),
+                true,
             )?;
 
             for i in 0..p {
