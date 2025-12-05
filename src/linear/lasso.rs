@@ -166,7 +166,7 @@ pub struct LassoSearchParameters {
     /// The maximum number of iterations
     pub max_iter: Vec<usize>,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// The maximum number of iterations
+    /// If false, force the intercept parameter (beta_0) to be zero.
     pub fit_intercept: Vec<bool>,
 }
 

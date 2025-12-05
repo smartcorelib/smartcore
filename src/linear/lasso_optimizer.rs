@@ -53,6 +53,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         let lambda = lambda.max(T::epsilon());
 
         //parameters
+        let max_ls_iter = 100;
         let pcgmaxi = 5000;
         let min_pcgtol = T::from_f64(0.1).unwrap();
         let eta = T::from_f64(1E-3).unwrap();
@@ -68,7 +69,6 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
             y.to_owned()
         };
 
-        let mut max_ls_iter = 100;
         let mut pitr = 0;
         let mut w = Vec::zeros(p);
         let mut neww = w.clone();
@@ -170,7 +170,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
             s = T::one();
             let gdx = grad.dot(&dxu);
 
-            let lsiter = 0;
+            let mut lsiter = 0;
             while lsiter < max_ls_iter {
                 for i in 0..p {
                     neww[i] = w[i] + s * dx[i];
@@ -195,7 +195,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                     }
                 }
                 s = beta * s;
-                max_ls_iter += 1;
+                lsiter += 1;
             }
 
             if lsiter == max_ls_iter {
