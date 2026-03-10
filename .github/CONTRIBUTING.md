@@ -50,7 +50,7 @@ $ rust-code-analysis-cli -p src/algorithm/neighbour/fastpair.rs --ls 22 --le 213
 
 1. After a PR is opened maintainers are notified
 2. Probably changes will be required to comply with the workflow, these commands are run automatically and all tests shall pass:
-    * **Formatting**: run `rustfmt src/*.rs` to apply automatic formatting
+    * **Formatting**: run `cargo fmt --all -- --check` to apply automatic formatting
     * **Linting**: `clippy` is used with command `cargo clippy --all-features -- -Drust-2018-idioms -Dwarnings`
     * **Coverage** (optional): `tarpaulin` is used with command `cargo tarpaulin --out Lcov --all-features -- --test-threads 1`
     * **Testing**: multiple test pipelines are run for different targets
