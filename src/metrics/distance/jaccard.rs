@@ -89,6 +89,7 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
+
     #[test]
     fn jaccard_distance() {
         let a = vec![1, 0, 1, 1];
@@ -98,4 +99,38 @@ mod tests {
 
         assert!((j - 0.5).abs() < 1e-8);
     }
+
+    #[test]
+    fn jaccard_identical_vectors() {
+        let a = vec![1, 0, 1, 0];
+        let b = vec![1, 0, 1, 0];
+
+        let j: f64 = Jaccard::new().distance(&a, &b);
+
+        assert!((j - 0.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn jaccard_both_zero_vectors() {
+        let a = vec![0, 0, 0];
+        let b = vec![0, 0, 0];
+
+        let j: f64 = Jaccard::new().distance(&a, &b);
+
+        assert!((j - 0.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn jaccard_symmetry() {
+        let a = vec![1, 0, 1, 1];
+        let b = vec![0, 1, 1, 0];
+
+        let j = Jaccard::new();
+
+        let d1 = j.distance(&a, &b);
+        let d2 = j.distance(&b, &a);
+
+        assert!((d1 - d2).abs() < 1e-12);
+    }
 }
+
