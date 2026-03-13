@@ -162,12 +162,29 @@ pub enum SplitCriterion {
 #[derive(Debug, Clone)]
 struct Node {
     output: usize,
+
+    /// number of samples that reached this node
     n_node_samples: usize,
+
+    /// class distribution in this node
+    class_distribution: Vec<usize>,
+
+    /// feature used for split
     split_feature: usize,
+
+    /// threshold
     split_value: Option<f64>,
+
+    /// impurity improvement of split
     split_score: Option<f64>,
+
+    /// left child index
     true_child: Option<usize>,
+
+    /// right child index
     false_child: Option<usize>,
+
+    /// impurity value of node
     impurity: Option<f64>,
 }
 
@@ -405,16 +422,17 @@ impl Default for DecisionTreeClassifierSearchParameters {
 }
 
 impl Node {
-    fn new(output: usize, n_node_samples: usize) -> Self {
+    fn new(output: usize, n_node_samples: usize, class_distribution: Vec<usize>) -> Self {
         Node {
             output,
             n_node_samples,
+            class_distribution, // added
             split_feature: 0,
-            split_value: Option::None,
-            split_score: Option::None,
-            true_child: Option::None,
-            false_child: Option::None,
-            impurity: Option::None,
+            split_value: None,
+            split_score: None,
+            true_child: None,
+            false_child: None,
+            impurity: None,
         }
     }
 }
@@ -554,40 +572,62 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         DecisionTreeClassifier::fit_weak_learner(x, y, samples, num_attributes, parameters)
     }
 
+
     pub(crate) fn fit_weak_learner(
         x: &X,
         y: &Y,
-        samples: Vec<usize>,
+        bootstrap_sample_counts: Vec<usize>, // Renamed from just "samples" for semantic clarity. It isn't "samples"
         mtry: usize,
         parameters: DecisionTreeClassifierParameters,
     ) -> Result<DecisionTreeClassifier<TX, TY, X, Y>, Failed> {
+
         let y_ncols = y.shape();
         let (_, num_attributes) = x.shape();
+
         let classes = y.unique();
-        let k = classes.len();
-        if k < 2 {
+        let num_classes = classes.len();
+
+        if num_classes < 2 {
             return Err(Failed::fit(&format!(
-                "Incorrect number of classes: {k}. Should be >= 2."
+                "Incorrect number of classes: {num_classes}. Should be >= 2."
             )));
         }
 
         let mut rng = get_rng_impl(parameters.seed);
-        let mut yi: Vec<usize> = vec![0; y_ncols];
 
-        for (i, yi_i) in yi.iter_mut().enumerate().take(y_ncols) {
+        // bootstrap_classes[i] = class index of sample i
+        let mut bootstrap_classes: Vec<usize> = vec![0; y_ncols];
+
+        for (i, class_index) in bootstrap_classes.iter_mut().enumerate().take(y_ncols) {
             let yc = y.get(i);
-            *yi_i = classes.iter().position(|c| yc == c).unwrap();
+            *class_index = classes.iter().position(|c| yc == c).unwrap();
         }
 
         let mut change_nodes: Vec<Node> = Vec::new();
 
-        let mut count = vec![0; k];
+        // --------------------------------
+        // compute class distribution
+        // --------------------------------
+
+        let mut class_distribution = vec![0; num_classes];
+
         for i in 0..y_ncols {
-            count[yi[i]] += samples[i];
+            class_distribution[bootstrap_classes[i]] += bootstrap_sample_counts[i];
         }
 
-        let root = Node::new(which_max(&count), y_ncols);
+        // majority class
+        let root_output = which_max(&class_distribution);
+
+        let root = Node::new(
+            root_output,
+            y_ncols,
+            class_distribution.clone(),
+        );
+
         change_nodes.push(root);
+
+        // --------------------------------
+
         let mut order: Vec<Vec<usize>> = Vec::new();
 
         for i in 0..num_attributes {
@@ -598,7 +638,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let mut tree = DecisionTreeClassifier {
             nodes: change_nodes,
             parameters: Some(parameters),
-            num_classes: k,
+            num_classes,
             classes,
             depth: 0u16,
             num_features: num_attributes,
@@ -607,7 +647,14 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor = NodeVisitor::<TX, X>::new(0, samples, &order, x, &yi, 1);
+        let mut visitor = NodeVisitor::<TX, X>::new(
+            0,
+            bootstrap_sample_counts,
+            &order,
+            x,
+            &bootstrap_classes,
+            1,
+        );
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, X>> = LinkedList::new();
 
@@ -624,6 +671,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         Ok(tree)
     }
+
 
     /// Predict class value for `x`.
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
@@ -831,9 +879,32 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         let true_child_idx = self.nodes().len();
 
-        self.nodes.push(Node::new(visitor.true_child_output, tc));
+        // Added. We are computing class distribution
+        let mut true_distribution = vec![0; self.num_classes];
+        let mut false_distribution = vec![0; self.num_classes];
+
+        for i in 0..n {
+
+            if true_samples[i] > 0 {
+                true_distribution[visitor.y[i]] += true_samples[i];
+            }
+
+            if visitor.samples[i] > 0 {
+                false_distribution[visitor.y[i]] += visitor.samples[i];
+            }
+        }
+
+        // Some additional checks
+        let true_sum: usize = true_distribution.iter().sum();
+        let false_sum: usize = false_distribution.iter().sum();
+        debug_assert_eq!(true_sum, tc);
+        debug_assert_eq!(false_sum, fc);
+        // debug_assert_eq!(tc + fc, visitor.samples.iter().sum::<usize>()); // TODO
+
+        self.nodes.push(Node::new(visitor.true_child_output, tc, true_distribution));
         let false_child_idx = self.nodes().len();
-        self.nodes.push(Node::new(visitor.false_child_output, fc));
+        self.nodes.push(Node::new(visitor.false_child_output, fc, false_distribution));
+
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);
 
@@ -958,6 +1029,30 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
         // This should never happen if the tree is properly constructed
         Err(Failed::predict("Nodes iteration did not reach leaf"))
+    }
+
+    pub fn predict_proba_for_row_real(&self, x: &X, row: usize) -> Vec<f64> {
+        let mut node = 0;
+        loop {
+            let current = &self.nodes()[node];
+            if current.true_child.is_none() && current.false_child.is_none() {
+                let total: usize = current.class_distribution.iter().sum();
+                let mut probs = vec![0.0; self.num_classes];
+                for i in 0..self.num_classes {
+                    probs[i] = current.class_distribution[i] as f64 / total as f64;
+                }
+
+                return probs;
+            }
+
+            let split_feature = current.split_feature;
+            let split_value = current.split_value.unwrap();
+            if x.get((row, split_feature)).to_f64().unwrap() <= split_value {
+                node = current.true_child.unwrap();
+            } else {
+                node = current.false_child.unwrap();
+            }
+        }
     }
 }
 

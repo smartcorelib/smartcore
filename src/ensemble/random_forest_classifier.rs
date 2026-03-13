@@ -609,6 +609,42 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
         samples
     }
+
+    fn predict_proba_for_row(&self, x: &X, row: usize) -> Vec<f64> {
+
+        let k = self.classes.as_ref().unwrap().len();
+        let mut probs = vec![0.0; k];
+
+        for tree in self.trees.as_ref().unwrap().iter() {
+
+            let tree_probs = tree.predict_proba_for_row_real(x, row);
+
+            for i in 0..k {
+                probs[i] += tree_probs[i];
+            }
+        }
+
+        let n_trees = self.trees.as_ref().unwrap().len();
+
+        for i in 0..k {
+            probs[i] /= n_trees as f64;
+        }
+
+        probs
+    }
+
+    pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
+
+        let (n, _) = x.shape();
+
+        let mut result = Vec::with_capacity(n);
+
+        for i in 0..n {
+            result.push(self.predict_proba_for_row(x, i));
+        }
+
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
