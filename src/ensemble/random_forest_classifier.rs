@@ -628,23 +628,31 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// Each probability represents the average fraction of training samples of that class
     /// across all trees that reached the same leaf node for this input.
     fn predict_proba_for_row(&self, x: &X, row: usize) -> Vec<f64> {
+        // improvement: unwrap делаем один раз
+        let trees = self.trees.as_ref().unwrap();
 
+        // improvement: unwrap classes тоже один раз
         let k = self.classes.as_ref().unwrap().len();
+
         let mut probs = vec![0.0; k];
 
-        for tree in self.trees.as_ref().unwrap().iter() {
-
+        for tree in trees {
             let tree_probs = tree.predict_proba_for_row_real(x, row);
 
-            for i in 0..k {
-                probs[i] += tree_probs[i];
+            // improvement: убран range loop
+            // improvement: нет индексирования
+            // improvement: zip гарантирует покомпонентное сложение
+            for (p, tp) in probs.iter_mut().zip(tree_probs.iter()) {
+                *p += *tp; // важно разыменование
             }
         }
 
-        let n_trees = self.trees.as_ref().unwrap().len();
+        // improvement: unwrap уже не нужен
+        let n_trees = trees.len() as f64;
 
-        for i in 0..k {
-            probs[i] /= n_trees as f64;
+        // improvement: убран needless_range_loop
+        for p in &mut probs {
+            *p /= n_trees;
         }
 
         probs
@@ -663,7 +671,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// # Arguments
     ///
     /// * `x` - The input samples as a matrix where each row is a sample and each column
-    ///         is a feature.
+    ///   is a feature.
     ///
     /// # Returns
     ///

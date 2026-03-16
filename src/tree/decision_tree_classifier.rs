@@ -963,9 +963,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let total: usize = current.class_distribution.iter().sum();
                 let mut probs = vec![0.0; self.num_classes];
                 if total > 0 {
-                    for i in 0..self.num_classes {
-                        probs[i] = current.class_distribution[i] as f64 / total as f64;
-                    }
+                    for (p, count) in probs.iter_mut().zip(&current.class_distribution) { *p = *count as f64 / total as f64; }
                 }
                 return probs;
             }
