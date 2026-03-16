@@ -610,6 +610,23 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         samples
     }
 
+    /// Predict class probabilities for a single input sample.
+    ///
+    /// This method averages the probability estimates from all trees in the forest.
+    /// Each tree returns a probability distribution based on the class distribution
+    /// in its leaf node (scikit-learn style), and these distributions are averaged
+    /// across all trees to produce the final probability estimate.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The input matrix containing all samples.
+    /// * `row` - The index of the row in `x` for which to predict probabilities.
+    ///
+    /// # Returns
+    ///
+    /// A vector of probabilities, one for each class. The sum of probabilities equals 1.0.
+    /// Each probability represents the average fraction of training samples of that class
+    /// across all trees that reached the same leaf node for this input.
     fn predict_proba_for_row(&self, x: &X, row: usize) -> Vec<f64> {
 
         let k = self.classes.as_ref().unwrap().len();
@@ -633,6 +650,35 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         probs
     }
 
+    /// Predict class probabilities for the input samples.
+    ///
+    /// This method returns probability estimates for each sample in the input matrix.
+    /// For each sample, probabilities are computed by averaging the predictions from
+    /// all trees in the forest. Each tree contributes a probability distribution based
+    /// on the class distribution in its leaf node.
+    ///
+    /// This is the scikit-learn style `predict_proba` behavior, providing calibrated
+    /// probability estimates rather than just class predictions.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The input samples as a matrix where each row is a sample and each column
+    ///         is a feature.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `Vec<Vec<f64>>` where each inner vector corresponds to
+    /// a sample and contains probabilities for each class. The sum of probabilities
+    /// for each sample equals 1.0.
+    ///
+    /// # Note
+    ///
+    /// Return type is `Vec<Vec<f64>>` for minimal API changes. The tree classifier
+    /// returns `DenseMatrix<f64>` for the same method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the forest has not been fitted (trees are None).
     pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
 
         let (n, _) = x.shape();
@@ -841,5 +887,146 @@ mod tests {
             bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
+    }
+    
+    // Test for predict_proba
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn test_predict_proba_forest() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+        ])
+        .unwrap();
+        let y = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
+
+        let classifier = RandomForestClassifier::fit(
+            &x,
+            &y,
+            RandomForestClassifierParameters {
+                criterion: SplitCriterion::Gini,
+                max_depth: Option::None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 10,
+                m: Option::None,
+                keep_samples: false,
+                seed: 87,
+            },
+        )
+        .unwrap();
+
+        let probabilities = classifier.predict_proba(&x).unwrap();
+        assert_eq!(probabilities.len(), 10);
+        assert_eq!(probabilities[0].len(), 2);
+
+        // Check that probabilities sum to 1.0 for each sample
+        for row in 0..10 {
+            let row_sum: f64 = probabilities[row].iter().sum();
+            assert!(
+                (row_sum - 1.0).abs() < 1e-6,
+                "Row probabilities should sum to 1, got {}",
+                row_sum
+            );
+        }
+
+        // Check if the first 5 samples have higher probability for class 0
+        for i in 0..5 {
+            assert!(
+                probabilities[i][0] > probabilities[i][1],
+                "Sample {} should have higher prob for class 0",
+                i
+            );
+        }
+
+        // Check if the last 5 samples have higher probability for class 1
+        for i in 5..10 {
+            assert!(
+                probabilities[i][1] > probabilities[i][0],
+                "Sample {} should have higher prob for class 1",
+                i
+            );
+        }
+    }
+
+    // Test for predict_proba with mixed classes in leaves
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn test_predict_proba_mixed_leaves() {
+        // Create a simple dataset where some leaves will have mixed classes
+        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
+            &[1.0, 1.0],
+            &[1.0, 1.0],
+            &[1.0, 1.0],
+            &[5.0, 5.0],
+            &[5.0, 5.0],
+        ])
+        .unwrap();
+        let y: Vec<usize> = vec![0, 0, 1, 2, 2]; // 3 classes, mixed in first group
+
+        let classifier = RandomForestClassifier::fit(
+            &x,
+            &y,
+            RandomForestClassifierParameters {
+                n_trees: 5,
+                seed: 42,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let probabilities = classifier.predict_proba(&x).unwrap();
+
+        // All probabilities should be non-negative and sum to 1.0
+        for row in 0..5 {
+            let sum: f64 = probabilities[row].iter().sum();
+            assert!(
+                (sum - 1.0).abs() < 1e-6,
+                "Probabilities for row {} should sum to 1.0, got {}",
+                row,
+                sum
+            );
+            for &p in &probabilities[row] {
+                assert!(p >= 0.0 && p <= 1.0, "Probability {} out of range", p);
+            }
+        }
+
+        // First 3 samples should have non-zero probability for both class 0 and 1
+        // (since they're in the same region with mixed classes)
+        for i in 0..3 {
+            assert!(
+                probabilities[i][0] > 0.0,
+                "Sample {} should have non-zero prob for class 0",
+                i
+            );
+            assert!(
+                probabilities[i][1] > 0.0,
+                "Sample {} should have non-zero prob for class 1",
+                i
+            );
+        }
+
+        // Last 2 samples should have high probability for class 2
+        for i in 3..5 {
+            assert!(
+                probabilities[i][2] > 0.5,
+                "Sample {} should have high prob for class 2",
+                i
+            );
+        }
     }
 }
