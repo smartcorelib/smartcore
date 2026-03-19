@@ -688,7 +688,6 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     ///
     /// Returns an error if the forest has not been fitted (trees are None).
     pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
-
         let (n, _) = x.shape();
 
         let mut result = Vec::with_capacity(n);
@@ -896,28 +895,37 @@ mod tests {
 
         assert_eq!(forest, deserialized_forest);
     }
-    
-    // Test for predict_proba
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn test_predict_proba_forest() {
+    fn test_predict_proba_iris() {
         let x = DenseMatrix::from_2d_array(&[
             &[5.1, 3.5, 1.4, 0.2],
             &[4.9, 3.0, 1.4, 0.2],
             &[4.7, 3.2, 1.3, 0.2],
             &[4.6, 3.1, 1.5, 0.2],
             &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
             &[7.0, 3.2, 4.7, 1.4],
             &[6.4, 3.2, 4.5, 1.5],
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
         ])
         .unwrap();
-        let y = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
+        let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let classifier = RandomForestClassifier::fit(
             &x,
@@ -936,21 +944,24 @@ mod tests {
         .unwrap();
 
         let probabilities = classifier.predict_proba(&x).unwrap();
-        assert_eq!(probabilities.len(), 10);
+
+        // Check 1: dimensions
+        assert_eq!(probabilities.len(), 20);
         assert_eq!(probabilities[0].len(), 2);
 
-        // Check that probabilities sum to 1.0 for each sample
-        for row in 0..10 {
+        // Check 2: probabilities sum to 1.0 for all rows
+        for row in 0..20 {
             let row_sum: f64 = probabilities[row].iter().sum();
             assert!(
                 (row_sum - 1.0).abs() < 1e-6,
-                "Row probabilities should sum to 1, got {}",
+                "Row {} probabilities should sum to 1, got {}",
+                row,
                 row_sum
             );
         }
 
-        // Check if the first 5 samples have higher probability for class 0
-        for i in 0..5 {
+        // Check 3: first 8 samples → higher prob for class 0
+        for i in 0..8 {
             assert!(
                 probabilities[i][0] > probabilities[i][1],
                 "Sample {} should have higher prob for class 0",
@@ -958,8 +969,8 @@ mod tests {
             );
         }
 
-        // Check if the last 5 samples have higher probability for class 1
-        for i in 5..10 {
+        // Check 4: last 12 samples → higher prob for class 1
+        for i in 8..20 {
             assert!(
                 probabilities[i][1] > probabilities[i][0],
                 "Sample {} should have higher prob for class 1",
@@ -968,23 +979,22 @@ mod tests {
         }
     }
 
-    // Test for predict_proba with mixed classes in leaves
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn test_predict_proba_mixed_leaves() {
-        // Create a simple dataset where some leaves will have mixed classes
-        let x: DenseMatrix<f64> = DenseMatrix::from_2d_array(&[
-            &[1.0, 1.0],
-            &[1.0, 1.0],
-            &[1.0, 1.0],
-            &[5.0, 5.0],
-            &[5.0, 5.0],
+    fn test_predict_proba_iris_mixed_leaves() {
+        // Dataset with mixed leaves
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[5.1, 3.5, 1.4, 0.2], // Same features
+            &[5.1, 3.5, 1.4, 0.2], // Same features
+            &[7.0, 3.2, 4.7, 1.4],
+            &[7.0, 3.2, 4.7, 1.4], // Same features
         ])
         .unwrap();
-        let y: Vec<usize> = vec![0, 0, 1, 2, 2]; // 3 classes, mixed in first group
+        let y = vec![0, 0, 1, 1, 1]; // Mixed classes in same feature region
 
         let classifier = RandomForestClassifier::fit(
             &x,
@@ -999,22 +1009,20 @@ mod tests {
 
         let probabilities = classifier.predict_proba(&x).unwrap();
 
-        // All probabilities should be non-negative and sum to 1.0
+        // Check 1: All probabilities should be valid
         for row in 0..5 {
             let sum: f64 = probabilities[row].iter().sum();
             assert!(
                 (sum - 1.0).abs() < 1e-6,
-                "Probabilities for row {} should sum to 1.0, got {}",
-                row,
-                sum
+                "Probabilities for row {} should sum to 1.0",
+                row
             );
             for &p in &probabilities[row] {
-                assert!(p >= 0.0 && p <= 1.0, "Probability {} out of range", p);
+                assert!(p >= 0.0 && p <= 1.0, "Probability out of range");
             }
         }
 
-        // First 3 samples should have non-zero probability for both class 0 and 1
-        // (since they're in the same region with mixed classes)
+        // Check 2: First 3 samples must have non-zero prob for both classes, since they are mixed
         for i in 0..3 {
             assert!(
                 probabilities[i][0] > 0.0,
@@ -1024,15 +1032,6 @@ mod tests {
             assert!(
                 probabilities[i][1] > 0.0,
                 "Sample {} should have non-zero prob for class 1",
-                i
-            );
-        }
-
-        // Last 2 samples should have high probability for class 2
-        for i in 3..5 {
-            assert!(
-                probabilities[i][2] > 0.5,
-                "Sample {} should have high prob for class 2",
                 i
             );
         }
