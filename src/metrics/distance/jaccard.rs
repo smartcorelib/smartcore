@@ -89,7 +89,6 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
-
     #[test]
     fn jaccard_distance() {
         let a = vec![1, 0, 1, 1];
@@ -133,4 +132,3 @@ mod tests {
         assert!((d1 - d2).abs() < 1e-12);
     }
 }
-
