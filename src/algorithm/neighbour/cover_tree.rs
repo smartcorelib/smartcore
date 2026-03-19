@@ -290,7 +290,7 @@ impl<T: Debug + PartialEq, D: Distance<T>> CoverTree<T, D> {
             self.new_leaf(p)
         } else {
             let max_dist = self.max(point_set);
-            let next_scale = (max_scale - 1).min(self.get_scale(max_dist));
+            let next_scale = max_scale.checked_sub(1).map(|s| s.min(self.get_scale(max_dist))).unwrap_or(i64::MIN); // bugfix i64::MIN - 1 causes overflow
             if next_scale == i64::MIN {
                 let mut children: Vec<Node> = Vec::new();
                 let mut leaf = self.new_leaf(p);
