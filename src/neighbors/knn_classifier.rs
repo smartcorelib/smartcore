@@ -351,13 +351,7 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
 
-    // Apply wasm_bindgen_test to all tests in this module
-    #[cfg_attr(
-        all(target_arch = "wasm32", not(target_os = "wasi")),
-        wasm_bindgen_test::wasm_bindgen_test
-    )]
-
-    /// Helper function to compare two f64 vectors with tolerance
+    /// Helper function to compare two f64 vectors with tolerance, placing it ourside of wasm_bindgen_test
     fn assert_vec_f64_eq(a: &[f64], b: &[f64], tol: f64, msg: &str) {
         assert_eq!(a.len(), b.len(), "{}: length mismatch", msg);
         for (i, (va, vb)) in a.iter().zip(b.iter()).enumerate() {
@@ -371,6 +365,12 @@ mod tests {
             );
         }
     }
+
+    // Apply wasm_bindgen_test to all tests in this module
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
 
     #[test]
     fn knn_fit_predict() {
