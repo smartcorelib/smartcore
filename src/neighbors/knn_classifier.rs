@@ -371,7 +371,6 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
-
     #[test]
     fn knn_fit_predict() {
         let x =
