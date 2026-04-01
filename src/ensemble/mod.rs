@@ -22,3 +22,31 @@ pub mod extra_trees_regressor;
 pub mod random_forest_classifier;
 /// Random forest regressor
 pub mod random_forest_regressor;
+
+/// Generic voting ensemble for classification models.
+/// 
+/// This module provides the [`Ensemble`] struct, which aggregates predictions
+/// from multiple [`Predictor`] implementations using hard voting (uniform or weighted).
+/// 
+/// # Quick Start
+/// ```
+/// use smartcore::ensemble::generic_ensemble::{Ensemble, VotingStrategy};
+/// 
+/// // Create ensemble
+/// let mut ensemble = Ensemble::new();
+/// 
+/// // Add models (any type implementing Predictor)
+/// ensemble.add(knn_model)?;
+/// ensemble.add(rf_model)?;
+/// 
+/// // Predict
+/// let predictions = ensemble.predict(&x_test)?;
+/// ```
+/// 
+/// # Features
+/// * Heterogeneous ensembles: KNN, Random Forest, Decision Tree are now the only supported models. The rest are on their way
+/// * Uniform or weighted voting strategies
+/// * Dynamic enable/disable of members at runtime
+/// * Meta descriptions, tags, weights
+/// * Feature slicing via `predict_using_names()`
+pub mod generic_ensemble;
