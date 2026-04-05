@@ -363,7 +363,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             return;
         }
 
-        let split_value = rng.gen_range(min_val.to_f64().unwrap()..max_val.to_f64().unwrap());
+        let split_value = rng.random_range(min_val.to_f64().unwrap()..max_val.to_f64().unwrap());
 
         let mut true_sum = 0f64;
         let mut true_count = 0;

@@ -603,7 +603,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
             let size = ((n_samples as f64) / *class_weight_l) as usize;
             for _ in 0..size {
-                let xi: usize = rng.gen_range(0..n_samples);
+                let xi: usize = rng.random_range(0..n_samples);
                 samples[index[xi]] += 1;
             }
         }

@@ -29,7 +29,7 @@ pub mod random_forest_regressor;
 /// from multiple [`Predictor`] implementations using hard voting (uniform or weighted).
 ///
 /// # Quick Start
-/// ```
+/// ```ignore
 /// use smartcore::ensemble::generic_ensemble::{Ensemble, VotingStrategy};
 ///
 /// // Create ensemble

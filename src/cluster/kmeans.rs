@@ -356,7 +356,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         let (n, _) = data.shape();
         let mut y = vec![0; n];
         let mut centroid: Vec<TX> = data
-            .get_row(rng.gen_range(0..n))
+            .get_row(rng.random_range(0..n))
             .iterator(0)
             .cloned()
             .collect();
@@ -382,7 +382,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             for i in d.iter() {
                 sum += *i;
             }
-            let cutoff = rng.gen::<f64>() * sum;
+            let cutoff = rng.random::<f64>() * sum;
             let mut cost = 0f64;
             let mut index = 0;
             while index < n {

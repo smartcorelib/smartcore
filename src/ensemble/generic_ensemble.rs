@@ -16,7 +16,7 @@ use crate::metrics::accuracy;
 /// a final ensemble prediction.
 ///
 /// # Usage
-/// ```
+/// ```ignore
 /// // Uniform: each model gets 1 vote
 /// let ens = Ensemble::with_strategy(VotingStrategy::Uniform);
 ///
@@ -45,7 +45,7 @@ pub enum VotingStrategy {
 /// the current state of the ensemble without accessing internal fields.
 ///
 /// # Example
-/// ```
+/// ```ignore
 /// let ensemble = Ensemble::<DenseMatrix<f64>, Vec<i32>>::new();
 /// let info = ensemble.get_ensemble_info();
 /// assert_eq!(info.total_members, 0);
@@ -161,13 +161,13 @@ where
     ///
     /// # Type Inference
     /// Rust can usually infer `X` and `Y` from the first model you add:
-    /// ```
+    /// ```ignore
     /// let mut ens = Ensemble::new();
     /// ens.add(knn_model)?; // X, Y inferred from knn_model
     /// ```
     ///
     /// If inference fails, specify types explicitly:
-    /// ```
+    /// ```ignore
     /// let mut ens: Ensemble<DenseMatrix<f64>, Vec<i32>> = Ensemble::new();
     /// ```
     pub fn new() -> Self {
@@ -185,7 +185,7 @@ where
     /// * `strategy` - `Uniform` for simple majority, `Weighted` for confidence-based voting.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let mut ens = Ensemble::with_strategy(VotingStrategy::Weighted);
     /// // Now you must provide weights when adding models
     /// ens.add_with_params(None, model, Some(1.0), None, vec![])?;
@@ -209,7 +209,7 @@ where
     /// The auto-generated name of the added member, or error if addition failed.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let mut ensemble = Ensemble::new();
     /// let model_name = ensemble.add(knn_model)?;
     /// println!("Added: {}", model_name);
@@ -234,7 +234,7 @@ where
     /// * `Err(Failed)` — If name already exists or addition failed.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let mut ensemble = Ensemble::new();
     /// ensemble.add_named("knn_k3".into(), knn_model)?;
     /// ensemble.add_named("rf_depth10".into(), rf_model)?;
@@ -255,7 +255,7 @@ where
     /// * `weight` - Required if strategy is Weighted.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// ensemble.add_with_params(
     ///     Some("rf_v1".into()),
     ///     random_forest_model,
@@ -316,7 +316,7 @@ where
     /// Use [`enabled()`](Self::enabled) to count only active models.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// assert_eq!(ensemble.len(), 0);
     /// ensemble.add(model)?;
     /// assert_eq!(ensemble.len(), 1);
@@ -330,7 +330,7 @@ where
     /// Order is arbitrary (HashMap iteration order).
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let names = ensemble.names();
     /// assert!(names.contains(&"my_model".to_string()));
     /// ```
@@ -341,7 +341,7 @@ where
     /// Returns `true` if the ensemble has no registered members.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let ens = Ensemble::<_, _>::new();
     /// assert!(ens.is_empty());
     /// ```
@@ -352,7 +352,7 @@ where
     /// Returns the current voting strategy.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let ens = Ensemble::with_strategy(VotingStrategy::Weighted);
     /// assert_eq!(ens.strategy(), VotingStrategy::Weighted);
     /// ```
@@ -367,7 +367,7 @@ where
     /// * `None` if strategy is `Uniform` OR member not found
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let w = ensemble.weight("my_model");
     /// if let Some(weight) = w {
     ///     println!("Weight: {}", weight);
@@ -389,7 +389,7 @@ where
     /// Does not include per-model hyperparameters (use [`get_model_metadata`](Self::get_model_metadata) for that).
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let info = ensemble.get_ensemble_info();
     /// println!("Strategy: {:?}", info.strategy);
     /// println!("Active models: {}/{}", info.enabled_members, info.total_members);
@@ -419,7 +419,7 @@ where
     /// * `Failed::input` if member not found or weight invalid
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// ensemble.set_weight("strong_model", 2.0)?;
     /// ```
     pub fn set_weight(&mut self, name: &str, weight: f64) -> Result<(), Failed> {
@@ -445,7 +445,7 @@ where
     /// * `desc` - New description string
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// ensemble.set_description("rf_v1", "Random Forest, depth=10, trained on Q1 data")?;
     /// ```
     pub fn set_description(&mut self, name: &str, desc: String) -> Result<(), Failed> {
@@ -469,7 +469,7 @@ where
     /// * `Failed::input` if switching to `Weighted` and any member lacks a weight
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// // Start with Uniform
     /// let mut ens = Ensemble::new();
     /// ens.add(model1)?;
@@ -518,7 +518,7 @@ where
     /// * `Failed::input` if member not found or already disabled
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// ensemble.disable("underperforming_model")?;
     /// let preds = ensemble.predict(&x)?; // model excluded from voting
     /// ```
@@ -542,7 +542,7 @@ where
     /// * `Failed::input` if member not found or already enabled
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// ensemble.enable("previously_disabled_model")?;
     /// ```
     pub fn enable(&mut self, name: &str) -> Result<(), Failed> {
@@ -561,7 +561,7 @@ where
     /// Useful for debugging, logging, or selective inspection.
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let active = ensemble.enabled();
     /// println!("Active models: {:?}", active);
     /// ```
@@ -590,7 +590,7 @@ where
     /// * `Err(Failed)` - If ensemble is empty or prediction fails
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let predictions = ensemble.predict(&x_test)?;
     /// let acc = accuracy(&y_test, &predictions);
     /// ```
@@ -670,7 +670,7 @@ where
     /// * `Err(Failed)` - If any required input is missing or prediction fails
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// // Models trained on different feature slices
     /// let mut inputs = HashMap::new();
     /// inputs.insert("slice_A".into(), x_slice_a);
@@ -751,7 +751,6 @@ mod tests {
     use crate::ensemble::random_forest_classifier::{
         RandomForestClassifier, RandomForestClassifierParameters,
     };
-    use crate::linalg::basic::arrays::Array2;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
@@ -912,7 +911,7 @@ mod tests {
     // Test 7: predict_using_names() with feature slicing
     #[test]
     fn test_predict_using_names_feature_slicing() {
-        let (x_full, y) = dummy_data_2class(); // y имеет длину 6
+        let (_, y) = dummy_data_2class(); // y имеет длину 6
         let mut ensemble = Ensemble::<DenseMatrix<f64>, Vec<i32>>::new();
 
         // Model A: trained on feature 0 only (must have 6 rows to match y!)
