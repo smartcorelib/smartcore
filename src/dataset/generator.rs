@@ -12,7 +12,7 @@ pub fn make_blobs(
     num_features: usize,
     num_centers: usize,
 ) -> Dataset<f32, f32> {
-    let center_box = Uniform::from(-10.0..10.0);
+    let center_box = Uniform::new(-10.0, 10.0).expect("Invalid uniform range");
     let cluster_std = 1.0;
     let mut centers: Vec<Vec<Normal<f32>>> = Vec::with_capacity(num_centers);
 
