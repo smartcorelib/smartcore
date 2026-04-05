@@ -423,11 +423,10 @@ where
     /// ensemble.set_weight("strong_model", 2.0)?;
     /// ```
     pub fn set_weight(&mut self, name: &str, weight: f64) -> Result<(), Failed> {
-        if matches!(self.strategy, VotingStrategy::Weighted) {
-            if !weight.is_finite() || weight < 0.0 {
+        if matches!(self.strategy, VotingStrategy::Weighted)
+            && (!weight.is_finite() || weight < 0.0) {
                 return Err(Failed::input("Weight must be finite and non-negative"));
             }
-        }
         let member = self
             .members
             .get_mut(name)
