@@ -16,7 +16,7 @@ pub fn make_blobs(
     let cluster_std = 1.0;
     let mut centers: Vec<Vec<Normal<f32>>> = Vec::with_capacity(num_centers);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..num_centers {
         centers.push(
             (0..num_features)
@@ -60,7 +60,7 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
     let linspace_in = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_in);
 
     let noise = Normal::new(0.0, noise).unwrap();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
@@ -97,7 +97,7 @@ pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, u32> {
     let linspace_in = linspace(0.0, std::f32::consts::PI, num_samples_in);
 
     let noise = Normal::new(0.0, noise).unwrap();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
