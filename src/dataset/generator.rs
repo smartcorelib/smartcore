@@ -1,6 +1,6 @@
 //! # Dataset Generators
 //!
-use rand::distributions::Uniform;
+use rand::distr::Uniform;
 use rand::prelude::*;
 use rand_distr::Normal;
 

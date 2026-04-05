@@ -1,7 +1,7 @@
 //! This module contains functionality to test IO. It has both functions that write
 //! to the file-system for end-to-end tests, but also abstractions to avoid this by
 //! reading from strings instead.
-use rand::distributions::{Alphanumeric, DistString};
+use rand::distr::{Alphanumeric, DistString};
 use std::fs;
 use std::io::Bytes;
 use std::io::Read;
