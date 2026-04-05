@@ -69,9 +69,7 @@ impl RealNumber for f64 {
     fn rand() -> f64 {
         let mut small_rng = get_rng_impl(None);
 
-        let mut rngs: Vec<SmallRng> = (0..3)
-            .map(|_| SmallRng::from_rng(&mut small_rng))
-            .collect();
+        let mut rngs: Vec<SmallRng> = (0..3).map(|_| SmallRng::from_rng(&mut small_rng)).collect();
         rngs[0].random::<f64>()
     }
 
@@ -118,9 +116,7 @@ impl RealNumber for f32 {
     fn rand() -> f32 {
         let mut small_rng = get_rng_impl(None);
 
-        let mut rngs: Vec<SmallRng> = (0..3)
-            .map(|_| SmallRng::from_rng(&mut small_rng))
-            .collect();
+        let mut rngs: Vec<SmallRng> = (0..3).map(|_| SmallRng::from_rng(&mut small_rng)).collect();
         rngs[0].random::<f32>()
     }
 

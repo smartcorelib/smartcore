@@ -774,7 +774,6 @@ mod tests {
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
-
     // Test 1: Simple add() with auto-generated names
     #[test]
     fn test_add_simple_knn_models() {
