@@ -1,15 +1,18 @@
 //! # Dataset Generators
 //!
 use rand::distr::Distribution;
-use rand::distr::StandardNormal;
 use rand::distr::Uniform;
 
 use crate::dataset::Dataset;
 
-/// Sample from N(mean, std) using rand 0.10's StandardNormal
+/// Sample from N(mean, std) via Box-Muller transform using only rand 0.10
 #[inline]
 fn sample_normal(mean: f32, std: f32, rng: &mut impl rand::Rng) -> f32 {
-    mean + std * StandardNormal.sample(rng)
+    let unit = Uniform::new(f32::EPSILON, 1.0f32).unwrap();
+    let u1 = unit.sample(rng);
+    let u2 = unit.sample(rng);
+    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
+    mean + std * z
 }
 
 /// Generate `num_centers` clusters of normally distributed points
@@ -22,7 +25,7 @@ pub fn make_blobs(
     let cluster_std = 1.0f32;
     let mut rng = rand::rng();
 
-    // Pre-compute cluster centers (mean values per feature)
+    // Pre-compute cluster centers (one mean per feature per cluster)
     let centers: Vec<Vec<f32>> = (0..num_centers)
         .map(|_| {
             (0..num_features)
