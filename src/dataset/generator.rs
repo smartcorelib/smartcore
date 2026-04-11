@@ -1,10 +1,16 @@
 //! # Dataset Generators
 //!
 use rand::distr::Distribution;
+use rand::distr::StandardNormal;
 use rand::distr::Uniform;
-use rand_distr::Normal;
 
 use crate::dataset::Dataset;
+
+/// Sample from N(mean, std) using rand 0.10's StandardNormal
+#[inline]
+fn sample_normal(mean: f32, std: f32, rng: &mut impl rand::Rng) -> f32 {
+    mean + std * StandardNormal.sample(rng)
+}
 
 /// Generate `num_centers` clusters of normally distributed points
 pub fn make_blobs(
@@ -13,26 +19,26 @@ pub fn make_blobs(
     num_centers: usize,
 ) -> Dataset<f32, f32> {
     let center_box = Uniform::new(-10.0f32, 10.0f32).expect("Invalid uniform range");
-    let cluster_std = 1.0;
-    let mut centers: Vec<Vec<Normal<f32>>> = Vec::with_capacity(num_centers);
-
+    let cluster_std = 1.0f32;
     let mut rng = rand::rng();
-    for _ in 0..num_centers {
-        centers.push(
+
+    // Pre-compute cluster centers (mean values per feature)
+    let centers: Vec<Vec<f32>> = (0..num_centers)
+        .map(|_| {
             (0..num_features)
-                .map(|_| Normal::new(center_box.sample(&mut rng), cluster_std).unwrap())
-                .collect(),
-        );
-    }
+                .map(|_| center_box.sample(&mut rng))
+                .collect()
+        })
+        .collect();
 
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
-    let mut x: Vec<f32> = Vec::with_capacity(num_samples);
+    let mut x: Vec<f32> = Vec::with_capacity(num_samples * num_features);
 
     for i in 0..num_samples {
         let label = i % num_centers;
         y.push(label as f32);
         for j in 0..num_features {
-            x.push(centers[label][j].sample(&mut rng));
+            x.push(sample_normal(centers[label][j], cluster_std, &mut rng));
         }
     }
 
@@ -59,21 +65,20 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
     let linspace_out = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_out);
     let linspace_in = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_in);
 
-    let noise = Normal::new(0.0, noise).unwrap();
     let mut rng = rand::rng();
 
     let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
 
     for v in linspace_out {
-        x.push(v.cos() + noise.sample(&mut rng));
-        x.push(v.sin() + noise.sample(&mut rng));
+        x.push(v.cos() + sample_normal(0.0, noise, &mut rng));
+        x.push(v.sin() + sample_normal(0.0, noise, &mut rng));
         y.push(0.0);
     }
 
     for v in linspace_in {
-        x.push(v.cos() * factor + noise.sample(&mut rng));
-        x.push(v.sin() * factor + noise.sample(&mut rng));
+        x.push(v.cos() * factor + sample_normal(0.0, noise, &mut rng));
+        x.push(v.sin() * factor + sample_normal(0.0, noise, &mut rng));
         y.push(1.0);
     }
 
@@ -96,21 +101,20 @@ pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, u32> {
     let linspace_out = linspace(0.0, std::f32::consts::PI, num_samples_out);
     let linspace_in = linspace(0.0, std::f32::consts::PI, num_samples_in);
 
-    let noise = Normal::new(0.0, noise).unwrap();
     let mut rng = rand::rng();
 
     let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
 
     for v in linspace_out {
-        x.push(v.cos() + noise.sample(&mut rng));
-        x.push(v.sin() + noise.sample(&mut rng));
+        x.push(v.cos() + sample_normal(0.0, noise, &mut rng));
+        x.push(v.sin() + sample_normal(0.0, noise, &mut rng));
         y.push(0.0);
     }
 
     for v in linspace_in {
-        x.push(1.0 - v.cos() + noise.sample(&mut rng));
-        x.push(1.0 - v.sin() + noise.sample(&mut rng) - 0.5);
+        x.push(1.0 - v.cos() + sample_normal(0.0, noise, &mut rng));
+        x.push(1.0 - v.sin() + sample_normal(0.0, noise, &mut rng) - 0.5);
         y.push(1.0);
     }
 
