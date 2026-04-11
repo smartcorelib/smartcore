@@ -244,30 +244,43 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
+    ///
+    /// Returns `Err` if the input is empty **or** if any row has a different
+    /// length than the first row (jagged / ragged arrays are not supported).
     #[allow(clippy::ptr_arg)]
     pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
         if values.is_empty() || values[0].is_empty() {
-            Err(Failed::input(
+            return Err(Failed::input(
                 "The 2d vec provided is empty; cannot instantiate the matrix",
-            ))
-        } else {
-            let nrows = values.len();
-            let ncols = values
-                .first()
-                .unwrap_or_else(|| {
-                    panic!("Invalid state: Cannot create 2d matrix from an empty vector")
-                })
-                .len();
-            let mut m_values = Vec::with_capacity(nrows * ncols);
-
-            for c in 0..ncols {
-                for r in values.iter().take(nrows) {
-                    m_values.push(r[c])
-                }
-            }
-
-            DenseMatrix::new(nrows, ncols, m_values, true)
+            ));
         }
+
+        let nrows = values.len();
+        let ncols = values[0].len();
+
+        // Reject jagged arrays: every row must have exactly `ncols` elements.
+        // Without this check the column-major loop below would panic with an
+        // index-out-of-bounds on any shorter row, or silently read zeros/garbage
+        // on any longer row (the extra elements would be ignored).
+        for (i, row) in values.iter().enumerate() {
+            if row.len() != ncols {
+                return Err(Failed::input(&format!(
+                    "Row {i} has length {} but row 0 has length {ncols}; \
+                     jagged arrays are not supported",
+                    row.len()
+                )));
+            }
+        }
+
+        let mut m_values = Vec::with_capacity(nrows * ncols);
+
+        for c in 0..ncols {
+            for r in values.iter().take(nrows) {
+                m_values.push(r[c])
+            }
+        }
+
+        DenseMatrix::new(nrows, ncols, m_values, true)
     }
 
     /// Iterate over values of matrix
@@ -709,6 +722,29 @@ mod tests {
         let x = DenseMatrix::from_2d_array(input);
         assert!(x.is_err());
     }
+
+    #[test]
+    fn test_from_2d_vec_jagged_returns_err() {
+        let jagged = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0], vec![6.0, 7.0, 8.0]];
+        let result = DenseMatrix::from_2d_vec(&jagged);
+        assert!(
+            result.is_err(),
+            "from_2d_vec should return Err for jagged arrays"
+        );
+        let msg = format!("{:?}", result.unwrap_err());
+        assert!(
+            msg.contains("jagged"),
+            "error message should mention 'jagged': {msg}"
+        );
+    }
+
+    #[test]
+    fn test_from_2d_vec_uniform_ok() {
+        let uniform = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let result = DenseMatrix::from_2d_vec(&uniform);
+        assert!(result.is_ok(), "uniform 2d vec should succeed");
+    }
+
     #[test]
     fn test_instantiate_ok_view1() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
