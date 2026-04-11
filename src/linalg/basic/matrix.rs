@@ -259,9 +259,6 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         let ncols = values[0].len();
 
         // Reject jagged arrays: every row must have exactly `ncols` elements.
-        // Without this check the column-major loop below would panic with an
-        // index-out-of-bounds on any shorter row, or silently read zeros/garbage
-        // on any longer row (the extra elements would be ignored).
         for (i, row) in values.iter().enumerate() {
             if row.len() != ncols {
                 return Err(Failed::input(&format!(
@@ -289,11 +286,6 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     }
 
     /// Check if the size of the requested view is bounded to matrix rows/cols count.
-    ///
-    /// Returns `true` when the view is valid (all bounds are within the matrix dimensions).
-    /// A view is valid when:
-    ///   - start <= end for both axes (non-reversed range)
-    ///   - end <= dimension (exclusive upper bound does not exceed dimension size)
     fn is_valid_view(
         &self,
         n_rows: usize,
@@ -308,10 +300,6 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     }
 
     /// Compute the range of the requested view: start, end, size of the slice.
-    ///
-    /// All arithmetic uses checked operations; panics immediately if an overflow
-    /// would occur (panic-on-overflow is intentional — the library must not
-    /// silently read wrong memory).
     fn stride_range(
         &self,
         n_rows: usize,
@@ -412,7 +400,6 @@ where
         T::default_epsilon()
     }
 
-    // equality in differences in absolute values, according to an epsilon
     fn abs_diff_eq(&self, other: &Self, epsilon: T::Epsilon) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             false
@@ -499,9 +486,6 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
         let column_major = self.column_major;
         let (nrows, ncols) = self.shape();
 
-        // Safety: each (r, c) pair maps to a unique offset via the index formula,
-        // so no two live &mut T can alias the same slot.
-        // The debug-mode assertion below verifies this invariant.
         #[cfg(debug_assertions)]
         {
             let len = self.values.len();
@@ -566,12 +550,10 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
         Box::new(DenseMatrixMutView::new(self, rows, cols).unwrap())
     }
 
-    // private function so for now assume infalible
     fn fill(nrows: usize, ncols: usize, value: T) -> Self {
         DenseMatrix::new(nrows, ncols, vec![value; nrows * ncols], true).unwrap()
     }
 
-    // private function so for now assume infalible
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
         DenseMatrix::new(nrows, ncols, iter.collect(), axis != 0).unwrap()
     }
@@ -793,14 +775,23 @@ mod tests {
     fn test_is_empty_view_not_empty() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
         let v = DenseMatrixView::new(&x, 0..2, 0..2).unwrap();
-        assert!(!v.is_empty(), "2x2 view should not be empty");
+        // DenseMatrixView implements Array<T,(usize,usize)> AND Array<T,usize>.
+        // Both impls expose is_empty, so we must use fully-qualified syntax to
+        // select the 2-D shape variant and avoid E0283.
+        assert!(
+            !<DenseMatrixView<'_, f64> as Array<f64, (usize, usize)>>::is_empty(&v),
+            "2x2 view should not be empty"
+        );
     }
 
     #[test]
     fn test_is_empty_mut_view_not_empty() {
         let mut x = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
         let v = DenseMatrixMutView::new(&mut x, 0..2, 0..2).unwrap();
-        assert!(!v.is_empty(), "2x2 mut view should not be empty");
+        assert!(
+            !<DenseMatrixMutView<'_, f64> as Array<f64, (usize, usize)>>::is_empty(&v),
+            "2x2 mut view should not be empty"
+        );
     }
 
     #[test]
@@ -904,10 +895,9 @@ mod tests {
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
         assert!(x.column_major);
 
-        // transpose
         let x = x.transpose();
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
-        assert!(!x.column_major); // should change column_major
+        assert!(!x.column_major);
     }
 
     #[test]
@@ -916,7 +906,6 @@ mod tests {
 
         let m = DenseMatrix::from_iterator(data.iter(), 2, 3, 0);
 
-        // make a vector into a 2x3 matrix.
         assert_eq!(
             vec![1, 2, 3, 4, 5, 6],
             m.values.iter().map(|e| **e).collect::<Vec<i32>>()
@@ -930,10 +919,8 @@ mod tests {
         let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
 
         println!("{a}");
-        // take column 0 and 2
         assert_eq!(vec![1, 3, 4, 6], a.take(&[0, 2], 1).values);
         println!("{b}");
-        // take rows 0 and 2
         assert_eq!(vec![1, 2, 5, 6], b.take(&[0, 2], 0).values);
     }
 
