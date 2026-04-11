@@ -66,10 +66,7 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
             // axis-1: column-major — axis_iter_mut(Axis(1)) yields each column as a
             // non-overlapping ArrayViewMut1<T>; into_iter() gives &mut T.
             // No raw pointers or unsafe blocks required.
-            _ => Box::new(
-                self.axis_iter_mut(Axis(1))
-                    .flat_map(|col| col.into_iter()),
-            ),
+            _ => Box::new(self.axis_iter_mut(Axis(1)).flat_map(|col| col.into_iter())),
         }
     }
 }
@@ -208,10 +205,7 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
             // axis-1: column-major — axis_iter_mut(Axis(1)) yields each column as a
             // non-overlapping ArrayViewMut1<T>; into_iter() gives &mut T.
             // No raw pointers or unsafe blocks required.
-            _ => Box::new(
-                self.axis_iter_mut(Axis(1))
-                    .flat_map(|col| col.into_iter()),
-            ),
+            _ => Box::new(self.axis_iter_mut(Axis(1)).flat_map(|col| col.into_iter())),
         }
     }
 }
