@@ -13,7 +13,7 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix2, OwnedRepr};
+use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, OwnedRepr};
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     for ArrayBase<OwnedRepr<T>, Ix2>
@@ -27,7 +27,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     }
 
     fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.len() != 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -60,31 +60,13 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
             // axis-0: row-major traversal — ndarray's own iter_mut() is row-major
             // for a standard (non-transposed) array, so this is safe and direct.
             0 => Box::new(self.iter_mut()),
-            // axis-1: column-major traversal — collect a column-ordered sequence
-            // of mutable references using ndarray's safe per-element accessor.
-            // We cannot produce an iterator that borrows self for each element
-            // without collecting first, because the borrow checker cannot verify
-            // that get_mut returns non-aliasing references across loop iterations
-            // without unsafe code.  Collecting into a Vec<&mut T> is the
-            // standard safe pattern for this situation in Rust.
-            _ => {
-                let nrows = self.nrows();
-                let ncols = self.ncols();
-                let mut refs: Vec<*mut T> = Vec::with_capacity(nrows * ncols);
-                for c in 0..ncols {
-                    for r in 0..nrows {
-                        refs.push(self.get_mut([r, c]).expect("index in bounds") as *mut T);
-                    }
-                }
-                // Safety: each (r, c) pair is unique, so every raw pointer in
-                // `refs` points to a distinct element of the ndarray buffer.
-                // We immediately convert them back into exclusive references
-                // whose lifetimes are tied to `'b` (the mutable borrow of self),
-                // so no two live `&mut T` can alias the same slot.  This is the
-                // minimal unsafe surface needed to express column-major iteration
-                // over a 2-D ndarray without unsafe pointer arithmetic on strides.
-                Box::new(refs.into_iter().map(|p| unsafe { &mut *p }))
-            }
+            // axis-1: column-major traversal — axis_iter_mut(Axis(1)) yields each
+            // column as a non-overlapping ArrayViewMut1<T>; .into_iter() then gives
+            // &mut T references. No raw pointers or unsafe blocks required.
+            _ => Box::new(
+                self.axis_iter_mut(Axis(1))
+                    .flat_map(|col| col.into_iter()),
+            ),
         }
     }
 }
@@ -103,7 +85,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayVi
     }
 
     fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.len() != 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -181,7 +163,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayVi
     }
 
     fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.len() != 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -211,21 +193,13 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
         match axis {
             // axis-0: row-major traversal — safe ndarray iter_mut().
             0 => Box::new(self.iter_mut()),
-            // axis-1: column-major traversal — same safe pattern as OwnedRepr.
-            _ => {
-                let nrows = self.nrows();
-                let ncols = self.ncols();
-                let mut refs: Vec<*mut T> = Vec::with_capacity(nrows * ncols);
-                for c in 0..ncols {
-                    for r in 0..nrows {
-                        refs.push(self.get_mut([r, c]).expect("index in bounds") as *mut T);
-                    }
-                }
-                // Safety: each (r, c) pair is unique, so every raw pointer in
-                // `refs` points to a distinct element of the ndarray buffer.
-                // Lifetimes are bound to `'b` via the mutable borrow of self.
-                Box::new(refs.into_iter().map(|p| unsafe { &mut *p }))
-            }
+            // axis-1: column-major traversal — axis_iter_mut(Axis(1)) yields each
+            // column as a non-overlapping ArrayViewMut1<T>; .into_iter() then gives
+            // &mut T references. No raw pointers or unsafe blocks required.
+            _ => Box::new(
+                self.axis_iter_mut(Axis(1))
+                    .flat_map(|col| col.into_iter()),
+            ),
         }
     }
 }
