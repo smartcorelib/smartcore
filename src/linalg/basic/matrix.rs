@@ -57,7 +57,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
         vrows: Range<usize>,
         vcols: Range<usize>,
     ) -> Result<Self, Failed> {
-        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
+        if !m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
                 "The specified view is outside of the matrix range",
             ))
@@ -109,7 +109,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
         vrows: Range<usize>,
         vcols: Range<usize>,
     ) -> Result<Self, Failed> {
-        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
+        if !m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
                 "The specified view is outside of the matrix range",
             ))
@@ -145,10 +145,63 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
         let column_major = self.column_major;
         let stride = self.stride;
+        let nrows = self.nrows;
+        let ncols = self.ncols;
         let ptr = self.values.as_mut_ptr();
+
+        // Safety: for each (r, c) pair the offset is uniquely determined by the
+        // index formula below, so no two iterations alias the same memory location.
+        // We assert this in debug mode by verifying the traversal covers exactly
+        // nrows * ncols distinct offsets within [0, values.len()).
+        #[cfg(debug_assertions)]
+        {
+            let len = self.values.len();
+            let mut seen = std::collections::HashSet::new();
+            match axis {
+                0 => {
+                    for r in 0..nrows {
+                        for c in 0..ncols {
+                            let off = if column_major {
+                                r + c * stride
+                            } else {
+                                r * stride + c
+                            };
+                            assert!(
+                                off < len,
+                                "iterator_mut: offset {off} out of bounds (len={len})"
+                            );
+                            assert!(
+                                seen.insert(off),
+                                "iterator_mut: aliasing detected at offset {off}"
+                            );
+                        }
+                    }
+                }
+                _ => {
+                    for c in 0..ncols {
+                        for r in 0..nrows {
+                            let off = if column_major {
+                                r + c * stride
+                            } else {
+                                r * stride + c
+                            };
+                            assert!(
+                                off < len,
+                                "iterator_mut: offset {off} out of bounds (len={len})"
+                            );
+                            assert!(
+                                seen.insert(off),
+                                "iterator_mut: aliasing detected at offset {off}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
         match axis {
-            0 => Box::new((0..self.nrows).flat_map(move |r| {
-                (0..self.ncols).map(move |c| unsafe {
+            0 => Box::new((0..nrows).flat_map(move |r| {
+                (0..ncols).map(move |c| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * stride
                     } else {
@@ -156,8 +209,8 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
                     })
                 })
             })),
-            _ => Box::new((0..self.ncols).flat_map(move |c| {
-                (0..self.nrows).map(move |r| unsafe {
+            _ => Box::new((0..ncols).flat_map(move |c| {
+                (0..nrows).map(move |r| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * stride
                     } else {
@@ -211,30 +264,40 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
+    ///
+    /// Returns `Err` if the input is empty **or** if any row has a different
+    /// length than the first row (jagged / ragged arrays are not supported).
     #[allow(clippy::ptr_arg)]
     pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
         if values.is_empty() || values[0].is_empty() {
-            Err(Failed::input(
+            return Err(Failed::input(
                 "The 2d vec provided is empty; cannot instantiate the matrix",
-            ))
-        } else {
-            let nrows = values.len();
-            let ncols = values
-                .first()
-                .unwrap_or_else(|| {
-                    panic!("Invalid state: Cannot create 2d matrix from an empty vector")
-                })
-                .len();
-            let mut m_values = Vec::with_capacity(nrows * ncols);
-
-            for c in 0..ncols {
-                for r in values.iter().take(nrows) {
-                    m_values.push(r[c])
-                }
-            }
-
-            DenseMatrix::new(nrows, ncols, m_values, true)
+            ));
         }
+
+        let nrows = values.len();
+        let ncols = values[0].len();
+
+        // Reject jagged arrays: every row must have exactly `ncols` elements.
+        for (i, row) in values.iter().enumerate() {
+            if row.len() != ncols {
+                return Err(Failed::input(&format!(
+                    "Row {i} has length {} but row 0 has length {ncols}; \
+                     jagged arrays are not supported",
+                    row.len()
+                )));
+            }
+        }
+
+        let mut m_values = Vec::with_capacity(nrows * ncols);
+
+        for c in 0..ncols {
+            for r in values.iter().take(nrows) {
+                m_values.push(r[c])
+            }
+        }
+
+        DenseMatrix::new(nrows, ncols, m_values, true)
     }
 
     /// Iterate over values of matrix
@@ -242,7 +305,7 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         self.values.iter()
     }
 
-    ///  Check if the size of the requested view is bounded to matrix rows/cols count
+    /// Check if the size of the requested view is bounded to matrix rows/cols count.
     fn is_valid_view(
         &self,
         n_rows: usize,
@@ -250,13 +313,13 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         vrows: &Range<usize>,
         vcols: &Range<usize>,
     ) -> bool {
-        !(vrows.end <= n_rows
+        vrows.start <= vrows.end
+            && vcols.start <= vcols.end
+            && vrows.end <= n_rows
             && vcols.end <= n_cols
-            && vrows.start <= n_rows
-            && vcols.start <= n_cols)
     }
 
-    ///  Compute the range of the requested view: start, end, size of the slice
+    /// Compute the range of the requested view: start, end, size of the slice.
     fn stride_range(
         &self,
         n_rows: usize,
@@ -266,17 +329,43 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         column_major: bool,
     ) -> (usize, usize, usize) {
         let (start, end, stride) = if column_major {
-            (
-                vrows.start + vcols.start * n_rows,
-                vrows.end + (vcols.end - 1) * n_rows,
-                n_rows,
-            )
+            let start = vrows
+                .start
+                .checked_add(
+                    vcols
+                        .start
+                        .checked_mul(n_rows)
+                        .expect("stride_range: integer overflow in start (column_major)"),
+                )
+                .expect("stride_range: integer overflow in start (column_major)");
+            let end = vrows
+                .end
+                .checked_add(
+                    vcols
+                        .end
+                        .checked_sub(1)
+                        .expect("stride_range: vcols.end underflow (column_major)")
+                        .checked_mul(n_rows)
+                        .expect("stride_range: integer overflow in end (column_major)"),
+                )
+                .expect("stride_range: integer overflow in end (column_major)");
+            (start, end, n_rows)
         } else {
-            (
-                vrows.start * n_cols + vcols.start,
-                (vrows.end - 1) * n_cols + vcols.end,
-                n_cols,
-            )
+            let start = vrows
+                .start
+                .checked_mul(n_cols)
+                .expect("stride_range: integer overflow in start (row_major)")
+                .checked_add(vcols.start)
+                .expect("stride_range: integer overflow in start (row_major)");
+            let end = vrows
+                .end
+                .checked_sub(1)
+                .expect("stride_range: vrows.end underflow (row_major)")
+                .checked_mul(n_cols)
+                .expect("stride_range: integer overflow in end (row_major)")
+                .checked_add(vcols.end)
+                .expect("stride_range: integer overflow in end (row_major)");
+            (start, end, n_cols)
         };
         (start, end, stride)
     }
@@ -331,7 +420,6 @@ where
         T::default_epsilon()
     }
 
-    // equality in differences in absolute values, according to an epsilon
     fn abs_diff_eq(&self, other: &Self, epsilon: T::Epsilon) -> bool {
         if self.ncols != other.ncols || self.nrows != other.nrows {
             false
@@ -417,9 +505,30 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
         let ptr = self.values.as_mut_ptr();
         let column_major = self.column_major;
         let (nrows, ncols) = self.shape();
+
+        #[cfg(debug_assertions)]
+        {
+            let len = self.values.len();
+            let mut seen = std::collections::HashSet::new();
+            for r in 0..nrows {
+                for c in 0..ncols {
+                    let off = if column_major {
+                        r + c * nrows
+                    } else {
+                        r * ncols + c
+                    };
+                    assert!(
+                        off < len,
+                        "iterator_mut: offset {off} out of bounds (len={len})"
+                    );
+                    assert!(seen.insert(off), "iterator_mut: aliasing at offset {off}");
+                }
+            }
+        }
+
         match axis {
-            0 => Box::new((0..self.nrows).flat_map(move |r| {
-                (0..self.ncols).map(move |c| unsafe {
+            0 => Box::new((0..nrows).flat_map(move |r| {
+                (0..ncols).map(move |c| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * nrows
                     } else {
@@ -427,8 +536,8 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
                     })
                 })
             })),
-            _ => Box::new((0..self.ncols).flat_map(move |c| {
-                (0..self.nrows).map(move |r| unsafe {
+            _ => Box::new((0..ncols).flat_map(move |c| {
+                (0..nrows).map(move |r| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * nrows
                     } else {
@@ -468,12 +577,10 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for DenseMatrix<T> {
         Box::new(DenseMatrixMutView::new(self, rows, cols).unwrap())
     }
 
-    // private function so for now assume infalible
     fn fill(nrows: usize, ncols: usize, value: T) -> Self {
         DenseMatrix::new(nrows, ncols, vec![value; nrows * ncols], true).unwrap()
     }
 
-    // private function so for now assume infalible
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
         DenseMatrix::new(nrows, ncols, iter.collect(), axis != 0).unwrap()
     }
@@ -507,7 +614,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 
     fn is_empty(&self) -> bool {
-        self.nrows * self.ncols > 0
+        self.nrows == 0 || self.ncols == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -545,7 +652,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, usize> for DenseMatrixView<'_, 
     }
 
     fn is_empty(&self) -> bool {
-        self.nrows * self.ncols > 0
+        self.nrows == 0 || self.ncols == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -571,7 +678,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 
     fn is_empty(&self) -> bool {
-        self.nrows * self.ncols > 0
+        self.nrows == 0 || self.ncols == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -624,6 +731,29 @@ mod tests {
         let x = DenseMatrix::from_2d_array(input);
         assert!(x.is_err());
     }
+
+    #[test]
+    fn test_from_2d_vec_jagged_returns_err() {
+        let jagged = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0], vec![6.0, 7.0, 8.0]];
+        let result = DenseMatrix::from_2d_vec(&jagged);
+        assert!(
+            result.is_err(),
+            "from_2d_vec should return Err for jagged arrays"
+        );
+        let msg = format!("{:?}", result.unwrap_err());
+        assert!(
+            msg.contains("jagged"),
+            "error message should mention 'jagged': {msg}"
+        );
+    }
+
+    #[test]
+    fn test_from_2d_vec_uniform_ok() {
+        let uniform = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let result = DenseMatrix::from_2d_vec(&uniform);
+        assert!(result.is_ok(), "uniform 2d vec should succeed");
+    }
+
     #[test]
     fn test_instantiate_ok_view1() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
@@ -667,6 +797,30 @@ mod tests {
         let v = DenseMatrixView::new(&x, 0..3, 4..3);
         assert!(v.is_err());
     }
+
+    #[test]
+    fn test_is_empty_view_not_empty() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 0..2, 0..2).unwrap();
+        // DenseMatrixView implements Array<T,(usize,usize)> AND Array<T,usize>.
+        // Both impls expose is_empty, so we must use fully-qualified syntax to
+        // select the 2-D shape variant and avoid E0283.
+        assert!(
+            !<DenseMatrixView<'_, f64> as Array<f64, (usize, usize)>>::is_empty(&v),
+            "2x2 view should not be empty"
+        );
+    }
+
+    #[test]
+    fn test_is_empty_mut_view_not_empty() {
+        let mut x = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
+        let v = DenseMatrixMutView::new(&mut x, 0..2, 0..2).unwrap();
+        assert!(
+            !<DenseMatrixMutView<'_, f64> as Array<f64, (usize, usize)>>::is_empty(&v),
+            "2x2 mut view should not be empty"
+        );
+    }
+
     #[test]
     fn test_display() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
@@ -768,10 +922,9 @@ mod tests {
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
         assert!(x.column_major);
 
-        // transpose
         let x = x.transpose();
         assert_eq!(vec!["1", "4", "2", "5", "3", "6"], x.values);
-        assert!(!x.column_major); // should change column_major
+        assert!(!x.column_major);
     }
 
     #[test]
@@ -780,7 +933,6 @@ mod tests {
 
         let m = DenseMatrix::from_iterator(data.iter(), 2, 3, 0);
 
-        // make a vector into a 2x3 matrix.
         assert_eq!(
             vec![1, 2, 3, 4, 5, 6],
             m.values.iter().map(|e| **e).collect::<Vec<i32>>()
@@ -794,10 +946,8 @@ mod tests {
         let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
 
         println!("{a}");
-        // take column 0 and 2
         assert_eq!(vec![1, 3, 4, 6], a.take(&[0, 2], 1).values);
         println!("{b}");
-        // take rows 0 and 2
         assert_eq!(vec![1, 2, 5, 6], b.take(&[0, 2], 0).values);
     }
 
