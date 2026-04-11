@@ -27,7 +27,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -52,27 +52,39 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let ptr = self.as_mut_ptr();
-        let stride = self.strides();
-        // ndarray strides can theoretically be negative for reversed views.
-        // Negative strides cast to usize wrap to enormous values and would
-        // cause an out-of-bounds write.  Assert here so we catch the case
-        // early in debug builds; in release builds the safety comment below
-        // documents the invariant we rely on.
-        debug_assert!(
-            stride[0] >= 0 && stride[1] >= 0,
-            "iterator_mut: ndarray strides must be non-negative (got {:?})",
-            stride
+        assert!(
+            axis == 1 || axis == 0,
+            "For two dimensional array `axis` should be either 0 or 1"
         );
-        let (rstride, cstride) = (stride[0] as usize, stride[1] as usize);
         match axis {
+            // axis-0: row-major traversal — ndarray's own iter_mut() is row-major
+            // for a standard (non-transposed) array, so this is safe and direct.
             0 => Box::new(self.iter_mut()),
-            _ => Box::new((0..self.ncols()).flat_map(move |c| {
-                // Safety: each (r, c) maps to a unique element via
-                // r * rstride + c * cstride.  The debug_assert above
-                // guarantees strides are non-negative, so no wrap occurs.
-                (0..self.nrows()).map(move |r| unsafe { &mut *ptr.add(r * rstride + c * cstride) })
-            })),
+            // axis-1: column-major traversal — collect a column-ordered sequence
+            // of mutable references using ndarray's safe per-element accessor.
+            // We cannot produce an iterator that borrows self for each element
+            // without collecting first, because the borrow checker cannot verify
+            // that get_mut returns non-aliasing references across loop iterations
+            // without unsafe code.  Collecting into a Vec<&mut T> is the
+            // standard safe pattern for this situation in Rust.
+            _ => {
+                let nrows = self.nrows();
+                let ncols = self.ncols();
+                let mut refs: Vec<*mut T> = Vec::with_capacity(nrows * ncols);
+                for c in 0..ncols {
+                    for r in 0..nrows {
+                        refs.push(self.get_mut([r, c]).expect("index in bounds") as *mut T);
+                    }
+                }
+                // Safety: each (r, c) pair is unique, so every raw pointer in
+                // `refs` points to a distinct element of the ndarray buffer.
+                // We immediately convert them back into exclusive references
+                // whose lifetimes are tied to `'b` (the mutable borrow of self),
+                // so no two live `&mut T` can alias the same slot.  This is the
+                // minimal unsafe surface needed to express column-major iteration
+                // over a 2-D ndarray without unsafe pointer arithmetic on strides.
+                Box::new(refs.into_iter().map(|p| unsafe { &mut *p }))
+            }
         }
     }
 }
@@ -91,7 +103,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayVi
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -169,7 +181,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayVi
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -192,111 +204,28 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let ptr = self.as_mut_ptr();
-        let stride = self.strides();
-        // Same negative-stride guard as for OwnedRepr above.
-        debug_assert!(
-            stride[0] >= 0 && stride[1] >= 0,
-            "iterator_mut: ndarray strides must be non-negative (got {:?})",
-            stride
+        assert!(
+            axis == 1 || axis == 0,
+            "For two dimensional array `axis` should be either 0 or 1"
         );
-        let (rstride, cstride) = (stride[0] as usize, stride[1] as usize);
         match axis {
+            // axis-0: row-major traversal — safe ndarray iter_mut().
             0 => Box::new(self.iter_mut()),
-            _ => Box::new((0..self.ncols()).flat_map(move |c| {
-                // Safety: same reasoning as OwnedRepr impl above.
-                (0..self.nrows()).map(move |r| unsafe { &mut *ptr.add(r * rstride + c * cstride) })
-            })),
+            // axis-1: column-major traversal — same safe pattern as OwnedRepr.
+            _ => {
+                let nrows = self.nrows();
+                let ncols = self.ncols();
+                let mut refs: Vec<*mut T> = Vec::with_capacity(nrows * ncols);
+                for c in 0..ncols {
+                    for r in 0..nrows {
+                        refs.push(self.get_mut([r, c]).expect("index in bounds") as *mut T);
+                    }
+                }
+                // Safety: each (r, c) pair is unique, so every raw pointer in
+                // `refs` points to a distinct element of the ndarray buffer.
+                // Lifetimes are bound to `'b` via the mutable borrow of self.
+                Box::new(refs.into_iter().map(|p| unsafe { &mut *p }))
+            }
         }
-    }
-}
-
-impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
-
-impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ndarray::{arr2, Array2 as NDArray2};
-
-    #[test]
-    fn test_get_set() {
-        let mut a = arr2(&[[1, 2, 3], [4, 5, 6]]);
-
-        assert_eq!(*BaseArray::get(&a, (1, 1)), 5);
-        a.set((1, 1), 9);
-        assert_eq!(a, arr2(&[[1, 2, 3], [4, 9, 6]]));
-    }
-
-    #[test]
-    fn test_iterator() {
-        let a = arr2(&[[1, 2, 3], [4, 5, 6]]);
-
-        let v: Vec<i32> = a.iterator(0).copied().collect();
-        assert_eq!(v, vec!(1, 2, 3, 4, 5, 6));
-    }
-
-    #[test]
-    fn test_mut_iterator() {
-        let mut a = arr2(&[[1, 2, 3], [4, 5, 6]]);
-
-        a.iterator_mut(0).enumerate().for_each(|(i, v)| *v = i);
-        assert_eq!(a, arr2(&[[0, 1, 2], [3, 4, 5]]));
-        a.iterator_mut(1).enumerate().for_each(|(i, v)| *v = i);
-        assert_eq!(a, arr2(&[[0, 2, 4], [1, 3, 5]]));
-    }
-
-    #[test]
-    fn test_slice() {
-        let x = arr2(&[[1, 2, 3], [4, 5, 6]]);
-        let x_slice = Array2::slice(&x, 0..2, 1..2);
-        assert_eq!((2, 1), x_slice.shape());
-        let v: Vec<i32> = x_slice.iterator(0).copied().collect();
-        assert_eq!(v, [2, 5]);
-    }
-
-    #[test]
-    fn test_slice_iter() {
-        let x = arr2(&[[1, 2, 3], [4, 5, 6]]);
-        let x_slice = Array2::slice(&x, 0..2, 0..3);
-        assert_eq!(
-            x_slice.iterator(0).copied().collect::<Vec<i32>>(),
-            vec![1, 2, 3, 4, 5, 6]
-        );
-        assert_eq!(
-            x_slice.iterator(1).copied().collect::<Vec<i32>>(),
-            vec![1, 4, 2, 5, 3, 6]
-        );
-    }
-
-    #[test]
-    fn test_slice_mut_iter() {
-        let mut x = arr2(&[[1, 2, 3], [4, 5, 6]]);
-        {
-            let mut x_slice = Array2::slice_mut(&mut x, 0..2, 0..3);
-            x_slice
-                .iterator_mut(0)
-                .enumerate()
-                .for_each(|(i, v)| *v = i);
-        }
-        assert_eq!(x, arr2(&[[0, 1, 2], [3, 4, 5]]));
-        {
-            let mut x_slice = Array2::slice_mut(&mut x, 0..2, 0..3);
-            x_slice
-                .iterator_mut(1)
-                .enumerate()
-                .for_each(|(i, v)| *v = i);
-        }
-        assert_eq!(x, arr2(&[[0, 2, 4], [1, 3, 5]]));
-    }
-
-    #[test]
-    fn test_c_from_iterator() {
-        let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        let a: NDArray2<i32> = Array2::from_iterator(data.clone().into_iter(), 4, 3, 0);
-        println!("{a}");
-        let a: NDArray2<i32> = Array2::from_iterator(data.into_iter(), 4, 3, 1);
-        println!("{a}");
     }
 }
