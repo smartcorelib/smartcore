@@ -12,7 +12,8 @@ pub fn get_rng_impl(seed: Option<u64>) -> RngImpl {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "std_rand")] {
                     use rand::RngCore;
-                    RngImpl::seed_from_u64(rand::thread_rng().next_u64())
+                    // FIX: thread_rng() deprecated in rand 0.9 → use rng()
+                    RngImpl::seed_from_u64(rand::rng().next_u64())
                 } else {
                     // no std_random feature build, use getrandom
                     #[cfg(feature = "js")]
