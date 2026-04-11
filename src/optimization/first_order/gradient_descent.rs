@@ -47,6 +47,17 @@ impl<T: FloatNumber> FirstOrderOptimizer<T> for GradientDescent {
         df(&mut gvec, &x);
 
         while iter < self.max_iter && (iter == 0 || gnorm > gtol) {
+            // A NaN gradient norm means the objective produced a non-finite value
+            // (e.g. log(0) in logistic regression). This is an unambiguous
+            // programmer/input error — panic immediately rather than returning
+            // a model silently filled with NaN weights.
+            if gnorm.is_nan() {
+                panic!(
+                    "Gradient norm is NaN — check the objective function for \
+                     degenerate inputs (e.g. log(0) or a zero-variance feature)."
+                );
+            }
+
             iter += 1;
 
             let mut step = gvec.neg();
@@ -119,5 +130,24 @@ mod tests {
         assert!((result.f_x - 0.0).abs() < 1e-5);
         assert!((result.x[0] - 1.0).abs() < 1e-2);
         assert!((result.x[1] - 1.0).abs() < 1e-2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Gradient norm is NaN")]
+    fn gradient_descent_nan_gradient_panics() {
+        // Objective that immediately produces NaN (log of negative number)
+        let x0 = vec![1.0f64];
+        let f = |x: &Vec<f64>| x[0].ln(); // ln(1.0) = 0 initially, but df → NaN near 0
+        // Gradient that always returns NaN to simulate degenerate input
+        let df = |g: &mut Vec<f64>, _x: &Vec<f64>| {
+            g[0] = f64::NAN;
+        };
+
+        let ls: Backtracking<f64> = Backtracking::<f64> {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
+        };
+        let optimizer: GradientDescent = Default::default();
+        optimizer.optimize(&f, &df, &x0, &ls);
     }
 }

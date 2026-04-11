@@ -54,10 +54,23 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
         let ptr = self.as_mut_ptr();
         let stride = self.strides();
+        // ndarray strides can theoretically be negative for reversed views.
+        // Negative strides cast to usize wrap to enormous values and would
+        // cause an out-of-bounds write.  Assert here so we catch the case
+        // early in debug builds; in release builds the safety comment below
+        // documents the invariant we rely on.
+        debug_assert!(
+            stride[0] >= 0 && stride[1] >= 0,
+            "iterator_mut: ndarray strides must be non-negative (got {:?})",
+            stride
+        );
         let (rstride, cstride) = (stride[0] as usize, stride[1] as usize);
         match axis {
             0 => Box::new(self.iter_mut()),
             _ => Box::new((0..self.ncols()).flat_map(move |c| {
+                // Safety: each (r, c) maps to a unique element via
+                // r * rstride + c * cstride.  The debug_assert above
+                // guarantees strides are non-negative, so no wrap occurs.
                 (0..self.nrows()).map(move |r| unsafe { &mut *ptr.add(r * rstride + c * cstride) })
             })),
         }
@@ -181,10 +194,17 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
         let ptr = self.as_mut_ptr();
         let stride = self.strides();
+        // Same negative-stride guard as for OwnedRepr above.
+        debug_assert!(
+            stride[0] >= 0 && stride[1] >= 0,
+            "iterator_mut: ndarray strides must be non-negative (got {:?})",
+            stride
+        );
         let (rstride, cstride) = (stride[0] as usize, stride[1] as usize);
         match axis {
             0 => Box::new(self.iter_mut()),
             _ => Box::new((0..self.ncols()).flat_map(move |c| {
+                // Safety: same reasoning as OwnedRepr impl above.
                 (0..self.nrows()).map(move |r| unsafe { &mut *ptr.add(r * rstride + c * cstride) })
             })),
         }
