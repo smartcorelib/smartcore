@@ -57,7 +57,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
         vrows: Range<usize>,
         vcols: Range<usize>,
     ) -> Result<Self, Failed> {
-        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
+        if !m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
                 "The specified view is outside of the matrix range",
             ))
@@ -109,7 +109,7 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
         vrows: Range<usize>,
         vcols: Range<usize>,
     ) -> Result<Self, Failed> {
-        if m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
+        if !m.is_valid_view(m.shape().0, m.shape().1, &vrows, &vcols) {
             Err(Failed::input(
                 "The specified view is outside of the matrix range",
             ))
@@ -145,10 +145,43 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
         let column_major = self.column_major;
         let stride = self.stride;
+        let nrows = self.nrows;
+        let ncols = self.ncols;
         let ptr = self.values.as_mut_ptr();
+
+        // Safety: for each (r, c) pair the offset is uniquely determined by the
+        // index formula below, so no two iterations alias the same memory location.
+        // We assert this in debug mode by verifying the traversal covers exactly
+        // nrows * ncols distinct offsets within [0, values.len()).
+        #[cfg(debug_assertions)]
+        {
+            let len = self.values.len();
+            let mut seen = std::collections::HashSet::new();
+            match axis {
+                0 => {
+                    for r in 0..nrows {
+                        for c in 0..ncols {
+                            let off = if column_major { r + c * stride } else { r * stride + c };
+                            assert!(off < len, "iterator_mut: offset {off} out of bounds (len={len})");
+                            assert!(seen.insert(off), "iterator_mut: aliasing detected at offset {off}");
+                        }
+                    }
+                }
+                _ => {
+                    for c in 0..ncols {
+                        for r in 0..nrows {
+                            let off = if column_major { r + c * stride } else { r * stride + c };
+                            assert!(off < len, "iterator_mut: offset {off} out of bounds (len={len})");
+                            assert!(seen.insert(off), "iterator_mut: aliasing detected at offset {off}");
+                        }
+                    }
+                }
+            }
+        }
+
         match axis {
-            0 => Box::new((0..self.nrows).flat_map(move |r| {
-                (0..self.ncols).map(move |c| unsafe {
+            0 => Box::new((0..nrows).flat_map(move |r| {
+                (0..ncols).map(move |c| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * stride
                     } else {
@@ -156,8 +189,8 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
                     })
                 })
             })),
-            _ => Box::new((0..self.ncols).flat_map(move |c| {
-                (0..self.nrows).map(move |r| unsafe {
+            _ => Box::new((0..ncols).flat_map(move |c| {
+                (0..nrows).map(move |r| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * stride
                     } else {
@@ -242,7 +275,12 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         self.values.iter()
     }
 
-    ///  Check if the size of the requested view is bounded to matrix rows/cols count
+    /// Check if the size of the requested view is bounded to matrix rows/cols count.
+    ///
+    /// Returns `true` when the view is valid (all bounds are within the matrix dimensions).
+    /// A view is valid when:
+    ///   - start <= end for both axes (non-reversed range)
+    ///   - end <= dimension (exclusive upper bound does not exceed dimension size)
     fn is_valid_view(
         &self,
         n_rows: usize,
@@ -250,13 +288,17 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         vrows: &Range<usize>,
         vcols: &Range<usize>,
     ) -> bool {
-        !(vrows.end <= n_rows
+        vrows.start <= vrows.end
+            && vcols.start <= vcols.end
+            && vrows.end <= n_rows
             && vcols.end <= n_cols
-            && vrows.start <= n_rows
-            && vcols.start <= n_cols)
     }
 
-    ///  Compute the range of the requested view: start, end, size of the slice
+    /// Compute the range of the requested view: start, end, size of the slice.
+    ///
+    /// All arithmetic uses checked operations; panics immediately if an overflow
+    /// would occur (panic-on-overflow is intentional — the library must not
+    /// silently read wrong memory).
     fn stride_range(
         &self,
         n_rows: usize,
@@ -266,17 +308,43 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
         column_major: bool,
     ) -> (usize, usize, usize) {
         let (start, end, stride) = if column_major {
-            (
-                vrows.start + vcols.start * n_rows,
-                vrows.end + (vcols.end - 1) * n_rows,
-                n_rows,
-            )
+            let start = vrows
+                .start
+                .checked_add(
+                    vcols
+                        .start
+                        .checked_mul(n_rows)
+                        .expect("stride_range: integer overflow in start (column_major)"),
+                )
+                .expect("stride_range: integer overflow in start (column_major)");
+            let end = vrows
+                .end
+                .checked_add(
+                    vcols
+                        .end
+                        .checked_sub(1)
+                        .expect("stride_range: vcols.end underflow (column_major)")
+                        .checked_mul(n_rows)
+                        .expect("stride_range: integer overflow in end (column_major)"),
+                )
+                .expect("stride_range: integer overflow in end (column_major)");
+            (start, end, n_rows)
         } else {
-            (
-                vrows.start * n_cols + vcols.start,
-                (vrows.end - 1) * n_cols + vcols.end,
-                n_cols,
-            )
+            let start = vrows
+                .start
+                .checked_mul(n_cols)
+                .expect("stride_range: integer overflow in start (row_major)")
+                .checked_add(vcols.start)
+                .expect("stride_range: integer overflow in start (row_major)");
+            let end = vrows
+                .end
+                .checked_sub(1)
+                .expect("stride_range: vrows.end underflow (row_major)")
+                .checked_mul(n_cols)
+                .expect("stride_range: integer overflow in end (row_major)")
+                .checked_add(vcols.end)
+                .expect("stride_range: integer overflow in end (row_major)");
+            (start, end, n_cols)
         };
         (start, end, stride)
     }
@@ -417,9 +485,26 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
         let ptr = self.values.as_mut_ptr();
         let column_major = self.column_major;
         let (nrows, ncols) = self.shape();
+
+        // Safety: each (r, c) pair maps to a unique offset via the index formula,
+        // so no two live &mut T can alias the same slot.
+        // The debug-mode assertion below verifies this invariant.
+        #[cfg(debug_assertions)]
+        {
+            let len = self.values.len();
+            let mut seen = std::collections::HashSet::new();
+            for r in 0..nrows {
+                for c in 0..ncols {
+                    let off = if column_major { r + c * nrows } else { r * ncols + c };
+                    assert!(off < len, "iterator_mut: offset {off} out of bounds (len={len})");
+                    assert!(seen.insert(off), "iterator_mut: aliasing at offset {off}");
+                }
+            }
+        }
+
         match axis {
-            0 => Box::new((0..self.nrows).flat_map(move |r| {
-                (0..self.ncols).map(move |c| unsafe {
+            0 => Box::new((0..nrows).flat_map(move |r| {
+                (0..ncols).map(move |c| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * nrows
                     } else {
@@ -427,8 +512,8 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
                     })
                 })
             })),
-            _ => Box::new((0..self.ncols).flat_map(move |c| {
-                (0..self.nrows).map(move |r| unsafe {
+            _ => Box::new((0..ncols).flat_map(move |c| {
+                (0..nrows).map(move |r| unsafe {
                     &mut *ptr.add(if column_major {
                         r + c * nrows
                     } else {
@@ -507,7 +592,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 
     fn is_empty(&self) -> bool {
-        self.nrows * self.ncols > 0
+        self.nrows == 0 || self.ncols == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -545,7 +630,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, usize> for DenseMatrixView<'_, 
     }
 
     fn is_empty(&self) -> bool {
-        self.nrows * self.ncols > 0
+        self.nrows == 0 || self.ncols == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -571,7 +656,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
     }
 
     fn is_empty(&self) -> bool {
-        self.nrows * self.ncols > 0
+        self.nrows == 0 || self.ncols == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -667,6 +752,21 @@ mod tests {
         let v = DenseMatrixView::new(&x, 0..3, 4..3);
         assert!(v.is_err());
     }
+
+    #[test]
+    fn test_is_empty_view_not_empty() {
+        let x = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
+        let v = DenseMatrixView::new(&x, 0..2, 0..2).unwrap();
+        assert!(!v.is_empty(), "2x2 view should not be empty");
+    }
+
+    #[test]
+    fn test_is_empty_mut_view_not_empty() {
+        let mut x = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
+        let v = DenseMatrixMutView::new(&mut x, 0..2, 0..2).unwrap();
+        assert!(!v.is_empty(), "2x2 mut view should not be empty");
+    }
+
     #[test]
     fn test_display() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
