@@ -55,7 +55,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use rand::Rng;
+use rand::RngExt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
