@@ -3,6 +3,7 @@
 use rand::distr::Distribution;
 use rand::distr::Uniform;
 use rand::prelude::*;
+use rand_distr::Distribution as DistrDistribution;
 use rand_distr::Normal;
 
 use crate::dataset::Dataset;
@@ -33,7 +34,7 @@ pub fn make_blobs(
         let label = i % num_centers;
         y.push(label as f32);
         for j in 0..num_features {
-            x.push(centers[label][j].sample(&mut rng));
+            x.push(DistrDistribution::sample(&centers[label][j], &mut rng));
         }
     }
 
@@ -67,14 +68,14 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
 
     for v in linspace_out {
-        x.push(v.cos() + noise.sample(&mut rng));
-        x.push(v.sin() + noise.sample(&mut rng));
+        x.push(v.cos() + DistrDistribution::sample(&noise, &mut rng));
+        x.push(v.sin() + DistrDistribution::sample(&noise, &mut rng));
         y.push(0.0);
     }
 
     for v in linspace_in {
-        x.push(v.cos() * factor + noise.sample(&mut rng));
-        x.push(v.sin() * factor + noise.sample(&mut rng));
+        x.push(v.cos() * factor + DistrDistribution::sample(&noise, &mut rng));
+        x.push(v.sin() * factor + DistrDistribution::sample(&noise, &mut rng));
         y.push(1.0);
     }
 
@@ -104,14 +105,14 @@ pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, u32> {
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
 
     for v in linspace_out {
-        x.push(v.cos() + noise.sample(&mut rng));
-        x.push(v.sin() + noise.sample(&mut rng));
+        x.push(v.cos() + DistrDistribution::sample(&noise, &mut rng));
+        x.push(v.sin() + DistrDistribution::sample(&noise, &mut rng));
         y.push(0.0);
     }
 
     for v in linspace_in {
-        x.push(1.0 - v.cos() + noise.sample(&mut rng));
-        x.push(1.0 - v.sin() + noise.sample(&mut rng) - 0.5);
+        x.push(1.0 - v.cos() + DistrDistribution::sample(&noise, &mut rng));
+        x.push(1.0 - v.sin() + DistrDistribution::sample(&noise, &mut rng) - 0.5);
         y.push(1.0);
     }
 
