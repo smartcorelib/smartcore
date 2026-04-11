@@ -161,18 +161,38 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
                 0 => {
                     for r in 0..nrows {
                         for c in 0..ncols {
-                            let off = if column_major { r + c * stride } else { r * stride + c };
-                            assert!(off < len, "iterator_mut: offset {off} out of bounds (len={len})");
-                            assert!(seen.insert(off), "iterator_mut: aliasing detected at offset {off}");
+                            let off = if column_major {
+                                r + c * stride
+                            } else {
+                                r * stride + c
+                            };
+                            assert!(
+                                off < len,
+                                "iterator_mut: offset {off} out of bounds (len={len})"
+                            );
+                            assert!(
+                                seen.insert(off),
+                                "iterator_mut: aliasing detected at offset {off}"
+                            );
                         }
                     }
                 }
                 _ => {
                     for c in 0..ncols {
                         for r in 0..nrows {
-                            let off = if column_major { r + c * stride } else { r * stride + c };
-                            assert!(off < len, "iterator_mut: offset {off} out of bounds (len={len})");
-                            assert!(seen.insert(off), "iterator_mut: aliasing detected at offset {off}");
+                            let off = if column_major {
+                                r + c * stride
+                            } else {
+                                r * stride + c
+                            };
+                            assert!(
+                                off < len,
+                                "iterator_mut: offset {off} out of bounds (len={len})"
+                            );
+                            assert!(
+                                seen.insert(off),
+                                "iterator_mut: aliasing detected at offset {off}"
+                            );
                         }
                     }
                 }
@@ -492,8 +512,15 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
             let mut seen = std::collections::HashSet::new();
             for r in 0..nrows {
                 for c in 0..ncols {
-                    let off = if column_major { r + c * nrows } else { r * ncols + c };
-                    assert!(off < len, "iterator_mut: offset {off} out of bounds (len={len})");
+                    let off = if column_major {
+                        r + c * nrows
+                    } else {
+                        r * ncols + c
+                    };
+                    assert!(
+                        off < len,
+                        "iterator_mut: offset {off} out of bounds (len={len})"
+                    );
                     assert!(seen.insert(off), "iterator_mut: aliasing at offset {off}");
                 }
             }
