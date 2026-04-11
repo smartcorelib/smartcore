@@ -62,8 +62,10 @@ pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
 ) -> Result<(), io::Error> {
     match File::create(filename) {
         Ok(mut file) => {
-            file.write_all(&dataset.num_features.to_le_bytes())?;
-            file.write_all(&dataset.num_samples.to_le_bytes())?;
+            // Write header as fixed-width u64 (little-endian) so the .xy files
+            // can be read correctly on any target width, including wasm32.
+            file.write_all(&(dataset.num_features as u64).to_le_bytes())?;
+            file.write_all(&(dataset.num_samples as u64).to_le_bytes())?;
             let x: Vec<u8> = dataset
                 .data
                 .iter()
@@ -84,12 +86,26 @@ pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
     Ok(())
 }
 
+/// Deserialise a `.xy` dataset blob embedded via `include_bytes!`.
+///
+/// # Wire format
+/// ```text
+/// [u64 LE: num_features][u64 LE: num_samples]
+/// [f32 LE × (num_features * num_samples)]   <- X matrix, row-major
+/// [f32 LE × num_samples]                    <- y vector
+/// ```
+///
+/// The header uses a **fixed 8-byte (u64) width** regardless of the host
+/// pointer size.  Previous versions used `usize`, which is 4 bytes on
+/// `wasm32` but 8 bytes on x86-64 — meaning the `.xy` files (generated
+/// on x86-64) could not be parsed under WASM and every dataset test
+/// returned `data.len() == 0`.
 pub(crate) fn deserialize_data(
     bytes: &[u8],
 ) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {
-    const USIZE_SIZE: usize = std::mem::size_of::<usize>();
-    // Header occupies two usize fields (num_features + num_samples)
-    const HEADER_LEN: usize = 2 * USIZE_SIZE;
+    // Header: two u64 fields, each 8 bytes, platform-independent.
+    const FIELD_SIZE: usize = std::mem::size_of::<u64>(); // always 8
+    const HEADER_LEN: usize = 2 * FIELD_SIZE;             // always 16
 
     // Reject obviously-truncated buffers before reading any fields.
     if bytes.len() < HEADER_LEN {
@@ -103,11 +119,11 @@ pub(crate) fn deserialize_data(
     }
 
     let (num_samples, num_features) = {
-        let mut buffer = [0u8; USIZE_SIZE];
-        buffer.copy_from_slice(&bytes[0..USIZE_SIZE]);
-        let num_features = usize::from_le_bytes(buffer);
-        buffer.copy_from_slice(&bytes[USIZE_SIZE..HEADER_LEN]);
-        let num_samples = usize::from_le_bytes(buffer);
+        let mut buf8 = [0u8; FIELD_SIZE];
+        buf8.copy_from_slice(&bytes[0..FIELD_SIZE]);
+        let num_features = u64::from_le_bytes(buf8) as usize;
+        buf8.copy_from_slice(&bytes[FIELD_SIZE..HEADER_LEN]);
+        let num_samples = u64::from_le_bytes(buf8) as usize;
         (num_samples, num_features)
     };
 
@@ -157,16 +173,16 @@ pub(crate) fn deserialize_data(
     let mut x = Vec::with_capacity(num_x_values);
     let mut y = Vec::with_capacity(num_samples);
 
-    let mut buffer = [0u8; 4];
+    let mut buf4 = [0u8; 4];
     let mut c = HEADER_LEN;
 
     for _ in 0..num_x_values {
-        buffer.copy_from_slice(&bytes[c..(c + 4)]);
-        let v = f32::from_bits(u32::from_le_bytes(buffer));
+        buf4.copy_from_slice(&bytes[c..(c + 4)]);
+        let v = f32::from_bits(u32::from_le_bytes(buf4));
         if !v.is_finite() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("deserialize_data: non-finite value in feature data (bits: {:#010x})", u32::from_le_bytes(buffer)),
+                format!("deserialize_data: non-finite value in feature data (bits: {:#010x})", u32::from_le_bytes(buf4)),
             ));
         }
         x.push(v);
@@ -174,12 +190,12 @@ pub(crate) fn deserialize_data(
     }
 
     for _ in 0..num_samples {
-        buffer.copy_from_slice(&bytes[c..(c + 4)]);
-        let v = f32::from_bits(u32::from_le_bytes(buffer));
+        buf4.copy_from_slice(&bytes[c..(c + 4)]);
+        let v = f32::from_bits(u32::from_le_bytes(buf4));
         if !v.is_finite() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("deserialize_data: non-finite value in target data (bits: {:#010x})", u32::from_le_bytes(buffer)),
+                format!("deserialize_data: non-finite value in target data (bits: {:#010x})", u32::from_le_bytes(buf4)),
             ));
         }
         y.push(v);
@@ -216,33 +232,70 @@ mod tests {
         assert_eq!(*m[1][3], 9);
     }
 
+    // deserialize_data unit tests — run on native AND wasm32.
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn deserialize_data_too_short() {
         let result = deserialize_data(&[0u8; 4]);
         assert!(result.is_err());
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn deserialize_data_truncated_body() {
-        // Valid header: 1 sample, 1 feature, but no payload bytes
+        // Valid header (u64 LE): 1 feature, 1 sample — but no payload bytes.
+        // Header is 16 bytes; expected total = 16 + 4 (x) + 4 (y) = 24.
         let mut buf = vec![0u8; 16];
-        buf[0..8].copy_from_slice(&1usize.to_le_bytes()); // num_features = 1
-        buf[8..16].copy_from_slice(&1usize.to_le_bytes()); // num_samples = 1
-        // Expected total: 16 + 4 (x) + 4 (y) = 24 bytes, but we only supply 16
+        buf[0..8].copy_from_slice(&1u64.to_le_bytes()); // num_features = 1
+        buf[8..16].copy_from_slice(&1u64.to_le_bytes()); // num_samples  = 1
         let result = deserialize_data(&buf);
         assert!(result.is_err());
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn deserialize_data_nan_rejected() {
-        // Construct a valid 1x1 dataset where the feature value is NaN
+        // Construct a valid 1×1 dataset where the feature value is NaN.
         let nan_bits: u32 = f32::NAN.to_bits();
         let mut buf = vec![0u8; 16 + 4 + 4];
-        buf[0..8].copy_from_slice(&1usize.to_le_bytes()); // num_features = 1
-        buf[8..16].copy_from_slice(&1usize.to_le_bytes()); // num_samples = 1
+        buf[0..8].copy_from_slice(&1u64.to_le_bytes());  // num_features = 1
+        buf[8..16].copy_from_slice(&1u64.to_le_bytes()); // num_samples  = 1
         buf[16..20].copy_from_slice(&nan_bits.to_le_bytes()); // x[0] = NaN
-        buf[20..24].copy_from_slice(&1.0f32.to_le_bytes()); // y[0] = 1.0
+        buf[20..24].copy_from_slice(&1.0f32.to_le_bytes());   // y[0] = 1.0
         let result = deserialize_data(&buf);
         assert!(result.is_err());
+    }
+
+    /// Smoke-test that a correctly-formed 1×1 round-trip parses on every
+    /// target width, including wasm32.
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn deserialize_data_roundtrip_1x1() {
+        let x_val = 3.14f32;
+        let y_val = 1.0f32;
+        let mut buf = vec![0u8; 16 + 4 + 4];
+        buf[0..8].copy_from_slice(&1u64.to_le_bytes());  // num_features = 1
+        buf[8..16].copy_from_slice(&1u64.to_le_bytes()); // num_samples  = 1
+        buf[16..20].copy_from_slice(&x_val.to_bits().to_le_bytes());
+        buf[20..24].copy_from_slice(&y_val.to_bits().to_le_bytes());
+        let (x, y, ns, nf) = deserialize_data(&buf).expect("roundtrip must succeed");
+        assert_eq!(ns, 1);
+        assert_eq!(nf, 1);
+        assert_eq!(x.len(), 1);
+        assert_eq!(y.len(), 1);
+        assert!((x[0] - x_val).abs() < 1e-6);
+        assert!((y[0] - y_val).abs() < 1e-6);
     }
 }
