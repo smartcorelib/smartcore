@@ -105,7 +105,7 @@ pub(crate) fn deserialize_data(
 ) -> Result<(Vec<f32>, Vec<f32>, usize, usize), io::Error> {
     // Header: two u64 fields, each 8 bytes, platform-independent.
     const FIELD_SIZE: usize = std::mem::size_of::<u64>(); // always 8
-    const HEADER_LEN: usize = 2 * FIELD_SIZE;             // always 16
+    const HEADER_LEN: usize = 2 * FIELD_SIZE; // always 16
 
     // Reject obviously-truncated buffers before reading any fields.
     if bytes.len() < HEADER_LEN {
@@ -128,14 +128,12 @@ pub(crate) fn deserialize_data(
     };
 
     // Guard against integer overflow in num_samples * num_features.
-    let num_x_values = num_samples
-        .checked_mul(num_features)
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "deserialize_data: num_samples * num_features overflows usize",
-            )
-        })?;
+    let num_x_values = num_samples.checked_mul(num_features).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "deserialize_data: num_samples * num_features overflows usize",
+        )
+    })?;
 
     // Validate the total byte length before any allocation.
     // Layout: HEADER_LEN + num_x_values * 4 + num_samples * 4
@@ -182,7 +180,10 @@ pub(crate) fn deserialize_data(
         if !v.is_finite() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("deserialize_data: non-finite value in feature data (bits: {:#010x})", u32::from_le_bytes(buf4)),
+                format!(
+                    "deserialize_data: non-finite value in feature data (bits: {:#010x})",
+                    u32::from_le_bytes(buf4)
+                ),
             ));
         }
         x.push(v);
@@ -195,7 +196,10 @@ pub(crate) fn deserialize_data(
         if !v.is_finite() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("deserialize_data: non-finite value in target data (bits: {:#010x})", u32::from_le_bytes(buf4)),
+                format!(
+                    "deserialize_data: non-finite value in target data (bits: {:#010x})",
+                    u32::from_le_bytes(buf4)
+                ),
             ));
         }
         y.push(v);
@@ -267,10 +271,10 @@ mod tests {
         // Construct a valid 1×1 dataset where the feature value is NaN.
         let nan_bits: u32 = f32::NAN.to_bits();
         let mut buf = vec![0u8; 16 + 4 + 4];
-        buf[0..8].copy_from_slice(&1u64.to_le_bytes());  // num_features = 1
+        buf[0..8].copy_from_slice(&1u64.to_le_bytes()); // num_features = 1
         buf[8..16].copy_from_slice(&1u64.to_le_bytes()); // num_samples  = 1
         buf[16..20].copy_from_slice(&nan_bits.to_le_bytes()); // x[0] = NaN
-        buf[20..24].copy_from_slice(&1.0f32.to_le_bytes());   // y[0] = 1.0
+        buf[20..24].copy_from_slice(&1.0f32.to_le_bytes()); // y[0] = 1.0
         let result = deserialize_data(&buf);
         assert!(result.is_err());
     }
@@ -286,7 +290,7 @@ mod tests {
         let x_val = 3.14f32;
         let y_val = 1.0f32;
         let mut buf = vec![0u8; 16 + 4 + 4];
-        buf[0..8].copy_from_slice(&1u64.to_le_bytes());  // num_features = 1
+        buf[0..8].copy_from_slice(&1u64.to_le_bytes()); // num_features = 1
         buf[8..16].copy_from_slice(&1u64.to_le_bytes()); // num_samples  = 1
         buf[16..20].copy_from_slice(&x_val.to_bits().to_le_bytes());
         buf[20..24].copy_from_slice(&y_val.to_bits().to_le_bytes());
