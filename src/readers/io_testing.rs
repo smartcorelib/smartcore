@@ -1,7 +1,7 @@
 //! This module contains functionality to test IO. It has both functions that write
 //! to the file-system for end-to-end tests, but also abstractions to avoid this by
 //! reading from strings instead.
-use rand::distributions::{Alphanumeric, DistString};
+use rand::distr::{Alphanumeric, SampleString};
 use std::fs;
 use std::io::Bytes;
 use std::io::Read;
@@ -16,7 +16,7 @@ pub struct TemporaryTextFile {
 impl TemporaryTextFile {
     pub fn new(contents: &str) -> std::io::Result<Self> {
         let test_text_file = TemporaryTextFile {
-            random_path: Alphanumeric.sample_string(&mut rand::thread_rng(), 16),
+            random_path: Alphanumeric.sample_string(&mut rand::rng(), 16),
         };
         string_to_file(contents, &test_text_file.random_path)?;
         Ok(test_text_file)

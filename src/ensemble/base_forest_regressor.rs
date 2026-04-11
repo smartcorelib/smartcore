@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 use std::fmt::Debug;
 
 #[cfg(feature = "serde")]
@@ -209,10 +209,10 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         result / TY::from(n_trees).unwrap()
     }
 
-    fn sample_with_replacement(nrows: usize, rng: &mut impl Rng) -> Vec<usize> {
+    fn sample_with_replacement(nrows: usize, rng: &mut impl rand::Rng) -> Vec<usize> {
         let mut samples = vec![0; nrows];
         for _ in 0..nrows {
-            let xi = rng.gen_range(0..nrows);
+            let xi = rng.random_range(0..nrows);
             samples[xi] += 1;
         }
         samples

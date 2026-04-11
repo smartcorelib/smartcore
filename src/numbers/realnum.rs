@@ -3,7 +3,7 @@
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 use num_traits::Float;
 
@@ -69,10 +69,8 @@ impl RealNumber for f64 {
     fn rand() -> f64 {
         let mut small_rng = get_rng_impl(None);
 
-        let mut rngs: Vec<SmallRng> = (0..3)
-            .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
-            .collect();
-        rngs[0].gen::<f64>()
+        let mut rngs: Vec<SmallRng> = (0..3).map(|_| SmallRng::from_rng(&mut small_rng)).collect();
+        rngs[0].random::<f64>()
     }
 
     fn two() -> Self {
@@ -118,10 +116,8 @@ impl RealNumber for f32 {
     fn rand() -> f32 {
         let mut small_rng = get_rng_impl(None);
 
-        let mut rngs: Vec<SmallRng> = (0..3)
-            .map(|_| SmallRng::from_rng(&mut small_rng).unwrap())
-            .collect();
-        rngs[0].gen::<f32>()
+        let mut rngs: Vec<SmallRng> = (0..3).map(|_| SmallRng::from_rng(&mut small_rng)).collect();
+        rngs[0].random::<f32>()
     }
 
     fn two() -> Self {

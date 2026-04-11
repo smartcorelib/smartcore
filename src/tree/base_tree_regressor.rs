@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use rand::seq::SliceRandom;
-use rand::Rng;
+use rand::RngExt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -292,7 +292,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         mtry: usize,
-        rng: &mut impl Rng,
+        rng: &mut impl rand::Rng,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
@@ -336,7 +336,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sum: f64,
         parent_gain: f64,
         j: usize,
-        rng: &mut impl Rng,
+        rng: &mut impl rand::Rng,
     ) {
         let (min_val, max_val) = {
             let mut min_opt = None;
@@ -363,7 +363,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             return;
         }
 
-        let split_value = rng.gen_range(min_val.to_f64().unwrap()..max_val.to_f64().unwrap());
+        let split_value = rng.random_range(min_val.to_f64().unwrap()..max_val.to_f64().unwrap());
 
         let mut true_sum = 0f64;
         let mut true_count = 0;
@@ -476,7 +476,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mut visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
-        rng: &mut impl Rng,
+        rng: &mut impl rand::Rng,
     ) -> bool {
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
