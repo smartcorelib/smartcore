@@ -1,8 +1,8 @@
 //! # Dataset Generators
 //!
+use rand::distr::Distribution;
 use rand::distr::Uniform;
 use rand::prelude::*;
-use rand_distr::Distribution;
 use rand_distr::Normal;
 
 use crate::dataset::Dataset;
