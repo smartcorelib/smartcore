@@ -56,7 +56,7 @@ impl FloatNumber for f64 {
     }
 
     fn rand() -> f64 {
-        use rand::Rng;
+        use rand::RngExt;
         let mut rng = get_rng_impl(None);
         rng.random()
     }
@@ -98,7 +98,7 @@ impl FloatNumber for f32 {
     }
 
     fn rand() -> f32 {
-        use rand::Rng;
+        use rand::RngExt;
         let mut rng = get_rng_impl(None);
         rng.random()
     }

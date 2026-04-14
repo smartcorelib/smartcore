@@ -3,7 +3,7 @@
 //! This module defines real number and some useful functions that are used in [Linear Algebra](../../linalg/index.html) module.
 
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 use num_traits::Float;
 

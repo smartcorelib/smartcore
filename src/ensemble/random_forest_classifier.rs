@@ -45,7 +45,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use rand::Rng;
+use rand::RngExt;
 
 use std::default::Default;
 use std::fmt::Debug;
@@ -587,7 +587,11 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         which_max(&result)
     }
 
-    fn sample_with_replacement(y: &[usize], num_classes: usize, rng: &mut impl Rng) -> Vec<usize> {
+    fn sample_with_replacement(
+        y: &[usize],
+        num_classes: usize,
+        rng: &mut impl rand::Rng,
+    ) -> Vec<usize> {
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();
         let mut samples = vec![0; nrows];
