@@ -63,23 +63,29 @@ Here is a minimal example fitting a KNN classifier from native Rust vectors usin
 use smartcore::linalg::basic::matrix::DenseMatrix;
 use smartcore::neighbors::knn_classifier::KNNClassifier;
 
-// Turn vector slices into a matrix
-let x = DenseMatrix::from_2d_array(&[
-    &[1., 2.],
-    &[3., 4.],
-    &[5., 6.],
-    &[7., 8.],
-    &[9., 10.],
-]).unwrap;
+fn main() {
+    // Turn vector slices into a matrix
+    let x = DenseMatrix::from_2d_array(&[
+        &[1., 2.],
+        &[3., 4.],
+        &[5., 6.],
+        &[7., 8.],
+        &[9., 10.],
+    ]).unwrap();
 
-// Class labels
-let y = vec![2, 2, 2, 3, 3];
+    // Class labels
+    let y = vec![2, 2, 2, 3, 3];
 
-// Train classifier
-let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
+    // Train classifier
+    let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
 
-// Predict
-let yhat = knn.predict(&x).unwrap();
+    // Predict
+    let yhat = knn.predict(&x).unwrap();
+
+    // Output
+    println!("Real Data: {:?}", y);
+    println!("Predicted Data: {:?}", yhat);
+}
 ```
 
 This example mirrors the “First Example” section of the crate docs and demonstrates smartcore’s ergonomic API surface.
