@@ -143,81 +143,135 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     }
 
     fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
+        assert!(
+            axis == 1 || axis == 0,
+            "For two dimensional array `axis` should be either 0 or 1"
+        );
+
         let column_major = self.column_major;
         let stride = self.stride;
         let nrows = self.nrows;
         let ncols = self.ncols;
-        let ptr = self.values.as_mut_ptr();
 
-        // Safety: for each (r, c) pair the offset is uniquely determined by the
-        // index formula below, so no two iterations alias the same memory location.
-        // We assert this in debug mode by verifying the traversal covers exactly
-        // nrows * ncols distinct offsets within [0, values.len()).
-        #[cfg(debug_assertions)]
-        {
-            let len = self.values.len();
-            let mut seen = std::collections::HashSet::new();
-            match axis {
-                0 => {
-                    for r in 0..nrows {
-                        for c in 0..ncols {
-                            let off = if column_major {
-                                r + c * stride
-                            } else {
-                                r * stride + c
-                            };
-                            assert!(
-                                off < len,
-                                "iterator_mut: offset {off} out of bounds (len={len})"
-                            );
-                            assert!(
-                                seen.insert(off),
-                                "iterator_mut: aliasing detected at offset {off}"
-                            );
-                        }
+        // Axis = 0: row-by-row (outer loop over rows, inner over cols)
+        // Axis = 1: col-by-col (outer loop over cols, inner over rows)
+        // Four cases: column-major (axis 0 or 1), row-major (axis 1 or 0)
+
+        // Collect all mutable references up-front using split_at_mut so
+        // that the resulting iterator owns no borrow of "self.values"
+
+        match (column_major, axis) {
+            // Case B: column-major, col-by-col
+            (true, 1) => {
+                let mut refs: Vec<&'b mut T> = Vec::with_capacity(ncols * nrows);
+                let mut remaining: &'b mut [T] = self.values;
+                for _c in 0..ncols {
+                    let col_end = if _c == ncols - 1 {
+                        remaining.len()
+                    } else {
+                        stride
+                    };
+                    let (col_slice, tail) = remaining.split_at_mut(col_end);
+                    for elem in col_slice[..nrows].iter_mut() {
+                        refs.push(elem);
                     }
+                    remaining = tail;
                 }
-                _ => {
-                    for c in 0..ncols {
-                        for r in 0..nrows {
-                            let off = if column_major {
-                                r + c * stride
-                            } else {
-                                r * stride + c
-                            };
-                            assert!(
-                                off < len,
-                                "iterator_mut: offset {off} out of bounds (len={len})"
-                            );
-                            assert!(
-                                seen.insert(off),
-                                "iterator_mut: aliasing detected at offset {off}"
-                            );
-                        }
-                    }
-                }
+                Box::new(refs.into_iter())
             }
-        }
 
-        match axis {
-            0 => Box::new((0..nrows).flat_map(move |r| {
-                (0..ncols).map(move |c| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * stride
-                    } else {
-                        r * stride + c
+            // Case A: column-major, row-by-row
+            (true, _) => {
+                let mut refs: Vec<&'b mut T> = Vec::with_capacity(nrows * ncols);
+
+                let total = nrows * ncols;
+
+                let mut by_col: Vec<&'b mut T> = Vec::with_capacity(total);
+                {
+                    let mut remaining: &'b mut [T] = self.values;
+                    for _c in 0..ncols {
+                        let col_end = if _c == ncols - 1 {
+                            remaining.len()
+                        } else {
+                            stride
+                        };
+                        let (col_slice, tail) = remaining.split_at_mut(col_end);
+                        for elem in col_slice[..nrows].iter_mut() {
+                            by_col.push(elem);
+                        }
+                        remaining = tail;
+                    }
+                }
+
+                let mut indexed: Vec<(usize, &'b mut T)> = by_col
+                    .into_iter()
+                    .enumerate()
+                    .map(|(flat_col_idx, r)| {
+                        let c = flat_col_idx / nrows;
+                        let row = flat_col_idx % nrows;
+                        let out_idx = row * ncols + c;
+                        (out_idx, r)
                     })
-                })
-            })),
-            _ => Box::new((0..ncols).flat_map(move |c| {
-                (0..nrows).map(move |r| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * stride
+                    .collect();
+                indexed.sort_unstable_by_key(|(idx, _)| *idx);
+                refs.extend(indexed.into_iter().map(|(_, r)| r));
+                Box::new(refs.into_iter())
+            }
+
+            // Case C: row-major, row-by-row
+            (false, 0) => {
+                let mut refs: Vec<&'b mut T> = Vec::with_capacity(nrows * ncols);
+                let mut remaining: &'b mut [T] = self.values;
+                for _r in 0..nrows {
+                    let row_end = if _r == nrows - 1 {
+                        remaining.len()
                     } else {
-                        r * stride + c
+                        stride
+                    };
+                    let (row_slice, tail) = remaining.split_at_mut(row_end);
+                    for elem in row_slice[..ncols].iter_mut() {
+                        refs.push(elem);
+                    }
+                    remaining = tail;
+                }
+                Box::new(refs.into_iter())
+            }
+
+            // Case D: row-major, col-by-col
+            (false, _) => {
+                let total = nrows * ncols;
+                let mut by_row: Vec<&'b mut T> = Vec::with_capacity(total);
+                {
+                    let mut remaining: &'b mut [T] = self.values;
+                    for _r in 0..nrows {
+                        let row_end = if _r == nrows - 1 {
+                            remaining.len()
+                        } else {
+                            stride
+                        };
+                        let (row_slice, tail) = remaining.split_at_mut(row_end);
+                        for elem in row_slice[..ncols].iter_mut() {
+                            by_row.push(elem);
+                        }
+                        remaining = tail;
+                    }
+                }
+
+                let mut indexed: Vec<(usize, &'b mut T)> = by_row
+                    .into_iter()
+                    .enumerate()
+                    .map(|(flat_row_idx, r)| {
+                        let row = flat_row_idx / ncols;
+                        let col = flat_row_idx % ncols;
+                        let out_idx = col * nrows + row;
+                        (out_idx, r)
                     })
-                })
-            })),
+                    .collect();
+                indexed.sort_unstable_by_key(|(idx, _)| *idx);
+                let mut refs: Vec<&'b mut T> = Vec::with_capacity(total);
+                refs.extend(indexed.into_iter().map(|(_, r)| r));
+                Box::new(refs.into_iter())
+            }
         }
     }
 }
@@ -502,49 +556,84 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let ptr = self.values.as_mut_ptr();
+        assert!(
+            axis == 1 || axis == 0,
+            "For two dimensional array `axis` should be either 0 or 1"
+        );
+
         let column_major = self.column_major;
         let (nrows, ncols) = self.shape();
 
-        #[cfg(debug_assertions)]
-        {
-            let len = self.values.len();
-            let mut seen = std::collections::HashSet::new();
-            for r in 0..nrows {
-                for c in 0..ncols {
-                    let off = if column_major {
-                        r + c * nrows
-                    } else {
-                        r * ncols + c
-                    };
-                    assert!(
-                        off < len,
-                        "iterator_mut: offset {off} out of bounds (len={len})"
-                    );
-                    assert!(seen.insert(off), "iterator_mut: aliasing at offset {off}");
-                }
+        match (column_major, axis) {
+            // Case B: column-major, col-by-col
+            (true, 1) => {
+                let refs: Vec<&'b mut T> = self
+                    .values
+                    .chunks_mut(nrows)
+                    .flat_map(|col| col.iter_mut())
+                    .collect();
+                Box::new(refs.into_iter())
             }
-        }
 
-        match axis {
-            0 => Box::new((0..nrows).flat_map(move |r| {
-                (0..ncols).map(move |c| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * nrows
-                    } else {
-                        r * ncols + c
+            // Case A: column-major, row-by-row
+            (true, _) => {
+                let total = nrows * ncols;
+                let by_col: Vec<&'b mut T> = self
+                    .values
+                    .chunks_mut(nrows)
+                    .flat_map(|col| col.iter_mut())
+                    .collect();
+
+                let mut indexed: Vec<(usize, &'b mut T)> = by_col
+                    .into_iter()
+                    .enumerate()
+                    .map(|(flat_col_idx, elem)| {
+                        let c = flat_col_idx / nrows;
+                        let r = flat_col_idx % nrows;
+                        (r * ncols + c, elem)
                     })
-                })
-            })),
-            _ => Box::new((0..ncols).flat_map(move |c| {
-                (0..nrows).map(move |r| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * nrows
-                    } else {
-                        r * ncols + c
+                    .collect();
+                indexed.sort_unstable_by_key(|(idx, _)| *idx);
+
+                let mut refs: Vec<&'b mut T> = Vec::with_capacity(total);
+                refs.extend(indexed.into_iter().map(|(_, e)| e));
+                Box::new(refs.into_iter())
+            }
+
+            // Case C: row-major, row-by-row
+            (false, 0) => {
+                let refs: Vec<&'b mut T> = self
+                    .values
+                    .chunks_mut(ncols)
+                    .flat_map(|row| row.iter_mut())
+                    .collect();
+                Box::new(refs.into_iter())
+            }
+
+            // Case D: row-major, col-by-col
+            (false, _) => {
+                let total = nrows * ncols;
+                let by_row: Vec<&'b mut T> = self
+                    .values
+                    .chunks_mut(ncols)
+                    .flat_map(|row| row.iter_mut())
+                    .collect();
+
+                let mut indexed: Vec<(usize, &'b mut T)> = by_row
+                    .into_iter()
+                    .enumerate()
+                    .map(|(flat_row_idx, elem)| {
+                        let r = flat_row_idx / ncols;
+                        let c = flat_row_idx % ncols;
+                        (c * nrows + r, elem)
                     })
-                })
-            })),
+                    .collect();
+                indexed.sort_unstable_by_key(|(idx, _)| *idx);
+
+                let mut refs: Vec<&'b mut T> = Vec::with_capacity(total);
+                refs.extend(indexed.into_iter().map(|(_, e)| e));
+                Box::new(refs.into_iter())
+            }
         }
     }
 }
@@ -910,7 +999,9 @@ mod tests {
         assert_eq!(vec!["1", "4", "7", "2", "5", "8", "3", "6", "9"], x.values);
         x.iterator_mut(0).for_each(|v| *v = "str");
         assert_eq!(
-            vec!["str", "str", "str", "str", "str", "str", "str", "str", "str"],
+            vec![
+                "str", "str", "str", "str", "str", "str", "str", "str", "str"
+            ],
             x.values
         );
     }

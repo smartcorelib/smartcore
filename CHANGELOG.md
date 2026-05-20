@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-05-20
+- Replaced `unsafe` pointer arithmetic in `DenseMatrix` / `DenseMatrixMutView` mutable iterators with a safe, chained `split_at_mut` implementation to ensure memory safety without performance loss.
+
 ## [0.4.8] - 2025-11-29
 - WARNING: Breaking changes!
 - `LassoParameters` and `LassoSearchParameters` have a new field `fit_intercept`. When it is set to false, the `beta_0` term in the formula will be forced to zero, and `intercept` field in `Lasso` will be set to `None`.
