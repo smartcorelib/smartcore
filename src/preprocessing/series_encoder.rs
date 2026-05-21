@@ -90,7 +90,7 @@ where
     pub fn from_category_map(category_map: HashMap<C, usize>) -> Self {
         let mut _unique_cat: Vec<(C, usize)> =
             category_map.iter().map(|(k, v)| (k.clone(), *v)).collect();
-        _unique_cat.sort_by(|a, b| a.1.cmp(&b.1));
+        _unique_cat.sort_by_key(|a| a.1);
         let categories: Vec<C> = _unique_cat.into_iter().map(|a| a.0).collect();
         Self {
             num_categories: categories.len(),
