@@ -1073,12 +1073,172 @@ mod tests {
             &[1. + f32::EPSILON, 2., 3.],
             &[4., 5., 6. + f32::EPSILON],
         ])
-        .unwrap();
+            .unwrap();
         let d = DenseMatrix::from_2d_array(&[&[1. + 0.5, 2., 3.], &[4., 5., 6. + f32::EPSILON]])
             .unwrap();
 
         assert!(!relative_eq!(a, b));
         assert!(!relative_eq!(a, d));
         assert!(relative_eq!(a, c));
+
+        let a_int = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let b_int = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let c_int = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]).unwrap();
+        assert_eq!(a_int, b_int);
+        assert_ne!(a_int, c_int);
+    }
+
+    #[test]
+    fn test_abs_diff_eq() {
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0000001]]).unwrap();
+        let c = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.1]]).unwrap();
+
+        assert!(a.abs_diff_eq(&b, 1e-6));
+        assert!(!a.abs_diff_eq(&c, 1e-6));
+    }
+
+    #[test]
+    fn test_relative_eq() {
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0000001]]).unwrap();
+
+        assert!(relative_eq!(a, b, epsilon = 1e-6, max_relative = 1e-6));
+    }
+
+    #[test]
+    fn test_new_error() {
+        let result = DenseMatrix::new(2, 2, vec![1, 2, 3], true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mut_array_iterator_mut_all_cases() {
+        // Case B: column-major, axis 1 (col-by-col)
+        let mut m1 = DenseMatrix::new(2, 2, vec![1, 2, 3, 4], true).unwrap();
+        m1.iterator_mut(1).for_each(|v| *v += 1);
+        assert_eq!(m1.values, vec![2, 3, 4, 5]);
+
+        // Case A: column-major, axis 0 (row-by-row)
+        let mut m2 = DenseMatrix::new(2, 2, vec![1, 2, 3, 4], true).unwrap();
+        let vals: Vec<i32> = m2.iterator_mut(0).map(|v| *v).collect();
+        assert_eq!(vals, vec![1, 3, 2, 4]);
+        m2.iterator_mut(0).for_each(|v| *v *= 2);
+        assert_eq!(m2.values, vec![2, 4, 6, 8]);
+
+        // Case C: row-major, axis 0 (row-by-row)
+        let mut m3 = DenseMatrix::new(2, 2, vec![1, 2, 3, 4], false).unwrap();
+        m3.iterator_mut(0).for_each(|v| *v += 1);
+        assert_eq!(m3.values, vec![2, 3, 4, 5]);
+
+        // Case D: row-major, axis 1 (col-by-col)
+        let mut m4 = DenseMatrix::new(2, 2, vec![1, 2, 3, 4], false).unwrap();
+        let vals: Vec<i32> = m4.iterator_mut(1).map(|v| *v).collect();
+        assert_eq!(vals, vec![1, 3, 2, 4]);
+        m4.iterator_mut(1).for_each(|v| *v *= 2);
+        assert_eq!(m4.values, vec![2, 4, 6, 8]);
+    }
+
+    #[test]
+    fn test_dense_matrix_mut_view_iter_mut_all_cases() {
+        // Case B: column-major, axis 1 (col-by-col)
+        let mut m1 = DenseMatrix::new(3, 3, (1..10).collect(), true).unwrap();
+        {
+            let mut v = DenseMatrixMutView::new(&mut m1, 0..2, 0..2).unwrap();
+            v.iter_mut(1).for_each(|v| *v = 0);
+        }
+        assert_eq!(m1.values, vec![0, 0, 3, 0, 0, 6, 7, 8, 9]);
+
+        // Case A: column-major, axis 0 (row-by-row)
+        let mut m2 = DenseMatrix::new(3, 3, (1..10).collect(), true).unwrap();
+        {
+            let mut v = DenseMatrixMutView::new(&mut m2, 0..2, 0..2).unwrap();
+            let vals: Vec<i32> = v.iter_mut(0).map(|v| *v).collect();
+            assert_eq!(vals, vec![1, 4, 2, 5]);
+            v.iter_mut(0).for_each(|v| *v = 0);
+        }
+        assert_eq!(m2.values, vec![0, 0, 3, 0, 0, 6, 7, 8, 9]);
+
+        // Case C: row-major, axis 0 (row-by-row)
+        let mut m3 = DenseMatrix::new(3, 3, (1..10).collect(), false).unwrap();
+        {
+            let mut v = DenseMatrixMutView::new(&mut m3, 0..2, 0..2).unwrap();
+            v.iter_mut(0).for_each(|v| *v = 0);
+        }
+        assert_eq!(m3.values, vec![0, 0, 3, 0, 0, 6, 7, 8, 9]);
+
+        // Case D: row-major, axis 1 (col-by-col)
+        let mut m4 = DenseMatrix::new(3, 3, (1..10).collect(), false).unwrap();
+        {
+            let mut v = DenseMatrixMutView::new(&mut m4, 0..2, 0..2).unwrap();
+            let vals: Vec<i32> = v.iter_mut(1).map(|v| *v).collect();
+            assert_eq!(vals, vec![1, 4, 2, 5]);
+            v.iter_mut(1).for_each(|v| *v = 0);
+        }
+        assert_eq!(m4.values, vec![0, 0, 3, 0, 0, 6, 7, 8, 9]);
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let m = DenseMatrix::new(2, 2, vec![1, 2, 3, 4], true).unwrap();
+        assert!(!m.is_empty());
+        let empty: DenseMatrix<i32> = DenseMatrix::new(0, 0, vec![], true).unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_stride_range_error() {
+        let _m = DenseMatrix::new(2, 2, vec![1, 2, 3, 4], true).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid index (2,0) for 2x2 matrix")]
+    fn test_get_out_of_bounds() {
+        let m = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        m.get((2, 0));
+    }
+
+    #[test]
+    fn test_transpose_row_major() {
+        let m = DenseMatrix::new(2, 3, vec![1, 2, 3, 4, 5, 6], false).unwrap();
+        let mt = m.transpose();
+        assert!(mt.column_major);
+        assert_eq!(mt.nrows, 3);
+        assert_eq!(mt.ncols, 2);
+        assert_eq!(mt.values, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    #[should_panic(expected = "For two dimensional array `axis` should be either 0 or 1")]
+    fn test_iterator_invalid_axis() {
+        let m = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let _ = m.iterator(2);
+    }
+
+    #[test]
+    #[should_panic(expected = "For two dimensional array `axis` should be either 0 or 1")]
+    fn test_iterator_mut_invalid_axis() {
+        let mut m = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let _ = m.iterator_mut(2);
+    }
+
+    #[test]
+    fn test_view_1d_access() {
+        let m = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let v_row = DenseMatrixView::new(&m, 0..1, 0..3).unwrap();
+        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v_row), 3);
+        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::get(&v_row, 1), &2);
+
+        let v_col = DenseMatrixView::new(&m, 0..2, 1..2).unwrap();
+        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v_col), 2);
+        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::get(&v_col, 1), &5);
+    }
+
+    #[test]
+    #[should_panic(expected = "This is neither a column nor a row")]
+    fn test_view_1d_access_invalid() {
+        let m = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let v = DenseMatrixView::new(&m, 0..2, 0..2).unwrap();
+        let _ = <DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v);
     }
 }
