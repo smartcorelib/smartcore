@@ -999,9 +999,7 @@ mod tests {
         assert_eq!(vec!["1", "4", "7", "2", "5", "8", "3", "6", "9"], x.values);
         x.iterator_mut(0).for_each(|v| *v = "str");
         assert_eq!(
-            vec![
-                "str", "str", "str", "str", "str", "str", "str", "str", "str"
-            ],
+            vec!["str", "str", "str", "str", "str", "str", "str", "str", "str"],
             x.values
         );
     }
