@@ -1073,7 +1073,7 @@ mod tests {
             &[1. + f32::EPSILON, 2., 3.],
             &[4., 5., 6. + f32::EPSILON],
         ])
-            .unwrap();
+        .unwrap();
         let d = DenseMatrix::from_2d_array(&[&[1. + 0.5, 2., 3.], &[4., 5., 6. + f32::EPSILON]])
             .unwrap();
 
@@ -1226,12 +1226,24 @@ mod tests {
     fn test_view_1d_access() {
         let m = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         let v_row = DenseMatrixView::new(&m, 0..1, 0..3).unwrap();
-        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v_row), 3);
-        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::get(&v_row, 1), &2);
+        assert_eq!(
+            <DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v_row),
+            3
+        );
+        assert_eq!(
+            <DenseMatrixView<'_, i32> as Array<i32, usize>>::get(&v_row, 1),
+            &2
+        );
 
         let v_col = DenseMatrixView::new(&m, 0..2, 1..2).unwrap();
-        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v_col), 2);
-        assert_eq!(<DenseMatrixView<'_, i32> as Array<i32, usize>>::get(&v_col, 1), &5);
+        assert_eq!(
+            <DenseMatrixView<'_, i32> as Array<i32, usize>>::shape(&v_col),
+            2
+        );
+        assert_eq!(
+            <DenseMatrixView<'_, i32> as Array<i32, usize>>::get(&v_col, 1),
+            &5
+        );
     }
 
     #[test]
