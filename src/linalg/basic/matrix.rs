@@ -80,6 +80,12 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixView<'a, T> {
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
+
+        let contiguous_row_major = !self.column_major && axis == 0 && self.stride == self.ncols;
+        let contiguous_col_major = self.column_major && axis == 1 && self.stride == self.nrows;
+        if contiguous_row_major || contiguous_col_major {
+            return Box::new(self.values.iter());
+        }
         match axis {
             0 => Box::new(
                 (0..self.nrows).flat_map(move |r| (0..self.ncols).map(move |c| self.get((r, c)))),
@@ -132,6 +138,15 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
+
+        // Fast path: when the view is contiguous in the requested traversal order,
+        // return a plain slice iterator with no per-element dispatch overhead.
+        let contiguous_row_major = !self.column_major && axis == 0 && self.stride == self.ncols;
+        let contiguous_col_major = self.column_major && axis == 1 && self.stride == self.nrows;
+        if contiguous_row_major || contiguous_col_major {
+            return Box::new(self.values.iter());
+        }
+
         match axis {
             0 => Box::new(
                 (0..self.nrows).flat_map(move |r| (0..self.ncols).map(move |c| self.get((r, c)))),
@@ -143,6 +158,13 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     }
 
     fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
+        let nrows = self.nrows;
+        let ncols = self.ncols;
+
+        if ncols == 0 || nrows == 0 {
+            return Box::new(std::iter::empty());
+        }
+
         assert!(
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
@@ -150,127 +172,129 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
 
         let column_major = self.column_major;
         let stride = self.stride;
-        let nrows = self.nrows;
-        let ncols = self.ncols;
 
-        // Axis = 0: row-by-row (outer loop over rows, inner over cols)
-        // Axis = 1: col-by-col (outer loop over cols, inner over rows)
-        // Four cases: column-major (axis 0 or 1), row-major (axis 1 or 0)
-
-        // Collect all mutable references up-front using split_at_mut so
-        // that the resulting iterator owns no borrow of "self.values"
-
+        // Eagerly validate that each strided chunk is large enough before returning iterator
         match (column_major, axis) {
-            // Case B: column-major, col-by-col
-            (true, 1) => {
-                let mut refs: Vec<&'b mut T> = Vec::with_capacity(ncols * nrows);
-                let mut remaining: &'b mut [T] = self.values;
-                for _c in 0..ncols {
-                    let col_end = if _c == ncols - 1 {
-                        remaining.len()
-                    } else {
-                        stride
-                    };
-                    let (col_slice, tail) = remaining.split_at_mut(col_end);
-                    for elem in col_slice[..nrows].iter_mut() {
-                        refs.push(elem);
-                    }
-                    remaining = tail;
-                }
-                Box::new(refs.into_iter())
+            (true, 1) => assert!(
+                stride >= nrows,
+                "iter_mut: chunk size ({}) < take ({}): view layout is inconsistent",
+                stride,
+                nrows
+            ),
+            (false, 0) => assert!(
+                stride >= ncols,
+                "iter_mut: chunk size ({}) < take ({}): view layout is inconsistent",
+                stride,
+                ncols
+            ),
+            _ => {}
+        }
+
+        make_iter_mut(self.values, column_major, axis, stride, nrows, ncols)
+    }
+}
+
+/// Shared mutable iterator logic for both `DenseMatrix::iterator_mut` and
+/// `DenseMatrixMutView::iter_mut`
+fn make_iter_mut<'a, T: Debug + Display + Copy + Sized>(
+    slice: &'a mut [T],
+    column_major: bool,
+    axis: u8,
+    stride: usize,
+    nrows: usize,
+    ncols: usize,
+) -> Box<dyn Iterator<Item = &'a mut T> + 'a> {
+    match (column_major, axis) {
+        // Case B: column-major, col-by-col
+        (true, 1) => Box::new(strided_iter_mut(slice, ncols, stride, nrows)),
+
+        // Case A: column-major, row-by-row
+        (true, _) => Box::new(TransposedIterMut::new(slice, stride, nrows, ncols)),
+
+        // Case C: row-major, row-by-row
+        (false, 0) => Box::new(strided_iter_mut(slice, nrows, stride, ncols)),
+
+        // Case D: row-major, col-by-col
+        (false, _) => Box::new(TransposedIterMut::new(slice, stride, ncols, nrows)),
+    }
+}
+
+/// Returns a lazy iterator over the first `take` elements of each
+/// chunk of size `chunk_size` from `slice`, using `chunks_mut` + `flat_map`
+/// to maintain lazy evaluation without any up-front allocation
+fn strided_iter_mut<T>(
+    slice: &mut [T],
+    _chunks: usize,
+    chunk_size: usize,
+    take: usize,
+) -> impl Iterator<Item = &mut T> {
+    slice.chunks_mut(chunk_size).flat_map(move |chunk| {
+        assert!(
+            chunk.len() >= take,
+            "iter_mut: chunk size ({}) < take ({}): view layout is inconsistent",
+            chunk.len(),
+            take
+        );
+        chunk[..take].iter_mut()
+    })
+}
+
+struct TransposedIterMut<'a, T> {
+    chunks: Vec<&'a mut [T]>,
+    outer_count: usize,
+    outer_idx: usize,
+    inner_idx: usize,
+}
+
+impl<'a, T> TransposedIterMut<'a, T> {
+    fn new(slice: &'a mut [T], stride: usize, outer_count: usize, inner_count: usize) -> Self {
+        let mut chunks: Vec<&'a mut [T]> = Vec::with_capacity(inner_count);
+        let mut remaining = slice;
+        for i in 0..inner_count {
+            let chunk_len = if i < inner_count - 1 {
+                stride
+            } else {
+                remaining.len()
+            };
+            let (head, tail) = remaining.split_at_mut(chunk_len);
+            chunks.push(head);
+            remaining = tail;
+        }
+        TransposedIterMut {
+            chunks,
+            outer_count,
+            outer_idx: 0,
+            inner_idx: 0,
+        }
+    }
+}
+
+impl<'a, T> Iterator for TransposedIterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.outer_idx >= self.outer_count {
+                return None;
             }
 
-            // Case A: column-major, row-by-row
-            (true, _) => {
-                let mut refs: Vec<&'b mut T> = Vec::with_capacity(nrows * ncols);
-
-                let total = nrows * ncols;
-
-                let mut by_col: Vec<&'b mut T> = Vec::with_capacity(total);
-                {
-                    let mut remaining: &'b mut [T] = self.values;
-                    for _c in 0..ncols {
-                        let col_end = if _c == ncols - 1 {
-                            remaining.len()
-                        } else {
-                            stride
-                        };
-                        let (col_slice, tail) = remaining.split_at_mut(col_end);
-                        for elem in col_slice[..nrows].iter_mut() {
-                            by_col.push(elem);
-                        }
-                        remaining = tail;
-                    }
-                }
-
-                let mut indexed: Vec<(usize, &'b mut T)> = by_col
-                    .into_iter()
-                    .enumerate()
-                    .map(|(flat_col_idx, r)| {
-                        let c = flat_col_idx / nrows;
-                        let row = flat_col_idx % nrows;
-                        let out_idx = row * ncols + c;
-                        (out_idx, r)
-                    })
-                    .collect();
-                indexed.sort_unstable_by_key(|(idx, _)| *idx);
-                refs.extend(indexed.into_iter().map(|(_, r)| r));
-                Box::new(refs.into_iter())
+            if self.inner_idx >= self.chunks.len() {
+                self.outer_idx += 1;
+                self.inner_idx = 0;
+                continue;
             }
 
-            // Case C: row-major, row-by-row
-            (false, 0) => {
-                let mut refs: Vec<&'b mut T> = Vec::with_capacity(nrows * ncols);
-                let mut remaining: &'b mut [T] = self.values;
-                for _r in 0..nrows {
-                    let row_end = if _r == nrows - 1 {
-                        remaining.len()
-                    } else {
-                        stride
-                    };
-                    let (row_slice, tail) = remaining.split_at_mut(row_end);
-                    for elem in row_slice[..ncols].iter_mut() {
-                        refs.push(elem);
-                    }
-                    remaining = tail;
+            let chunk: &'a mut [T] = std::mem::take(&mut self.chunks[self.inner_idx]);
+            match chunk.split_first_mut() {
+                Some((first, rest)) => {
+                    self.chunks[self.inner_idx] = rest;
+                    self.inner_idx += 1;
+                    return Some(first);
                 }
-                Box::new(refs.into_iter())
-            }
-
-            // Case D: row-major, col-by-col
-            (false, _) => {
-                let total = nrows * ncols;
-                let mut by_row: Vec<&'b mut T> = Vec::with_capacity(total);
-                {
-                    let mut remaining: &'b mut [T] = self.values;
-                    for _r in 0..nrows {
-                        let row_end = if _r == nrows - 1 {
-                            remaining.len()
-                        } else {
-                            stride
-                        };
-                        let (row_slice, tail) = remaining.split_at_mut(row_end);
-                        for elem in row_slice[..ncols].iter_mut() {
-                            by_row.push(elem);
-                        }
-                        remaining = tail;
-                    }
+                None => {
+                    // Empty chunk (shouldn't happen with valid inputs), skip it
+                    self.inner_idx += 1;
                 }
-
-                let mut indexed: Vec<(usize, &'b mut T)> = by_row
-                    .into_iter()
-                    .enumerate()
-                    .map(|(flat_row_idx, r)| {
-                        let row = flat_row_idx / ncols;
-                        let col = flat_row_idx % ncols;
-                        let out_idx = col * nrows + row;
-                        (out_idx, r)
-                    })
-                    .collect();
-                indexed.sort_unstable_by_key(|(idx, _)| *idx);
-                let mut refs: Vec<&'b mut T> = Vec::with_capacity(total);
-                refs.extend(indexed.into_iter().map(|(_, r)| r));
-                Box::new(refs.into_iter())
             }
         }
     }
@@ -314,7 +338,33 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
 
     /// New instance of `DenseMatrix` from 2d array.
     pub fn from_2d_array(values: &[&[T]]) -> Result<Self, Failed> {
-        DenseMatrix::from_2d_vec(&values.iter().map(|row| Vec::from(*row)).collect())
+        if values.is_empty() || values[0].is_empty() {
+            return Err(Failed::input(
+                "The 2d vec provided is empty; cannot instantiate the matrix",
+            ));
+        }
+
+        let nrows = values.len();
+        let ncols = values[0].len();
+
+        for (i, row) in values.iter().enumerate() {
+            if row.len() != ncols {
+                return Err(Failed::input(&format!(
+                    "Row {i} has length {} but row 0 has length {ncols}; \
+                     jagged arrays are not supported",
+                    row.len()
+                )));
+            }
+        }
+
+        let mut m_values = Vec::with_capacity(nrows * ncols);
+        for c in 0..ncols {
+            for r in values.iter() {
+                m_values.push(r[c]);
+            }
+        }
+
+        DenseMatrix::new(nrows, ncols, m_values, true)
     }
 
     /// New instance of `DenseMatrix` from 2d vector.
@@ -343,11 +393,16 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
             }
         }
 
+        // Build column-major storage: for each column, push that column's
+        // element from every row.  Using a temporary row-major buffer and
+        // then transposing in bulk is not faster here because the input is
+        // already row-slices; we iterate column-by-column to match the
+        // column-major layout expected by `DenseMatrix::new(..., true)`.
         let mut m_values = Vec::with_capacity(nrows * ncols);
 
         for c in 0..ncols {
-            for r in values.iter().take(nrows) {
-                m_values.push(r[c])
+            for r in values.iter() {
+                m_values.push(r[c]);
             }
         }
 
@@ -357,6 +412,49 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     /// Iterate over values of matrix
     pub fn iter(&self) -> Iter<'_, T> {
         self.values.iter()
+    }
+
+    /// Returns the full backing slice of matrix values.
+    ///
+    /// The layout is determined by `column_major`: column-major if `true`, row-major if `false`.
+    /// Use this for zero-overhead bulk access when you know the storage order.
+    #[inline]
+    pub fn values_slice(&self) -> &[T] {
+        &self.values
+    }
+
+    /// Returns a slice of the elements in row `row`.
+    ///
+    /// For row-major storage this is a single contiguous slice of `ncols` elements.
+    /// For column-major storage the elements are not contiguous, so `None` is returned.
+    #[inline]
+    pub fn row_slice(&self, row: usize) -> Option<&[T]> {
+        if row >= self.nrows {
+            return None;
+        }
+        if !self.column_major {
+            let start = row * self.ncols;
+            Some(&self.values[start..start + self.ncols])
+        } else {
+            None
+        }
+    }
+
+    /// Returns a slice of the elements in column `col`.
+    ///
+    /// For column-major storage this is a single contiguous slice of `nrows` elements.
+    /// For row-major storage the elements are not contiguous, so `None` is returned.
+    #[inline]
+    pub fn col_slice(&self, col: usize) -> Option<&[T]> {
+        if col >= self.ncols {
+            return None;
+        }
+        if self.column_major {
+            let start = col * self.nrows;
+            Some(&self.values[start..start + self.nrows])
+        } else {
+            None
+        }
     }
 
     /// Check if the size of the requested view is bounded to matrix rows/cols count.
@@ -392,17 +490,22 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
                         .expect("stride_range: integer overflow in start (column_major)"),
                 )
                 .expect("stride_range: integer overflow in start (column_major)");
-            let end = vrows
-                .end
-                .checked_add(
-                    vcols
-                        .end
-                        .checked_sub(1)
-                        .expect("stride_range: vcols.end underflow (column_major)")
-                        .checked_mul(n_rows)
-                        .expect("stride_range: integer overflow in end (column_major)"),
-                )
-                .expect("stride_range: integer overflow in end (column_major)");
+
+            let end = if vcols.is_empty() || vrows.is_empty() {
+                start
+            } else {
+                vrows
+                    .end
+                    .checked_add(
+                        vcols
+                            .end
+                            .checked_sub(1)
+                            .expect("stride_range: vcols.end underflow (column_major)")
+                            .checked_mul(n_rows)
+                            .expect("stride_range: integer overflow in end (column_major)"),
+                    )
+                    .expect("stride_range: integer overflow in end (column_major)")
+            };
             (start, end, n_rows)
         } else {
             let start = vrows
@@ -411,14 +514,19 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
                 .expect("stride_range: integer overflow in start (row_major)")
                 .checked_add(vcols.start)
                 .expect("stride_range: integer overflow in start (row_major)");
-            let end = vrows
-                .end
-                .checked_sub(1)
-                .expect("stride_range: vrows.end underflow (row_major)")
-                .checked_mul(n_cols)
-                .expect("stride_range: integer overflow in end (row_major)")
-                .checked_add(vcols.end)
-                .expect("stride_range: integer overflow in end (row_major)");
+
+            let end = if vrows.is_empty() || vcols.is_empty() {
+                start
+            } else {
+                vrows
+                    .end
+                    .checked_sub(1)
+                    .expect("stride_range: vrows.end underflow (row_major)")
+                    .checked_mul(n_cols)
+                    .expect("stride_range: integer overflow in end (row_major)")
+                    .checked_add(vcols.end)
+                    .expect("stride_range: integer overflow in end (row_major)")
+            };
             (start, end, n_cols)
         };
         (start, end, stride)
@@ -535,6 +643,16 @@ impl<T: Debug + Display + Copy + Sized> Array<T, (usize, usize)> for DenseMatrix
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
+
+        // Fast path: a non-view DenseMatrix is always fully contiguous
+        // column-major storage is default col-by-col (axis == 1)
+        // row-major storage is by default row-by-row (axis == 0)
+        // In both matching cases we can return a plain slice iterator
+        let natural_order = (self.column_major && axis == 1) || (!self.column_major && axis == 0);
+        if natural_order {
+            return Box::new(self.values.iter());
+        }
+
         match axis {
             0 => Box::new(
                 (0..self.nrows).flat_map(move |r| (0..self.ncols).map(move |c| self.get((r, c)))),
@@ -556,85 +674,27 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
+        let (nrows, ncols) = self.shape();
+
+        if ncols == 0 || nrows == 0 {
+            return Box::new(std::iter::empty());
+        }
+
         assert!(
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
 
         let column_major = self.column_major;
-        let (nrows, ncols) = self.shape();
 
-        match (column_major, axis) {
-            // Case B: column-major, col-by-col
-            (true, 1) => {
-                let refs: Vec<&'b mut T> = self
-                    .values
-                    .chunks_mut(nrows)
-                    .flat_map(|col| col.iter_mut())
-                    .collect();
-                Box::new(refs.into_iter())
-            }
-
-            // Case A: column-major, row-by-row
-            (true, _) => {
-                let total = nrows * ncols;
-                let by_col: Vec<&'b mut T> = self
-                    .values
-                    .chunks_mut(nrows)
-                    .flat_map(|col| col.iter_mut())
-                    .collect();
-
-                let mut indexed: Vec<(usize, &'b mut T)> = by_col
-                    .into_iter()
-                    .enumerate()
-                    .map(|(flat_col_idx, elem)| {
-                        let c = flat_col_idx / nrows;
-                        let r = flat_col_idx % nrows;
-                        (r * ncols + c, elem)
-                    })
-                    .collect();
-                indexed.sort_unstable_by_key(|(idx, _)| *idx);
-
-                let mut refs: Vec<&'b mut T> = Vec::with_capacity(total);
-                refs.extend(indexed.into_iter().map(|(_, e)| e));
-                Box::new(refs.into_iter())
-            }
-
-            // Case C: row-major, row-by-row
-            (false, 0) => {
-                let refs: Vec<&'b mut T> = self
-                    .values
-                    .chunks_mut(ncols)
-                    .flat_map(|row| row.iter_mut())
-                    .collect();
-                Box::new(refs.into_iter())
-            }
-
-            // Case D: row-major, col-by-col
-            (false, _) => {
-                let total = nrows * ncols;
-                let by_row: Vec<&'b mut T> = self
-                    .values
-                    .chunks_mut(ncols)
-                    .flat_map(|row| row.iter_mut())
-                    .collect();
-
-                let mut indexed: Vec<(usize, &'b mut T)> = by_row
-                    .into_iter()
-                    .enumerate()
-                    .map(|(flat_row_idx, elem)| {
-                        let r = flat_row_idx / ncols;
-                        let c = flat_row_idx % ncols;
-                        (c * nrows + r, elem)
-                    })
-                    .collect();
-                indexed.sort_unstable_by_key(|(idx, _)| *idx);
-
-                let mut refs: Vec<&'b mut T> = Vec::with_capacity(total);
-                refs.extend(indexed.into_iter().map(|(_, e)| e));
-                Box::new(refs.into_iter())
-            }
+        let natural_order = (column_major && axis == 1) || (!column_major && axis == 0);
+        if natural_order {
+            return Box::new(self.values.iter_mut());
         }
+
+        let stride = if column_major { nrows } else { ncols };
+
+        make_iter_mut(&mut self.values, column_major, axis, stride, nrows, ncols)
     }
 }
 
@@ -1137,6 +1197,86 @@ mod tests {
         assert_eq!(vals, vec![1, 3, 2, 4]);
         m4.iterator_mut(1).for_each(|v| *v *= 2);
         assert_eq!(m4.values, vec![2, 4, 6, 8]);
+    }
+
+    #[test]
+    fn test_iter_empty_matrix() {
+        let m00: DenseMatrix<f64> = DenseMatrix::new(0, 0, vec![], true).unwrap();
+        assert_eq!(m00.iterator(0).count(), 0);
+        assert_eq!(m00.iterator(1).count(), 0);
+
+        let m05: DenseMatrix<f64> = DenseMatrix::new(0, 5, vec![], true).unwrap();
+        assert_eq!(m05.iterator(0).count(), 0);
+        assert_eq!(m05.iterator(1).count(), 0);
+
+        let m50: DenseMatrix<f64> = DenseMatrix::new(5, 0, vec![], true).unwrap();
+        assert_eq!(m50.iterator(0).count(), 0);
+        assert_eq!(m50.iterator(1).count(), 0);
+    }
+
+    #[test]
+    fn test_iterator_mut_empty_matrix() {
+        let mut m00: DenseMatrix<f64> = DenseMatrix::new(0, 0, vec![], true).unwrap();
+        assert_eq!(m00.iterator_mut(0).count(), 0);
+        assert_eq!(m00.iterator_mut(1).count(), 0);
+
+        let mut m05: DenseMatrix<f64> = DenseMatrix::new(0, 5, vec![], true).unwrap();
+        assert_eq!(m05.iterator_mut(0).count(), 0);
+        assert_eq!(m05.iterator_mut(1).count(), 0);
+
+        let mut m50: DenseMatrix<f64> = DenseMatrix::new(5, 0, vec![], true).unwrap();
+        assert_eq!(m50.iterator_mut(0).count(), 0);
+        assert_eq!(m50.iterator_mut(1).count(), 0);
+    }
+
+    #[test]
+    fn test_iter_mut_view_empty_matrix() {
+        let mut m: DenseMatrix<f64> = DenseMatrix::fill(5, 5, 0.0);
+        // Create an empty view
+        let mut v = DenseMatrixMutView::new(&mut m, 0..0, 0..5).unwrap();
+        assert_eq!(v.iter_mut(0).count(), 0);
+        assert_eq!(v.iter_mut(1).count(), 0);
+
+        let mut v2 = DenseMatrixMutView::new(&mut m, 0..5, 0..0).unwrap();
+        assert_eq!(v2.iter_mut(0).count(), 0);
+        assert_eq!(v2.iter_mut(1).count(), 0);
+    }
+
+    #[test]
+    fn test_iter_single_row_column() {
+        let m13 = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]).unwrap();
+        assert_eq!(
+            m13.iterator(0).cloned().collect::<Vec<_>>(),
+            vec![1.0, 2.0, 3.0]
+        );
+        assert_eq!(
+            m13.iterator(1).cloned().collect::<Vec<_>>(),
+            vec![1.0, 2.0, 3.0]
+        );
+
+        let m31 = DenseMatrix::from_2d_array(&[&[1.0], &[2.0], &[3.0]]).unwrap();
+        assert_eq!(
+            m31.iterator(0).cloned().collect::<Vec<_>>(),
+            vec![1.0, 2.0, 3.0]
+        );
+        assert_eq!(
+            m31.iterator(1).cloned().collect::<Vec<_>>(),
+            vec![1.0, 2.0, 3.0]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "iter_mut: chunk size (2) < take (3)")]
+    fn test_iter_mut_stride_validation() {
+        let mut values = vec![1.0, 2.0, 3.0, 4.0];
+        let mut view = DenseMatrixMutView {
+            values: &mut values,
+            stride: 2,
+            nrows: 3, // take 3 from chunk of size 2 - should panic
+            ncols: 2, // at least 2 columns to trigger chunking
+            column_major: true,
+        };
+        let _ = view.iter_mut(1);
     }
 
     #[test]
