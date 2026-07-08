@@ -75,6 +75,8 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
         let y_pred: Vec<T> =
             Array1::<T>::from_iterator(y_pred_prob.iterator(0).copied(), y_pred_prob.shape());
         // TODO: try to use `crate::algorithm::sort::quick_sort` here
+        // `argsort()` returns a permutation of [0..n), so every label_idx[i] is a
+        // valid index into y_pred. rank[i] corresponds to the i-th smallest score.
         let label_idx: Vec<usize> = y_pred.argsort();
 
         let mut rank = vec![0f64; n];
@@ -83,10 +85,15 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
             if i == n - 1 || y_pred.get(label_idx[i]) != y_pred.get(label_idx[i + 1]) {
                 rank[i] = (i + 1) as f64;
             } else {
+                // Tie group: advance j to the first index beyond the group, then
+                // assign the averaged 1-based rank (i+1 .. j) to every member.
+                // Outer loop invariant: i is the first unprocessed sorted position;
+                // after this branch i is set to j-1 (then incremented to j).
                 let mut j = i + 1;
                 while j < n && y_pred.get(label_idx[j]) == y_pred.get(label_idx[i]) {
                     j += 1;
                 }
+                // Average of 1-based ranks [i+1 .. j] (inclusive on both ends).
                 let r = (i + 1 + j) as f64 / 2f64;
                 for rank_k in rank.iter_mut().take(j).skip(i) {
                     *rank_k = r;

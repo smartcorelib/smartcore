@@ -90,7 +90,7 @@ where
     pub fn from_category_map(category_map: HashMap<C, usize>) -> Self {
         let mut _unique_cat: Vec<(C, usize)> =
             category_map.iter().map(|(k, v)| (k.clone(), *v)).collect();
-        _unique_cat.sort_by(|a, b| a.1.cmp(&b.1));
+        _unique_cat.sort_by_key(|a| a.1);
         let categories: Vec<C> = _unique_cat.into_iter().map(|a| a.0).collect();
         Self {
             num_categories: categories.len(),
@@ -296,5 +296,102 @@ mod tests {
             Some(vec![1.0, 0.0, 0.0]),
         ];
         assert_eq!(res, v)
+    }
+
+    // --- additional coverage tests ---
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn num_categories_returns_correct_count() {
+        let enc = build_fake_str_enc();
+        assert_eq!(enc.num_categories(), 3);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn get_num_known_and_unknown() {
+        let enc = build_fake_str_enc();
+        assert_eq!(enc.get_num(&"dog"), Some(&1));
+        assert_eq!(enc.get_num(&"fish"), None);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn get_cat_round_trips() {
+        let enc = build_fake_str_enc();
+        assert_eq!(enc.get_cat(0), &"background");
+        assert_eq!(enc.get_cat(1), &"dog");
+        assert_eq!(enc.get_cat(2), &"cat");
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn get_categories_slice_matches_positional_order() {
+        let enc = build_fake_str_enc();
+        assert_eq!(enc.get_categories(), &["background", "dog", "cat"]);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn get_ordinal_unknown_returns_none() {
+        let enc = build_fake_str_enc();
+        assert_eq!(enc.get_ordinal::<f64>(&"fish"), None);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn invert_one_hot_multi_hot_error() {
+        // Two positive entries should produce an error, not a panic.
+        let enc = build_fake_str_enc();
+        let multi_hot: Vec<f64> = vec![1.0, 1.0, 0.0];
+        match enc.invert_one_hot(multi_hot) {
+            Err(e) => {
+                let expected = "Expected a single positive entry, 2 entires found".to_string();
+                assert_eq!(e, Failed::transform(&expected[..]));
+            }
+            Ok(_) => panic!("Expected an error for multi-hot input"),
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn make_one_hot_direct() {
+        let v: Vec<f64> = make_one_hot(1, 4);
+        assert_eq!(v, vec![0.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn from_category_map_preserves_order() {
+        // Verify sort_by_key produces category vec ordered by assigned index.
+        let category_map: HashMap<&str, usize> =
+            vec![("z", 2), ("a", 0), ("m", 1)].into_iter().collect();
+        let enc = CategoryMapper::<&str>::from_category_map(category_map);
+        assert_eq!(enc.get_categories(), &["a", "m", "z"]);
+        assert_eq!(enc.num_categories(), 3);
     }
 }
