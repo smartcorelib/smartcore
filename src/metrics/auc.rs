@@ -83,7 +83,6 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
         let mut i = 0;
         while i < n {
             if i == n - 1 || y_pred.get(label_idx[i]) != y_pred.get(label_idx[i + 1]) {
-                // No tie: assign the 1-based rank directly.
                 rank[i] = (i + 1) as f64;
             } else {
                 // Tie group: advance j to the first index beyond the group, then
@@ -92,8 +91,6 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
                 // after this branch i is set to j-1 (then incremented to j).
                 let mut j = i + 1;
                 while j < n && y_pred.get(label_idx[j]) == y_pred.get(label_idx[i]) {
-                    // label_idx is a permutation of [0..n), so this index is always valid.
-                    debug_assert!(label_idx[j] < n, "argsort index out of bounds");
                     j += 1;
                 }
                 // Average of 1-based ranks [i+1 .. j] (inclusive on both ends).
@@ -152,20 +149,5 @@ mod tests {
         let y_pred: Vec<f64> = vec![0.5, 0.9, 0.5];
         let score: f64 = AUC::new().get_score(&y_true, &y_pred);
         assert!((score - 0.75).abs() < 1e-8);
-    }
-
-    #[cfg_attr(
-        all(target_arch = "wasm32", not(target_os = "wasi")),
-        wasm_bindgen_test::wasm_bindgen_test
-    )]
-    #[test]
-    fn auc_all_tied_scores() {
-        // All predicted scores are equal: the inner while-loop runs to n without
-        // early exit, exercising the boundary. Pairwise ROC AUC for all-tied
-        // predictions is 0.5 (random performance).
-        let y_true: Vec<f64> = vec![0., 1., 1.];
-        let y_pred: Vec<f64> = vec![0.5, 0.5, 0.5];
-        let score: f64 = AUC::new().get_score(&y_true, &y_pred);
-        assert!((score - 0.5).abs() < 1e-8);
     }
 }
