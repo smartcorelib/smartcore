@@ -55,7 +55,11 @@ jobs:
     strategy:
       matrix:
         platform: [{ os: "ubuntu" }]
-        features: ["--features serde", "--features datasets", ""]
+        features:
+          - "--features serde"
+          - "--features datasets"
+          - "--features ndarray-bindings"
+          - ""
     env:
       TZ: "/usr/share/zoneinfo/your/location"
     steps:
@@ -72,3 +76,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Stable Build
         run: cargo build --no-default-features ${{ matrix.features }}
+      - name: Tests
+        if: matrix.features == '--features ndarray-bindings'
+        run: cargo test --no-default-features ${{ matrix.features }}

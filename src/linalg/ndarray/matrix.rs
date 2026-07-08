@@ -13,7 +13,7 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, OwnedRepr};
+use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, OwnedRepr, Order};
 
 // ---------------------------------------------------------------------------
 // ArrayBase<OwnedRepr<T>, Ix2>  (owned 2-D array)
@@ -105,12 +105,16 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
+        // `into_shape` was deprecated in ndarray 0.16; use `into_shape_with_order` instead.
         let a = Array::from_iter(iter.take(nrows * ncols))
-            .into_shape((nrows, ncols))
+            .into_shape_with_order(((nrows, ncols), Order::RowMajor))
             .unwrap();
         match axis {
             0 => a,
-            _ => a.reversed_axes().into_shape((nrows, ncols)).unwrap(),
+            _ => a
+                .reversed_axes()
+                .into_shape_with_order(((nrows, ncols), Order::RowMajor))
+                .unwrap(),
         }
     }
 
