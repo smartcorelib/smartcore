@@ -45,7 +45,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use rand::Rng;
+use rand::RngExt;
 
 use std::default::Default;
 use std::fmt::Debug;
@@ -539,27 +539,34 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         let (n, _) = x.shape();
-        if self.samples.is_none() {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
-            ))
-        } else if self.samples.as_ref().unwrap()[0].len() != n {
-            Err(Failed::because(
+
+        let samples = match &self.samples {
+            Some(s) => s,
+            None => {
+                return Err(Failed::because(
+                    FailedError::PredictFailed,
+                    "Need samples=true for OOB predictions.",
+                ));
+            }
+        };
+
+        if samples[0].len() != n {
+            return Err(Failed::because(
                 FailedError::PredictFailed,
                 "Prediction matrix must match matrix used in training for OOB predictions.",
-            ))
-        } else {
-            let mut result = Y::zeros(n);
-
-            for i in 0..n {
-                result.set(
-                    i,
-                    self.classes.as_ref().unwrap()[self.predict_for_row_oob(x, i)],
-                );
-            }
-            Ok(result)
+            ));
         }
+
+        let mut result = Y::zeros(n);
+
+        for i in 0..n {
+            result.set(
+                i,
+                self.classes.as_ref().unwrap()[self.predict_for_row_oob(x, i)],
+            );
+        }
+
+        Ok(result)
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
@@ -580,7 +587,11 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         which_max(&result)
     }
 
-    fn sample_with_replacement(y: &[usize], num_classes: usize, rng: &mut impl Rng) -> Vec<usize> {
+    fn sample_with_replacement(
+        y: &[usize],
+        num_classes: usize,
+        rng: &mut impl rand::Rng,
+    ) -> Vec<usize> {
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();
         let mut samples = vec![0; nrows];
@@ -596,7 +607,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
             let size = ((n_samples as f64) / *class_weight_l) as usize;
             for _ in 0..size {
-                let xi: usize = rng.gen_range(0..n_samples);
+                let xi: usize = rng.random_range(0..n_samples);
                 samples[index[xi]] += 1;
             }
         }

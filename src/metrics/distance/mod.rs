@@ -19,6 +19,8 @@ pub mod cosine;
 pub mod euclidian;
 /// Hamming Distance between two strings is the number of positions at which the corresponding symbols are different.
 pub mod hamming;
+/// Jaccard distance between two integer-valued vectors.
+pub mod jaccard;
 /// The Mahalanobis distance is the distance between two points in multivariate space.
 pub mod mahalanobis;
 /// Also known as rectilinear distance, city block distance, taxicab metric.
@@ -65,6 +67,11 @@ impl Distances {
     /// Hamming distance, see [`Hamming`](hamming/index.html)
     pub fn hamming<T: Number>() -> hamming::Hamming<T> {
         hamming::Hamming::new()
+    }
+
+    /// Jaccard distance, see [`Jaccard`](jaccard/index.html)
+    pub fn jaccard<T: Number>() -> jaccard::Jaccard<T> {
+        jaccard::Jaccard::new()
     }
 
     /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)
