@@ -461,8 +461,10 @@ mod tests {
 
         let tree = DecisionTreeRegressor::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_tree: DecisionTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-            bincode::deserialize(&bincode::serialize(&tree).unwrap()).unwrap();
+        let config = bincode::config::standard();
+        let encoded = bincode::encode_to_vec(&tree, config).unwrap();
+        let (deserialized_tree, _): (DecisionTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>, _) =
+            bincode::decode_from_slice(&encoded, config).unwrap();
 
         assert_eq!(tree, deserialized_tree);
     }

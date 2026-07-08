@@ -805,8 +805,10 @@ mod tests {
 
         let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
-            bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
+        let config = bincode::config::standard();
+        let encoded = bincode::encode_to_vec(&forest, config).unwrap();
+        let (deserialized_forest, _): (RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>>, _) =
+            bincode::decode_from_slice(&encoded, config).unwrap();
 
         assert_eq!(forest, deserialized_forest);
     }

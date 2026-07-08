@@ -607,8 +607,10 @@ mod tests {
 
         let forest = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
 
-        let deserialized_forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-            bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
+        let config = bincode::config::standard();
+        let encoded = bincode::encode_to_vec(&forest, config).unwrap();
+        let (deserialized_forest, _): (RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>, _) =
+            bincode::decode_from_slice(&encoded, config).unwrap();
 
         assert_eq!(forest, deserialized_forest);
     }
