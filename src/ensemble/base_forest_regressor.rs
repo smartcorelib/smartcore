@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 use std::fmt::Debug;
 
 #[cfg(feature = "serde")]
@@ -161,25 +161,31 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         let (n, _) = x.shape();
-        if self.samples.is_none() {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
-            ))
-        } else if self.samples.as_ref().unwrap()[0].len() != n {
-            Err(Failed::because(
+
+        let samples = match &self.samples {
+            Some(s) => s,
+            None => {
+                return Err(Failed::because(
+                    FailedError::PredictFailed,
+                    "Need samples=true for OOB predictions.",
+                ))
+            }
+        };
+
+        if samples[0].len() != n {
+            return Err(Failed::because(
                 FailedError::PredictFailed,
                 "Prediction matrix must match matrix used in training for OOB predictions.",
-            ))
-        } else {
-            let mut result = Y::zeros(n);
-
-            for i in 0..n {
-                result.set(i, self.predict_for_row_oob(x, i));
-            }
-
-            Ok(result)
+            ));
         }
+
+        let mut result = Y::zeros(n);
+
+        for i in 0..n {
+            result.set(i, self.predict_for_row_oob(x, i));
+        }
+
+        Ok(result)
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> TY {
@@ -203,10 +209,10 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         result / TY::from(n_trees).unwrap()
     }
 
-    fn sample_with_replacement(nrows: usize, rng: &mut impl Rng) -> Vec<usize> {
+    fn sample_with_replacement(nrows: usize, rng: &mut impl rand::Rng) -> Vec<usize> {
         let mut samples = vec![0; nrows];
         for _ in 0..nrows {
-            let xi = rng.gen_range(0..nrows);
+            let xi = rng.random_range(0..nrows);
             samples[xi] += 1;
         }
         samples

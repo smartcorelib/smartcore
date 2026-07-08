@@ -248,38 +248,47 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         // A split is only valid if it results in a positive gain.
-        if *best_split_score > 0.0 {
-            let mut left_idxs = Vec::new();
-            let mut right_idxs = Vec::new();
-            for idx in idxs.iter() {
-                if data.get((*idx, *best_feature_idx)).to_f64().unwrap() <= *best_threshold {
-                    left_idxs.push(*idx);
-                } else {
-                    right_idxs.push(*idx);
-                }
-            }
-
-            *left = Some(Box::new(TreeRegressor::fit(
-                data,
-                g,
-                h,
-                &left_idxs,
-                max_depth - 1,
-                min_child_weight,
-                lambda,
-                gamma,
-            )));
-            *right = Some(Box::new(TreeRegressor::fit(
-                data,
-                g,
-                h,
-                &right_idxs,
-                max_depth - 1,
-                min_child_weight,
-                lambda,
-                gamma,
-            )));
+        if *best_split_score <= 0.0 {
+            return;
         }
+
+        let mut left_idxs = Vec::new();
+        let mut right_idxs = Vec::new();
+        for idx in idxs.iter() {
+            if data.get((*idx, *best_feature_idx)).to_f64().unwrap() <= *best_threshold {
+                left_idxs.push(*idx);
+            } else {
+                right_idxs.push(*idx);
+            }
+        }
+
+        if left_idxs.is_empty() || right_idxs.is_empty() {
+            // A degenerate split where all samples land on one side. This can happen when feature
+            // values are large enough that `(x_i + x_i_next) / 2.0` overflows to +inf,
+            // all samples satisfy `<= +inf` and right_idxs is empty.
+            return;
+        }
+
+        *left = Some(Box::new(TreeRegressor::fit(
+            data,
+            g,
+            h,
+            &left_idxs,
+            max_depth - 1,
+            min_child_weight,
+            lambda,
+            gamma,
+        )));
+        *right = Some(Box::new(TreeRegressor::fit(
+            data,
+            g,
+            h,
+            &right_idxs,
+            max_depth - 1,
+            min_child_weight,
+            lambda,
+            gamma,
+        )));
     }
 
     /// Iterates through a single feature to find the best possible split point.
@@ -731,6 +740,26 @@ mod tests {
         // Right leaf: G = 2.5, H = 2.0 => value = -(2.5)/(2+1) = -0.8333
         assert!((tree.left.unwrap().value - 0.5).abs() < 1e-9);
         assert!((tree.right.unwrap().value - (-0.833333333)).abs() < 1e-9);
+    }
+
+    /// Exercises the degenerate-split guard in insert_child_nodes.
+    #[test]
+    fn test_no_panic_on_degenerate_split_from_overflow() {
+        let large = f64::MAX / 1.5;
+        let x_vec = vec![vec![large], vec![large * 1.1]];
+        let x = DenseMatrix::from_2d_vec(&x_vec).unwrap();
+        let y = vec![0.0, 1.0];
+
+        let params = XGRegressorParameters::default()
+            .with_n_estimators(10)
+            .with_max_depth(3);
+
+        let model = XGRegressor::fit(&x, &y, params);
+        assert!(model.is_ok(), "Fit panicked or failed: {:?}", model.err());
+
+        let predictions = model.unwrap().predict(&x);
+        assert!(predictions.is_ok());
+        assert_eq!(predictions.unwrap().len(), 2);
     }
 
     /// A "smoke test" to ensure the main XGRegressor can fit and predict on multidimensional data.

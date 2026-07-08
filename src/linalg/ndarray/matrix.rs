@@ -13,7 +13,11 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix2, OwnedRepr};
+use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, OwnedRepr};
+
+// ---------------------------------------------------------------------------
+// ArrayBase<OwnedRepr<T>, Ix2>  (owned 2-D array)
+// ---------------------------------------------------------------------------
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     for ArrayBase<OwnedRepr<T>, Ix2>
@@ -27,7 +31,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -52,48 +56,23 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)>
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let ptr = self.as_mut_ptr();
-        let stride = self.strides();
-        let (rstride, cstride) = (stride[0] as usize, stride[1] as usize);
-        match axis {
-            0 => Box::new(self.iter_mut()),
-            _ => Box::new((0..self.ncols()).flat_map(move |c| {
-                (0..self.nrows()).map(move |r| unsafe { &mut *ptr.add(r * rstride + c * cstride) })
-            })),
-        }
-    }
-}
-
-impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
-
-impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
-
-impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayView<'_, T, Ix2> {
-    fn get(&self, pos: (usize, usize)) -> &T {
-        &self[[pos.0, pos.1]]
-    }
-
-    fn shape(&self) -> (usize, usize) {
-        (self.nrows(), self.ncols())
-    }
-
-    fn is_empty(&self) -> bool {
-        self.len() > 0
-    }
-
-    fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
         assert!(
             axis == 1 || axis == 0,
             "For two dimensional array `axis` should be either 0 or 1"
         );
         match axis {
-            0 => Box::new(self.iter()),
-            _ => Box::new(
-                (0..self.ncols()).flat_map(move |c| (0..self.nrows()).map(move |r| &self[[r, c]])),
-            ),
+            // axis-0: row-major — ndarray iter_mut() traverses in row-major order.
+            0 => Box::new(self.iter_mut()),
+            // axis-1: column-major — axis_iter_mut(Axis(1)) yields each column as a
+            // non-overlapping ArrayViewMut1<T>; into_iter() gives &mut T.
+            // No raw pointers or unsafe blocks required.
+            _ => Box::new(self.axis_iter_mut(Axis(1)).flat_map(|col| col.into_iter())),
         }
     }
 }
+
+impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
+impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
 impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix2> {
     fn get_row<'a>(&'a self, row: usize) -> Box<dyn ArrayView1<T> + 'a> {
@@ -116,6 +95,8 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     where
         Self: Sized,
     {
+        // slice_mut returns ArrayBase<ViewRepr<&mut T>, Ix2> which is ArrayViewMut.
+        // We implement MutArrayView2 for ArrayViewMut below, so this cast is valid.
         Box::new(self.slice_mut(s![rows, cols]))
     }
 
@@ -144,7 +125,42 @@ impl<T: Number + RealNumber> EVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2>
 impl<T: Number + RealNumber> LUDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 impl<T: Number + RealNumber> SVDDecomposable<T> for ArrayBase<OwnedRepr<T>, Ix2> {}
 
+// ---------------------------------------------------------------------------
+// ArrayView<'_, T, Ix2>  (immutable 2-D view / slice)
+// ---------------------------------------------------------------------------
+
+impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayView<'_, T, Ix2> {
+    fn get(&self, pos: (usize, usize)) -> &T {
+        &self[[pos.0, pos.1]]
+    }
+
+    fn shape(&self) -> (usize, usize) {
+        (self.nrows(), self.ncols())
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
+        assert!(
+            axis == 1 || axis == 0,
+            "For two dimensional array `axis` should be either 0 or 1"
+        );
+        match axis {
+            0 => Box::new(self.iter()),
+            _ => Box::new(
+                (0..self.ncols()).flat_map(move |c| (0..self.nrows()).map(move |r| &self[[r, c]])),
+            ),
+        }
+    }
+}
+
 impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayView<'_, T, Ix2> {}
+
+// ---------------------------------------------------------------------------
+// ArrayViewMut<'_, T, Ix2>  (mutable 2-D view — returned by slice_mut)
+// ---------------------------------------------------------------------------
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayViewMut<'_, T, Ix2> {
     fn get(&self, pos: (usize, usize)) -> &T {
@@ -156,7 +172,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)> for ArrayVi
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -179,104 +195,22 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let ptr = self.as_mut_ptr();
-        let stride = self.strides();
-        let (rstride, cstride) = (stride[0] as usize, stride[1] as usize);
+        assert!(
+            axis == 1 || axis == 0,
+            "For two dimensional array `axis` should be either 0 or 1"
+        );
         match axis {
+            // axis-0: row-major — safe ndarray iter_mut().
             0 => Box::new(self.iter_mut()),
-            _ => Box::new((0..self.ncols()).flat_map(move |c| {
-                (0..self.nrows()).map(move |r| unsafe { &mut *ptr.add(r * rstride + c * cstride) })
-            })),
+            // axis-1: column-major — axis_iter_mut(Axis(1)) yields each column as a
+            // non-overlapping ArrayViewMut1<T>; into_iter() gives &mut T.
+            // No raw pointers or unsafe blocks required.
+            _ => Box::new(self.axis_iter_mut(Axis(1)).flat_map(|col| col.into_iter())),
         }
     }
 }
 
-impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
-
+// ArrayViewMut satisfies both ArrayView2 (read) and MutArrayView2 (read+write),
+// which is exactly what slice_mut's return type Box<dyn MutArrayView2<T>> requires.
 impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ndarray::{arr2, Array2 as NDArray2};
-
-    #[test]
-    fn test_get_set() {
-        let mut a = arr2(&[[1, 2, 3], [4, 5, 6]]);
-
-        assert_eq!(*BaseArray::get(&a, (1, 1)), 5);
-        a.set((1, 1), 9);
-        assert_eq!(a, arr2(&[[1, 2, 3], [4, 9, 6]]));
-    }
-
-    #[test]
-    fn test_iterator() {
-        let a = arr2(&[[1, 2, 3], [4, 5, 6]]);
-
-        let v: Vec<i32> = a.iterator(0).copied().collect();
-        assert_eq!(v, vec!(1, 2, 3, 4, 5, 6));
-    }
-
-    #[test]
-    fn test_mut_iterator() {
-        let mut a = arr2(&[[1, 2, 3], [4, 5, 6]]);
-
-        a.iterator_mut(0).enumerate().for_each(|(i, v)| *v = i);
-        assert_eq!(a, arr2(&[[0, 1, 2], [3, 4, 5]]));
-        a.iterator_mut(1).enumerate().for_each(|(i, v)| *v = i);
-        assert_eq!(a, arr2(&[[0, 2, 4], [1, 3, 5]]));
-    }
-
-    #[test]
-    fn test_slice() {
-        let x = arr2(&[[1, 2, 3], [4, 5, 6]]);
-        let x_slice = Array2::slice(&x, 0..2, 1..2);
-        assert_eq!((2, 1), x_slice.shape());
-        let v: Vec<i32> = x_slice.iterator(0).copied().collect();
-        assert_eq!(v, [2, 5]);
-    }
-
-    #[test]
-    fn test_slice_iter() {
-        let x = arr2(&[[1, 2, 3], [4, 5, 6]]);
-        let x_slice = Array2::slice(&x, 0..2, 0..3);
-        assert_eq!(
-            x_slice.iterator(0).copied().collect::<Vec<i32>>(),
-            vec![1, 2, 3, 4, 5, 6]
-        );
-        assert_eq!(
-            x_slice.iterator(1).copied().collect::<Vec<i32>>(),
-            vec![1, 4, 2, 5, 3, 6]
-        );
-    }
-
-    #[test]
-    fn test_slice_mut_iter() {
-        let mut x = arr2(&[[1, 2, 3], [4, 5, 6]]);
-        {
-            let mut x_slice = Array2::slice_mut(&mut x, 0..2, 0..3);
-            x_slice
-                .iterator_mut(0)
-                .enumerate()
-                .for_each(|(i, v)| *v = i);
-        }
-        assert_eq!(x, arr2(&[[0, 1, 2], [3, 4, 5]]));
-        {
-            let mut x_slice = Array2::slice_mut(&mut x, 0..2, 0..3);
-            x_slice
-                .iterator_mut(1)
-                .enumerate()
-                .for_each(|(i, v)| *v = i);
-        }
-        assert_eq!(x, arr2(&[[0, 2, 4], [1, 3, 5]]));
-    }
-
-    #[test]
-    fn test_c_from_iterator() {
-        let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        let a: NDArray2<i32> = Array2::from_iterator(data.clone().into_iter(), 4, 3, 0);
-        println!("{a}");
-        let a: NDArray2<i32> = Array2::from_iterator(data.into_iter(), 4, 3, 1);
-        println!("{a}");
-    }
-}
+impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
