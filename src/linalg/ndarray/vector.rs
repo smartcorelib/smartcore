@@ -17,7 +17,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayBase<OwnedR
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -51,7 +51,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayView<'_, T,
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -72,7 +72,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayViewMut<'_,
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -180,5 +180,13 @@ mod tests {
         assert_eq!(2, x_slice.shape());
         assert_eq!(9, *x_slice.get(0));
         assert_eq!(4, *x_slice.get(1));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let empty: ndarray::Array1<i32> = ndarray::Array1::from_vec(vec![]);
+        let non_empty = arr1(&[1, 2, 3]);
+        assert!(BaseArray::is_empty(&empty));
+        assert!(!BaseArray::is_empty(&non_empty));
     }
 }
