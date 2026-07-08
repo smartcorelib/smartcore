@@ -80,11 +80,11 @@ impl<T: FloatNumber + PartialOrd> Metrics<T> for AUC<T> {
         let mut rank = vec![0f64; n];
         let mut i = 0;
         while i < n {
-            if i == n - 1 || y_pred.get(i) != y_pred.get(i + 1) {
+            if i == n - 1 || y_pred.get(label_idx[i]) != y_pred.get(label_idx[i + 1]) {
                 rank[i] = (i + 1) as f64;
             } else {
                 let mut j = i + 1;
-                while j < n && y_pred.get(j) == y_pred.get(i) {
+                while j < n && y_pred.get(label_idx[j]) == y_pred.get(label_idx[i]) {
                     j += 1;
                 }
                 let r = (i + 1 + j) as f64 / 2f64;
@@ -127,5 +127,20 @@ mod tests {
 
         assert!((score1 - 0.75).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn auc_tied_scores() {
+        // Two samples share score 0.5 but are non-adjacent in input order.
+        // Pairwise ROC AUC (ties credited 0.5): pos {0.9,0.5} vs neg {0.5}
+        //   -> (1.0 + 0.5) / 2 = 0.75  (matches sklearn roc_auc_score)
+        let y_true: Vec<f64> = vec![0., 1., 1.];
+        let y_pred: Vec<f64> = vec![0.5, 0.9, 0.5];
+        let score: f64 = AUC::new().get_score(&y_true, &y_pred);
+        assert!((score - 0.75).abs() < 1e-8);
     }
 }
