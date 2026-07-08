@@ -84,7 +84,7 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn slice<'a>(&'a self, rows: Range<usize>, cols: Range<usize>) -> Box<dyn ArrayView2<T> + 'a> {
-        Box::new(self.slice(s![rows, cols]))
+        Box::new(self.view().slice_move(s![rows, cols]))
     }
 
     fn slice_mut<'a>(
@@ -97,7 +97,7 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     {
         // slice_mut returns ArrayBase<ViewRepr<&mut T>, Ix2> which is ArrayViewMut.
         // We implement MutArrayView2 for ArrayViewMut below, so this cast is valid.
-        Box::new(self.slice_mut(s![rows, cols]))
+        Box::new(self.view_mut().slice_move(s![rows, cols]))
     }
 
     fn fill(nrows: usize, ncols: usize, value: T) -> Self {
@@ -218,3 +218,58 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
 // which is exactly what slice_mut's return type Box<dyn MutArrayView2<T>> requires.
 impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
 impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::arr2;
+
+    #[test]
+    fn test_get_row() {
+        let m = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        let row = Array2::get_row(&m, 1);
+        assert_eq!(row.shape(), 3);
+        assert_eq!(*row.get(0), 4);
+        assert_eq!(*row.get(1), 5);
+        assert_eq!(*row.get(2), 6);
+    }
+
+    #[test]
+    fn test_get_col() {
+        let m = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        let col = Array2::get_col(&m, 1);
+        assert_eq!(col.shape(), 2);
+        assert_eq!(*col.get(0), 2);
+        assert_eq!(*col.get(1), 5);
+    }
+
+    #[test]
+    fn test_slice() {
+        let m = arr2(&[[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+        let view = Array2::slice(&m, 1..3, 0..2);
+        assert_eq!(view.shape(), (2, 2));
+        assert_eq!(*view.get((0, 0)), 4);
+        assert_eq!(*view.get((0, 1)), 5);
+        assert_eq!(*view.get((1, 0)), 7);
+        assert_eq!(*view.get((1, 1)), 8);
+    }
+
+    #[test]
+    fn test_slice_mut() {
+        let mut m = arr2(&[[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+        {
+            let mut view = Array2::slice_mut(&mut m, 1..3, 0..2);
+            view.set((0, 0), 40);
+            view.set((1, 1), 80);
+        }
+        assert_eq!(m, arr2(&[[1, 2, 3], [40, 5, 6], [7, 80, 9]]));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let empty = ndarray::Array2::<i32>::from_shape_simple_fn((0, 0), || unreachable!());
+        let non_empty = arr2(&[[1, 2], [3, 4]]);
+        assert!(BaseArray::is_empty(&empty));
+        assert!(!BaseArray::is_empty(&non_empty));
+    }
+}

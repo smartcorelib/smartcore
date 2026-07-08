@@ -102,7 +102,7 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix
             "`range` should be <= {}",
             self.len()
         );
-        Box::new(self.slice(s![range]))
+        Box::new(self.view().slice_move(s![range]))
     }
 
     fn slice_mut<'b>(&'b mut self, range: Range<usize>) -> Box<dyn MutArrayView1<T> + 'b> {
@@ -111,7 +111,7 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix
             "`range` should be <= {}",
             self.len()
         );
-        Box::new(self.slice_mut(s![range]))
+        Box::new(self.view_mut().slice_move(s![range]))
     }
 
     fn fill(len: usize, value: T) -> Self {
