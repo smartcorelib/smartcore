@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.org"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["smartcore Developers"]
 edition = "2021"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ exclude = [
 [dependencies]
 approx = "0.5.1"
 cfg-if = "1.0.0"
-ndarray = { version = "0.15", optional = true }
+ndarray = { version = "0.17", optional = true }
 num-traits = "0.2.12"
 num = "0.4"
 rand = { version = "0.10.1", default-features = false, features = ["alloc"] }
