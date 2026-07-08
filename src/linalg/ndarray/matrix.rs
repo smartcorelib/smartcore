@@ -13,7 +13,7 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, OwnedRepr, Order};
+use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, Order, OwnedRepr};
 
 // ---------------------------------------------------------------------------
 // ArrayBase<OwnedRepr<T>, Ix2>  (owned 2-D array)
