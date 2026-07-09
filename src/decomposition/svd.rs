@@ -62,6 +62,7 @@ use crate::numbers::realnum::RealNumber;
 #[derive(Debug)]
 pub struct SVD<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable<T>> {
     components: X,
+    parameters: Option<SVDParameters>,
     phantom: PhantomData<T>,
 }
 
@@ -190,6 +191,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         Ok(SVD {
             components,
+            parameters: Some(parameters),
             phantom: PhantomData,
         })
     }
@@ -211,6 +213,15 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
     /// Get a projection matrix
     pub fn components(&self) -> &X {
         &self.components
+    }
+
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &SVDParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

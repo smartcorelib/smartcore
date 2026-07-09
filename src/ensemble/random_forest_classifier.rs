@@ -107,6 +107,7 @@ pub struct RandomForestClassifier<
     trees: Option<Vec<DecisionTreeClassifier<TX, TY, X, Y>>>,
     classes: Option<Vec<TY>>,
     samples: Option<Vec<Vec<bool>>>,
+    parameters: Option<RandomForestClassifierParameters>
 }
 
 impl RandomForestClassifierParameters {
@@ -200,6 +201,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
             trees: Option::None,
             classes: Option::None,
             samples: Option::None,
+            parameters: Option::None,
         }
     }
     fn fit(x: &X, y: &Y, parameters: RandomForestClassifierParameters) -> Result<Self, Failed> {
@@ -506,6 +508,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             trees: Some(trees),
             classes: Some(classes),
             samples: maybe_all_samples,
+            parameters: Some(parameters)
         })
     }
 
@@ -612,6 +615,15 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             }
         }
         samples
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &RandomForestClassifierParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

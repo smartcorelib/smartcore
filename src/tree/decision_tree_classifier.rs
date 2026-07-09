@@ -131,9 +131,13 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     fn nodes(&self) -> &Vec<Node> {
         self.nodes.as_ref()
     }
-    /// Get parameters, return a shared reference
-    fn parameters(&self) -> &DecisionTreeClassifierParameters {
-        self.parameters.as_ref().unwrap()
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &DecisionTreeClassifierParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
     /// get classes vector, return a shared reference
     fn classes(&self) -> &Vec<TY> {

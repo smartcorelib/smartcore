@@ -92,7 +92,7 @@ impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 
 /// `GaussianNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct GaussianNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
@@ -266,6 +266,7 @@ pub struct GaussianNB<
     Y: Array1<TY>,
 > {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
+    parameters: Option<GaussianNBParameters>
 }
 
 impl<
@@ -291,6 +292,7 @@ impl<
     fn new() -> Self {
         Self {
             inner: Option::None,
+            parameters: Option::None,
         }
     }
 
@@ -320,9 +322,9 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors.
     pub fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
-        let distribution = GaussianNBDistribution::fit(x, y, parameters.priors)?;
+        let distribution = GaussianNBDistribution::fit(x, y, parameters.priors.clone())?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner: Some(inner) })
+        Ok(Self { inner: Some(inner), parameters: Some(parameters) })
     }
 
     /// Estimates the class labels for the provided data.
@@ -361,6 +363,15 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     /// Returns a 2d vector of shape (n_classes, n_features).
     pub fn var(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.var
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &GaussianNBParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

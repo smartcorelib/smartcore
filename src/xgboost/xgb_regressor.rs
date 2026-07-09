@@ -609,6 +609,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
         indices.truncate((population_size as f64 * subsample_ratio) as usize);
         indices
     }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &XGRegressorParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
+    }
 }
 
 // Boilerplate implementation for the smartcore traits

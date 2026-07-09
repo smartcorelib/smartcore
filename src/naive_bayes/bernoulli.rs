@@ -127,7 +127,7 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BernoulliNBParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -357,6 +357,7 @@ pub struct BernoulliNB<
 > {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, BernoulliNBDistribution<TY>>>,
     binarize: Option<TX>,
+    parameters: Option<BernoulliNBParameters<TX>>
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
@@ -380,6 +381,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
         Self {
             inner: Option::None,
             binarize: Option::None,
+            parameters: Option::None
         }
     }
 
@@ -410,17 +412,18 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
             BernoulliNBDistribution::fit(
                 &Self::binarize(x, threshold),
                 y,
-                parameters.alpha,
-                parameters.priors,
+                parameters.alpha.clone(),
+                parameters.priors.clone(),
             )?
         } else {
-            BernoulliNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?
+            BernoulliNBDistribution::fit(x, y, parameters.alpha.clone(), parameters.priors.clone())?
         };
 
         let inner = BaseNaiveBayes::fit(distribution)?;
         Ok(Self {
             inner: Some(inner),
             binarize: parameters.binarize,
+            parameters: Some(parameters)
         })
     }
 
@@ -484,6 +487,15 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
         let mut new_x = x.clone();
         Self::binarize_mut(&mut new_x, threshold);
         new_x
+    }
+
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &BernoulliNBParameters<TX> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

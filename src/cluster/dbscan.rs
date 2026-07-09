@@ -64,6 +64,7 @@ pub struct DBSCAN<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Dista
     num_classes: usize,
     knn_algorithm: KNNAlgorithm<TX, D>,
     eps: f64,
+    parameters: Option<DBSCANParameters<TX, D>>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
     _phantom_y: PhantomData<Y>,
@@ -295,7 +296,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             x.row_iter()
                 .map(|row| row.iterator(0).cloned().collect())
                 .collect(),
-            parameters.distance,
+            parameters.distance.clone(),
         )?;
 
         let mut row = vec![TX::zero(); x.shape().1];
@@ -353,6 +354,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             num_classes: k as usize,
             knn_algorithm: algo,
             eps: parameters.eps,
+            parameters: Some(parameters),
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -391,6 +393,15 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         }
 
         Ok(result)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &DBSCANParameters<TX, D> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

@@ -178,6 +178,7 @@ pub struct LogisticRegression<
     classes: Option<Vec<TY>>,
     num_attributes: usize,
     num_classes: usize,
+    parameters: Option<LogisticRegressionParameters<TX>>,
     _phantom_tx: PhantomData<TX>,
     _phantom_y: PhantomData<Y>,
 }
@@ -389,6 +390,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
             classes: Option::None,
             num_attributes: 0,
             num_classes: 0,
+            parameters: Option::None,
             _phantom_tx: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -465,6 +467,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
                     classes: Some(classes),
                     num_attributes,
                     num_classes: k,
+                    parameters: Some(parameters),
                     _phantom_tx: PhantomData,
                     _phantom_y: PhantomData,
                 })
@@ -491,6 +494,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
                     classes: Some(classes),
                     num_attributes,
                     num_classes: k,
+                    parameters: Some(parameters),
                     _phantom_tx: PhantomData,
                     _phantom_y: PhantomData,
                 })
@@ -559,6 +563,15 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
         let optimizer: LBFGS = Default::default();
 
         optimizer.optimize(&f, &df, &x0, &ls)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &LogisticRegressionParameters<TX> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

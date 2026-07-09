@@ -280,6 +280,15 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
 
         T::from(f).unwrap()
     }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &SVRParameters<T> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
+    }
 }
 
 impl<T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PartialEq

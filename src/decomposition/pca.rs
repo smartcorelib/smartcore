@@ -65,6 +65,7 @@ pub struct PCA<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDe
     eigenvectors: X,
     eigenvalues: Vec<T>,
     projection: X,
+    parameters: Option<PCAParameters>,
     mu: Vec<T>,
     pmu: Vec<T>,
 }
@@ -329,6 +330,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
             eigenvectors,
             eigenvalues,
             projection: projection.transpose(),
+            parameters: Some(parameters),
             mu,
             pmu,
         })
@@ -359,6 +361,15 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
     /// Get a projection matrix
     pub fn components(&self) -> &X {
         &self.projection
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &PCAParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

@@ -76,6 +76,7 @@ impl Default for AgglomerativeClusteringParameters {
 pub struct AgglomerativeClustering<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     /// The cluster label assigned to each sample.
     pub labels: Vec<usize>,
+    parameters: Option<AgglomerativeClusteringParameters>,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
@@ -176,11 +177,21 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> AgglomerativeClusteri
         }
         Ok(AgglomerativeClustering {
             labels,
+            parameters: Some(parameters),
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
         })
+    }
+
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &AgglomerativeClusteringParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

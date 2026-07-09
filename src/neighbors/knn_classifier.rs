@@ -83,6 +83,7 @@ pub struct KNNClassifier<
     knn_algorithm: Option<KNNAlgorithm<TX, D>>,
     weight: Option<KNNWeightFunction>,
     k: Option<usize>,
+    parameters: Option<KNNClassifierParameters<TX, D>>,
     _phantom_tx: PhantomData<TX>,
     _phantom_x: PhantomData<X>,
     _phantom_y: PhantomData<Y>,
@@ -188,6 +189,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
             knn_algorithm: Option::None,
             weight: Option::None,
             k: Option::None,
+            parameters: Option::None,
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -250,9 +252,10 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
         Ok(KNNClassifier {
             classes: Some(classes),
             y: Some(yi),
-            k: Some(parameters.k),
-            knn_algorithm: Some(parameters.algorithm.fit(data, parameters.distance)?),
-            weight: Some(parameters.weight),
+            k: Some(parameters.k.clone()),
+            knn_algorithm: Some(parameters.algorithm.fit(data, parameters.distance.clone())?),
+            weight: Some(parameters.weight.clone()),
+            parameters: Some(parameters),
             _phantom_tx: PhantomData,
             _phantom_x: PhantomData,
             _phantom_y: PhantomData,
@@ -343,6 +346,15 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
         }
 
         Ok(result)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &KNNClassifierParameters<TX, D> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

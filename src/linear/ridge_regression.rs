@@ -192,6 +192,7 @@ pub struct RidgeRegression<
 > {
     coefficients: Option<X>,
     intercept: Option<TX>,
+    parameters: Option<RidgeRegressionParameters<TX>>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -253,6 +254,7 @@ impl<
         Self {
             coefficients: Option::None,
             intercept: Option::None,
+            parameters: Option::None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -360,6 +362,7 @@ impl<
         Ok(RidgeRegression {
             intercept: Some(b),
             coefficients: Some(w),
+            parameters: Some(parameters),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
@@ -408,6 +411,15 @@ impl<
     /// Get estimate of intercept
     pub fn intercept(&self) -> &TX {
         self.intercept.as_ref().unwrap()
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &RidgeRegressionParameters<TX> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

@@ -64,6 +64,7 @@ pub struct LassoParameters {
 pub struct Lasso<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     coefficients: Option<X>,
     intercept: Option<TX>,
+    parameters: Option<LassoParameters>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -130,6 +131,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         Self {
             coefficients: None,
             intercept: None,
+            parameters: None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -352,6 +354,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
         Ok(Lasso {
             intercept: b,
             coefficients: Some(w),
+            parameters: Some(parameters),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
@@ -401,6 +404,15 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
         let mut scaled_x = x.clone();
         scaled_x.scale_mut(&col_mean, &col_std, 0);
         Ok((scaled_x, col_mean, col_std))
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &LassoParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

@@ -80,6 +80,7 @@ pub struct KNNRegressor<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D:
     knn_algorithm: Option<KNNAlgorithm<TX, D>>,
     weight: Option<KNNWeightFunction>,
     k: Option<usize>,
+    parameters: Option<KNNRegressorParameters<TX, D>>,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
@@ -179,6 +180,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             knn_algorithm: Option::None,
             weight: Option::None,
             k: Option::None,
+            parameters: Option::None,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -231,13 +233,14 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             )));
         }
 
-        let knn_algo = parameters.algorithm.fit(data, parameters.distance)?;
+        let knn_algo = parameters.algorithm.fit(data, parameters.distance.clone())?;
 
         Ok(KNNRegressor {
             y: Some(y.clone()),
-            k: Some(parameters.k),
+            k: Some(parameters.k.clone()),
             knn_algorithm: Some(knn_algo),
-            weight: Some(parameters.weight),
+            weight: Some(parameters.weight.clone()),
+            parameters: Some(parameters),
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -276,6 +279,15 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
         }
 
         Ok(result)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &KNNRegressorParameters<TX, D> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

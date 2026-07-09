@@ -98,6 +98,7 @@ pub struct ElasticNetParameters {
 pub struct ElasticNet<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     coefficients: Option<X>,
     intercept: Option<TX>,
+    parameters: Option<ElasticNetParameters>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -288,6 +289,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         Self {
             coefficients: Option::None,
             intercept: Option::None,
+            parameters: Option::None,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -385,6 +387,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         Ok(ElasticNet {
             intercept: Some(b),
             coefficients: Some(w),
+            parameters: Some(parameters),
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
@@ -458,6 +461,15 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         (x2, y2, gamma)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &ElasticNetParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

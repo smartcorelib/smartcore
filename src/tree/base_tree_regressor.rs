@@ -63,9 +63,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     fn nodes(&self) -> &Vec<Node> {
         self.nodes.as_ref()
     }
-    /// Get parameters, return a shared reference
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
     fn parameters(&self) -> &BaseTreeRegressorParameters {
-        self.parameters.as_ref().unwrap()
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
     /// Get estimate of intercept, return value
     fn depth(&self) -> u16 {

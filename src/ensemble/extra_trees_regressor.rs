@@ -104,6 +104,7 @@ pub struct ExtraTreesRegressor<
     Y: Array1<TY>,
 > {
     forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y>>,
+    parameters: Option<ExtraTreesRegressorParameters>
 }
 
 impl ExtraTreesRegressorParameters {
@@ -165,6 +166,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     fn new() -> Self {
         Self {
             forest_regressor: Option::None,
+            parameters: Option::None
         }
     }
 
@@ -207,6 +209,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         Ok(ExtraTreesRegressor {
             forest_regressor: Some(forest_regressor),
+            parameters: Some(parameters)
         })
     }
 
@@ -221,6 +224,15 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         let forest_regressor = self.forest_regressor.as_ref().unwrap();
         forest_regressor.predict_oob(x)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &ExtraTreesRegressorParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

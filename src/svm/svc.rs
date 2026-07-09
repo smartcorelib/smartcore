@@ -292,7 +292,7 @@ pub struct SVCParameters<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX
     /// Unused parameter.
     m: PhantomData<(X, Y, TY)>,
     /// Controls the pseudo random number generation for shuffling the data for probability estimates
-    seed: Option<u64>,
+    pub seed: Option<u64>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -607,6 +607,15 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         }
 
         f
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &SVCParameters<TX, TY, X, Y> {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

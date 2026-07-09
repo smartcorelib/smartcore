@@ -94,6 +94,7 @@ pub struct DecisionTreeRegressorParameters {
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y>>,
+    parameters: Option<DecisionTreeRegressorParameters>
 }
 
 impl DecisionTreeRegressorParameters {
@@ -271,7 +272,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new() -> Self {
         Self {
-            tree_regressor: None,
+            tree_regressor: Option::None,
+            parameters: Option::None
         }
     }
 
@@ -309,6 +311,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let tree = BaseTreeRegressor::fit(x, y, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
+            parameters: Some(parameters)
         })
     }
 
@@ -316,6 +319,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.tree_regressor.as_ref().unwrap().predict(x)
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &DecisionTreeRegressorParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

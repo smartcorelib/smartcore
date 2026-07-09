@@ -99,7 +99,7 @@ impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 
 /// `MultinomialNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MultinomialNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -302,6 +302,7 @@ pub struct MultinomialNB<
     Y: Array1<TY>,
 > {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>>,
+    parameters: Option<MultinomialNBParameters>
 }
 
 impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> fmt::Display
@@ -323,6 +324,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     fn new() -> Self {
         Self {
             inner: Option::None,
+            parameters: Option::None
         }
     }
 
@@ -350,9 +352,9 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
         let distribution =
-            MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors)?;
+            MultinomialNBDistribution::fit(x, y, parameters.alpha.clone(), parameters.priors.clone())?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner: Some(inner) })
+        Ok(Self { inner: Some(inner), parameters: Some(parameters) })
     }
 
     /// Estimates the class labels for the provided data.
@@ -390,6 +392,15 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     /// Returns a 2d vector of shape (n_classes, n_features)
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
         &self.inner.as_ref().unwrap().distribution.feature_count
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &MultinomialNBParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

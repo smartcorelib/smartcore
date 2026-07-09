@@ -257,7 +257,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
 
 /// `CategoricalNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CategoricalNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -338,6 +338,7 @@ impl Default for CategoricalNBSearchParameters {
 #[derive(Debug, PartialEq)]
 pub struct CategoricalNB<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> {
     inner: Option<BaseNaiveBayes<T, T, X, Y, CategoricalNBDistribution<T>>>,
+    parameters: Option<CategoricalNBParameters>
 }
 
 impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
@@ -346,6 +347,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
     fn new() -> Self {
         Self {
             inner: Option::None,
+            parameters: Option::None
         }
     }
 
@@ -370,7 +372,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
         let alpha = parameters.alpha;
         let distribution = CategoricalNBDistribution::fit(x, y, alpha)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner: Some(inner) })
+        Ok(Self { inner: Some(inner), parameters: Some(parameters) })
     }
 
     /// Estimates the class labels for the provided data.
@@ -414,6 +416,15 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// of categories given the respective feature and class, ``P(x_i|y)``.
     pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<f64>>> {
         &self.inner.as_ref().unwrap().distribution.coefficients
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &CategoricalNBParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 

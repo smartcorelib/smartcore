@@ -76,6 +76,7 @@ pub struct KMeans<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
     size: Vec<usize>,
     _distortion: f64,
     centroids: Vec<Vec<f64>>,
+    parameters: Option<KMeansParameters>,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
@@ -315,6 +316,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             size,
             _distortion: distortion,
             centroids,
+            parameters: Some(parameters),
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -410,6 +412,15 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         }
 
         y
+    }
+    
+    /// Getter for parameters used in the model
+    ///
+    /// # Returns
+    /// Parameters used to setup the model
+    pub fn parameters(&self) -> &KMeansParameters {
+        assert!(self.parameters.is_some());
+        &self.parameters.as_ref().unwrap()
     }
 }
 
