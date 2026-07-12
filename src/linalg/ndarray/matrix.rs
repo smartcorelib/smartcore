@@ -4,6 +4,7 @@ use std::ops::Range;
 use crate::linalg::basic::arrays::{
     Array as BaseArray, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
 };
+use crate::linalg::basic::matrix::DenseMatrix;
 
 use crate::linalg::traits::cholesky::CholeskyDecomposable;
 use crate::linalg::traits::evd::EVDDecomposable;
@@ -18,6 +19,46 @@ use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, Order, Ow
 // ---------------------------------------------------------------------------
 // ArrayBase<OwnedRepr<T>, Ix2>  (owned 2-D array)
 // ---------------------------------------------------------------------------
+
+const ROW_MAJOR_AXIS: u8 = 0;
+
+impl<T: Debug + Display + Copy> DenseMatrix<T> {
+    /// Copies an owned two-dimensional ndarray into a [`DenseMatrix`].
+    ///
+    /// The resulting matrix uses row-major (C) storage regardless of the
+    /// memory layout of the source array.
+    ///
+    /// # Notes
+    ///
+    /// [`ndarray::Array2::iter`] always yields elements in logical row-major
+    /// order, independent of whether the source is C- or Fortran-ordered. This
+    /// invariant makes transposed-layout conversion correct.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `nrows * ncols` overflows `usize`. An empty array (zero
+    /// rows or zero columns) does not panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ndarray::Array2;
+    /// use smartcore::linalg::basic::arrays::Array;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// let array = Array2::from_shape_vec(
+    ///     (3, 4),
+    ///     (0..12).map(|value| value as f64).collect(),
+    /// ).unwrap();
+    /// let matrix = DenseMatrix::from_ndarray2(&array);
+    /// assert_eq!(matrix.shape(), (3, 4));
+    /// assert_eq!(*matrix.get((1, 2)), 6.0);
+    /// ```
+    pub fn from_ndarray2(a: &ndarray::Array2<T>) -> Self {
+        // iter() yields logical row-major order regardless of memory layout.
+        Self::from_iterator(a.iter().copied(), a.nrows(), a.ncols(), ROW_MAJOR_AXIS)
+    }
+}
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     for ArrayBase<OwnedRepr<T>, Ix2>
@@ -223,6 +264,53 @@ impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T,
 mod tests {
     use super::*;
     use ndarray::arr2;
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2() {
+        let input = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        assert_eq!(matrix, expected);
+
+        let transposed = input.reversed_axes();
+        let matrix = DenseMatrix::from_ndarray2(&transposed);
+        let expected = DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]]).unwrap();
+        assert_eq!(matrix, expected);
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_square() {
+        let input = arr2(&[[1, 2], [3, 4]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        assert_eq!(matrix, expected);
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_row_vector() {
+        let input = arr2(&[[10, 20, 30, 40]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[10, 20, 30, 40]]).unwrap();
+        assert_eq!(matrix, expected);
+        assert_eq!(matrix.shape(), (1, 4));
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_col_vector() {
+        let input = arr2(&[[10], [20], [30], [40]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[10], &[20], &[30], &[40]]).unwrap();
+        assert_eq!(matrix, expected);
+        assert_eq!(matrix.shape(), (4, 1));
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_empty() {
+        let input = ndarray::Array2::<i32>::zeros((0, 0));
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        assert!(matrix.is_empty());
+        assert_eq!(matrix.shape(), (0, 0));
+    }
 
     #[test]
     fn test_get_row() {
