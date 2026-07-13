@@ -16,7 +16,8 @@ exclude = [
     ".gitignore",
     "smartcore.iml",
     "smartcore.svg",
-    "tests/"
+    "tests/",
+    "AGENTS.md"
 ]
 
 [dependencies]
