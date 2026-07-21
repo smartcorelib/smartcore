@@ -6,6 +6,9 @@
 //!
 //! where \\(\beta \\) is a positive real factor, where \\(\beta \\) is chosen such that recall is considered \\(\beta \\) times as important as precision.
 //!
+//! For binary classification, this is the F-measure of the positive class (assumed to be 1.0).
+//! For multiclass, this is the macro-averaged F-measure (mean of the per-class F-measures).
+//!
 //! Example:
 //!
 //! ```
@@ -20,6 +23,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
@@ -71,10 +75,55 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
         }
         let beta2 = self.beta * self.beta;
 
-        let p = Precision::new().get_score(y_true, y_pred);
-        let r = Recall::new().get_score(y_true, y_pred);
+        let n = y_true.shape();
+        let mut classes_set: HashSet<u64> = HashSet::new();
+        for i in 0..n {
+            classes_set.insert(y_true.get(i).to_f64_bits());
+        }
+        let classes = classes_set.len();
 
-        (1f64 + beta2) * (p * r) / ((beta2 * p) + r)
+        if classes == 2 {
+            // Binary case: F-measure of the positive class, where Precision and Recall
+            // already return the positive-class scores.
+            let p = Precision::new().get_score(y_true, y_pred);
+            let r = Recall::new().get_score(y_true, y_pred);
+            (1f64 + beta2) * (p * r) / ((beta2 * p) + r)
+        } else {
+            // Multiclass case: macro F-measure is the mean of the per-class F-measures,
+            // not the F-measure of the macro-averaged precision and recall.
+            let mut predicted: HashMap<u64, usize> = HashMap::new();
+            let mut support: HashMap<u64, usize> = HashMap::new();
+            let mut tp_map: HashMap<u64, usize> = HashMap::new();
+            for i in 0..n {
+                let t_bits = y_true.get(i).to_f64_bits();
+                *support.entry(t_bits).or_insert(0) += 1;
+                *predicted.entry(y_pred.get(i).to_f64_bits()).or_insert(0) += 1;
+                if *y_true.get(i) == *y_pred.get(i) {
+                    *tp_map.entry(t_bits).or_insert(0) += 1;
+                }
+            }
+            let mut fbeta_sum = 0.0;
+            for &bits in &classes_set {
+                let tp = *tp_map.get(&bits).unwrap_or(&0);
+                let pred_count = *predicted.get(&bits).unwrap_or(&0);
+                let sup = *support.get(&bits).unwrap_or(&0);
+                let p_c = if pred_count > 0 {
+                    tp as f64 / pred_count as f64
+                } else {
+                    0.0
+                };
+                let r_c = if sup > 0 { tp as f64 / sup as f64 } else { 0.0 };
+                let denom = beta2 * p_c + r_c;
+                if denom > 0.0 {
+                    fbeta_sum += (1f64 + beta2) * p_c * r_c / denom;
+                }
+            }
+            if classes == 0 {
+                0.0
+            } else {
+                fbeta_sum / classes as f64
+            }
+        }
     }
 }
 
@@ -100,5 +149,62 @@ mod tests {
 
         assert!((score1 - 0.57142857).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn f1_multiclass_macro() {
+        // Macro F1 is the mean of the per-class F1 scores, not the F1 of the
+        // macro-averaged precision and recall. Here precision (0.888889) and
+        // recall (0.833333) both match sklearn, so this isolates the aggregation:
+        // per-class F1 = [2/3, 0.8, 1.0], mean = 0.822222 (sklearn macro f1).
+        let y_true: Vec<f64> = vec![0., 0., 1., 1., 2., 2.];
+        let y_pred: Vec<f64> = vec![0., 1., 1., 1., 2., 2.];
+
+        let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_pred);
+        let expected = (2.0 / 3.0 + 0.8 + 1.0) / 3.0;
+        assert!((score - expected).abs() < 1e-8);
+        assert!((score - 0.822222).abs() < 1e-6);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn f1_multiclass_macro_beta() {
+        // Same case with beta != 1: still the mean of the per-class F-beta scores.
+        let y_true: Vec<f64> = vec![0., 0., 1., 1., 2., 2.];
+        let y_pred: Vec<f64> = vec![0., 1., 1., 1., 2., 2.];
+
+        // per-class (precision, recall): (1, 0.5), (2/3, 1), (1, 1)
+        let fbeta = |b: f64, p: f64, r: f64| (1.0 + b * b) * p * r / (b * b * p + r);
+        for beta in [0.5, 2.0] {
+            let expected =
+                (fbeta(beta, 1.0, 0.5) + fbeta(beta, 2.0 / 3.0, 1.0) + fbeta(beta, 1.0, 1.0)) / 3.0;
+            let score: f64 = F1::new_with(beta).get_score(&y_true, &y_pred);
+            assert!((score - expected).abs() < 1e-8);
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn f1_multiclass_imbalanced() {
+        let y_true: Vec<f64> = vec![0., 0., 1., 2., 2., 2.];
+        let y_pred: Vec<f64> = vec![0., 1., 1., 2., 0., 2.];
+
+        // per-class F1: class0 0.5, class1 2/3, class2 0.8 (matches sklearn macro f1)
+        let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_pred);
+        let expected = (0.5 + 2.0 / 3.0 + 0.8) / 3.0;
+        assert!((score - expected).abs() < 1e-8);
+
+        let perfect: f64 = F1::new_with(1.0).get_score(&y_true, &y_true);
+        assert!((perfect - 1.0).abs() < 1e-8);
     }
 }
