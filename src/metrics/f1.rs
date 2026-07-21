@@ -23,13 +23,13 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
+use crate::metrics::confusion::ConfusionCounts;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
 use crate::numbers::basenum::Number;
@@ -81,63 +81,43 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
         }
         let beta2 = self.beta * self.beta;
 
-        // Single pass over y_true/y_pred: collect the class set (needed to pick
-        // the binary vs. multiclass path) and the per-class tp / support /
-        // predicted counts used by the multiclass path. Labels are keyed by
-        // their f64 bit pattern; note that -0.0 and +0.0 have distinct bit
-        // patterns and would be counted as separate classes — an existing
-        // convention shared with Precision and Recall.
-        let mut classes_set: HashSet<u64> = HashSet::new();
-        let mut predicted: HashMap<u64, usize> = HashMap::new();
-        let mut support: HashMap<u64, usize> = HashMap::new();
-        let mut tp_map: HashMap<u64, usize> = HashMap::new();
-        for i in 0..n {
-            let t_bits = y_true.get(i).to_f64_bits();
-            classes_set.insert(t_bits);
-            *support.entry(t_bits).or_insert(0) += 1;
-            *predicted.entry(y_pred.get(i).to_f64_bits()).or_insert(0) += 1;
-            if *y_true.get(i) == *y_pred.get(i) {
-                *tp_map.entry(t_bits).or_insert(0) += 1;
-            }
-        }
-        let classes = classes_set.len();
+        // Build the per-class confusion counts once and delegate per-class
+        // precision/recall to `Precision` and `Recall`, so this metric no
+        // longer re-implements the tp/predicted/support bookkeeping. Labels
+        // are keyed by their f64 bit pattern; note that -0.0 and +0.0 have
+        // distinct bit patterns and would be counted as separate classes —
+        // an existing convention shared with Precision and Recall.
+        let counts = ConfusionCounts::from(y_true, y_pred);
+        let classes = counts.classes_set().len();
 
         if classes == 2 {
-            // Binary case: F-measure of the positive class. The positive class
-            // is assumed to be the label with the higher bit representation
-            // (i.e. 1.0 when labels are 0.0/1.0) — the convention baked into
-            // Precision and Recall, which already return the positive-class
-            // scores.
+            // Binary case: F-measure of the positive class. The positive
+            // class is assumed to be T::one() (i.e. 1.0 when labels are
+            // 0.0/1.0) — the convention baked into Precision and Recall,
+            // which already return the positive-class scores.
             let p = Precision::new().get_score(y_true, y_pred);
             let r = Recall::new().get_score(y_true, y_pred);
             (1f64 + beta2) * (p * r) / ((beta2 * p) + r)
         } else {
-            // Multiclass case (including classes == 1, where the macro F-beta
-            // is just the single class's F-beta): macro F-measure is the mean
-            // of the per-class F-measures, not the F-measure of the
-            // macro-averaged precision and recall.
+            // Multiclass case (including classes == 1, where the macro
+            // F-beta is just the single class's F-beta): macro F-measure is
+            // the mean of the per-class F-measures, not the F-measure of the
+            // macro-averaged precision and recall. Per-class precision and
+            // recall are sourced from `Precision` and `Recall` to keep a
+            // single source of truth for the per-class scores.
+            let p_scores = Precision::<T>::new().per_class_scores_from_counts(&counts);
+            let r_scores = Recall::<T>::new().per_class_scores_from_counts(&counts);
             let mut fbeta_sum = 0.0;
-            for &bits in &classes_set {
-                let tp = *tp_map.get(&bits).unwrap_or(&0);
-                let pred_count = *predicted.get(&bits).unwrap_or(&0);
-                let support_count = *support.get(&bits).unwrap_or(&0);
-                let p_c = if pred_count > 0 {
-                    tp as f64 / pred_count as f64
-                } else {
-                    0.0
-                };
-                let r_c = if support_count > 0 {
-                    tp as f64 / support_count as f64
-                } else {
-                    0.0
-                };
+            for &bits in counts.classes_set() {
+                let p_c = *p_scores.get(&bits).unwrap_or(&0.0);
+                let r_c = *r_scores.get(&bits).unwrap_or(&0.0);
                 let denom = beta2 * p_c + r_c;
                 if denom > 0.0 {
                     fbeta_sum += (1f64 + beta2) * p_c * r_c / denom;
                 }
             }
-            // classes >= 1 is guaranteed here: n > 0 (early return above) means
-            // classes_set is non-empty.
+            // classes >= 1 is guaranteed here: n > 0 (early return above)
+            // means classes_set is non-empty.
             fbeta_sum / classes as f64
         }
     }

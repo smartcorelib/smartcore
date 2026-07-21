@@ -22,13 +22,14 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
+use crate::metrics::confusion::ConfusionCounts;
 use crate::numbers::realnum::RealNumber;
 
 use crate::metrics::Metrics;
@@ -38,6 +39,30 @@ use crate::metrics::Metrics;
 #[derive(Debug)]
 pub struct Recall<T> {
     _phantom: PhantomData<T>,
+}
+
+impl<T: RealNumber> Recall<T> {
+    /// Per-class recall scores derived from shared confusion counts.
+    ///
+    /// Returns a map from label bit pattern to that class's recall
+    /// (`tp / support`, or `0.0` when the class has no support).
+    pub(crate) fn per_class_scores_from_counts(
+        &self,
+        counts: &ConfusionCounts,
+    ) -> HashMap<u64, f64> {
+        let mut scores: HashMap<u64, f64> = HashMap::new();
+        for &bits in counts.classes_set() {
+            let support_count = counts.support(bits);
+            let tp = counts.tp(bits);
+            let rec = if support_count > 0 {
+                tp as f64 / support_count as f64
+            } else {
+                0.0
+            };
+            scores.insert(bits, rec);
+        }
+        scores
+    }
 }
 
 impl<T: RealNumber> Metrics<T> for Recall<T> {
@@ -63,57 +88,27 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
                 y_pred.shape()
             );
         }
-
         let n = y_true.shape();
-
-        let mut classes_set = HashSet::new();
-        for i in 0..n {
-            classes_set.insert(y_true.get(i).to_f64_bits());
+        // Empty input has no classes; return 0.0 (the multiclass path below
+        // relies on classes >= 1 to divide by `classes`).
+        if n == 0 {
+            return 0.0;
         }
-        let classes: usize = classes_set.len();
+
+        let counts = ConfusionCounts::from(y_true, y_pred);
+        let classes = counts.classes_set().len();
+        let scores = self.per_class_scores_from_counts(&counts);
 
         if classes == 2 {
-            // Binary case: recall for positive class (assumed T::one())
-            let positive = T::one();
-            let mut tp: usize = 0;
-            let mut fn_count: usize = 0;
-            for i in 0..n {
-                let t = *y_true.get(i);
-                let p = *y_pred.get(i);
-                if p == t {
-                    if t == positive {
-                        tp += 1;
-                    }
-                } else if t == positive {
-                    fn_count += 1;
-                }
-            }
-            if tp + fn_count == 0 {
-                0.0
-            } else {
-                tp as f64 / (tp + fn_count) as f64
-            }
+            // Binary case: recall for the positive class, assumed to be
+            // T::one() (i.e. 1.0 when labels are 0.0/1.0). If the positive
+            // label is not present in y_true the score is 0.0.
+            let positive_bits = T::one().to_f64_bits();
+            *scores.get(&positive_bits).unwrap_or(&0.0)
         } else {
-            // Multiclass case: macro-averaged recall
-            let mut support: HashMap<u64, usize> = HashMap::new();
-            let mut tp_map: HashMap<u64, usize> = HashMap::new();
-            for i in 0..n {
-                let t_bits = y_true.get(i).to_f64_bits();
-                *support.entry(t_bits).or_insert(0) += 1;
-                if *y_true.get(i) == *y_pred.get(i) {
-                    *tp_map.entry(t_bits).or_insert(0) += 1;
-                }
-            }
-            let mut recall_sum = 0.0;
-            for (&bits, &sup) in &support {
-                let tp = *tp_map.get(&bits).unwrap_or(&0);
-                recall_sum += tp as f64 / sup as f64;
-            }
-            if support.is_empty() {
-                0.0
-            } else {
-                recall_sum / support.len() as f64
-            }
+            // Multiclass case: macro-averaged recall. classes >= 1 is
+            // guaranteed here because of the `n == 0` guard above.
+            scores.values().sum::<f64>() / classes as f64
         }
     }
 }
