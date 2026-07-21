@@ -29,8 +29,14 @@ pub(crate) struct ConfusionCounts {
 }
 
 impl ConfusionCounts {
-    /// Compute per-class confusion counts in a single pass.
-    pub(crate) fn from<T: RealNumber>(
+    /// Compute per-class confusion counts in a single pass over
+    /// `(y_true, y_pred)`.
+    ///
+    /// Named `new` rather than `from` to avoid shadowing the conventional
+    /// `std::convert::From` trait method (the two-argument signature does
+    /// not collide with `From::from`'s single-argument form, but the
+    /// shadowing is still confusing for readers).
+    pub(crate) fn new<T: RealNumber>(
         y_true: &dyn ArrayView1<T>,
         y_pred: &dyn ArrayView1<T>,
     ) -> Self {
@@ -75,5 +81,104 @@ impl ConfusionCounts {
     /// Number of true positives for the label with the given bit pattern.
     pub(crate) fn tp(&self, bits: u64) -> usize {
         *self.tp_map.get(&bits).unwrap_or(&0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bits_of(v: f64) -> u64 {
+        v.to_f64_bits()
+    }
+
+    #[test]
+    fn confusion_counts_binary_basic() {
+        // y_true = [0, 1, 1, 0], y_pred = [0, 0, 1, 1]
+        let y_true: Vec<f64> = vec![0., 1., 1., 0.];
+        let y_pred: Vec<f64> = vec![0., 0., 1., 1.];
+        let counts = ConfusionCounts::new(&y_true, &y_pred);
+
+        assert_eq!(counts.classes_set().len(), 2);
+        assert!(counts.classes_set().contains(&bits_of(0.0)));
+        assert!(counts.classes_set().contains(&bits_of(1.0)));
+
+        // Class 0: support=2, predicted=2 (y_pred has two 0s), tp=1
+        assert_eq!(counts.support(bits_of(0.0)), 2);
+        assert_eq!(counts.predicted(bits_of(0.0)), 2);
+        assert_eq!(counts.tp(bits_of(0.0)), 1);
+
+        // Class 1: support=2, predicted=2 (y_pred has two 1s), tp=1
+        assert_eq!(counts.support(bits_of(1.0)), 2);
+        assert_eq!(counts.predicted(bits_of(1.0)), 2);
+        assert_eq!(counts.tp(bits_of(1.0)), 1);
+    }
+
+    #[test]
+    fn confusion_counts_multiclass() {
+        // y_true = [0, 0, 1, 2, 2, 2], y_pred = [0, 1, 1, 2, 0, 2]
+        let y_true: Vec<f64> = vec![0., 0., 1., 2., 2., 2.];
+        let y_pred: Vec<f64> = vec![0., 1., 1., 2., 0., 2.];
+        let counts = ConfusionCounts::new(&y_true, &y_pred);
+
+        assert_eq!(counts.classes_set().len(), 3);
+
+        // Class 0: support=2, predicted=2, tp=1
+        assert_eq!(counts.support(bits_of(0.0)), 2);
+        assert_eq!(counts.predicted(bits_of(0.0)), 2);
+        assert_eq!(counts.tp(bits_of(0.0)), 1);
+
+        // Class 1: support=1, predicted=2, tp=1
+        assert_eq!(counts.support(bits_of(1.0)), 1);
+        assert_eq!(counts.predicted(bits_of(1.0)), 2);
+        assert_eq!(counts.tp(bits_of(1.0)), 1);
+
+        // Class 2: support=3, predicted=2, tp=2
+        assert_eq!(counts.support(bits_of(2.0)), 3);
+        assert_eq!(counts.predicted(bits_of(2.0)), 2);
+        assert_eq!(counts.tp(bits_of(2.0)), 2);
+    }
+
+    #[test]
+    fn confusion_counts_spurious_predicted_label() {
+        // y_pred contains label 2 which never appears in y_true. The
+        // `predicted` map records it, but `classes_set` (sourced from
+        // y_true) does not include it, so it is silently ignored by
+        // per-class metrics that iterate `classes_set`.
+        let y_true: Vec<f64> = vec![0., 0., 1., 1.];
+        let y_pred: Vec<f64> = vec![0., 2., 1., 1.];
+        let counts = ConfusionCounts::new(&y_true, &y_pred);
+
+        assert_eq!(counts.classes_set().len(), 2);
+        assert!(!counts.classes_set().contains(&bits_of(2.0)));
+
+        // The spurious label is tracked in `predicted`...
+        assert_eq!(counts.predicted(bits_of(2.0)), 1);
+        // ...but has no support or tp entry.
+        assert_eq!(counts.support(bits_of(2.0)), 0);
+        assert_eq!(counts.tp(bits_of(2.0)), 0);
+    }
+
+    #[test]
+    fn confusion_counts_empty_input() {
+        let y_true: Vec<f64> = vec![];
+        let y_pred: Vec<f64> = vec![];
+        let counts = ConfusionCounts::new(&y_true, &y_pred);
+
+        assert!(counts.classes_set().is_empty());
+        assert_eq!(counts.predicted(bits_of(0.0)), 0);
+        assert_eq!(counts.support(bits_of(0.0)), 0);
+        assert_eq!(counts.tp(bits_of(0.0)), 0);
+    }
+
+    #[test]
+    fn confusion_counts_perfect_predictions() {
+        let y_true: Vec<f64> = vec![0., 1., 2., 0., 1.];
+        let counts = ConfusionCounts::new(&y_true, &y_true);
+
+        for &bits in counts.classes_set() {
+            assert_eq!(counts.tp(bits), counts.support(bits));
+            assert_eq!(counts.tp(bits), counts.predicted(bits));
+        }
     }
 }

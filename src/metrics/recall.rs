@@ -46,6 +46,12 @@ impl<T: RealNumber> Recall<T> {
     ///
     /// Returns a map from label bit pattern to that class's recall
     /// (`tp / support`, or `0.0` when the class has no support).
+    ///
+    /// Iterates only over `counts.classes_set()` (labels seen in `y_true`).
+    /// A label that appears in `y_pred` but never in `y_true` has no support
+    /// and no true positives, so it is silently ignored — it does not
+    /// inflate or deflate any class's recall. This matches sklearn's
+    /// behaviour, where the label set is derived from `y_true`.
     pub(crate) fn per_class_scores_from_counts(
         &self,
         counts: &ConfusionCounts,
@@ -95,7 +101,7 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
             return 0.0;
         }
 
-        let counts = ConfusionCounts::from(y_true, y_pred);
+        let counts = ConfusionCounts::new(y_true, y_pred);
         let classes = counts.classes_set().len();
         let scores = self.per_class_scores_from_counts(&counts);
 
@@ -107,7 +113,10 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
             *scores.get(&positive_bits).unwrap_or(&0.0)
         } else {
             // Multiclass case: macro-averaged recall. classes >= 1 is
-            // guaranteed here because of the `n == 0` guard above.
+            // guaranteed here because of the `n == 0` guard above. The sum
+            // over `HashMap::values()` is order-independent (floating-point
+            // addition of non-negative finite values is commutative and
+            // associative for the magnitudes involved here).
             scores.values().sum::<f64>() / classes as f64
         }
     }

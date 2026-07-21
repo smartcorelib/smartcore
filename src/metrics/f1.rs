@@ -87,7 +87,7 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
         // are keyed by their f64 bit pattern; note that -0.0 and +0.0 have
         // distinct bit patterns and would be counted as separate classes —
         // an existing convention shared with Precision and Recall.
-        let counts = ConfusionCounts::from(y_true, y_pred);
+        let counts = ConfusionCounts::new(y_true, y_pred);
         let classes = counts.classes_set().len();
 
         if classes == 2 {
