@@ -37,7 +37,7 @@ Add to Cargo.toml:
 
 ```toml
 [dependencies]
-smartcore = "^0.5.2"
+smartcore = "^0.5.3"
 ```
 
 For the latest development branch:
