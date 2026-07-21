@@ -620,10 +620,9 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &RandomForestClassifierParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&RandomForestClassifierParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -821,5 +820,54 @@ mod tests {
             bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0, 0, 1, 1];
+        let parameters = RandomForestClassifierParameters::default();
+        let expected_parameters = parameters.clone();
+        let classifier =
+            RandomForestClassifier::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
+                &matrix,
+                &target,
+                parameters,
+            )
+            .unwrap();
+
+        let actual_parameters = classifier
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.criterion),
+            std::mem::discriminant(&expected_parameters.criterion)
+        );
+        assert_eq!(actual_parameters.max_depth, expected_parameters.max_depth);
+        assert_eq!(actual_parameters.min_samples_leaf, expected_parameters.min_samples_leaf);
+        assert_eq!(actual_parameters.min_samples_split, expected_parameters.min_samples_split);
+        assert_eq!(actual_parameters.n_trees, expected_parameters.n_trees);
+        assert_eq!(actual_parameters.m, expected_parameters.m);
+        assert_eq!(actual_parameters.keep_samples, expected_parameters.keep_samples);
+        assert_eq!(actual_parameters.seed, expected_parameters.seed);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0, 0, 1, 1];
+        let parameters = RandomForestClassifierParameters::default();
+        let mut classifier =
+            RandomForestClassifier::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
+                &matrix,
+                &target,
+                parameters,
+            )
+            .unwrap();
+        classifier.parameters = None;
+
+        assert!(classifier.parameters().is_none());
     }
 }

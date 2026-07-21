@@ -134,10 +134,9 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &DecisionTreeClassifierParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&DecisionTreeClassifierParameters> {
+        self.parameters.as_ref()
     }
     /// get classes vector, return a shared reference
     fn classes(&self) -> &Vec<TY> {
@@ -619,7 +618,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth() < tree.parameters().max_depth.unwrap_or(u16::MAX) {
+        while tree.depth() < tree.parameters().expect("parameters not set — model not fitted").max_depth.unwrap_or(u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -704,14 +703,17 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 count[visitor.y[i]] += visitor.samples[i];
             }
         }
+        
+        let parameters = self.parameters().expect("parameters not set — model not fitted");
+        let parameters_min_samples_split = parameters.min_samples_split;
 
-        self.nodes[visitor.node].impurity = Some(impurity(&self.parameters().criterion, &count, n));
+        self.nodes[visitor.node].impurity = Some(impurity(&parameters.criterion, &count, n));
 
         if is_pure {
             return false;
         }
 
-        if n <= self.parameters().min_samples_split {
+        if n <= parameters_min_samples_split {
             return false;
         }
 
@@ -753,9 +755,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
                 let tc = true_count.iter().sum();
                 let fc = n - tc;
+                let parameters = self.parameters().expect("parameters not set — model not fitted");
 
-                if tc < self.parameters().min_samples_leaf
-                    || fc < self.parameters().min_samples_leaf
+                if tc < parameters.min_samples_leaf
+                    || fc < parameters.min_samples_leaf
                 {
                     prevx = Some(x_ij);
                     prevy = visitor.y[*i];
@@ -772,9 +775,9 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 let parent_impurity = self.nodes()[visitor.node].impurity.unwrap();
                 let gain = parent_impurity
                     - tc as f64 / n as f64
-                        * impurity(&self.parameters().criterion, &true_count, tc)
+                        * impurity(&parameters.criterion, &true_count, tc)
                     - fc as f64 / n as f64
-                        * impurity(&self.parameters().criterion, false_count, fc);
+                        * impurity(&parameters.criterion, false_count, fc);
 
                 if self.nodes()[visitor.node].split_score.is_none()
                     || gain > self.nodes()[visitor.node].split_score.unwrap()
@@ -824,8 +827,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
                 }
             }
         }
+        
+        let parameters = self.parameters().expect("parameters not set — model not fitted");
 
-        if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
+        if tc < parameters.min_samples_leaf || fc < parameters.min_samples_leaf {
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
             self.nodes[visitor.node].split_score = Option::None;
@@ -1239,5 +1244,51 @@ mod tests {
             bincode::deserialize(&bincode::serialize(&tree).unwrap()).unwrap();
 
         assert_eq!(tree, deserialized_tree);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0, 0, 1, 1];
+        let parameters = DecisionTreeClassifierParameters::default();
+        let expected_parameters = parameters.clone();
+        let classifier =
+            DecisionTreeClassifier::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
+                &matrix,
+                &target,
+                parameters,
+            )
+            .unwrap();
+
+        let actual_parameters = classifier
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.criterion),
+            std::mem::discriminant(&expected_parameters.criterion)
+        );
+        assert_eq!(actual_parameters.max_depth, expected_parameters.max_depth);
+        assert_eq!(actual_parameters.min_samples_leaf, expected_parameters.min_samples_leaf);
+        assert_eq!(actual_parameters.min_samples_split, expected_parameters.min_samples_split);
+        assert_eq!(actual_parameters.seed, expected_parameters.seed);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0, 0, 1, 1];
+        let parameters = DecisionTreeClassifierParameters::default();
+        let mut classifier =
+            DecisionTreeClassifier::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
+                &matrix,
+                &target,
+                parameters,
+            )
+            .unwrap();
+        classifier.parameters = None;
+
+        assert!(classifier.parameters().is_none());
     }
 }

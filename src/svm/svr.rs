@@ -284,10 +284,9 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &SVRParameters<T> {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&SVRParameters<T>> {
+        self.parameters
     }
 }
 
@@ -716,5 +715,38 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
         assert_eq!(svr, deserialized_svr);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters: SVRParameters<f64> =
+            SVRParameters::default().with_kernel(Kernels::linear());
+        let regressor: SVR<'_, f64, DenseMatrix<f64>, Vec<f64>> =
+            SVR::fit(&matrix, &target, &parameters).unwrap();
+
+        let actual_parameters = regressor
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.eps, parameters.eps);
+        assert_eq!(actual_parameters.c, parameters.c);
+        assert_eq!(actual_parameters.tol, parameters.tol);
+        assert_eq!(actual_parameters.kernel, parameters.kernel);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters: SVRParameters<f64> =
+            SVRParameters::default().with_kernel(Kernels::linear());
+        let mut regressor: SVR<'_, f64, DenseMatrix<f64>, Vec<f64>> =
+            SVR::fit(&matrix, &target, &parameters).unwrap();
+        regressor.parameters = None;
+
+        assert!(regressor.parameters().is_none());
     }
 }

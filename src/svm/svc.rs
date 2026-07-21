@@ -612,10 +612,9 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &SVCParameters<TX, TY, X, Y> {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&SVCParameters<TX, TY, X, Y>> {
+        self.parameters
     }
 }
 
@@ -1437,5 +1436,42 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
         assert_eq!(svc, deserialized_svc);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![-1, -1, 1, 1];
+        let parameters: SVCParameters<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            SVCParameters::default().with_kernel(Kernels::linear());
+        let classifier: SVC<'_, f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            SVC::fit(&matrix, &target, &parameters).unwrap();
+
+        let actual_parameters = classifier
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.epoch, parameters.epoch);
+        assert_eq!(actual_parameters.c, parameters.c);
+        assert_eq!(actual_parameters.tol, parameters.tol);
+        assert_eq!(
+            format!("{:?}", actual_parameters.kernel),
+            format!("{:?}", parameters.kernel)
+        );
+        assert_eq!(actual_parameters.seed, parameters.seed);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![-1, -1, 1, 1];
+        let parameters: SVCParameters<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            SVCParameters::default().with_kernel(Kernels::linear());
+        let mut classifier: SVC<'_, f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            SVC::fit(&matrix, &target, &parameters).unwrap();
+        classifier.parameters = None;
+
+        assert!(classifier.parameters().is_none());
     }
 }

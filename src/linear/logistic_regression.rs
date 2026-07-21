@@ -568,10 +568,9 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &LogisticRegressionParameters<TX> {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&LogisticRegressionParameters<TX>> {
+        self.parameters.as_ref()
     }
 }
 
@@ -958,5 +957,45 @@ mod tests {
         println!("y_hat shape: {:?}", y_hat.shape());
 
         assert_eq!(y_hat.shape(), 52181);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0, 0, 1, 1];
+        let parameters: LogisticRegressionParameters<f64> =
+            LogisticRegressionParameters::default();
+        let expected_parameters = parameters.clone();
+        let regression = LogisticRegression::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+
+        let actual_parameters = regression
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.solver, expected_parameters.solver);
+        assert_eq!(actual_parameters.alpha, expected_parameters.alpha);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0, 0, 1, 1];
+        let parameters: LogisticRegressionParameters<f64> =
+            LogisticRegressionParameters::default();
+        let mut regression = LogisticRegression::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+        regression.parameters = None;
+
+        assert!(regression.parameters().is_none());
     }
 }

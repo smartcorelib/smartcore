@@ -284,10 +284,9 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &KNNRegressorParameters<TX, D> {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&KNNRegressorParameters<TX, D>> {
+        self.parameters.as_ref()
     }
 }
 
@@ -361,5 +360,58 @@ mod tests {
         let deserialized_knn = bincode::deserialize(&bincode::serialize(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters: KNNRegressorParameters<f64, Euclidian<f64>> =
+            KNNRegressorParameters::default();
+        let expected_parameters = parameters.clone();
+        let regressor =
+            KNNRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
+                &matrix,
+                &target,
+                parameters,
+            )
+            .unwrap();
+
+        let actual_parameters = regressor
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(
+            format!("{:?}", actual_parameters.distance),
+            format!("{:?}", expected_parameters.distance)
+        );
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.algorithm),
+            std::mem::discriminant(&expected_parameters.algorithm)
+        );
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.weight),
+            std::mem::discriminant(&expected_parameters.weight)
+        );
+        assert_eq!(actual_parameters.k, expected_parameters.k);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters: KNNRegressorParameters<f64, Euclidian<f64>> =
+            KNNRegressorParameters::default();
+        let mut regressor =
+            KNNRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
+                &matrix,
+                &target,
+                parameters,
+            )
+            .unwrap();
+        regressor.parameters = None;
+
+        assert!(regressor.parameters().is_none());
     }
 }

@@ -613,10 +613,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &XGRegressorParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&XGRegressorParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -805,5 +804,54 @@ mod tests {
 
         let predictions = predict_result.unwrap();
         assert_eq!(predictions.len(), 4);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters = XGRegressorParameters::default();
+        let expected_parameters = parameters.clone();
+        let regressor = XGRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+
+        let actual_parameters = regressor
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.n_estimators, expected_parameters.n_estimators);
+        assert_eq!(actual_parameters.max_depth, expected_parameters.max_depth);
+        assert_eq!(actual_parameters.learning_rate, expected_parameters.learning_rate);
+        assert_eq!(actual_parameters.min_child_weight, expected_parameters.min_child_weight);
+        assert_eq!(actual_parameters.lambda, expected_parameters.lambda);
+        assert_eq!(actual_parameters.gamma, expected_parameters.gamma);
+        assert_eq!(actual_parameters.base_score, expected_parameters.base_score);
+        assert_eq!(actual_parameters.subsample, expected_parameters.subsample);
+        assert_eq!(actual_parameters.seed, expected_parameters.seed);
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.objective),
+            std::mem::discriminant(&expected_parameters.objective)
+        );
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters = XGRegressorParameters::default();
+        let mut regressor = XGRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+        regressor.parameters = None;
+
+        assert!(regressor.parameters().is_none());
     }
 }

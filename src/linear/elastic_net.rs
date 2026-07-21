@@ -466,10 +466,9 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &ElasticNetParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&ElasticNetParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -657,4 +656,45 @@ mod tests {
 
     //     assert_eq!(lr, deserialized_lr);
     // }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters = ElasticNetParameters::default();
+        let expected_parameters = parameters.clone();
+        let regression = ElasticNet::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+
+        let actual_parameters = regression
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.alpha, expected_parameters.alpha);
+        assert_eq!(actual_parameters.l1_ratio, expected_parameters.l1_ratio);
+        assert_eq!(actual_parameters.normalize, expected_parameters.normalize);
+        assert_eq!(actual_parameters.tol, expected_parameters.tol);
+        assert_eq!(actual_parameters.max_iter, expected_parameters.max_iter);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0.0, 1.0, 1.0, 2.0];
+        let parameters = ElasticNetParameters::default();
+        let mut regression = ElasticNet::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+        regression.parameters = None;
+
+        assert!(regression.parameters().is_none());
+    }
 }

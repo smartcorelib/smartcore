@@ -188,10 +188,9 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> AgglomerativeClusteri
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &AgglomerativeClusteringParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&AgglomerativeClusteringParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -324,5 +323,36 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 5.0, 5.0, 10.0, 10.0];
+        let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
+        let parameters = AgglomerativeClusteringParameters::default().with_n_clusters(1);
+        let expected_parameters = parameters.clone();
+        let clustering = AgglomerativeClustering::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix, parameters,
+        )
+        .unwrap();
+
+        let actual_parameters = clustering
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.n_clusters, expected_parameters.n_clusters);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let clustering = AgglomerativeClustering::<f64, f64, DenseMatrix<f64>, Vec<f64>> {
+            labels: Vec::new(),
+            parameters: None,
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
+        };
+
+        assert!(clustering.parameters().is_none());
     }
 }

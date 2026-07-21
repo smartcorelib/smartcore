@@ -366,10 +366,9 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &PCAParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&PCAParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -758,4 +757,33 @@ mod tests {
 
     //     assert_eq!(pca, deserialized_pca);
     // }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let parameters = PCAParameters::default().with_n_components(1);
+        let expected_parameters = parameters.clone();
+        let pca = PCA::<f64, DenseMatrix<f64>>::fit(&matrix, parameters).unwrap();
+
+        let actual_parameters = pca
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.n_components, expected_parameters.n_components);
+        assert_eq!(
+            actual_parameters.use_correlation_matrix,
+            expected_parameters.use_correlation_matrix
+        );
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let parameters = PCAParameters::default().with_n_components(1);
+        let mut pca = PCA::<f64, DenseMatrix<f64>>::fit(&matrix, parameters).unwrap();
+        pca.parameters = None;
+
+        assert!(pca.parameters().is_none());
+    }
 }

@@ -368,10 +368,9 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &GaussianNBParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&GaussianNBParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -484,5 +483,42 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&gnb).unwrap()).unwrap();
 
         assert_eq!(gnb, deserialized_gnb);
+    }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0_u32, 0, 1, 1];
+        let parameters = GaussianNBParameters::default();
+        let expected_parameters = parameters.clone();
+        let classifier = GaussianNB::<f64, u32, DenseMatrix<f64>, Vec<u32>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+
+        let actual_parameters = classifier
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters, &expected_parameters);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
+        let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
+        let target = vec![0_u32, 0, 1, 1];
+        let parameters = GaussianNBParameters::default();
+        let mut classifier = GaussianNB::<f64, u32, DenseMatrix<f64>, Vec<u32>>::fit(
+            &matrix,
+            &target,
+            parameters,
+        )
+        .unwrap();
+        classifier.parameters = None;
+
+        assert!(classifier.parameters().is_none());
     }
 }

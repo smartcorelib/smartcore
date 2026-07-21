@@ -66,10 +66,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    fn parameters(&self) -> &BaseTreeRegressorParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    fn parameters(&self) -> Option<&BaseTreeRegressorParameters> {
+        self.parameters.as_ref()
     }
     /// Get estimate of intercept, return value
     fn depth(&self) -> u16 {
@@ -241,7 +240,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while base_tree.depth() < base_tree.parameters().max_depth.unwrap_or(u16::MAX) {
+        while base_tree.depth() < base_tree.parameters().expect("parameters not set — model not fitted").max_depth.unwrap_or(u16::MAX) {
             match visitor_queue.pop_front() {
                 Some(node) => base_tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -302,7 +301,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let n: usize = visitor.samples.iter().sum();
 
-        if n < self.parameters().min_samples_split {
+        let parameters = self.parameters().expect("parameters not set — model not fitted");
+        
+        if n < parameters.min_samples_split {
             return false;
         }
 
@@ -317,7 +318,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let parent_gain =
             n as f64 * self.nodes()[visitor.node].output * self.nodes()[visitor.node].output;
 
-        let splitter = self.parameters().splitter.clone();
+        let splitter = parameters.splitter.clone();
 
         for variable in variables.iter().take(mtry) {
             match splitter {
@@ -384,8 +385,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let false_count = n - true_count;
 
-        if true_count < self.parameters().min_samples_leaf
-            || false_count < self.parameters().min_samples_leaf
+        let parameters = self.parameters().expect("parameters not set — model not fitted");
+
+        if true_count < parameters.min_samples_leaf
+            || false_count < parameters.min_samples_leaf
         {
             return;
         }
@@ -440,8 +443,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
                 let false_count = n - true_count;
 
-                if true_count < self.parameters().min_samples_leaf
-                    || false_count < self.parameters().min_samples_leaf
+                let parameters = self.parameters().expect("parameters not set — model not fitted");
+
+                if true_count < parameters.min_samples_leaf
+                    || false_count < parameters.min_samples_leaf
                 {
                     prevx = Some(x_ij);
                     true_count += visitor.samples[*i];
@@ -505,7 +510,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
+        let parameters = self.parameters().expect("parameters not set — model not fitted");
+
+        if tc < parameters.min_samples_leaf || fc < parameters.min_samples_leaf {
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
             self.nodes[visitor.node].split_score = Option::None;

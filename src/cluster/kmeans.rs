@@ -417,10 +417,9 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &KMeansParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&KMeansParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -553,5 +552,40 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&kmeans).unwrap()).unwrap();
 
         assert_eq!(kmeans, deserialized_kmeans);
+    }
+ 
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 5.0, 5.0, 10.0, 10.0];
+        let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
+        let parameters = KMeansParameters::default().with_k(2);
+        let expected_parameters = parameters.clone();
+        let clustering = KMeans::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix,
+            parameters,
+        )
+        .unwrap();
+
+        let actual_parameters = clustering
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.k, expected_parameters.k);
+        assert_eq!(actual_parameters.max_iter, expected_parameters.max_iter);
+        assert_eq!(actual_parameters.seed, expected_parameters.seed);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 5.0, 5.0, 10.0, 10.0];
+        let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
+        let parameters = KMeansParameters::default().with_k(2);
+        let mut clustering = KMeans::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix,
+            parameters,
+        )
+        .unwrap();
+        clustering.parameters = None;
+
+        assert!(clustering.parameters().is_none());
     }
 }

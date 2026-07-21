@@ -218,10 +218,9 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
     /// Getter for parameters used in the model
     ///
     /// # Returns
-    /// Parameters used to setup the model
-    pub fn parameters(&self) -> &SVDParameters {
-        assert!(self.parameters.is_some());
-        &self.parameters.as_ref().unwrap()
+    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    pub fn parameters(&self) -> Option<&SVDParameters> {
+        self.parameters.as_ref()
     }
 }
 
@@ -363,4 +362,29 @@ mod tests {
 
     //     assert_eq!(svd, deserialized_svd);
     // }
+    
+    #[test]
+    fn test_can_get_assigned_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let matrix = DenseMatrix::new(3, 3, data, false).unwrap();
+        let parameters = SVDParameters::default().with_n_components(1);
+        let expected_parameters = parameters.clone();
+        let svd = SVD::<f64, DenseMatrix<f64>>::fit(&matrix, parameters).unwrap();
+
+        let actual_parameters = svd
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.n_components, expected_parameters.n_components);
+    }
+
+    #[test]
+    fn test_returns_none_on_no_parameters() {
+        let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let matrix = DenseMatrix::new(3, 3, data, false).unwrap();
+        let parameters = SVDParameters::default().with_n_components(1);
+        let mut svd = SVD::<f64, DenseMatrix<f64>>::fit(&matrix, parameters).unwrap();
+        svd.parameters = None;
+
+        assert!(svd.parameters().is_none());
+    }
 }
