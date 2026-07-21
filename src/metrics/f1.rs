@@ -73,56 +73,72 @@ impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
                 y_pred.shape()
             );
         }
+        let n = y_true.shape();
+        // Empty input has no classes; return 0.0 (matches sklearn's empty-score
+        // behaviour and lets the multiclass path below assume classes >= 1).
+        if n == 0 {
+            return 0.0;
+        }
         let beta2 = self.beta * self.beta;
 
-        let n = y_true.shape();
+        // Single pass over y_true/y_pred: collect the class set (needed to pick
+        // the binary vs. multiclass path) and the per-class tp / support /
+        // predicted counts used by the multiclass path. Labels are keyed by
+        // their f64 bit pattern; note that -0.0 and +0.0 have distinct bit
+        // patterns and would be counted as separate classes — an existing
+        // convention shared with Precision and Recall.
         let mut classes_set: HashSet<u64> = HashSet::new();
+        let mut predicted: HashMap<u64, usize> = HashMap::new();
+        let mut support: HashMap<u64, usize> = HashMap::new();
+        let mut tp_map: HashMap<u64, usize> = HashMap::new();
         for i in 0..n {
-            classes_set.insert(y_true.get(i).to_f64_bits());
+            let t_bits = y_true.get(i).to_f64_bits();
+            classes_set.insert(t_bits);
+            *support.entry(t_bits).or_insert(0) += 1;
+            *predicted.entry(y_pred.get(i).to_f64_bits()).or_insert(0) += 1;
+            if *y_true.get(i) == *y_pred.get(i) {
+                *tp_map.entry(t_bits).or_insert(0) += 1;
+            }
         }
         let classes = classes_set.len();
 
         if classes == 2 {
-            // Binary case: F-measure of the positive class, where Precision and Recall
-            // already return the positive-class scores.
+            // Binary case: F-measure of the positive class. The positive class
+            // is assumed to be the label with the higher bit representation
+            // (i.e. 1.0 when labels are 0.0/1.0) — the convention baked into
+            // Precision and Recall, which already return the positive-class
+            // scores.
             let p = Precision::new().get_score(y_true, y_pred);
             let r = Recall::new().get_score(y_true, y_pred);
             (1f64 + beta2) * (p * r) / ((beta2 * p) + r)
         } else {
-            // Multiclass case: macro F-measure is the mean of the per-class F-measures,
-            // not the F-measure of the macro-averaged precision and recall.
-            let mut predicted: HashMap<u64, usize> = HashMap::new();
-            let mut support: HashMap<u64, usize> = HashMap::new();
-            let mut tp_map: HashMap<u64, usize> = HashMap::new();
-            for i in 0..n {
-                let t_bits = y_true.get(i).to_f64_bits();
-                *support.entry(t_bits).or_insert(0) += 1;
-                *predicted.entry(y_pred.get(i).to_f64_bits()).or_insert(0) += 1;
-                if *y_true.get(i) == *y_pred.get(i) {
-                    *tp_map.entry(t_bits).or_insert(0) += 1;
-                }
-            }
+            // Multiclass case (including classes == 1, where the macro F-beta
+            // is just the single class's F-beta): macro F-measure is the mean
+            // of the per-class F-measures, not the F-measure of the
+            // macro-averaged precision and recall.
             let mut fbeta_sum = 0.0;
             for &bits in &classes_set {
                 let tp = *tp_map.get(&bits).unwrap_or(&0);
                 let pred_count = *predicted.get(&bits).unwrap_or(&0);
-                let sup = *support.get(&bits).unwrap_or(&0);
+                let support_count = *support.get(&bits).unwrap_or(&0);
                 let p_c = if pred_count > 0 {
                     tp as f64 / pred_count as f64
                 } else {
                     0.0
                 };
-                let r_c = if sup > 0 { tp as f64 / sup as f64 } else { 0.0 };
+                let r_c = if support_count > 0 {
+                    tp as f64 / support_count as f64
+                } else {
+                    0.0
+                };
                 let denom = beta2 * p_c + r_c;
                 if denom > 0.0 {
                     fbeta_sum += (1f64 + beta2) * p_c * r_c / denom;
                 }
             }
-            if classes == 0 {
-                0.0
-            } else {
-                fbeta_sum / classes as f64
-            }
+            // classes >= 1 is guaranteed here: n > 0 (early return above) means
+            // classes_set is non-empty.
+            fbeta_sum / classes as f64
         }
     }
 }
@@ -188,6 +204,27 @@ mod tests {
             let score: f64 = F1::new_with(beta).get_score(&y_true, &y_pred);
             assert!((score - expected).abs() < 1e-8);
         }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn f1_single_class() {
+        // When y_true has a single class, the multiclass path computes the
+        // F-beta for that one class (macro of one value is the value itself).
+        let y_true: Vec<f64> = vec![0., 0., 0.];
+
+        // Perfect predictions -> F1 = 1.0.
+        let perfect: f64 = F1::new_with(1.0).get_score(&y_true, &y_true);
+        assert!((perfect - 1.0).abs() < 1e-8);
+
+        // tp=2, predicted(class 0)=2, support(class 0)=3
+        //   -> p=1.0, r=2/3 -> F1 = 2 * 1.0 * (2/3) / (1.0 + 2/3) = 0.8
+        let y_pred: Vec<f64> = vec![0., 1., 0.];
+        let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_pred);
+        assert!((score - 0.8).abs() < 1e-8);
     }
 
     #[cfg_attr(
