@@ -113,7 +113,7 @@ smartcore adopts a WASM/WASI-first posture in defaults to ease browser and embed
 
 ## Notebooks
 
-A curated set of Jupyter notebooks is available via the companion repository to explore smartcore interactively. To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the v0.4 API.
+A curated set of Jupyter notebooks is available via the [companion repository to explore smartcore interactively](https://github.com/smartcorelib/smartcore-jupyter). To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the v0.4 API.
 
 ## Roadmap and recent changes
 
