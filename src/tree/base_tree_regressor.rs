@@ -240,7 +240,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while base_tree.depth() < base_tree.parameters().expect("parameters not set — model not fitted").max_depth.unwrap_or(u16::MAX) {
+        while base_tree.depth()
+            < base_tree
+                .parameters()
+                .expect("parameters not set — model not fitted")
+                .max_depth
+                .unwrap_or(u16::MAX)
+        {
             match visitor_queue.pop_front() {
                 Some(node) => base_tree.split(node, mtry, &mut visitor_queue, &mut rng),
                 None => break,
@@ -301,8 +307,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let n: usize = visitor.samples.iter().sum();
 
-        let parameters = self.parameters().expect("parameters not set — model not fitted");
-        
+        let parameters = self
+            .parameters()
+            .expect("parameters not set — model not fitted");
+
         if n < parameters.min_samples_split {
             return false;
         }
@@ -385,11 +393,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let false_count = n - true_count;
 
-        let parameters = self.parameters().expect("parameters not set — model not fitted");
+        let parameters = self
+            .parameters()
+            .expect("parameters not set — model not fitted");
 
-        if true_count < parameters.min_samples_leaf
-            || false_count < parameters.min_samples_leaf
-        {
+        if true_count < parameters.min_samples_leaf || false_count < parameters.min_samples_leaf {
             return;
         }
 
@@ -443,7 +451,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
                 let false_count = n - true_count;
 
-                let parameters = self.parameters().expect("parameters not set — model not fitted");
+                let parameters = self
+                    .parameters()
+                    .expect("parameters not set — model not fitted");
 
                 if true_count < parameters.min_samples_leaf
                     || false_count < parameters.min_samples_leaf
@@ -510,7 +520,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        let parameters = self.parameters().expect("parameters not set — model not fitted");
+        let parameters = self
+            .parameters()
+            .expect("parameters not set — model not fitted");
 
         if tc < parameters.min_samples_leaf || fc < parameters.min_samples_leaf {
             self.nodes[visitor.node].split_feature = 0;

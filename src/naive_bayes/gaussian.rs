@@ -266,7 +266,7 @@ pub struct GaussianNB<
     Y: Array1<TY>,
 > {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
-    parameters: Option<GaussianNBParameters>
+    parameters: Option<GaussianNBParameters>,
 }
 
 impl<
@@ -324,7 +324,10 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     pub fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
         let distribution = GaussianNBDistribution::fit(x, y, parameters.priors.clone())?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner: Some(inner), parameters: Some(parameters) })
+        Ok(Self {
+            inner: Some(inner),
+            parameters: Some(parameters),
+        })
     }
 
     /// Estimates the class labels for the provided data.
@@ -364,7 +367,7 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     pub fn var(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.var
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -484,7 +487,7 @@ mod tests {
 
         assert_eq!(gnb, deserialized_gnb);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -492,12 +495,9 @@ mod tests {
         let target = vec![0_u32, 0, 1, 1];
         let parameters = GaussianNBParameters::default();
         let expected_parameters = parameters.clone();
-        let classifier = GaussianNB::<f64, u32, DenseMatrix<f64>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let classifier =
+            GaussianNB::<f64, u32, DenseMatrix<f64>, Vec<u32>>::fit(&matrix, &target, parameters)
+                .unwrap();
 
         let actual_parameters = classifier
             .parameters()
@@ -511,12 +511,9 @@ mod tests {
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0_u32, 0, 1, 1];
         let parameters = GaussianNBParameters::default();
-        let mut classifier = GaussianNB::<f64, u32, DenseMatrix<f64>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let mut classifier =
+            GaussianNB::<f64, u32, DenseMatrix<f64>, Vec<u32>>::fit(&matrix, &target, parameters)
+                .unwrap();
         classifier.parameters = None;
 
         assert!(classifier.parameters().is_none());

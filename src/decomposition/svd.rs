@@ -362,7 +362,7 @@ mod tests {
 
     //     assert_eq!(svd, deserialized_svd);
     // }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0];
@@ -374,7 +374,10 @@ mod tests {
         let actual_parameters = svd
             .parameters()
             .expect("parameters should be set after fitting");
-        assert_eq!(actual_parameters.n_components, expected_parameters.n_components);
+        assert_eq!(
+            actual_parameters.n_components,
+            expected_parameters.n_components
+        );
     }
 
     #[test]

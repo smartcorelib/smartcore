@@ -280,7 +280,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
 
         T::from(f).unwrap()
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -716,7 +716,7 @@ mod tests {
 
         assert_eq!(svr, deserialized_svr);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];

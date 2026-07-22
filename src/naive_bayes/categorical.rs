@@ -338,7 +338,7 @@ impl Default for CategoricalNBSearchParameters {
 #[derive(Debug, PartialEq)]
 pub struct CategoricalNB<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> {
     inner: Option<BaseNaiveBayes<T, T, X, Y, CategoricalNBDistribution<T>>>,
-    parameters: Option<CategoricalNBParameters>
+    parameters: Option<CategoricalNBParameters>,
 }
 
 impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
@@ -347,7 +347,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>>
     fn new() -> Self {
         Self {
             inner: Option::None,
-            parameters: Option::None
+            parameters: Option::None,
         }
     }
 
@@ -372,7 +372,10 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
         let alpha = parameters.alpha;
         let distribution = CategoricalNBDistribution::fit(x, y, alpha)?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner: Some(inner), parameters: Some(parameters) })
+        Ok(Self {
+            inner: Some(inner),
+            parameters: Some(parameters),
+        })
     }
 
     /// Estimates the class labels for the provided data.
@@ -417,7 +420,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<f64>>> {
         &self.inner.as_ref().unwrap().distribution.coefficients
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -595,7 +598,7 @@ mod tests {
 
         assert_eq!(cnb, deserialized_cnb);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0_u32, 0, 0, 1, 1, 0, 1, 1];
@@ -603,12 +606,9 @@ mod tests {
         let target = vec![0_u32, 0, 1, 1];
         let parameters = CategoricalNBParameters::default();
         let expected_parameters = parameters.clone();
-        let classifier = CategoricalNB::<u32, DenseMatrix<u32>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let classifier =
+            CategoricalNB::<u32, DenseMatrix<u32>, Vec<u32>>::fit(&matrix, &target, parameters)
+                .unwrap();
 
         let actual_parameters = classifier
             .parameters()
@@ -622,12 +622,9 @@ mod tests {
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0_u32, 0, 1, 1];
         let parameters = CategoricalNBParameters::default();
-        let mut classifier = CategoricalNB::<u32, DenseMatrix<u32>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let mut classifier =
+            CategoricalNB::<u32, DenseMatrix<u32>, Vec<u32>>::fit(&matrix, &target, parameters)
+                .unwrap();
         classifier.parameters = None;
 
         assert!(classifier.parameters().is_none());

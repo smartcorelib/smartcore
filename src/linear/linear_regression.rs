@@ -423,7 +423,7 @@ mod tests {
     //     let parameters: LinearRegressionParameters = serde_json::from_str("{}").unwrap();
     //     assert_eq!(parameters.solver, default.solver);
     // }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -432,9 +432,7 @@ mod tests {
         let parameters = LinearRegressionParameters::default();
         let expected_parameters = parameters.clone();
         let regression = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
 
@@ -451,9 +449,7 @@ mod tests {
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = LinearRegressionParameters::default();
         let mut regression = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
         regression.parameters = None;

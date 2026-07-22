@@ -413,7 +413,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
 
         y
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -553,18 +553,15 @@ mod tests {
 
         assert_eq!(kmeans, deserialized_kmeans);
     }
- 
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 5.0, 5.0, 10.0, 10.0];
         let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
         let parameters = KMeansParameters::default().with_k(2);
         let expected_parameters = parameters.clone();
-        let clustering = KMeans::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            parameters,
-        )
-        .unwrap();
+        let clustering =
+            KMeans::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(&matrix, parameters).unwrap();
 
         let actual_parameters = clustering
             .parameters()
@@ -579,11 +576,8 @@ mod tests {
         let data = vec![0.0, 0.0, 5.0, 5.0, 10.0, 10.0];
         let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
         let parameters = KMeansParameters::default().with_k(2);
-        let mut clustering = KMeans::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            parameters,
-        )
-        .unwrap();
+        let mut clustering =
+            KMeans::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(&matrix, parameters).unwrap();
         clustering.parameters = None;
 
         assert!(clustering.parameters().is_none());

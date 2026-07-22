@@ -290,7 +290,11 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
             classes: Some(classes),
             y: Some(yi),
             k: Some(parameters.k.clone()),
-            knn_algorithm: Some(parameters.algorithm.fit(data, parameters.distance.clone())?),
+            knn_algorithm: Some(
+                parameters
+                    .algorithm
+                    .fit(data, parameters.distance.clone())?,
+            ),
             weight: Some(parameters.weight.clone()),
             parameters: Some(parameters),
             _phantom_tx: PhantomData,
@@ -384,7 +388,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 
         Ok(result)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -795,7 +799,7 @@ mod tests {
         );
         assert_eq!(actual_parameters.k, expected_parameters.k);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -806,9 +810,7 @@ mod tests {
         let expected_parameters = parameters.clone();
         let classifier =
             KNNClassifier::<f64, i32, DenseMatrix<f64>, Vec<i32>, Euclidian<f64>>::fit(
-                &matrix,
-                &target,
-                parameters,
+                &matrix, &target, parameters,
             )
             .unwrap();
 
@@ -839,9 +841,7 @@ mod tests {
             KNNClassifierParameters::default();
         let mut classifier =
             KNNClassifier::<f64, i32, DenseMatrix<f64>, Vec<i32>, Euclidian<f64>>::fit(
-                &matrix,
-                &target,
-                parameters,
+                &matrix, &target, parameters,
             )
             .unwrap();
         classifier.parameters = None;

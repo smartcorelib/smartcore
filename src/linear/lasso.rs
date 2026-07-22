@@ -405,7 +405,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
         scaled_x.scale_mut(&col_mean, &col_std, 0);
         Ok((scaled_x, col_mean, col_std))
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -585,7 +585,7 @@ mod tests {
 
     //     assert_eq!(lr, deserialized_lr);
     // }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -593,12 +593,9 @@ mod tests {
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = LassoParameters::default();
         let expected_parameters = parameters.clone();
-        let regression = Lasso::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let regression =
+            Lasso::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(&matrix, &target, parameters)
+                .unwrap();
 
         let actual_parameters = regression
             .parameters()
@@ -607,7 +604,10 @@ mod tests {
         assert_eq!(actual_parameters.normalize, expected_parameters.normalize);
         assert_eq!(actual_parameters.tol, expected_parameters.tol);
         assert_eq!(actual_parameters.max_iter, expected_parameters.max_iter);
-        assert_eq!(actual_parameters.fit_intercept, expected_parameters.fit_intercept);
+        assert_eq!(
+            actual_parameters.fit_intercept,
+            expected_parameters.fit_intercept
+        );
     }
 
     #[test]
@@ -616,12 +616,9 @@ mod tests {
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = LassoParameters::default();
-        let mut regression = Lasso::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let mut regression =
+            Lasso::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(&matrix, &target, parameters)
+                .unwrap();
         regression.parameters = None;
 
         assert!(regression.parameters().is_none());

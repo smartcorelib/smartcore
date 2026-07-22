@@ -94,7 +94,7 @@ pub struct DecisionTreeRegressorParameters {
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y>>,
-    parameters: Option<DecisionTreeRegressorParameters>
+    parameters: Option<DecisionTreeRegressorParameters>,
 }
 
 impl DecisionTreeRegressorParameters {
@@ -273,7 +273,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     fn new() -> Self {
         Self {
             tree_regressor: Option::None,
-            parameters: Option::None
+            parameters: Option::None,
         }
     }
 
@@ -311,7 +311,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let tree = BaseTreeRegressor::fit(x, y, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
-            parameters: Some(parameters)
+            parameters: Some(parameters),
         })
     }
 
@@ -320,7 +320,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.tree_regressor.as_ref().unwrap().predict(x)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -477,7 +477,7 @@ mod tests {
 
         assert_eq!(tree, deserialized_tree);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -486,9 +486,7 @@ mod tests {
         let parameters = DecisionTreeRegressorParameters::default();
         let expected_parameters = parameters.clone();
         let regressor = DecisionTreeRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
 
@@ -496,8 +494,14 @@ mod tests {
             .parameters()
             .expect("parameters should be set after fitting");
         assert_eq!(actual_parameters.max_depth, expected_parameters.max_depth);
-        assert_eq!(actual_parameters.min_samples_leaf, expected_parameters.min_samples_leaf);
-        assert_eq!(actual_parameters.min_samples_split, expected_parameters.min_samples_split);
+        assert_eq!(
+            actual_parameters.min_samples_leaf,
+            expected_parameters.min_samples_leaf
+        );
+        assert_eq!(
+            actual_parameters.min_samples_split,
+            expected_parameters.min_samples_split
+        );
         assert_eq!(actual_parameters.seed, expected_parameters.seed);
     }
 
@@ -508,9 +512,7 @@ mod tests {
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = DecisionTreeRegressorParameters::default();
         let mut regressor = DecisionTreeRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
         regressor.parameters = None;

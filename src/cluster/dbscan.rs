@@ -431,7 +431,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 
         Ok(result)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -557,7 +557,10 @@ mod tests {
             format!("{:?}", actual_parameters.distance),
             format!("{:?}", expected_parameters.distance)
         );
-        assert_eq!(actual_parameters.min_samples, expected_parameters.min_samples);
+        assert_eq!(
+            actual_parameters.min_samples,
+            expected_parameters.min_samples
+        );
         assert_eq!(actual_parameters.eps, expected_parameters.eps);
         assert_eq!(
             std::mem::discriminant(&actual_parameters.algorithm),
@@ -580,20 +583,19 @@ mod tests {
 
         println!("{labels:?}");
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.5, 0.5, 10.0, 10.0];
         let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
-        let parameters: DBSCANParameters<f64, Euclidian<f64>> =
-            DBSCANParameters::default().with_eps(1.0).with_min_samples(1);
+        let parameters: DBSCANParameters<f64, Euclidian<f64>> = DBSCANParameters::default()
+            .with_eps(1.0)
+            .with_min_samples(1);
         let expected_parameters = parameters.clone();
-        let clustering =
-            DBSCAN::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
-                &matrix,
-                parameters,
-            )
-            .unwrap();
+        let clustering = DBSCAN::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
+            &matrix, parameters,
+        )
+        .unwrap();
 
         let actual_parameters = clustering
             .parameters()
@@ -602,7 +604,10 @@ mod tests {
             format!("{:?}", actual_parameters.distance),
             format!("{:?}", expected_parameters.distance)
         );
-        assert_eq!(actual_parameters.min_samples, expected_parameters.min_samples);
+        assert_eq!(
+            actual_parameters.min_samples,
+            expected_parameters.min_samples
+        );
         assert_eq!(actual_parameters.eps, expected_parameters.eps);
         assert_eq!(
             std::mem::discriminant(&actual_parameters.algorithm),
@@ -614,14 +619,13 @@ mod tests {
     fn test_returns_none_on_no_parameters() {
         let data = vec![0.0, 0.0, 0.5, 0.5, 10.0, 10.0];
         let matrix = DenseMatrix::new(3, 2, data, false).unwrap();
-        let parameters: DBSCANParameters<f64, Euclidian<f64>> =
-            DBSCANParameters::default().with_eps(1.0).with_min_samples(1);
-        let mut clustering =
-            DBSCAN::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
-                &matrix,
-                parameters,
-            )
-            .unwrap();
+        let parameters: DBSCANParameters<f64, Euclidian<f64>> = DBSCANParameters::default()
+            .with_eps(1.0)
+            .with_min_samples(1);
+        let mut clustering = DBSCAN::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
+            &matrix, parameters,
+        )
+        .unwrap();
         clustering.parameters = None;
 
         assert!(clustering.parameters().is_none());

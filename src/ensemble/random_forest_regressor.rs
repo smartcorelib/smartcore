@@ -95,7 +95,7 @@ pub struct RandomForestRegressor<
     Y: Array1<TY>,
 > {
     forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y>>,
-    parameters: Option<RandomForestRegressorParameters>
+    parameters: Option<RandomForestRegressorParameters>,
 }
 
 impl RandomForestRegressorParameters {
@@ -401,7 +401,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         Ok(RandomForestRegressor {
             forest_regressor: Some(forest_regressor),
-            parameters: Some(parameters)
+            parameters: Some(parameters),
         })
     }
 
@@ -417,7 +417,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         let forest_regressor = self.forest_regressor.as_ref().unwrap();
         forest_regressor.predict_oob(x)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -623,7 +623,7 @@ mod tests {
 
         assert_eq!(forest, deserialized_forest);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -631,23 +631,29 @@ mod tests {
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = RandomForestRegressorParameters::default();
         let expected_parameters = parameters.clone();
-        let regressor =
-            RandomForestRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-                &matrix,
-                &target,
-                parameters,
-            )
-            .unwrap();
+        let regressor = RandomForestRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix, &target, parameters,
+        )
+        .unwrap();
 
         let actual_parameters = regressor
             .parameters()
             .expect("parameters should be set after fitting");
         assert_eq!(actual_parameters.max_depth, expected_parameters.max_depth);
-        assert_eq!(actual_parameters.min_samples_leaf, expected_parameters.min_samples_leaf);
-        assert_eq!(actual_parameters.min_samples_split, expected_parameters.min_samples_split);
+        assert_eq!(
+            actual_parameters.min_samples_leaf,
+            expected_parameters.min_samples_leaf
+        );
+        assert_eq!(
+            actual_parameters.min_samples_split,
+            expected_parameters.min_samples_split
+        );
         assert_eq!(actual_parameters.n_trees, expected_parameters.n_trees);
         assert_eq!(actual_parameters.m, expected_parameters.m);
-        assert_eq!(actual_parameters.keep_samples, expected_parameters.keep_samples);
+        assert_eq!(
+            actual_parameters.keep_samples,
+            expected_parameters.keep_samples
+        );
         assert_eq!(actual_parameters.seed, expected_parameters.seed);
     }
 
@@ -657,13 +663,10 @@ mod tests {
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = RandomForestRegressorParameters::default();
-        let mut regressor =
-            RandomForestRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-                &matrix,
-                &target,
-                parameters,
-            )
-            .unwrap();
+        let mut regressor = RandomForestRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &matrix, &target, parameters,
+        )
+        .unwrap();
         regressor.parameters = None;
 
         assert!(regressor.parameters().is_none());

@@ -302,7 +302,7 @@ pub struct MultinomialNB<
     Y: Array1<TY>,
 > {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, MultinomialNBDistribution<TY>>>,
-    parameters: Option<MultinomialNBParameters>
+    parameters: Option<MultinomialNBParameters>,
 }
 
 impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>> fmt::Display
@@ -324,7 +324,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     fn new() -> Self {
         Self {
             inner: Option::None,
-            parameters: Option::None
+            parameters: Option::None,
         }
     }
 
@@ -351,10 +351,17 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
     ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
-        let distribution =
-            MultinomialNBDistribution::fit(x, y, parameters.alpha.clone(), parameters.priors.clone())?;
+        let distribution = MultinomialNBDistribution::fit(
+            x,
+            y,
+            parameters.alpha.clone(),
+            parameters.priors.clone(),
+        )?;
         let inner = BaseNaiveBayes::fit(distribution)?;
-        Ok(Self { inner: Some(inner), parameters: Some(parameters) })
+        Ok(Self {
+            inner: Some(inner),
+            parameters: Some(parameters),
+        })
     }
 
     /// Estimates the class labels for the provided data.
@@ -393,7 +400,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
         &self.inner.as_ref().unwrap().distribution.feature_count
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -576,7 +583,7 @@ mod tests {
 
         assert_eq!(mnb, deserialized_mnb);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0_u32, 1, 1, 0, 1, 2, 2, 1];
@@ -585,9 +592,7 @@ mod tests {
         let parameters = MultinomialNBParameters::default();
         let expected_parameters = parameters.clone();
         let classifier = MultinomialNB::<u32, u32, DenseMatrix<u32>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
 
@@ -604,9 +609,7 @@ mod tests {
         let target = vec![0_u32, 0, 1, 1];
         let parameters = MultinomialNBParameters::default();
         let mut classifier = MultinomialNB::<u32, u32, DenseMatrix<u32>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
         classifier.parameters = None;

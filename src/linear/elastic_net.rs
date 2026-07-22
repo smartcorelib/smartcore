@@ -462,7 +462,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         (x2, y2, gamma)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -656,7 +656,7 @@ mod tests {
 
     //     assert_eq!(lr, deserialized_lr);
     // }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -664,12 +664,9 @@ mod tests {
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = ElasticNetParameters::default();
         let expected_parameters = parameters.clone();
-        let regression = ElasticNet::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let regression =
+            ElasticNet::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(&matrix, &target, parameters)
+                .unwrap();
 
         let actual_parameters = regression
             .parameters()
@@ -687,12 +684,9 @@ mod tests {
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0.0, 1.0, 1.0, 2.0];
         let parameters = ElasticNetParameters::default();
-        let mut regression = ElasticNet::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let mut regression =
+            ElasticNet::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(&matrix, &target, parameters)
+                .unwrap();
         regression.parameters = None;
 
         assert!(regression.parameters().is_none());

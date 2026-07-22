@@ -608,7 +608,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
 
         f
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -1437,7 +1437,7 @@ mod tests {
 
         assert_eq!(svc, deserialized_svc);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];

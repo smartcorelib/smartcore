@@ -386,7 +386,7 @@ pub struct BernoulliNB<
 > {
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, BernoulliNBDistribution<TY>>>,
     binarize: Option<TX>,
-    parameters: Option<BernoulliNBParameters<TX>>
+    parameters: Option<BernoulliNBParameters<TX>>,
 }
 
 impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
@@ -410,7 +410,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
         Self {
             inner: Option::None,
             binarize: Option::None,
-            parameters: Option::None
+            parameters: Option::None,
         }
     }
 
@@ -452,7 +452,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
         Ok(Self {
             inner: Some(inner),
             binarize: parameters.binarize,
-            parameters: Some(parameters)
+            parameters: Some(parameters),
         })
     }
 
@@ -706,7 +706,7 @@ mod tests {
             &expected_parameters
         );
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0, 0, 0, 1, 1, 0, 1, 1];
@@ -714,12 +714,9 @@ mod tests {
         let target = vec![0_u32, 0, 1, 1];
         let parameters: BernoulliNBParameters<i32> = BernoulliNBParameters::default();
         let expected_parameters = parameters.clone();
-        let classifier = BernoulliNB::<i32, u32, DenseMatrix<i32>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let classifier =
+            BernoulliNB::<i32, u32, DenseMatrix<i32>, Vec<u32>>::fit(&matrix, &target, parameters)
+                .unwrap();
 
         let actual_parameters = classifier
             .parameters()
@@ -733,12 +730,9 @@ mod tests {
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0_u32, 0, 1, 1];
         let parameters: BernoulliNBParameters<i32> = BernoulliNBParameters::default();
-        let mut classifier = BernoulliNB::<i32, u32, DenseMatrix<i32>, Vec<u32>>::fit(
-            &matrix,
-            &target,
-            parameters,
-        )
-        .unwrap();
+        let mut classifier =
+            BernoulliNB::<i32, u32, DenseMatrix<i32>, Vec<u32>>::fit(&matrix, &target, parameters)
+                .unwrap();
         classifier.parameters = None;
 
         assert!(classifier.parameters().is_none());

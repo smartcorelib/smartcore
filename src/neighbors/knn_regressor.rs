@@ -270,7 +270,9 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
             )));
         }
 
-        let knn_algo = parameters.algorithm.fit(data, parameters.distance.clone())?;
+        let knn_algo = parameters
+            .algorithm
+            .fit(data, parameters.distance.clone())?;
 
         Ok(KNNRegressor {
             y: Some(y.clone()),
@@ -317,7 +319,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 
         Ok(result)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -428,13 +430,10 @@ mod tests {
         let parameters: KNNRegressorParameters<f64, Euclidian<f64>> =
             KNNRegressorParameters::default();
         let expected_parameters = parameters.clone();
-        let regressor =
-            KNNRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
-                &matrix,
-                &target,
-                parameters,
-            )
-            .unwrap();
+        let regressor = KNNRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
+            &matrix, &target, parameters,
+        )
+        .unwrap();
 
         let actual_parameters = regressor
             .parameters()
@@ -463,9 +462,7 @@ mod tests {
             KNNRegressorParameters::default();
         let mut regressor =
             KNNRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>>::fit(
-                &matrix,
-                &target,
-                parameters,
+                &matrix, &target, parameters,
             )
             .unwrap();
         regressor.parameters = None;

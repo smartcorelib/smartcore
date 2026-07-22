@@ -591,7 +591,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
 
         optimizer.optimize(&f, &df, &x0, &ls)
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -996,19 +996,16 @@ mod tests {
 
         assert_eq!(y_hat.shape(), 52181);
     }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0, 0, 1, 1];
-        let parameters: LogisticRegressionParameters<f64> =
-            LogisticRegressionParameters::default();
+        let parameters: LogisticRegressionParameters<f64> = LogisticRegressionParameters::default();
         let expected_parameters = parameters.clone();
         let regression = LogisticRegression::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
 
@@ -1024,12 +1021,9 @@ mod tests {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
         let matrix = DenseMatrix::new(4, 2, data, false).unwrap();
         let target = vec![0, 0, 1, 1];
-        let parameters: LogisticRegressionParameters<f64> =
-            LogisticRegressionParameters::default();
+        let parameters: LogisticRegressionParameters<f64> = LogisticRegressionParameters::default();
         let mut regression = LogisticRegression::<f64, i32, DenseMatrix<f64>, Vec<i32>>::fit(
-            &matrix,
-            &target,
-            parameters,
+            &matrix, &target, parameters,
         )
         .unwrap();
         regression.parameters = None;

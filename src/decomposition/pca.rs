@@ -362,7 +362,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
     pub fn components(&self) -> &X {
         &self.projection
     }
-    
+
     /// Getter for parameters used in the model
     ///
     /// # Returns
@@ -757,7 +757,7 @@ mod tests {
 
     //     assert_eq!(pca, deserialized_pca);
     // }
-    
+
     #[test]
     fn test_can_get_assigned_parameters() {
         let data = vec![0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -769,7 +769,10 @@ mod tests {
         let actual_parameters = pca
             .parameters()
             .expect("parameters should be set after fitting");
-        assert_eq!(actual_parameters.n_components, expected_parameters.n_components);
+        assert_eq!(
+            actual_parameters.n_components,
+            expected_parameters.n_components
+        );
         assert_eq!(
             actual_parameters.use_correlation_matrix,
             expected_parameters.use_correlation_matrix
