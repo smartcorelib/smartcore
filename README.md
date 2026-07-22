@@ -37,7 +37,7 @@ Add to Cargo.toml:
 
 ```toml
 [dependencies]
-smartcore = "^0.4.3"
+smartcore = "^0.5.3"
 ```
 
 For the latest development branch:
@@ -113,7 +113,7 @@ smartcore adopts a WASM/WASI-first posture in defaults to ease browser and embed
 
 ## Notebooks
 
-A curated set of Jupyter notebooks is available via the companion repository to explore smartcore interactively. To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the v0.4 API.
+A curated set of Jupyter notebooks is available via the [companion repository to explore smartcore interactively](https://github.com/smartcorelib/smartcore-jupyter). To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the v0.4 API.
 
 ## Roadmap and recent changes
 
@@ -124,6 +124,10 @@ A curated set of Jupyter notebooks is available via the companion repository to 
 - Tree and forest components refactored for reuse; Extra Trees added.
 - SVM multiclass support; SVR kernel enum and related improvements.
 - XGBoost-style regression introduced; single-linkage clustering implemented.
+- Classification metrics hardened: multiclass macro F1 now averages per-class
+  F-measures (matching sklearn), and Precision/Recall/F1 share a single
+  per-class confusion-counts helper so the per-class bookkeeping lives in one
+  place.
 
 See CHANGELOG.md for precise details, deprecations, and breaking changes. Some features like nalgebra-bindings have been dropped in favor of ndarray-only paths. Default features are tuned for WASM/WASI builds; enable serde/datasets as needed.
 

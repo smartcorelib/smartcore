@@ -146,7 +146,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
         // compute sparse matrix (connectivity matrix)
         let mut sparse_matrix = M::zeros(len, len);
-        for (_, p) in distances.iter() {
+        for p in distances.values() {
             sparse_matrix.set((p.node, p.neighbour.unwrap()), p.distance.unwrap());
         }
 
