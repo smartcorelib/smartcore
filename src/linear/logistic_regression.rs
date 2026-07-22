@@ -80,7 +80,7 @@ pub enum LogisticRegressionSolverName {
 }
 
 /// Logistic Regression parameters
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, Clone)]
 pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
@@ -89,6 +89,33 @@ pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
     pub alpha: T,
+}
+
+// A manual implementation avoids adding an unnecessary `Default` bound to
+// generic parameter types while preserving their serialized representation.
+#[cfg(feature = "serde")]
+impl<'de, T> Deserialize<'de> for LogisticRegressionParameters<T>
+where
+    T: Number + FloatNumber + Deserialize<'de>,
+{
+    fn deserialize<De>(deserializer: De) -> Result<Self, De::Error>
+    where
+        De: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct LogisticRegressionParametersData<T> {
+            #[serde(default)]
+            solver: LogisticRegressionSolverName,
+            alpha: T,
+        }
+
+        let data = LogisticRegressionParametersData::deserialize(deserializer)?;
+
+        Ok(Self {
+            solver: data.solver,
+            alpha: data.alpha,
+        })
+    }
 }
 
 /// Logistic Regression grid search parameters
@@ -858,12 +885,23 @@ mod tests {
         .unwrap();
         let y: Vec<i32> = vec![0, 0, 1, 1, 2, 1, 1, 0, 0, 2, 1, 1, 0, 0, 1];
 
-        let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
+        let parameters = LogisticRegressionParameters::default().with_alpha(10.0);
+        let expected_parameters = parameters.clone();
+        let lr = LogisticRegression::fit(&x, &y, parameters).unwrap();
 
         let deserialized_lr: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
             serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);
+
+        let actual_parameters = deserialized_lr
+            .parameters()
+            .expect("parameters should survive serialization");
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.solver),
+            std::mem::discriminant(&expected_parameters.solver)
+        );
+        assert_eq!(actual_parameters.alpha, expected_parameters.alpha);
     }
 
     #[cfg_attr(

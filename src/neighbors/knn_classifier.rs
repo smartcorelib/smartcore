@@ -46,7 +46,7 @@ use crate::neighbors::KNNWeightFunction;
 use crate::numbers::basenum::Number;
 
 /// `KNNClassifier` parameters. Use `Default::default()` for default values.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, Clone)]
 pub struct KNNClassifierParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
@@ -66,6 +66,43 @@ pub struct KNNClassifierParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// this parameter is not used
     t: PhantomData<T>,
+}
+
+// A manual implementation avoids adding an unnecessary `Default` bound to
+// generic parameter types while preserving their serialized representation.
+#[cfg(feature = "serde")]
+impl<'de, T, D> Deserialize<'de> for KNNClassifierParameters<T, D>
+where
+    T: Number,
+    D: Distance<Vec<T>> + Deserialize<'de>,
+{
+    fn deserialize<De>(deserializer: De) -> Result<Self, De::Error>
+    where
+        De: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct KNNClassifierParametersData<D> {
+            distance: D,
+            #[serde(default)]
+            algorithm: KNNAlgorithmName,
+            #[serde(default)]
+            weight: KNNWeightFunction,
+            #[serde(default)]
+            k: usize,
+            #[serde(default, rename = "t")]
+            _t: PhantomData<()>,
+        }
+
+        let data = KNNClassifierParametersData::deserialize(deserializer)?;
+
+        Ok(Self {
+            distance: data.distance,
+            algorithm: data.algorithm,
+            weight: data.weight,
+            k: data.k,
+            t: PhantomData,
+        })
+    }
 }
 
 /// K Nearest Neighbors Classifier
@@ -731,10 +768,32 @@ mod tests {
                 .unwrap();
         let y = vec![2, 2, 2, 3, 3];
 
-        let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
+        let parameters = KNNClassifierParameters::default()
+            .with_k(2)
+            .with_algorithm(KNNAlgorithmName::LinearSearch)
+            .with_weight(KNNWeightFunction::Distance);
+        let expected_parameters = parameters.clone();
+        let knn = KNNClassifier::fit(&x, &y, parameters).unwrap();
         let deserialized_knn = bincode::deserialize(&bincode::serialize(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
+
+        let actual_parameters = deserialized_knn
+            .parameters()
+            .expect("parameters should survive serialization");
+        assert_eq!(
+            format!("{:?}", actual_parameters.distance),
+            format!("{:?}", expected_parameters.distance)
+        );
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.algorithm),
+            std::mem::discriminant(&expected_parameters.algorithm)
+        );
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.weight),
+            std::mem::discriminant(&expected_parameters.weight)
+        );
+        assert_eq!(actual_parameters.k, expected_parameters.k);
     }
     
     #[test]

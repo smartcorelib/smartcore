@@ -70,7 +70,7 @@ pub struct DBSCAN<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Dista
     _phantom_y: PhantomData<Y>,
 }
 
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, Clone)]
 /// DBSCAN clustering algorithm parameters
 pub struct DBSCANParameters<T: Number, D: Distance<Vec<T>>> {
@@ -90,6 +90,43 @@ pub struct DBSCANParameters<T: Number, D: Distance<Vec<T>>> {
     pub algorithm: KNNAlgorithmName,
     #[cfg_attr(feature = "serde", serde(default))]
     _phantom_t: PhantomData<T>,
+}
+
+// A manual implementation avoids adding an unnecessary `Default` bound to
+// generic parameter types while preserving their serialized representation.
+#[cfg(feature = "serde")]
+impl<'de, T, D> Deserialize<'de> for DBSCANParameters<T, D>
+where
+    T: Number,
+    D: Distance<Vec<T>> + Deserialize<'de>,
+{
+    fn deserialize<De>(deserializer: De) -> Result<Self, De::Error>
+    where
+        De: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct DBSCANParametersData<D> {
+            distance: D,
+            #[serde(default)]
+            min_samples: usize,
+            #[serde(default)]
+            eps: f64,
+            #[serde(default)]
+            algorithm: KNNAlgorithmName,
+            #[serde(default)]
+            _phantom_t: PhantomData<()>,
+        }
+
+        let data = DBSCANParametersData::deserialize(deserializer)?;
+
+        Ok(Self {
+            distance: data.distance,
+            min_samples: data.min_samples,
+            eps: data.eps,
+            algorithm: data.algorithm,
+            _phantom_t: PhantomData,
+        })
+    }
 }
 
 impl<T: Number, D: Distance<Vec<T>>> DBSCANParameters<T, D> {
@@ -501,12 +538,31 @@ mod tests {
         ])
         .unwrap();
 
-        let dbscan = DBSCAN::fit(&x, Default::default()).unwrap();
+        let parameters = DBSCANParameters::default()
+            .with_eps(0.5)
+            .with_min_samples(2)
+            .with_algorithm(KNNAlgorithmName::LinearSearch);
+        let expected_parameters = parameters.clone();
+        let dbscan = DBSCAN::fit(&x, parameters).unwrap();
 
         let deserialized_dbscan: DBSCAN<f32, f32, DenseMatrix<f32>, Vec<f32>, Euclidian<f32>> =
             serde_json::from_str(&serde_json::to_string(&dbscan).unwrap()).unwrap();
 
         assert_eq!(dbscan, deserialized_dbscan);
+
+        let actual_parameters = deserialized_dbscan
+            .parameters()
+            .expect("parameters should survive serialization");
+        assert_eq!(
+            format!("{:?}", actual_parameters.distance),
+            format!("{:?}", expected_parameters.distance)
+        );
+        assert_eq!(actual_parameters.min_samples, expected_parameters.min_samples);
+        assert_eq!(actual_parameters.eps, expected_parameters.eps);
+        assert_eq!(
+            std::mem::discriminant(&actual_parameters.algorithm),
+            std::mem::discriminant(&expected_parameters.algorithm)
+        );
     }
 
     #[cfg(feature = "datasets")]

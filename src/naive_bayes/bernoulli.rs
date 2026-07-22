@@ -126,7 +126,7 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 }
 
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct BernoulliNBParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
@@ -138,6 +138,35 @@ pub struct BernoulliNBParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Threshold for binarizing (mapping to booleans) of sample features. If None, input is presumed to already consist of binary vectors.
     pub binarize: Option<T>,
+}
+
+// A manual implementation avoids adding an unnecessary `Default` bound to
+// generic parameter types while preserving their serialized representation.
+#[cfg(feature = "serde")]
+impl<'de, T> Deserialize<'de> for BernoulliNBParameters<T>
+where
+    T: Number + Deserialize<'de>,
+{
+    fn deserialize<De>(deserializer: De) -> Result<Self, De::Error>
+    where
+        De: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct BernoulliNBParametersData<T> {
+            #[serde(default)]
+            alpha: f64,
+            priors: Option<Vec<f64>>,
+            binarize: Option<T>,
+        }
+
+        let data = BernoulliNBParametersData::deserialize(deserializer)?;
+
+        Ok(Self {
+            alpha: data.alpha,
+            priors: data.priors,
+            binarize: data.binarize,
+        })
+    }
 }
 
 impl<T: Number + PartialOrd> BernoulliNBParameters<T> {
@@ -660,11 +689,22 @@ mod tests {
         .unwrap();
         let y: Vec<u32> = vec![0, 0, 0, 1];
 
-        let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
+        let parameters = BernoulliNBParameters::default()
+            .with_alpha(0.5)
+            .with_priors(vec![0.75, 0.25])
+            .with_binarize(0);
+        let expected_parameters = parameters.clone();
+        let bnb = BernoulliNB::fit(&x, &y, parameters).unwrap();
         let deserialized_bnb: BernoulliNB<i32, u32, DenseMatrix<i32>, Vec<u32>> =
             serde_json::from_str(&serde_json::to_string(&bnb).unwrap()).unwrap();
 
         assert_eq!(bnb, deserialized_bnb);
+        assert_eq!(
+            deserialized_bnb
+                .parameters()
+                .expect("parameters should survive serialization"),
+            &expected_parameters
+        );
     }
     
     #[test]
