@@ -92,8 +92,8 @@ pub struct DBSCANParameters<T: Number, D: Distance<Vec<T>>> {
     _phantom_t: PhantomData<T>,
 }
 
-// A manual implementation avoids adding an unnecessary `Default` bound to
-// generic parameter types while preserving their serialized representation.
+// SERDE: a manual implementation avoids the implicit `Default` bounds that
+// `#[derive(Deserialize)]` would add to generic parameter types.
 #[cfg(feature = "serde")]
 impl<'de, T, D> Deserialize<'de> for DBSCANParameters<T, D>
 where

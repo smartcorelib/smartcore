@@ -351,12 +351,8 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
     ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: MultinomialNBParameters) -> Result<Self, Failed> {
-        let distribution = MultinomialNBDistribution::fit(
-            x,
-            y,
-            parameters.alpha,
-            parameters.priors.clone(),
-        )?;
+        let distribution =
+            MultinomialNBDistribution::fit(x, y, parameters.alpha, parameters.priors.clone())?;
         let inner = BaseNaiveBayes::fit(distribution)?;
         Ok(Self {
             inner: Some(inner),

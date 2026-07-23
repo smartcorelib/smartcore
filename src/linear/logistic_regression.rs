@@ -91,8 +91,8 @@ pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
     pub alpha: T,
 }
 
-// A manual implementation avoids adding an unnecessary `Default` bound to
-// generic parameter types while preserving their serialized representation.
+// SERDE: a manual implementation avoids the implicit `Default` bounds that
+// `#[derive(Deserialize)]` would add to generic parameter types.
 #[cfg(feature = "serde")]
 impl<'de, T> Deserialize<'de> for LogisticRegressionParameters<T>
 where

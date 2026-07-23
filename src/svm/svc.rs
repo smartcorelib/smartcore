@@ -271,6 +271,15 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             })
             .collect())
     }
+
+    /// Returns the parameters shared by the binary classifiers.
+    ///
+    /// Every one-vs-one classifier is fitted with the same borrowed parameter
+    /// value. This returns `None` if the model has not been fitted or contains
+    /// no binary classifiers.
+    pub fn parameters(&self) -> Option<&SVCParameters<TX, TY, X, Y>> {
+        self.classifiers.as_ref()?.first()?.parameters
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -609,10 +618,11 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
         f
     }
 
-    /// Getter for parameters used in the model
+    /// Returns the parameters used to fit this classifier.
     ///
-    /// # Returns
-    /// `Some` with the parameters used to configure the model, or `None` if unavailable.
+    /// A fitted `SVC` borrows its parameter value. With the `serde` feature,
+    /// that borrow is skipped during serialization, so this method returns
+    /// `None` for a deserialized classifier.
     pub fn parameters(&self) -> Option<&SVCParameters<TX, TY, X, Y>> {
         self.parameters
     }
@@ -1380,10 +1390,20 @@ mod tests {
             .with_kernel(knl)
             .with_seed(Some(100));
 
-        let y_hat = MultiClassSVC::fit(&x, &y, &parameters)
-            .and_then(|lr| lr.predict(&x))
-            .unwrap();
+        let classifier = MultiClassSVC::fit(&x, &y, &parameters).unwrap();
+        let actual_parameters = classifier
+            .parameters()
+            .expect("parameters should be set after fitting");
+        assert_eq!(actual_parameters.epoch, parameters.epoch);
+        assert_eq!(actual_parameters.c, parameters.c);
+        assert_eq!(actual_parameters.tol, parameters.tol);
+        assert_eq!(actual_parameters.seed, parameters.seed);
+        assert_eq!(
+            format!("{:?}", actual_parameters.kernel),
+            format!("{:?}", parameters.kernel)
+        );
 
+        let y_hat = classifier.predict(&x).unwrap();
         let acc = accuracy(&y, &(y_hat.iter().map(|e| e.to_i32().unwrap()).collect()));
 
         assert!(
@@ -1436,6 +1456,10 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
         assert_eq!(svc, deserialized_svc);
+        assert!(
+            deserialized_svc.parameters().is_none(),
+            "borrowed SVC parameters are not serialized"
+        );
     }
 
     #[test]
