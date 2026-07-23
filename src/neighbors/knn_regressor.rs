@@ -276,7 +276,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
 
         Ok(KNNRegressor {
             y: Some(y.clone()),
-            k: Some(parameters.k.clone()),
+            k: Some(parameters.k),
             knn_algorithm: Some(knn_algo),
             weight: Some(parameters.weight.clone()),
             parameters: Some(parameters),

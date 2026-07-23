@@ -289,7 +289,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
         Ok(KNNClassifier {
             classes: Some(classes),
             y: Some(yi),
-            k: Some(parameters.k.clone()),
+            k: Some(parameters.k),
             knn_algorithm: Some(
                 parameters
                     .algorithm

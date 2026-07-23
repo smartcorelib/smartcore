@@ -354,7 +354,7 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
         let distribution = MultinomialNBDistribution::fit(
             x,
             y,
-            parameters.alpha.clone(),
+            parameters.alpha,
             parameters.priors.clone(),
         )?;
         let inner = BaseNaiveBayes::fit(distribution)?;

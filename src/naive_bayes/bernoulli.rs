@@ -441,11 +441,11 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
             BernoulliNBDistribution::fit(
                 &Self::binarize(x, threshold),
                 y,
-                parameters.alpha.clone(),
+                parameters.alpha,
                 parameters.priors.clone(),
             )?
         } else {
-            BernoulliNBDistribution::fit(x, y, parameters.alpha.clone(), parameters.priors.clone())?
+            BernoulliNBDistribution::fit(x, y, parameters.alpha, parameters.priors.clone())?
         };
 
         let inner = BaseNaiveBayes::fit(distribution)?;
