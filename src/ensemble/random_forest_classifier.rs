@@ -475,13 +475,12 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         let mut rng = get_rng_impl(Some(parameters.seed));
         let classes = y.unique();
         let k = classes.len();
-        // TODO: use with_capacity here
-        let mut trees: Vec<DecisionTreeClassifier<TX, TY, X, Y>> = Vec::new();
+        let n_trees = parameters.n_trees as usize;
+        let mut trees: Vec<DecisionTreeClassifier<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
-            // TODO: use with_capacity here
-            maybe_all_samples = Some(Vec::new());
+            maybe_all_samples = Some(Vec::with_capacity(n_trees));
         }
 
         for _ in 0..parameters.n_trees {
