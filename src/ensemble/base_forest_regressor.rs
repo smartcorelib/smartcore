@@ -94,12 +94,12 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
         let mut rng = get_rng_impl(Some(parameters.seed));
-        let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y>> = Vec::new();
+        let n_trees = parameters.n_trees as usize;
+        let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
-            // TODO: use with_capacity here
-            maybe_all_samples = Some(Vec::new());
+            maybe_all_samples = Some(Vec::with_capacity(n_trees));
         }
 
         let mut samples: Vec<usize> = (0..n_rows).map(|_| 1).collect();
