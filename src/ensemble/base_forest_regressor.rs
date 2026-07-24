@@ -94,7 +94,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
         let mut rng = get_rng_impl(Some(parameters.seed));
-        let n_trees = parameters.n_trees as usize;
+        let n_trees = parameters.n_trees;
         let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
@@ -216,5 +216,31 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             samples[xi] += 1;
         }
         samples
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::basic::matrix::DenseMatrix;
+
+    #[test]
+    fn test_base_forest_regressor_keep_samples() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0], &[5.0, 6.0]]).unwrap();
+        let y = vec![1.0, 2.0, 3.0];
+        let params = BaseForestRegressorParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 5,
+            m: None,
+            keep_samples: true,
+            seed: 42,
+            bootstrap: true,
+            splitter: crate::tree::decision_tree_regressor::Splitter::Best,
+        };
+        let regressor = BaseForestRegressor::fit(&x, &y, params).unwrap();
+        assert_eq!(regressor.trees.unwrap().len(), 5);
+        assert!(regressor.samples.is_some());
     }
 }
