@@ -237,7 +237,7 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: true,
-            splitter: crate::tree::decision_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree_regressor::Splitter::Best,
         };
         let regressor = BaseForestRegressor::fit(&x, &y, params).unwrap();
         assert_eq!(regressor.trees.unwrap().len(), 5);
