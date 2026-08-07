@@ -33,13 +33,27 @@ ordered-float = "5.1.0"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 typetag = { version = "0.2", optional = true }
 
+### FEATURES #################################################################
+
 [features]
 default = []
+
+# Enable serde Serialize/Deserialize for models and related types.
+# Also enables typetag on non-wasm targets for trait object serialization.
 serde = ["dep:serde", "dep:typetag"]
+
+# Optional bindings for the ndarray crate (DenseMatrix <-> ndarray).
 ndarray-bindings = ["dep:ndarray"]
+
+# Sample datasets (iris, boston, digits, ...) and dataset generators.
+# Enables std_rand and serde because datasets ship serialized bundles.
 datasets = ["std_rand", "serde"]
+
+# Use the standard library RNG (StdRng / thread_rng) instead of SmallRng.
+# Required for non-deterministic seeding without an explicit seed.
 std_rand = ["rand/std_rng", "rand/std", "rand/thread_rng"]
-# used by wasm32-unknown-unknown for in-browser usage
+
+# Enable getrandom's wasm_js backend for wasm32-unknown-unknown (in-browser).
 js = ["getrandom/wasm_js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
