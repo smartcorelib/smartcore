@@ -33,9 +33,9 @@ ordered-float = "5.1.0"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 typetag = { version = "0.2", optional = true }
 
-### FEATURES #################################################################
-
 [features]
+# No features enabled by default; keeps the build WASM-compatible
+# and avoids pulling in serde/rand unless explicitly requested.
 default = []
 
 # Enable serde Serialize/Deserialize for models and related types.
