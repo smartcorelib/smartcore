@@ -262,30 +262,21 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     }
 
     pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
-        let mut result = 0f64;
-        let mut queue: LinkedList<usize> = LinkedList::new();
-
-        queue.push_back(0);
-
-        while !queue.is_empty() {
-            match queue.pop_front() {
-                Some(node_id) => {
-                    let node = &self.nodes()[node_id];
-                    if node.true_child.is_none() && node.false_child.is_none() {
-                        result = node.output;
-                    } else if x.get((row, node.split_feature)).to_f64().unwrap()
-                        <= node.split_value.unwrap_or(f64::NAN)
-                    {
-                        queue.push_back(node.true_child.unwrap());
-                    } else {
-                        queue.push_back(node.false_child.unwrap());
-                    }
-                }
-                None => break,
+        let mut node_id = 0;
+        loop {
+            let node = &self.nodes()[node_id];
+            let Some(true_child) = node.true_child else {
+                return TY::from_f64(node.output).unwrap();
+            };
+            let false_child = node.false_child.unwrap();
+            node_id = if x.get((row, node.split_feature)).to_f64().unwrap()
+                <= node.split_value.unwrap_or(f64::NAN)
+            {
+                true_child
+            } else {
+                false_child
             };
         }
-
-        TY::from_f64(result).unwrap()
     }
 
     fn find_best_cutoff(
