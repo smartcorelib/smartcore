@@ -89,4 +89,64 @@ mod tests {
 
         assert!((l2 - 5.19615242).abs() < 1e-8);
     }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn euclidean_distance_zero_for_identical_points() {
+        use proptest::prelude::*;
+
+        proptest!(
+            |(a in proptest::collection::vec(-100.0f64..100.0, 1..=10))|
+            {
+                let dist: f64 = Euclidian::new().distance(&a, &a);
+                prop_assert!(dist.abs() < 1e-10, "d(a,a)={dist}");
+            }
+        );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn euclidean_distance_symmetric() {
+        use proptest::prelude::*;
+
+        proptest!( |(len in 1usize..=10,
+                   a_vals in proptest::collection::vec(-100.0f64..100.0, 10),
+                   b_vals in proptest::collection::vec(-100.0f64..100.0, 10))| {
+            let a: Vec<f64> = a_vals[..len].to_vec();
+            let b: Vec<f64> = b_vals[..len].to_vec();
+            let d_ab: f64 = Euclidian::new().distance(&a, &b);
+            let d_ba: f64 = Euclidian::new().distance(&b, &a);
+            prop_assert!((d_ab - d_ba).abs() < 1e-10, "d(a,b)={}, d(b,a)={}", d_ab, d_ba);
+        });
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn euclidean_distance_triangle_inequality() {
+        use proptest::prelude::*;
+
+        proptest!( |(len in 1usize..=8,
+                   a_vals in proptest::collection::vec(-50.0f64..50.0, 8),
+                   b_vals in proptest::collection::vec(-50.0f64..50.0, 8),
+                   c_vals in proptest::collection::vec(-50.0f64..50.0, 8))| {
+            let a: Vec<f64> = a_vals[..len].to_vec();
+            let b: Vec<f64> = b_vals[..len].to_vec();
+            let c: Vec<f64> = c_vals[..len].to_vec();
+            let d_ab: f64 = Euclidian::new().distance(&a, &b);
+            let d_bc: f64 = Euclidian::new().distance(&b, &c);
+            let d_ac: f64 = Euclidian::new().distance(&a, &c);
+            prop_assert!(d_ac <= d_ab + d_bc + 1e-9,
+                "triangle inequality violated: d(a,c)={}, d(a,b)+d(b,c)={}",
+                d_ac, d_ab + d_bc);
+        });
+    }
 }

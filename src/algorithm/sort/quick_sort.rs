@@ -135,4 +135,40 @@ mod tests {
             arr2.quick_argsort()
         );
     }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn quick_argsort_is_valid_permutation() {
+        use proptest::prelude::*;
+
+        proptest!(
+            |(arr in proptest::collection::vec(-100.0f64..100.0, 1..=20))|
+            {
+                let n = arr.len();
+                let perm = arr.quick_argsort();
+                prop_assert_eq!(perm.len(), n, "permutation length mismatch");
+
+                if n == 0 {
+                    return Ok(()); // trivially valid
+                }
+
+                // perm must be a permutation of 0..n
+                let mut seen = vec![false; n];
+                for &idx in &perm {
+                    prop_assert!(idx < n, "index {idx} out of range");
+                    prop_assert!(!std::mem::replace(&mut seen[idx], true),
+                        "index {idx} appears twice");
+                }
+
+                // the values visited in permutation order must be non-decreasing
+                for i in 1..n {
+                    prop_assert!(arr[perm[i - 1]] <= arr[perm[i]],
+                        "not sorted at position {i}");
+                }
+            }
+        );
+    }
 }
