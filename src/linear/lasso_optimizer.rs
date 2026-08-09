@@ -250,3 +250,51 @@ impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
         self.mat_vec_mul(a, x, y);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::DenseMatrix;
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn new_builds_ata_with_correct_shape() {
+        // a is 4x2 -> ata = a^T a is 2x2
+        let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.]]).unwrap();
+        let opt: InteriorPointOptimizer<f64, DenseMatrix<f64>> = InteriorPointOptimizer::new(&a, 2);
+        assert_eq!(opt.ata.shape(), (2, 2));
+        // ata[0][0] = sum of column 0 squared = 1+9+25+49 = 84
+        assert!((opt.ata.get((0, 0)) - 84.0).abs() < 1e-10);
+        // ata[1][1] = sum of column 1 squared = 4+16+36+64 = 120
+        assert!((opt.ata.get((1, 1)) - 120.0).abs() < 1e-10);
+        // internal scratch vectors sized to p=2
+        assert_eq!(opt.d1.len(), 2);
+        assert_eq!(opt.d2.len(), 2);
+        assert_eq!(opt.prb.len(), 2);
+        assert_eq!(opt.prs.len(), 2);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn optimize_with_zero_lambda_recovers_least_squares() {
+        // y = 2*x0 + 3*x1 (exact, no noise). With lambda -> 0 (clamped to epsilon
+        // internally) the l1-regularized LS solution should approach [2, 3].
+        let x = DenseMatrix::from_2d_array(&[&[1., 0.], &[0., 1.], &[1., 1.], &[2., 1.]]).unwrap();
+        let y = vec![2.0, 3.0, 5.0, 7.0];
+
+        let mut opt: InteriorPointOptimizer<f64, DenseMatrix<f64>> =
+            InteriorPointOptimizer::new(&x, 2);
+        let w = opt.optimize(&x, &y, 1e-10, 100, 1e-8, false).unwrap();
+
+        assert_eq!(w.len(), 2);
+        assert!((w[0] - 2.0).abs() < 1e-3, "w[0]={} expected ~2.0", w[0]);
+        assert!((w[1] - 3.0).abs() < 1e-3, "w[1]={} expected ~3.0", w[1]);
+    }
+}

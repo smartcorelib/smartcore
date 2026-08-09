@@ -120,7 +120,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn with_capacity() {
+    fn quick_argsort() {
         let arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];
         assert_eq!(vec![1, 2, 0, 3, 5, 7, 6, 8, 4], arr1.quick_argsort());
 

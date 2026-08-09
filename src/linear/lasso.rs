@@ -561,17 +561,19 @@ mod tests {
         assert_eq!(fit_result.intercept, None);
     }
 
-    // TODO: serialization for the new DenseMatrix needs to be implemented
-    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let (x, y) = get_lasso_sample_x_y();
-    //     let lr = Lasso::fit(&x, &y, Default::default()).unwrap();
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let (x, y) = get_example_x_y();
+        let lr = Lasso::fit(&x, &y, Default::default()).unwrap();
 
-    //     let deserialized_lr: Lasso<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-    //         serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
+        let deserialized_lr: Lasso<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            postcard::from_bytes(&postcard::to_allocvec(&lr).unwrap()).unwrap();
 
-    //     assert_eq!(lr, deserialized_lr);
-    // }
+        assert_eq!(lr, deserialized_lr);
+    }
 }
