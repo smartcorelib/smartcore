@@ -260,7 +260,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct GaussianNB<
-    TX: Number + RealNumber + RealNumber,
+    TX: Number + RealNumber,
     TY: Number + Ord + Unsigned,
     X: Array2<TX>,
     Y: Array1<TY>,
@@ -268,12 +268,8 @@ pub struct GaussianNB<
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
 }
 
-impl<
-    TX: Number + RealNumber + RealNumber,
-    TY: Number + Ord + Unsigned,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> fmt::Display for GaussianNB<TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    fmt::Display for GaussianNB<TX, TY, X, Y>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "GaussianNB:\ninner: {:?}", self.inner.as_ref().unwrap())?;
@@ -281,12 +277,8 @@ impl<
     }
 }
 
-impl<
-    TX: Number + RealNumber + RealNumber,
-    TY: Number + Ord + Unsigned,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -299,12 +291,8 @@ impl<
     }
 }
 
-impl<
-    TX: Number + RealNumber + RealNumber,
-    TY: Number + Ord + Unsigned,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-> Predictor<X, Y> for GaussianNB<TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    Predictor<X, Y> for GaussianNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
