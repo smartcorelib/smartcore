@@ -90,10 +90,7 @@ mod tests {
         assert!((l2 - 5.19615242).abs() < 1e-8);
     }
 
-    #[cfg_attr(
-        all(target_arch = "wasm32", not(target_os = "wasi")),
-        wasm_bindgen_test::wasm_bindgen_test
-    )]
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn euclidean_distance_zero_for_identical_points() {
         use proptest::prelude::*;
@@ -107,10 +104,7 @@ mod tests {
         );
     }
 
-    #[cfg_attr(
-        all(target_arch = "wasm32", not(target_os = "wasi")),
-        wasm_bindgen_test::wasm_bindgen_test
-    )]
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn euclidean_distance_symmetric() {
         use proptest::prelude::*;
@@ -126,10 +120,7 @@ mod tests {
         });
     }
 
-    #[cfg_attr(
-        all(target_arch = "wasm32", not(target_os = "wasi")),
-        wasm_bindgen_test::wasm_bindgen_test
-    )]
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn euclidean_distance_triangle_inequality() {
         use proptest::prelude::*;

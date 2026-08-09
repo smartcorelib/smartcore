@@ -141,6 +141,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn quick_argsort_is_valid_permutation() {
         use proptest::prelude::*;
 
@@ -150,10 +151,6 @@ mod tests {
                 let n = arr.len();
                 let perm = arr.quick_argsort();
                 prop_assert_eq!(perm.len(), n, "permutation length mismatch");
-
-                if n == 0 {
-                    return Ok(()); // trivially valid
-                }
 
                 // perm must be a permutation of 0..n
                 let mut seen = vec![false; n];

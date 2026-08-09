@@ -2223,15 +2223,18 @@ mod tests {
 
     // ---- Stage 2: proptest invariants + edge cases ----
 
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_small_matrix(max_dim: usize) -> impl Strategy<Value = DenseMatrix<f64>> {
         (1..=max_dim, 1..=max_dim).prop_flat_map(|(r, c)| {
-            proptest::collection::vec(0.0f64..100.0, r * c)
+            proptest::collection::vec(-50.0f64..50.0, r * c)
                 .prop_map(move |vals| DenseMatrix::new(r, c, vals, false).unwrap())
         })
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn make_identity(n: usize) -> DenseMatrix<f64> {
         let mut vals = vec![0.0; n * n];
         for i in 0..n {
@@ -2241,6 +2244,7 @@ mod tests {
     }
 
     /// Transpose is an involution: (A^T)^T == A
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proptest_transpose_involution() {
         proptest!(
@@ -2252,6 +2256,7 @@ mod tests {
     }
 
     /// Matmul with an identity matrix is a no-op: A * I == A
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proptest_matmul_identity() {
         proptest!(
@@ -2265,6 +2270,7 @@ mod tests {
     }
 
     /// Matmul associativity: (AB)C == A(BC) where shapes allow
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proptest_matmul_associativity() {
         proptest!(
@@ -2284,7 +2290,7 @@ mod tests {
                 let a_bc = a.matmul(&bc);
 
                 // Use approximate comparison: floating-point accumulation
-                // across three matmils can cause exact PartialEq to fail.
+                // across three matmuls can cause exact PartialEq to fail.
                 let (r1, c1) = ab_c.shape();
                 let (r2, c2) = a_bc.shape();
                 prop_assert!(r1 == r2 && c1 == c2, "shape mismatch");
@@ -2299,6 +2305,7 @@ mod tests {
     }
 
     /// (AB)^T == B^T * A^T
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proptest_matmul_transpose_identity() {
         proptest!(
@@ -2312,12 +2319,20 @@ mod tests {
                 let ab_t = a.matmul(&b).transpose();
                 let bt_at = b.transpose().matmul(&a.transpose());
 
-                prop_assert_eq!(ab_t, bt_at);
+                // approximate comparison — FP accumulation can exceed exact PartialEq
+                let (r, c) = ab_t.shape();
+                for i in 0..r {
+                    for j in 0..c {
+                        let diff = (ab_t.get((i, j)) - bt_at.get((i, j))).abs();
+                        prop_assert!(diff < 1e-10, "({i},{j}): diff={diff}");
+                    }
+                }
             }
         );
     }
 
     /// Reshape preserves total element count
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proptest_reshape_preserves_count() {
         proptest!(
