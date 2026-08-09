@@ -131,6 +131,17 @@ A curated set of Jupyter notebooks is available via the [companion repository to
 
 See CHANGELOG.md for precise details, deprecations, and breaking changes. Some features like nalgebra-bindings have been dropped in favor of ndarray-only paths. Default features are tuned for WASM/WASI builds; enable serde/datasets as needed.
 
+## Live trend charts
+
+[benchmark-action/github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark) renders an interactive chart page per tool on the `gh-pages` branch, published via GitHub Pages:
+
+| Tool | Chart URL | What it plots | Direction | Alert |
+|---|---|---|---|---|
+| criterion (wall-clock) | <https://smartcorelib.github.io/smartcore-benches/dev/> | `cargo bench` wall-clock time per bench (ns/iter) over time | lower = better | 200% — advisory, posts a comment, does not fail CI |
+| iai-callgrind (instruction count) | <https://smartcorelib.github.io/smartcore-benches/iai-dev/> | instructions retired (`Ir`) per bench — deterministic, machine-independent | lower = better | 120% — fails the `iai` job + status check |
+
+Open the URLs above in a browser. Each page shows a searchable line chart (`data.js` is the raw history) with one series per benchmark name (e.g. `matmul/1024`, `iai_matmul::matmul::bench_matmul_256`). Hover for the value, range, and commit that produced each point. The iai page is the one to watch for regressions: instruction counts are deterministic on 
+
 ## Contributing
 
 Contributions are welcome:
