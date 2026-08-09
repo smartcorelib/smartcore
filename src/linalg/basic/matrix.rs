@@ -21,6 +21,101 @@ use crate::numbers::realnum::RealNumber;
 
 use crate::error::Failed;
 
+/// Build a streaming mutable iterator over the elements of `values` in the
+/// order defined by `(axis, column_major, stride, nrows, ncols)`, **safely**
+/// (no `unsafe`).
+///
+/// The desired offsets are computed from `(axis, column_major, stride)` exactly
+/// as the old raw-pointer implementation did. Then, instead of `ptr.add(off)`,
+/// the disjoint `&mut T` references are extracted at those offsets by walking
+/// the slice with `split_first_mut` in sorted-offset order and reassembling into
+/// the yield order. This handles both the owned-matrix case (`values.len() ==
+/// nrows*ncols`) and strided-view case (`values.len() > nrows*ncols` because
+/// the sub-slice spans gaps). The traversal order is identical to the previous
+/// raw-pointer implementation; only the borrow-proving mechanism changes.
+///
+/// `debug_assert!`s verify the computed offsets are in-bounds and distinct
+/// (mirroring the old `#[cfg(debug_assertions)]` aliasing checks).
+fn ordered_iter_mut<'b, T>(
+    values: &'b mut [T],
+    stride: usize,
+    nrows: usize,
+    ncols: usize,
+    column_major: bool,
+    axis: u8,
+) -> Box<dyn Iterator<Item = &'b mut T> + 'b>
+where
+    T: Debug + Display + Copy + Sized,
+{
+    assert!(
+        axis == 0 || axis == 1,
+        "For two dimensional array `axis` should be either 0 or 1"
+    );
+
+    let off = |r: usize, c: usize| {
+        if column_major {
+            r + c * stride
+        } else {
+            r * stride + c
+        }
+    };
+
+    let desired: Vec<usize> = match axis {
+        0 => (0..nrows)
+            .flat_map(|r| (0..ncols).map(move |c| off(r, c)))
+            .collect(),
+        _ => (0..ncols)
+            .flat_map(|c| (0..nrows).map(move |r| off(r, c)))
+            .collect(),
+    };
+
+    let n = desired.len();
+    debug_assert_eq!(n, nrows * ncols);
+    #[cfg(debug_assertions)]
+    {
+        let len = values.len();
+        let mut seen = std::collections::HashSet::new();
+        for &o in &desired {
+            assert!(
+                o < len,
+                "iterator_mut: offset {o} out of bounds (len={len})"
+            );
+            assert!(
+                seen.insert(o),
+                "iterator_mut: aliasing detected at offset {o}"
+            );
+        }
+    }
+
+    // Fast path: the desired order is the natural storage order, so the slice
+    // iterator already yields refs in the right order with no allocation.
+    let is_identity = desired.iter().enumerate().all(|(i, &o)| o == i);
+    if is_identity {
+        return Box::new(values.iter_mut().take(n));
+    }
+
+    // General path: extract `n` disjoint refs at the desired offsets by walking
+    // the slice with `split_first_mut` in sorted-offset order, then reorder
+    // into the yield order. Safe because each `split_first_mut` borrows a
+    // disjoint portion; the borrow checker proves non-aliasing.
+    let mut sorted: Vec<(usize, usize)> =
+        desired.iter().enumerate().map(|(i, &o)| (o, i)).collect();
+    sorted.sort_unstable_by_key(|&(o, _)| o);
+
+    let mut result: Vec<Option<&'b mut T>> = (0..n).map(|_| None).collect();
+    let mut rest = values;
+    let mut prev = 0usize;
+    for &(offset, idx) in &sorted {
+        rest = rest.split_at_mut(offset - prev).1;
+        let (target, remainder) = rest.split_first_mut().expect("non-empty");
+        result[idx] = Some(target);
+        rest = remainder;
+        prev = offset + 1;
+    }
+
+    Box::new(result.into_iter().map(|r| r.expect("filled")))
+}
+
 /// Dense matrix
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -143,82 +238,14 @@ impl<'a, T: Debug + Display + Copy + Sized> DenseMatrixMutView<'a, T> {
     }
 
     fn iter_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let column_major = self.column_major;
-        let stride = self.stride;
-        let nrows = self.nrows;
-        let ncols = self.ncols;
-        let ptr = self.values.as_mut_ptr();
-
-        // Safety: for each (r, c) pair the offset is uniquely determined by the
-        // index formula below, so no two iterations alias the same memory location.
-        // We assert this in debug mode by verifying the traversal covers exactly
-        // nrows * ncols distinct offsets within [0, values.len()).
-        #[cfg(debug_assertions)]
-        {
-            let len = self.values.len();
-            let mut seen = std::collections::HashSet::new();
-            match axis {
-                0 => {
-                    for r in 0..nrows {
-                        for c in 0..ncols {
-                            let off = if column_major {
-                                r + c * stride
-                            } else {
-                                r * stride + c
-                            };
-                            assert!(
-                                off < len,
-                                "iterator_mut: offset {off} out of bounds (len={len})"
-                            );
-                            assert!(
-                                seen.insert(off),
-                                "iterator_mut: aliasing detected at offset {off}"
-                            );
-                        }
-                    }
-                }
-                _ => {
-                    for c in 0..ncols {
-                        for r in 0..nrows {
-                            let off = if column_major {
-                                r + c * stride
-                            } else {
-                                r * stride + c
-                            };
-                            assert!(
-                                off < len,
-                                "iterator_mut: offset {off} out of bounds (len={len})"
-                            );
-                            assert!(
-                                seen.insert(off),
-                                "iterator_mut: aliasing detected at offset {off}"
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        match axis {
-            0 => Box::new((0..nrows).flat_map(move |r| {
-                (0..ncols).map(move |c| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * stride
-                    } else {
-                        r * stride + c
-                    })
-                })
-            })),
-            _ => Box::new((0..ncols).flat_map(move |c| {
-                (0..nrows).map(move |r| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * stride
-                    } else {
-                        r * stride + c
-                    })
-                })
-            })),
-        }
+        ordered_iter_mut(
+            self.values,
+            self.stride,
+            self.nrows,
+            self.ncols,
+            self.column_major,
+            axis,
+        )
     }
 }
 
@@ -502,50 +529,20 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for DenseMat
     }
 
     fn iterator_mut<'b>(&'b mut self, axis: u8) -> Box<dyn Iterator<Item = &'b mut T> + 'b> {
-        let ptr = self.values.as_mut_ptr();
-        let column_major = self.column_major;
         let (nrows, ncols) = self.shape();
-
-        #[cfg(debug_assertions)]
-        {
-            let len = self.values.len();
-            let mut seen = std::collections::HashSet::new();
-            for r in 0..nrows {
-                for c in 0..ncols {
-                    let off = if column_major {
-                        r + c * nrows
-                    } else {
-                        r * ncols + c
-                    };
-                    assert!(
-                        off < len,
-                        "iterator_mut: offset {off} out of bounds (len={len})"
-                    );
-                    assert!(seen.insert(off), "iterator_mut: aliasing at offset {off}");
-                }
-            }
-        }
-
-        match axis {
-            0 => Box::new((0..nrows).flat_map(move |r| {
-                (0..ncols).map(move |c| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * nrows
-                    } else {
-                        r * ncols + c
-                    })
-                })
-            })),
-            _ => Box::new((0..ncols).flat_map(move |c| {
-                (0..nrows).map(move |r| unsafe {
-                    &mut *ptr.add(if column_major {
-                        r + c * nrows
-                    } else {
-                        r * ncols + c
-                    })
-                })
-            })),
-        }
+        // For an owned matrix the storage stride is nrows (column-major) or
+        // ncols (row-major); pass that to the shared safe helper. The traversal
+        // order and offset formula are identical to the previous raw-pointer
+        // implementation — only the borrow-proving mechanism changes.
+        let stride = if self.column_major { nrows } else { ncols };
+        ordered_iter_mut(
+            &mut self.values,
+            stride,
+            nrows,
+            ncols,
+            self.column_major,
+            axis,
+        )
     }
 }
 

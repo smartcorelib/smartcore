@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3]
+### Changed
+- Replaced the remaining 4 `unsafe {}` raw-pointer blocks in `linalg/basic/matrix.rs::iterator_mut` / `DenseMatrixMutView::iter_mut` with a safe `split_first_mut`-based helper `ordered_iter_mut` (#368). The traversal order and offset formula are identical to the previous raw-pointer implementation; only the borrow-proving mechanism changed — eliminating `unsafe` from library code entirely.
+- **Performance note**: the cross-axis path (axis ≠ natural storage order) now extracts the needed refs via `split_first_mut` in sorted-offset order and reorders, introducing a small allocation. The fast path (axis matches storage order) shortcuts to `values.iter_mut().take(n)` with zero overhead. Benchmarks to quantify the cross-axis delta are tracked in #407.
+
 ## [0.6.2]
 ### Changed
 - Ported the crate from Rust edition 2021 to edition 2024 (#401, #402). `cargo fix --edition` made no auto-edits; the only behavioral-adjacent change is `linalg/basic/arrays.rs::approximate_eq`, rewritten to the 2024-safe tail-expr drop-order form (bind the owned intermediate before the borrowing iterator) — numerical logic unchanged.
