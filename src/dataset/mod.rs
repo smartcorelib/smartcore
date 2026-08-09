@@ -55,7 +55,7 @@ impl<X, Y> Dataset<X, Y> {
 
 // Running this in wasm throws: operation not supported on this platform.
 #[cfg(not(target_arch = "wasm32"))]
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(crate) fn serialize_data<X: Number + RealNumber, Y: RealNumber>(
     dataset: &Dataset<X, Y>,
     filename: &str,

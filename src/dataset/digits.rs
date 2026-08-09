@@ -9,8 +9,8 @@
 //!
 //! All input attributes are integers in the range 0..16.
 //!
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
 pub fn load_dataset() -> Dataset<f32, f32> {

@@ -267,7 +267,7 @@ impl<T: Debug + Display + Copy + Sized> DenseMatrix<T> {
     ///
     /// Returns `Err` if the input is empty **or** if any row has a different
     /// length than the first row (jagged / ragged arrays are not supported).
-    #[allow(clippy::ptr_arg)]
+    #[expect(clippy::ptr_arg)]
     pub fn from_2d_vec(values: &Vec<Vec<T>>) -> Result<Self, Failed> {
         if values.is_empty() || values[0].is_empty() {
             return Err(Failed::input(
@@ -793,7 +793,7 @@ mod tests {
     #[test]
     fn test_instantiate_err_view3() {
         let x = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.], &[7., 8., 9.]]).unwrap();
-        #[allow(clippy::reversed_empty_ranges)]
+        #[expect(clippy::reversed_empty_ranges)]
         let v = DenseMatrixView::new(&x, 0..3, 4..3);
         assert!(v.is_err());
     }
@@ -910,7 +910,9 @@ mod tests {
         assert_eq!(vec!["1", "4", "7", "2", "5", "8", "3", "6", "9"], x.values);
         x.iterator_mut(0).for_each(|v| *v = "str");
         assert_eq!(
-            vec!["str", "str", "str", "str", "str", "str", "str", "str", "str"],
+            vec![
+                "str", "str", "str", "str", "str", "str", "str", "str", "str"
+            ],
             x.values
         );
     }

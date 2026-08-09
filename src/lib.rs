@@ -1,11 +1,10 @@
-#![allow(
+#![expect(
     clippy::type_complexity,
     clippy::too_many_arguments,
     clippy::many_single_char_names,
-    clippy::unnecessary_wraps,
-    clippy::upper_case_acronyms,
-    clippy::approx_constant
+    clippy::unnecessary_wraps
 )]
+#![allow(clippy::upper_case_acronyms, clippy::approx_constant)]
 #![warn(missing_docs)]
 
 //! # smartcore

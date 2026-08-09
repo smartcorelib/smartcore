@@ -65,10 +65,10 @@ use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
+use crate::optimization::FunctionOrder;
 use crate::optimization::first_order::lbfgs::LBFGS;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::Backtracking;
-use crate::optimization::FunctionOrder;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -185,7 +185,7 @@ pub struct LogisticRegression<
 trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
     fn f(&self, w_bias: &[T]) -> T;
 
-    #[allow(clippy::ptr_arg)]
+    #[expect(clippy::ptr_arg)]
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
 
     #[allow(clippy::ptr_arg)]

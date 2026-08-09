@@ -103,7 +103,7 @@ impl Read for TestingDataSource {
 #[cfg(test)]
 mod test {
     use super::TestingDataSource;
-    use super::{string_to_file, TemporaryTextFile};
+    use super::{TemporaryTextFile, string_to_file};
     use std::fs;
     use std::io::Read;
     use std::path;

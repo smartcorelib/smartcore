@@ -4,7 +4,7 @@ Agent-focused guidance for working on the `smartcore` Rust machine-learning libr
 
 ## Project basics
 
-- **Language / edition**: Rust 2021.
+- **Language / edition**: Rust 2024 (MSRV 1.85 — verified by the `msrv` CI job).
 - **Repository**: https://github.com/smartcorelib/smartcore
 - **Default branch**: `development`. All changes should target `development` first.
 - **License**: Apache-2.0.
@@ -93,6 +93,34 @@ High-level layout:
 - `src/readers/` — CSV and dataset readers.
 
 Most algorithm code is generic over the `numbers` and `linalg` traits rather than concrete types.
+
+## Edition 2024 invariants
+
+The crate was ported from edition 2021 to edition 2024 (#401). The port relies on the following invariants — when touching this code, keep them intact so the edition-2024 lint group (`rust-2024-compatibility`) stays clean:
+
+- **No return-position `impl Trait` (RPIT)**. The codebase returns zero `-> impl Trait` items today. Introducing one would opt into the 2024 lifetime over-capture rules; gate any new RPIT with an explicit lifetime bound and re-run `cargo clippy --all-features -- -Drust-2024-compatibility` before landing.
+- **`dyn Trait` bounds carry explicit lifetimes**. All `Box<dyn Trait>` returns are written as `Box<dyn Trait + 'a>` (see `linalg/basic/arrays.rs` and `vector.rs` iterators/views). Do not drop the `+ 'a`; edition 2024 changes the default elision and a bare `dyn Trait` may not mean what you intend.
+- **Tail-expression drop order matters**. Edition 2024 reorders temporaries in tail position. When a tail expression owns a temporary that a borrow extends through (e.g. `(self.sub(other)).iterator(0).all(...)`), bind the owned intermediate to a local first:
+  ```rust
+  // 2024-safe form
+  let diff = self.sub(other);
+  diff.iterator(0).all(|v| v.abs() <= error)
+  ```
+  A regression here triggers `tail_expr_drop_order` warnings under `rust-2024-compatibility`.
+- **Lint suppressions use `#[expect(...)]` where the lint actually fires, `#[allow(...)]` otherwise**. The crate migrated `#[allow]` → `#[expect]` where clippy confirmed the lint still fires under `--all-features`; sites where the lint does *not* fire (e.g. some `clippy::ptr_arg`/`upper_case_acronyms`/`dead_code` suppressions) remain `#[allow]` to avoid `unfulfilled_lint_expectations` errors. `#[expect]` errors if its lint later stops firing — prefer it for new suppressions where you've verified the lint fires; fall back to `#[allow]` when a lint genuinely doesn't fire and you still want to document intent. Re-run `cargo clippy --all-features -- -Drust-2018-idioms -Drust-2024-compatibility -Dwarnings` before landing.
+- **No `unsafe` in library code**. The four remaining `unsafe {}` blocks in `linalg/basic/matrix.rs` (`iterator_mut` raw-pointer traversal for `DenseMatrixMutView`) are tracked by #368 and slated for a safe `split_at_mut` rewrite in a dedicated PR. Until that lands, do not add new `unsafe`; any new `unsafe` requires clear justification and must not trigger `unsafe_op_in_unsafe_fn` (default-warn in 2024) or other unsafe-attr lints.
+- **Preserve the bespoke numerical-system logic and performance.** The numeric/linalg traits and their concrete impls (`numbers/`, `linalg/basic/arrays.rs`, `linalg/basic/matrix.rs`, the `HighOrderOperations`/`matmul`/`iterator` paths) are hand-tuned for correctness and speed. When refactoring (e.g. for edition-2024 tail-expr drop order, for #368 `unsafe` removal, or for any other non-behavioral change), **keep the numerical logic intact and do not regress performance**: change only the structural form (bind intermediates, swap the unsafe mechanism), never the math, indexing scheme, traversal order, or allocation strategy. Verify a refactor is behavior-preserving by re-running `cargo test --all-features` (known-answer tests must still pass) before landing.
+- **Coverage cfg is not referenced in source**. We never `cfg(coverage)` or `cfg(tarpaulin)` in `src/`, so the 2024 `unexpected_cfgs` lint stays silent. If you add such a cfg, declare it in the `Cargo.toml` `[lints.rust]` `check-cfg` table to avoid the warning.
+
+### Commands for edition-2024 health
+
+```bash
+# The rust-2018-idioms gate is still enforced; add the 2024 group locally:
+cargo clippy --all-features -- -Drust-2018-idioms -Drust-2024-compatibility -Dwarnings
+
+# MSRV check (mirrors the msrv CI job):
+cargo +1.85.0 build --all-features
+```
 
 ## Conduct
 

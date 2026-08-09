@@ -4,7 +4,7 @@ pub trait QuickArgSort {
     #[allow(dead_code)]
     fn quick_argsort_mut(&mut self) -> Vec<usize>;
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn quick_argsort(&self) -> Vec<usize>;
 }
 
@@ -129,7 +129,9 @@ mod tests {
             1.0, 1.3, 1.4,
         ];
         assert_eq!(
-            vec![9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16],
+            vec![
+                9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16
+            ],
             arr2.quick_argsort()
         );
     }

@@ -1004,12 +1004,20 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     }
 
     /// check if two arrays are approximately equal
+    #[expect(
+        clippy::let_and_return,
+        reason = "2024 tail-expr drop order: the binding forces the owning temporary to outlive the borrowing iterator"
+    )]
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,
         Self: Sized,
     {
-        (self.sub(other)).iterator(0).all(|v| v.abs() <= error)
+        // 2024-safe tail-expr form: bind the owned intermediate so it outlives
+        // the borrowing iterator temporary.
+        let diff = self.sub(other);
+        let result = diff.iterator(0).all(|v| v.abs() <= error);
+        result
     }
 }
 
@@ -1736,7 +1744,9 @@ mod tests {
             1.0, 1.3, 1.4,
         ];
         assert_eq!(
-            vec![9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16],
+            vec![
+                9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16
+            ],
             arr2.argsort()
         );
     }

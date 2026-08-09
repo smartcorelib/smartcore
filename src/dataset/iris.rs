@@ -15,8 +15,8 @@
 //! | Petal width | Numerical | No |
 //! | Class | Nominal | Yes |
 //!
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
 pub fn load_dataset() -> Dataset<f32, u32> {

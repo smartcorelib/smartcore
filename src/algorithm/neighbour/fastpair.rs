@@ -29,8 +29,8 @@ use num::Bounded;
 
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2};
-use crate::metrics::distance::euclidian::Euclidian;
 use crate::metrics::distance::PairwiseDistance;
+use crate::metrics::distance::euclidian::Euclidian;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
 
@@ -192,7 +192,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     // Compute distances from input to all other points in data-structure.
     // input is the row index of the sample matrix
     //
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn distances_from(&self, index_row: usize) -> Vec<PairwiseDistance<T>> {
         let mut distances = Vec::<PairwiseDistance<T>>::with_capacity(self.samples.shape().0);
         for other in self.neighbours.iter() {

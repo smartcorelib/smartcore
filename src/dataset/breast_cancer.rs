@@ -26,8 +26,8 @@
 //!
 //! The mean, standard error, and "worst" or largest (mean of the three worst/largest values) of these features were computed for each image, resulting in 30 features.
 //! For instance, field 0 is Mean Radius, field 10 is Radius SE, field 20 is Worst Radius.
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
 pub fn load_dataset() -> Dataset<f32, u32> {

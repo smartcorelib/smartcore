@@ -211,7 +211,7 @@ where
 #[cfg(test)]
 mod tests {
     mod matrix_from_csv_source {
-        use super::super::{read_string_from_source, CSVDefinition, ReadingError};
+        use super::super::{CSVDefinition, ReadingError, read_string_from_source};
         use crate::linalg::basic::matrix::DenseMatrix;
         use crate::readers::{csv::matrix_from_csv_source, io_testing};
 
@@ -262,7 +262,8 @@ mod tests {
                     &[5.1, 3.5, 1.4, 0.2],
                     &[4.9, 3.0, 1.4, 0.2],
                     &[4.7, 3.2, 1.3, 0.2],
-                ]).unwrap())
+                ])
+                .unwrap())
             )
         }
         #[test]
@@ -300,7 +301,7 @@ mod tests {
         }
     }
     mod extract_row_vectors_from_csv_text {
-        use super::super::{extract_row_vectors_from_csv_text, CSVDefinition, CSVRowFormat};
+        use super::super::{CSVDefinition, CSVRowFormat, extract_row_vectors_from_csv_text};
 
         #[test]
         fn read_default_csv() {
@@ -318,7 +319,7 @@ mod tests {
         }
     }
     mod test_validate_csv_row {
-        use super::super::{validate_csv_row, CSVRowFormat, ReadingError};
+        use super::super::{CSVRowFormat, ReadingError, validate_csv_row};
 
         #[test]
         fn valid_row_with_comma() {
@@ -363,7 +364,7 @@ mod tests {
         }
     }
     mod extract_fields_from_csv_row {
-        use super::super::{extract_fields_from_csv_row, CSVRowFormat};
+        use super::super::{CSVRowFormat, extract_fields_from_csv_row};
 
         #[test]
         fn read_four_values_from_csv_row() {
@@ -380,7 +381,7 @@ mod tests {
         }
     }
     mod detect_row_format {
-        use super::super::{detect_row_format, CSVDefinition, CSVRowFormat, ReadingError};
+        use super::super::{CSVDefinition, CSVRowFormat, ReadingError, detect_row_format};
 
         #[test]
         fn detect_2_fields_with_header() {
@@ -455,7 +456,7 @@ mod tests {
         }
     }
     mod extract_vector_from_csv_line {
-        use super::super::{extract_vector_from_csv_line, CSVRowFormat, ReadingError};
+        use super::super::{CSVRowFormat, ReadingError, extract_vector_from_csv_line};
 
         #[test]
         fn extract_five_floating_point_values() {

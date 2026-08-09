@@ -3,8 +3,8 @@ use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use rand::seq::SliceRandom;
 use rand::RngExt;
+use rand::seq::SliceRandom;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

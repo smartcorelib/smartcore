@@ -19,8 +19,8 @@
 //!
 //! ## References:
 //! * ["Least Angle Regression", Efron B., Hastie T., Johnstone I., Tibshirani R., 2004, Annals of Statistics (with discussion), 407-499](http://statweb.stanford.edu/~tibs/ftp/lars.pdf)
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
 pub fn load_dataset() -> Dataset<f32, u32> {

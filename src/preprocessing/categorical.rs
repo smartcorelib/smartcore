@@ -177,7 +177,9 @@ impl OneHotEncoder {
                 match oh_vec {
                     None => {
                         // Since we support T types, bad value in a series causes in to be invalid
-                        let msg = format!("At least one value in column {old_cidx} doesn't conform to category definition");
+                        let msg = format!(
+                            "At least one value in column {old_cidx} doesn't conform to category definition"
+                        );
                         return Err(Failed::transform(&msg[..]));
                     }
                     Some(v) => {
@@ -196,6 +198,11 @@ impl OneHotEncoder {
 
         for (old_p, &new_p) in new_col_idx.iter().enumerate() {
             // if found treated varible, skip it
+            // nested if kept for MSRV 1.85 compatibility (let-chains stabilized in 1.88)
+            #[allow(
+                clippy::collapsible_if,
+                reason = "MSRV 1.85: let-chains unstable, cannot collapse"
+            )]
             if let Some(&v) = cur_skip {
                 if v == old_p {
                     cur_skip = skip_idx_iter.next();

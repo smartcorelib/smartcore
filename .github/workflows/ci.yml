@@ -79,3 +79,26 @@ jobs:
       - name: Tests
         if: matrix.features == '--features ndarray-bindings'
         run: cargo test --no-default-features ${{ matrix.features }}
+
+  msrv:
+    # Verify the declared rust-version (MSRV) in Cargo.toml still builds.
+    name: MSRV (1.85)
+    runs-on: ubuntu-latest
+    env:
+      TZ: "/usr/share/zoneinfo/your/location"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache .cargo and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-msrv-${{ hashFiles('Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-msrv
+      - name: Install Rust 1.85
+        uses: dtolnay/rust-toolchain@1.85.0
+      - name: Build with all features at MSRV
+        run: cargo +1.85.0 build --all-features
+      - name: Build without features at MSRV
+        run: cargo +1.85.0 build
