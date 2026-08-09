@@ -1,7 +1,7 @@
 [package]
 name = "smartcore"
 description = "Machine Learning in Rust."
-homepage = "https://smartcorelib.org"
+homepage = "https://smartcorelib.github.io/"
 version = "0.6.4"
 authors = ["smartcore Developers"]
 edition = "2024"
