@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.org"
-version = "0.6.3"
+version = "0.6.4"
 authors = ["smartcore Developers"]
 edition = "2024"
 rust-version = "1.85"
@@ -67,6 +67,11 @@ wasm-bindgen-test = "0.3"
 itertools = "0.15.0"
 serde_json = "1.0"
 postcard = { version = "1.1", features = ["use-std"] }
+
+# proptest pulls in wait-timeout (Unix syscalls), which doesn't compile on
+# wasm32. Gate it to non-wasm targets only.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+proptest = "1.5"
 
 [workspace]
 

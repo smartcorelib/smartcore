@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4]
+### Added
+- Stage 2 test-coverage push (#393): `proptest` dev-dependency + property-based invariant tests and linalg edge cases.
+  - `linalg/basic/arrays.rs`: proptest invariants — transpose involution `(A^T)^T == A`, matmul with identity `A*I == A`, matmul associativity `(AB)C ≈ A(BC)` (approximate comparison for FP), `(AB)^T == B^T A^T`, reshape preserves element count. Edge cases — 1x1 matmul, row×col matmul, shape-mismatch panic, reshape-incompatible panic, 1xN transpose.
+  - `algorithm/sort/quick_sort.rs`: proptest — `quick_argsort` produces a valid permutation (all indices present exactly once, values non-decreasing in permutation order).
+  - `metrics/distance/euclidian.rs`: proptest — `d(a,a) == 0`, symmetry `d(a,b) == d(b,a)`, triangle inequality `d(a,c) ≤ d(a,b) + d(b,c)`.
+
+### Changed
+- Added `proptest = "1.5"` to `[dev-dependencies]`.
+
 ## [0.6.3]
 ### Changed
 - Replaced the remaining 4 `unsafe {}` raw-pointer blocks in `linalg/basic/matrix.rs::iterator_mut` / `DenseMatrixMutView::iter_mut` with a safe `split_first_mut`-based helper `ordered_iter_mut` (#368). The traversal order and offset formula are identical to the previous raw-pointer implementation; only the borrow-proving mechanism changed — eliminating `unsafe` from library code entirely.

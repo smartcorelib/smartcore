@@ -2220,4 +2220,179 @@ mod tests {
         let sorted = view.argsort_mut();
         assert_eq!(sorted.len(), 1000);
     }
+
+    // ---- Stage 2: proptest invariants + edge cases ----
+
+    #[cfg(not(target_arch = "wasm32"))]
+    use proptest::prelude::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn arb_small_matrix(max_dim: usize) -> impl Strategy<Value = DenseMatrix<f64>> {
+        (1..=max_dim, 1..=max_dim).prop_flat_map(|(r, c)| {
+            proptest::collection::vec(-50.0f64..50.0, r * c)
+                .prop_map(move |vals| DenseMatrix::new(r, c, vals, false).unwrap())
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn make_identity(n: usize) -> DenseMatrix<f64> {
+        let mut vals = vec![0.0; n * n];
+        for i in 0..n {
+            vals[i * n + i] = 1.0;
+        }
+        DenseMatrix::new(n, n, vals, false).unwrap()
+    }
+
+    /// Transpose is an involution: (A^T)^T == A
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn proptest_transpose_involution() {
+        proptest!(
+            |(a in arb_small_matrix(8))| {
+                let tt = a.transpose().transpose();
+                prop_assert_eq!(tt, a);
+            }
+        );
+    }
+
+    /// Matmul with an identity matrix is a no-op: A * I == A
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn proptest_matmul_identity() {
+        proptest!(
+            |(a in arb_small_matrix(8))| {
+                let n = a.shape().1;
+                let identity = make_identity(n);
+                let result = a.matmul(&identity);
+                prop_assert_eq!(result, a);
+            }
+        );
+    }
+
+    /// Matmul associativity: (AB)C == A(BC) where shapes allow
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn proptest_matmul_associativity() {
+        proptest!(
+            |(a_vals in proptest::collection::vec(-5.0f64..5.0, 6),
+              b_vals in proptest::collection::vec(-5.0f64..5.0, 12),
+              c_vals in proptest::collection::vec(-5.0f64..5.0, 12))|
+            {
+                // A: 2x3, B: 3x4, C: 4x3  (so (AB)C = 2x3, A(BC) = 2x3)
+                let a = DenseMatrix::new(2, 3, a_vals, false).unwrap();
+                let b = DenseMatrix::new(3, 4, b_vals, false).unwrap();
+                let c = DenseMatrix::new(4, 3, c_vals, false).unwrap();
+
+                let ab = a.matmul(&b);
+                let ab_c = ab.matmul(&c);
+
+                let bc = b.matmul(&c);
+                let a_bc = a.matmul(&bc);
+
+                // Use approximate comparison: floating-point accumulation
+                // across three matmuls can cause exact PartialEq to fail.
+                let (r1, c1) = ab_c.shape();
+                let (r2, c2) = a_bc.shape();
+                prop_assert!(r1 == r2 && c1 == c2, "shape mismatch");
+                for i in 0..r1 {
+                    for j in 0..c1 {
+                        let diff = (ab_c.get((i, j)) - a_bc.get((i, j))).abs();
+                        prop_assert!(diff < 1e-9, "({i},{j}): diff={diff}");
+                    }
+                }
+            }
+        );
+    }
+
+    /// (AB)^T == B^T * A^T
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn proptest_matmul_transpose_identity() {
+        proptest!(
+            |(a_vals in proptest::collection::vec(0.0f64..10.0, 6),
+              b_vals in proptest::collection::vec(0.0f64..10.0, 12))|
+            {
+                // A: 2x3, B: 3x4
+                let a = DenseMatrix::new(2, 3, a_vals, false).unwrap();
+                let b = DenseMatrix::new(3, 4, b_vals, false).unwrap();
+
+                let ab_t = a.matmul(&b).transpose();
+                let bt_at = b.transpose().matmul(&a.transpose());
+
+                // approximate comparison — FP accumulation can exceed exact PartialEq
+                let (r, c) = ab_t.shape();
+                for i in 0..r {
+                    for j in 0..c {
+                        let diff = (ab_t.get((i, j)) - bt_at.get((i, j))).abs();
+                        prop_assert!(diff < 1e-10, "({i},{j}): diff={diff}");
+                    }
+                }
+            }
+        );
+    }
+
+    /// Reshape preserves total element count
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn proptest_reshape_preserves_count() {
+        proptest!(
+            |(vals in proptest::collection::vec(0.0f64..50.0, 12),
+              factor in 1usize..=12)|
+            {
+                proptest::prop_assume!(12 % factor == 0);
+                let new_rows = factor;
+                let new_cols = 12 / factor;
+                let m = DenseMatrix::new(3, 4, vals, false).unwrap();
+                let reshaped = m.reshape(new_rows, new_cols, 0);
+                prop_assert_eq!(reshaped.shape(), (new_rows, new_cols));
+            }
+        );
+    }
+
+    /// Edge case: 1x1 matmul
+    #[test]
+    fn edge_matmul_1x1() {
+        let a = DenseMatrix::from_2d_array(&[&[5.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[3.0]]).unwrap();
+        let c = a.matmul(&b);
+        assert_eq!(c, DenseMatrix::from_2d_array(&[&[15.0]]).unwrap());
+    }
+
+    /// Edge case: matmul with a 1xN row vector times Nx1 column vector -> 1x1
+    #[test]
+    fn edge_matmul_row_times_col() {
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[4.0], &[5.0], &[6.0]]).unwrap();
+        let c = a.matmul(&b);
+        assert_eq!(c.shape(), (1, 1));
+        assert!((c.get((0, 0)) - 32.0).abs() < 1e-10);
+    }
+
+    /// Edge case: matmul shape mismatch should panic
+    #[test]
+    #[should_panic(expected = "Can't multiply")]
+    fn edge_matmul_shape_mismatch_panics() {
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1.0, 2.0]]).unwrap();
+        let _ = a.matmul(&b);
+    }
+
+    /// Edge case: reshape to incompatible size should panic
+    #[test]
+    #[should_panic(expected = "Can't reshape")]
+    fn edge_reshape_incompatible_panics() {
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let _ = a.reshape(3, 1, 0);
+    }
+
+    /// Edge case: transpose of 1xN
+    #[test]
+    fn edge_transpose_1xn() {
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]).unwrap();
+        let t = a.transpose();
+        assert_eq!(t.shape(), (3, 1));
+        assert_eq!(t.get((0, 0)), &1.0);
+        assert_eq!(t.get((1, 0)), &2.0);
+        assert_eq!(t.get((2, 0)), &3.0);
+    }
 }
