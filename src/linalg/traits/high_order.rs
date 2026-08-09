@@ -78,7 +78,7 @@ mod tests {
     )]
     #[test]
     fn ab_true_true() {
-        // (b * a)^T
+        // ab(true, true) = A^T · B^T = (B·A)^T (by the identity (AB)^T = B^T A^T)
         let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.]]).unwrap();
         let b = DenseMatrix::from_2d_array(&[&[5., 6.], &[7., 8.]]).unwrap();
         let expected = DenseMatrix::from_2d_array(&[&[23., 31.], &[34., 46.]]).unwrap();

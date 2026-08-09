@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Revived 6 previously-commented-out serde round-trip tests (migrated to `postcard`, the post-#390 serialization backend) for `LinearRegression`, `RidgeRegression`, `Lasso`, `ElasticNet`, `PCA`, `SVD`.
+- Fixed a latent type mismatch in the revived `SVD` serde test: the original commented-out code deserialized into `SVD<f32, DenseMatrix<f32>>` but `SVD::fit` on the `f64` iris literals produces `SVD<f64, ...>` — corrected to `SVD<f64, DenseMatrix<f64>>`.
 - Renamed two copy-paste-misnamed tests: `dataset::diabetes::boston_dataset` → `diabetes_dataset`; `algorithm::sort::quick_sort::with_capacity` → `quick_argsort`.
 
 ## [0.6.0]

@@ -70,8 +70,22 @@ mod tests {
     #[test]
     #[cfg(not(target_arch = "wasm32"))]
     fn none_seed_returns_usable_rng() {
-        // unseeded path must not panic and must yield values
+        // unseeded path: on non-wasm this uses OS entropy (rand::rng() under
+        // std_rand, or getrandom/zero-seed otherwise). Excluded on bare wasm
+        // because OS entropy is unavailable without a host shim.
         let mut r = get_rng_impl(None);
         let _ = r.next_u64();
+    }
+
+    #[test]
+    #[cfg(feature = "std_rand")]
+    fn std_rand_none_seed_uses_os_entropy() {
+        // under the std_rand feature, get_rng_impl(None) seeds via rand::rng()
+        // which draws from OS entropy. Verify that path returns a working RNG
+        // and that two draws produce distinct values (non-deterministic source).
+        let mut a = get_rng_impl(None);
+        let v1 = a.next_u64();
+        let v2 = a.next_u64();
+        assert_ne!(v1, v2, "two draws from an entropy-seeded RNG should differ");
     }
 }
