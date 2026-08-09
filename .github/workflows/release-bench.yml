@@ -1,11 +1,12 @@
 name: Release benchmarks
 
-# When a release is published, clone smartcore-benches into the runner and
-# run its criterion + iai-callgrind harness against the released smartcore
-# code (which is already checked out at the release commit SHA). A
-# `[patch.crates-io]` override in a temporary `.cargo/config.toml` repoints
-# the benches' `smartcore = "0.6"` dependency to the local checkout, so no
-# crates.io round-trip or cross-repo dispatch is needed.
+# When a release is published, clone smartcore-benches into a sibling
+# directory and run its criterion + iai-callgrind harness against the
+# released smartcore code. A `[patch.crates-io]` override repoints the
+# benches' `smartcore = "0.6"` dependency to the local checkout, so no
+# crates.io round-trip is needed. The benches repo is checked out OUTSIDE
+# the smartcore tree to avoid Cargo's workspace auto-detection picking up
+# smartcore's [workspace] table and treating benches as a member.
 # See https://github.com/smartcorelib/smartcore/issues/407
 
 on:
@@ -19,11 +20,11 @@ jobs:
       - name: Checkout smartcore (release commit)
         uses: actions/checkout@v4
 
-      - name: Checkout smartcore-benches (sibling directory)
+      - name: Checkout smartcore-benches (sibling directory, outside smartcore tree)
         uses: actions/checkout@v4
         with:
           repository: smartcorelib/smartcore-benches
-          path: smartcore-benches
+          path: ../smartcore-benches
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -36,30 +37,30 @@ jobs:
         with:
           path: |
             ~/.cargo
-            ./smartcore-benches/target
-          key: release-bench-${{ hashFiles('Cargo.toml', 'smartcore-benches/Cargo.toml') }}
+            ../smartcore-benches/target
+          key: release-bench-${{ hashFiles('Cargo.toml', '../smartcore-benches/Cargo.toml') }}
           restore-keys: release-bench-
 
       - name: Patch benches to use local smartcore
         run: |
-          mkdir -p smartcore-benches/.cargo
-          cat > smartcore-benches/.cargo/config.toml <<'CFG'
+          mkdir -p ../smartcore-benches/.cargo
+          cat > ../smartcore-benches/.cargo/config.toml <<'CFG'
           [patch.crates-io]
-          smartcore = { path = "../" }
+          smartcore = { path = "../smartcore" }
           CFG
 
       - name: Build benches (no-run)
-        working-directory: smartcore-benches
+        working-directory: ../smartcore-benches
         run: cargo bench --no-run
 
       - name: Run criterion benchmarks
-        working-directory: smartcore-benches
+        working-directory: ../smartcore-benches
         run: |
           mkdir -p bench-output
           cargo bench -- --output-format bencher | tee bench-output/criterion.json
 
       - name: Run iai-callgrind benchmarks
-        working-directory: smartcore-benches
+        working-directory: ../smartcore-benches
         run: |
           for bench in iai_matmul iai_ab iai_svd iai_cover_tree iai_iterator_mut; do
             cargo bench --bench "$bench" -- --save-baseline=release 2>&1 | tee "bench-output/${bench}.json" || true
@@ -69,5 +70,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-benchmark-results
-          path: smartcore-benches/bench-output/
+          path: ../smartcore-benches/bench-output/
           retention-days: 90
