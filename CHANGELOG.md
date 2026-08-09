@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Classification metrics refactored: `Precision`, `Recall`, and `F1` now derive per-class scores from a single shared `ConfusionCounts` helper (`src/metrics/confusion.rs`) instead of each re-implementing the per-class tp/predicted/support bookkeeping. `Precision` and `Recall` expose a crate-private `per_class_scores_from_counts` used by `F1`'s multiclass path.
 - `Precision` and `Recall` now early-return `0.0` on empty input and drop the unreachable `classes == 0` / `support.is_empty()` branches.
 - Multiclass macro `F1` (landed in #382, cleaned up in #383) is unchanged behaviourally; it now consumes `Precision`/`Recall::per_class_scores_from_counts` instead of its own `HashMap` bookkeeping.
+- CI coverage workflow now includes doctests and enforces a strict 44% line-coverage gate via cargo-tarpaulin (#399).
 
 ## [0.4.8] - 2025-11-29
 - WARNING: Breaking changes!

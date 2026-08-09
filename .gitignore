@@ -31,3 +31,9 @@ FlameGraph/
 out.stacks
 *.json
 *.txt
+
+# coverage artifacts (cargo-tarpaulin / LLVM instrumentation)
+*.profraw
+lcov.info
+cobertura.xml
+tarpaulin-report.*
