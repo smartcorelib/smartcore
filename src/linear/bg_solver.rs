@@ -170,10 +170,11 @@ mod tests {
 
         let err: f64 = solver.solve_mut(&a, &b, &mut x, 1e-6, 6).unwrap();
 
-        assert!(x
-            .iter()
-            .zip(expected.iter())
-            .all(|(&a, &b)| (a - b).abs() < 1e-4));
+        assert!(
+            x.iter()
+                .zip(expected.iter())
+                .all(|(&a, &b)| (a - b).abs() < 1e-4)
+        );
         assert!((err - 0.0).abs() < 1e-4);
     }
 }

@@ -115,8 +115,8 @@ impl<T: FloatNumber> FirstOrderOptimizer<T> for GradientDescent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
+    use crate::optimization::line_search::Backtracking;
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),

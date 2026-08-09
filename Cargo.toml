@@ -2,9 +2,10 @@
 name = "smartcore"
 description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.org"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["smartcore Developers"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 license = "Apache-2.0"
 documentation = "https://docs.rs/smartcore"
 repository = "https://github.com/smartcorelib/smartcore"
@@ -78,3 +79,10 @@ strip = true
 lto = true
 codegen-units = 1
 overflow-checks = true
+
+[lints.rust]
+# Avoid unexpected_cfgs warnings (edition 2024) for the cfgs code/tests set.
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(coverage, coverage_nightly)',
+    'cfg(tarpaulin)',
+] }

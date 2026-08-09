@@ -24,8 +24,8 @@
 //! | LSTAT, % lower status of the population | Numerical | No |
 //! | MEDV, Median value of owner-occupied homes in $1000's | Numerical | Yes |
 //!
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
 pub fn load_dataset() -> Dataset<f32, f32> {

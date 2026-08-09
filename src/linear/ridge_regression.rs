@@ -225,11 +225,11 @@ impl<T: Number + RealNumber> Default for RidgeRegressionParameters<T> {
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > PartialEq for RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> PartialEq for RidgeRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         self.intercept() == other.intercept()
@@ -243,11 +243,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -264,11 +264,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> Predictor<X, Y> for RidgeRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
@@ -276,11 +276,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> RidgeRegression<TX, TY, X, Y>
 {
     /// Fits ridge regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.

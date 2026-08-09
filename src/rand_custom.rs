@@ -1,8 +1,8 @@
+use rand::SeedableRng;
 #[cfg(not(feature = "std_rand"))]
 pub use rand::rngs::SmallRng as RngImpl;
 #[cfg(feature = "std_rand")]
 pub use rand::rngs::StdRng as RngImpl;
-use rand::SeedableRng;
 
 /// Custom switch for random fuctions
 pub fn get_rng_impl(seed: Option<u64>) -> RngImpl {

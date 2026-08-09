@@ -38,11 +38,7 @@ impl FloatNumber for f64 {
     }
 
     fn ln_1pe(self) -> f64 {
-        if self > 15. {
-            self
-        } else {
-            self.exp().ln_1p()
-        }
+        if self > 15. { self } else { self.exp().ln_1p() }
     }
 
     fn sigmoid(self) -> f64 {
@@ -80,11 +76,7 @@ impl FloatNumber for f32 {
     }
 
     fn ln_1pe(self) -> f32 {
-        if self > 15. {
-            self
-        } else {
-            self.exp().ln_1p()
-        }
+        if self > 15. { self } else { self.exp().ln_1p() }
     }
 
     fn sigmoid(self) -> f32 {

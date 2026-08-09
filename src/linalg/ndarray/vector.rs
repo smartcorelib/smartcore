@@ -5,7 +5,7 @@ use crate::linalg::basic::arrays::{
     Array as BaseArray, Array1, ArrayView1, MutArray, MutArrayView1,
 };
 
-use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Ix1, OwnedRepr};
+use ndarray::{Array, ArrayBase, ArrayView, ArrayViewMut, Ix1, OwnedRepr, s};
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn get(&self, i: usize) -> &T {

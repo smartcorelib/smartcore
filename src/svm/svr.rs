@@ -598,8 +598,8 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
-    use crate::svm::search::svr_params::SVRSearchParameters;
     use crate::svm::Kernels;
+    use crate::svm::search::svr_params::SVRSearchParameters;
 
     #[test]
     fn search_parameters() {

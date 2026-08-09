@@ -426,11 +426,13 @@ mod tests {
     fn invalid_k() {
         let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
 
-        assert!(KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
-            &x,
-            KMeansParameters::default().with_k(0)
-        )
-        .is_err());
+        assert!(
+            KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
+                &x,
+                KMeansParameters::default().with_k(0)
+            )
+            .is_err()
+        );
         assert_eq!(
             "Fit failed: invalid number of clusters: 1",
             KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(

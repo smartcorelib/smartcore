@@ -46,7 +46,7 @@ pub struct CosinePairParameters {
     pub approximate: bool,
 }
 
-#[allow(clippy::derivable_impls)]
+#[expect(clippy::derivable_impls)]
 impl Default for CosinePairParameters {
     fn default() -> Self {
         Self {

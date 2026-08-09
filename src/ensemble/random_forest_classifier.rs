@@ -61,7 +61,7 @@ use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
 use crate::tree::decision_tree_classifier::{
-    which_max, DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion,
+    DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion, which_max,
 };
 
 /// Parameters of the Random Forest algorithm.

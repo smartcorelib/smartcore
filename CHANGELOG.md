@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2]
+### Changed
+- Ported the crate from Rust edition 2021 to edition 2024 (#401, #402). `cargo fix --edition` made no auto-edits; the only behavioral-adjacent change is `linalg/basic/arrays.rs::approximate_eq`, rewritten to the 2024-safe tail-expr drop-order form (bind the owned intermediate before the borrowing iterator) — numerical logic unchanged.
+- Declared `rust-version = "1.85"` (MSRV) in `Cargo.toml` and added an `msrv` CI job that builds with `dtolnay/rust-toolchain@1.85.0` to verify the claim (#404).
+- Migrated lint suppressions: `#[allow(...)]` → `#[expect(...)]` at sites where the lint still fires under `--all-features`; `#[allow]` retained where the lint genuinely does not fire (avoids `unfulfilled_lint_expectations`) (#403).
+- Added `[lints.rust] unexpected_cfgs` `check-cfg` table in `Cargo.toml` for `cfg(coverage, coverage_nightly)` and `cfg(tarpaulin)` (edition-2024 `unexpected_cfgs` lint).
+- `AGENTS.md`: documented the edition-2024 invariants (no RPIT, explicit `dyn Trait + 'a`, tail-expr drop-order, lint-suppression policy, `unsafe` stance) and the "preserve bespoke numerical-system logic and performance" constraint for non-behavioral refactors.
+
+### Fixed
+- `svm/svc.rs`: removed two redundant `let svc = ...; svc` tail expressions surfaced by the edition-2024 `clippy::let_and_return` lint.
+- `preprocessing/categorical.rs`: kept the nested-`if` form (annotated `#[allow(clippy::collapsible_if)]`) because collapsing to a let-chain requires let-chains, unstable until Rust 1.88 — incompatible with the declared MSRV 1.85.
+
 ## [0.6.1]
 ### Added
 - Stage 1 test-coverage push (#392): tests for previously-untested modules.

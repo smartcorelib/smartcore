@@ -253,7 +253,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             for (j, prediction) in predictions.iter().enumerate() {
                 let prediction = prediction.to_i32().unwrap();
                 let poll = polls.get_mut(j).unwrap(); // Get the poll for the current data point
-                                                      // Increment the vote for the predicted class
+                // Increment the vote for the predicted class
                 if let Some(count) = poll.get_mut(&prediction) {
                     *count += 1
                 } else {
@@ -456,8 +456,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
             )));
         }
         let classes = (classes[0], classes[1]);
-        let svc = Self::optimize_and_fit(x, y, parameters, classes, None);
-        svc
+        Self::optimize_and_fit(x, y, parameters, classes, None)
     }
 
     /// Fits a binary Support Vector Classifier (SVC) specifically for multi-class scenarios.
@@ -488,8 +487,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     ) -> Result<SVC<'a, TX, TY, X, Y>, Failed> {
         let classes = multiclass_config.classes;
         let indices = multiclass_config.indices;
-        let svc = Self::optimize_and_fit(x, y, parameters, classes, Some(indices));
-        svc
+        Self::optimize_and_fit(x, y, parameters, classes, Some(indices))
     }
 
     /// Internal function to optimize and fit the Support Vector Classifier.

@@ -168,7 +168,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 return Err(Failed::because(
                     FailedError::PredictFailed,
                     "Need samples=true for OOB predictions.",
-                ))
+                ));
             }
         };
 

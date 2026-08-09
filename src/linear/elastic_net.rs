@@ -1,4 +1,4 @@
-#![allow(clippy::needless_range_loop)]
+#![expect(clippy::needless_range_loop)]
 //! # Elastic Net
 //!
 //! Elastic net is an extension of [linear regression](../linear_regression/index.html) that adds regularization penalties to the loss function during training.

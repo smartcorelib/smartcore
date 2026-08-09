@@ -181,11 +181,11 @@ impl Default for LinearRegressionSearchParameters {
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > PartialEq for LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> PartialEq for LinearRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         self.intercept == other.intercept
@@ -199,11 +199,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -220,11 +220,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> Predictor<X, Y> for LinearRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
@@ -232,11 +232,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> LinearRegression<TX, TY, X, Y>
 {
     /// Fits Linear Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
@@ -362,14 +362,16 @@ mod tests {
             .and_then(|lr| lr.predict(&x))
             .unwrap();
 
-        assert!(y
-            .iter()
-            .zip(y_hat_qr.iter())
-            .all(|(&a, &b)| (a - b).abs() <= 5.0));
-        assert!(y
-            .iter()
-            .zip(y_hat_svd.iter())
-            .all(|(&a, &b)| (a - b).abs() <= 5.0));
+        assert!(
+            y.iter()
+                .zip(y_hat_qr.iter())
+                .all(|(&a, &b)| (a - b).abs() <= 5.0)
+        );
+        assert!(
+            y.iter()
+                .zip(y_hat_svd.iter())
+                .all(|(&a, &b)| (a - b).abs() <= 5.0)
+        );
     }
 
     #[cfg_attr(

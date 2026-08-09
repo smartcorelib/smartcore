@@ -108,7 +108,7 @@
 use rand::seq::SliceRandom;
 use std::fmt::{Debug, Display};
 
-#[allow(unused_imports)]
+#[expect(unused_imports)]
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
@@ -318,8 +318,8 @@ mod tests {
     use crate::metrics::{accuracy, mean_absolute_error};
     use crate::model_selection::cross_validate;
     use crate::model_selection::kfold::KFold;
-    use crate::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
     use crate::neighbors::KNNWeightFunction;
+    use crate::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),

@@ -1,4 +1,4 @@
-#![allow(clippy::suspicious_operation_groupings)]
+#![expect(clippy::suspicious_operation_groupings)]
 
 // TODO: Add documentation
 use std::default::Default;
@@ -264,8 +264,8 @@ impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::optimization::line_search::Backtracking;
     use crate::optimization::FunctionOrder;
+    use crate::optimization::line_search::Backtracking;
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),

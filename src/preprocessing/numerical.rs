@@ -70,7 +70,7 @@ pub struct StandardScaler<T: Number + RealNumber> {
     _phantom: PhantomData<T>,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 impl<T: Number + RealNumber> StandardScaler<T> {
     fn new(parameters: StandardScalerParameters) -> Self
     where
@@ -296,16 +296,18 @@ mod tests {
                 .unwrap(),
             );
             println!("{transformed_values}");
-            assert!(transformed_values.approximate_eq(
-                &DenseMatrix::from_2d_array(&[
-                    &[-1.1154020653, -0.4031985330, 0.9284605204, -0.4271473866],
-                    &[-0.7615464283, -0.7076698384, -1.1075452562, 1.2632979631],
-                    &[0.4832504303, -0.6106747444, 1.0630075435, 0.5494084257],
-                    &[1.3936980634, 1.7215431158, -0.8839228078, -1.3855590021],
-                ])
-                .unwrap(),
-                1.0
-            ))
+            assert!(
+                transformed_values.approximate_eq(
+                    &DenseMatrix::from_2d_array(&[
+                        &[-1.1154020653, -0.4031985330, 0.9284605204, -0.4271473866],
+                        &[-0.7615464283, -0.7076698384, -1.1075452562, 1.2632979631],
+                        &[0.4832504303, -0.6106747444, 1.0630075435, 0.5494084257],
+                        &[1.3936980634, 1.7215431158, -0.8839228078, -1.3855590021],
+                    ])
+                    .unwrap(),
+                    1.0
+                )
+            )
         }
 
         /// Test `fit` and `transform` for a column with zero variance.
@@ -365,18 +367,20 @@ mod tests {
                 vec![0.42864544605, 0.2869813741, 0.737752073825, 0.431011663625],
             );
 
-            assert!(&DenseMatrix::<f64>::from_2d_vec(&vec![fitted_scaler.stds])
-                .unwrap()
-                .approximate_eq(
-                    &DenseMatrix::from_2d_array(&[&[
-                        0.29426447500954,
-                        0.16758497615485,
-                        0.20820945786863,
-                        0.23329718831165
-                    ],])
-                    .unwrap(),
-                    0.00000000000001
-                ))
+            assert!(
+                &DenseMatrix::<f64>::from_2d_vec(&vec![fitted_scaler.stds])
+                    .unwrap()
+                    .approximate_eq(
+                        &DenseMatrix::from_2d_array(&[&[
+                            0.29426447500954,
+                            0.16758497615485,
+                            0.20820945786863,
+                            0.23329718831165
+                        ],])
+                        .unwrap(),
+                        0.00000000000001
+                    )
+            )
         }
 
         /// If `with_std` is set to `false` the values should not be
@@ -450,18 +454,20 @@ mod tests {
                 vec![0.42864544605, 0.2869813741, 0.737752073825, 0.431011663625],
             );
 
-            assert!(&DenseMatrix::from_2d_vec(&vec![deserialized_scaler.stds])
-                .unwrap()
-                .approximate_eq(
-                    &DenseMatrix::from_2d_array(&[&[
-                        0.29426447500954,
-                        0.16758497615485,
-                        0.20820945786863,
-                        0.23329718831165
-                    ],])
-                    .unwrap(),
-                    0.00000000000001
-                ))
+            assert!(
+                &DenseMatrix::from_2d_vec(&vec![deserialized_scaler.stds])
+                    .unwrap()
+                    .approximate_eq(
+                        &DenseMatrix::from_2d_array(&[&[
+                            0.29426447500954,
+                            0.16758497615485,
+                            0.20820945786863,
+                            0.23329718831165
+                        ],])
+                        .unwrap(),
+                        0.00000000000001
+                    )
+            )
         }
     }
 }

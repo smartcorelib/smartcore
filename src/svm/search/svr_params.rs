@@ -38,7 +38,7 @@ use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
-use crate::svm::{svr, Kernels};
+use crate::svm::{Kernels, svr};
 use std::marker::PhantomData;
 
 /// ## SVR grid search parameters

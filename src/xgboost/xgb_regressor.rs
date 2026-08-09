@@ -42,7 +42,7 @@
 //! ```
 //!
 
-use rand::{seq::SliceRandom, Rng};
+use rand::{Rng, seq::SliceRandom};
 use std::{iter::zip, marker::PhantomData};
 
 use crate::{
@@ -113,7 +113,7 @@ impl Objective {
     ///
     /// # Returns
     /// A vector of hessians for each sample.
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     pub fn hessian<TY: Number, Y: Array1<TY>>(&self, y_true: &Y, y_pred: &[f64]) -> Vec<f64> {
         match self {
             Objective::MeanSquaredError => vec![1.0; y_true.shape()],

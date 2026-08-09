@@ -31,7 +31,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-#![allow(non_snake_case)]
+#![expect(non_snake_case)]
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -46,7 +46,7 @@ use crate::numbers::realnum::RealNumber;
 pub struct LU<T: Number + RealNumber, M: Array2<T>> {
     LU: M,
     pivot: Vec<usize>,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pivot_sign: i8,
     singular: bool,
     phantom: PhantomData<T>,
