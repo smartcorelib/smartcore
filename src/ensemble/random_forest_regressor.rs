@@ -608,7 +608,7 @@ mod tests {
         let forest = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-            bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
+            postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
     }

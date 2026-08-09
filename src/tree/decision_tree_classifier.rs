@@ -1223,7 +1223,7 @@ mod tests {
         let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_tree: DecisionTreeClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
-            bincode::deserialize(&bincode::serialize(&tree).unwrap()).unwrap();
+            postcard::from_bytes(&postcard::to_allocvec(&tree).unwrap()).unwrap();
 
         assert_eq!(tree, deserialized_tree);
     }
