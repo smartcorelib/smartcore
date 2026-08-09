@@ -805,7 +805,7 @@ mod tests {
         let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
-            bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
+            postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
     }

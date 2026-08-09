@@ -462,7 +462,7 @@ mod tests {
         let tree = DecisionTreeRegressor::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_tree: DecisionTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-            bincode::deserialize(&bincode::serialize(&tree).unwrap()).unwrap();
+            postcard::from_bytes(&postcard::to_allocvec(&tree).unwrap()).unwrap();
 
         assert_eq!(tree, deserialized_tree);
     }

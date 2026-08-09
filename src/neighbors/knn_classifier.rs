@@ -721,7 +721,7 @@ mod tests {
         let y = vec![2, 2, 2, 3, 3];
 
         let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
-        let deserialized_knn = bincode::deserialize(&bincode::serialize(&knn).unwrap()).unwrap();
+        let deserialized_knn = postcard::from_bytes(&postcard::to_allocvec(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
     }
