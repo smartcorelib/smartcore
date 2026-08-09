@@ -18,7 +18,7 @@
 -----
 [![CI](https://github.com/smartcorelib/smartcore/actions/workflows/ci.yml/badge.svg)](https://github.com/smartcorelib/smartcore/actions/workflows/ci.yml) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17219259.svg)](https://doi.org/10.5281/zenodo.17219259)
 
-To start getting familiar with the new smartcore v0.4 API, there is now available a [**Jupyter Notebook environment repository**](https://github.com/smartcorelib/smartcore-jupyter). Please see instructions there, contributions welcome see [CONTRIBUTING](.github/CONTRIBUTING.md).
+To start getting familiar with the smartcore API, there is now available a [**Jupyter Notebook environment repository**](https://github.com/smartcorelib/smartcore-jupyter). Please see instructions there, contributions welcome see [CONTRIBUTING](.github/CONTRIBUTING.md).
 
 smartcore is a fast, ergonomic machine learning library for Rust, covering classical supervised and unsupervised methods with a modular linear algebra abstraction and optional ndarray support. It aims to provide production-friendly APIs, strong typing, and good defaults while remaining flexible for research and experimentation.
 
@@ -37,7 +37,7 @@ Add to Cargo.toml:
 
 ```toml
 [dependencies]
-smartcore = "^0.5.3"
+smartcore = "^0.6"
 ```
 
 For the latest development branch:
@@ -70,7 +70,7 @@ let x = DenseMatrix::from_2d_array(&[
     &[5., 6.],
     &[7., 8.],
     &[9., 10.],
-]).unwrap;
+]).unwrap();
 
 // Class labels
 let y = vec![2, 2, 2, 3, 3];
@@ -113,12 +113,12 @@ smartcore adopts a WASM/WASI-first posture in defaults to ease browser and embed
 
 ## Notebooks
 
-A curated set of Jupyter notebooks is available via the [companion repository to explore smartcore interactively](https://github.com/smartcorelib/smartcore-jupyter). To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the v0.4 API.
+A curated set of Jupyter notebooks is available via the [companion repository to explore smartcore interactively](https://github.com/smartcorelib/smartcore-jupyter). To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the smartcore API.
 
 ## Roadmap and recent changes
 
 - Trait-system refactor, fewer structs and more object-safe traits, large codebase reorganization.
-- Move to Rust 2021 edition and cleanup of duplicate code paths.
+- Move to Rust 2024 edition (MSRV 1.85) and cleanup of duplicate code paths.
 - Seeds and deterministic controls across algorithms using RNG plumbing.
 - Search parameter API for hyperparameter exploration in K-Means and SVM families.
 - Tree and forest components refactored for reuse; Extra Trees added.
@@ -136,7 +136,7 @@ See CHANGELOG.md for precise details, deprecations, and breaking changes. Some f
 Contributions are welcome:
 
 - Open an issue describing the change and link it in the PR.
-- Keep PRs in sync with the development branch and ensure tests pass on stable Rust.
+- Keep PRs in sync with the development branch and ensure tests pass on stable Rust (MSRV 1.85, edition 2024).
 - Provide or update tests; run clippy and apply formatting. Coverage and linting are part of the workflow.
 - Use the provided PR and issue templates to describe behavior changes, new features, and expectations.
 
