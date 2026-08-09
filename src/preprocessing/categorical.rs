@@ -12,7 +12,7 @@
 //!         &[1.5, 2.0, 1.5, 4.0],
 //!         &[1.5, 1.0, 1.5, 5.0],
 //!         &[1.5, 2.0, 1.5, 6.0],
-//!   ]);
+//!   ]).unwrap();
 //! let encoder_params = OneHotEncoderParams::from_cat_idx(&[1, 3]);
 //! // Infer number of categories from data and return a reusable encoder
 //! let encoder = OneHotEncoder::fit(&data, encoder_params).unwrap();
@@ -24,7 +24,7 @@
 //! //    &[1.5, 1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0]
 //! //    &[1.5, 0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0]
 //! ```
-use std::iter;
+use std::iter::repeat_n;
 
 use crate::error::Failed;
 use crate::linalg::basic::arrays::Array2;
@@ -75,11 +75,7 @@ fn find_new_idxs(num_params: usize, cat_sizes: &[usize], cat_idxs: &[usize]) -> 
     let offset = (0..1).chain(offset_);
 
     let new_param_idxs: Vec<usize> = (0..num_params)
-        .zip(
-            repeats
-                .zip(offset)
-                .flat_map(|(r, o)| iter::repeat(o).take(r)),
-        )
+        .zip(repeats.zip(offset).flat_map(|(r, o)| repeat_n(o, r)))
         .map(|(idx, ofst)| idx + ofst)
         .collect();
     new_param_idxs
@@ -124,7 +120,7 @@ impl OneHotEncoder {
                 let (nrows, _) = data.shape();
 
                 // col buffer to avoid allocations
-                let mut col_buf: Vec<T> = iter::repeat(T::zero()).take(nrows).collect();
+                let mut col_buf: Vec<T> = repeat_n(T::zero(), nrows).collect();
 
                 let mut res: Vec<CategoryMapper<CategoricalFloat>> = Vec::with_capacity(idxs.len());
 
@@ -132,8 +128,7 @@ impl OneHotEncoder {
                     data.copy_col_as_vec(idx, &mut col_buf);
                     if !validate_col_is_categorical(&col_buf) {
                         let msg = format!(
-                            "Column {} of data matrix containts non categorizable (integer) values",
-                            idx
+                            "Column {idx} of data matrix containts non categorizable (integer) values"
                         );
                         return Err(Failed::fit(&msg[..]));
                     }
@@ -182,7 +177,7 @@ impl OneHotEncoder {
                 match oh_vec {
                     None => {
                         // Since we support T types, bad value in a series causes in to be invalid
-                        let msg = format!("At least one value in column {} doesn't conform to category definition", old_cidx);
+                        let msg = format!("At least one value in column {old_cidx} doesn't conform to category definition");
                         return Err(Failed::transform(&msg[..]));
                     }
                     Some(v) => {
@@ -241,14 +236,16 @@ mod tests {
             &[2.0, 1.5, 4.0],
             &[1.0, 1.5, 5.0],
             &[2.0, 1.5, 6.0],
-        ]);
+        ])
+        .unwrap();
 
         let oh_enc = DenseMatrix::from_2d_array(&[
             &[1.0, 0.0, 1.5, 1.0, 0.0, 0.0, 0.0],
             &[0.0, 1.0, 1.5, 0.0, 1.0, 0.0, 0.0],
             &[1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0],
             &[0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0],
-        ]);
+        ])
+        .unwrap();
 
         (orig, oh_enc)
     }
@@ -260,14 +257,16 @@ mod tests {
             &[1.5, 2.0, 1.5, 4.0],
             &[1.5, 1.0, 1.5, 5.0],
             &[1.5, 2.0, 1.5, 6.0],
-        ]);
+        ])
+        .unwrap();
 
         let oh_enc = DenseMatrix::from_2d_array(&[
             &[1.5, 1.0, 0.0, 1.5, 1.0, 0.0, 0.0, 0.0],
             &[1.5, 0.0, 1.0, 1.5, 0.0, 1.0, 0.0, 0.0],
             &[1.5, 1.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0],
             &[1.5, 0.0, 1.0, 1.5, 0.0, 0.0, 0.0, 1.0],
-        ]);
+        ])
+        .unwrap();
 
         (orig, oh_enc)
     }
@@ -278,7 +277,7 @@ mod tests {
     )]
     #[test]
     fn hash_encode_f64_series() {
-        let series = vec![3.0, 1.0, 2.0, 1.0];
+        let series = [3.0, 1.0, 2.0, 1.0];
         let hashable_series: Vec<CategoricalFloat> =
             series.iter().map(|v| v.to_category()).collect();
         let enc = CategoryMapper::from_positional_category_vec(hashable_series);
@@ -335,14 +334,11 @@ mod tests {
             &[2.0, 1.5, 4.0],
             &[1.0, 1.5, 5.0],
             &[2.0, 1.5, 6.0],
-        ]);
+        ])
+        .unwrap();
 
         let params = OneHotEncoderParams::from_cat_idx(&[1]);
-        match OneHotEncoder::fit(&m, params) {
-            Err(_) => {
-                assert!(true);
-            }
-            _ => assert!(false),
-        }
+        let result = OneHotEncoder::fit(&m, params);
+        assert!(result.is_err());
     }
 }

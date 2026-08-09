@@ -30,7 +30,7 @@ pub struct CSVDefinition<'a> {
     /// What seperates the fields in your csv-file?
     field_seperator: &'a str,
 }
-impl<'a> Default for CSVDefinition<'a> {
+impl Default for CSVDefinition<'_> {
     fn default() -> Self {
         Self {
             n_rows_header: 1,
@@ -83,7 +83,7 @@ where
     Matrix: Array2<T>,
 {
     let csv_text = read_string_from_source(source)?;
-    let rows: Vec<Vec<T>> = extract_row_vectors_from_csv_text::<T, RowVector, Matrix>(
+    let rows: Vec<Vec<T>> = extract_row_vectors_from_csv_text(
         &csv_text,
         &definition,
         detect_row_format(&csv_text, &definition)?,
@@ -103,12 +103,7 @@ where
 
 /// Given a string containing the contents of a csv file, extract its value
 /// into row-vectors.
-fn extract_row_vectors_from_csv_text<
-    'a,
-    T: Number + RealNumber + std::str::FromStr,
-    RowVector: Array1<T>,
-    Matrix: Array2<T>,
->(
+fn extract_row_vectors_from_csv_text<'a, T: Number + RealNumber + std::str::FromStr>(
     csv_text: &'a str,
     definition: &'a CSVDefinition<'_>,
     row_format: CSVRowFormat<'_>,
@@ -167,7 +162,7 @@ where
 }
 
 /// Ensure that a string containing a csv row conforms to a specified row format.
-fn validate_csv_row<'a>(row: &'a str, row_format: &CSVRowFormat<'_>) -> Result<(), ReadingError> {
+fn validate_csv_row(row: &str, row_format: &CSVRowFormat<'_>) -> Result<(), ReadingError> {
     let actual_number_of_fields = row.split(row_format.field_seperator).count();
     if row_format.n_fields == actual_number_of_fields {
         Ok(())
@@ -208,7 +203,7 @@ where
     match value_string.parse::<T>().ok() {
         Some(value) => Ok(value),
         None => Err(ReadingError::InvalidField {
-            msg: format!("Value '{}' could not be read.", value_string,),
+            msg: format!("Value '{value_string}' could not be read.",),
         }),
     }
 }
@@ -243,7 +238,8 @@ mod tests {
                     &[5.1, 3.5, 1.4, 0.2],
                     &[4.9, 3.0, 1.4, 0.2],
                     &[4.7, 3.2, 1.3, 0.2],
-                ]))
+                ])
+                .unwrap())
             )
         }
         #[test]
@@ -266,7 +262,7 @@ mod tests {
                     &[5.1, 3.5, 1.4, 0.2],
                     &[4.9, 3.0, 1.4, 0.2],
                     &[4.7, 3.2, 1.3, 0.2],
-                ]))
+                ]).unwrap())
             )
         }
         #[test]
@@ -305,12 +301,11 @@ mod tests {
     }
     mod extract_row_vectors_from_csv_text {
         use super::super::{extract_row_vectors_from_csv_text, CSVDefinition, CSVRowFormat};
-        use crate::linalg::basic::matrix::DenseMatrix;
 
         #[test]
         fn read_default_csv() {
             assert_eq!(
-                extract_row_vectors_from_csv_text::<f64, Vec<_>, DenseMatrix<_>>(
+                extract_row_vectors_from_csv_text::<f64>(
                     "column 1, column 2, column3\n1.0,2.0,3.0\n4.0,5.0,6.0",
                     &CSVDefinition::default(),
                     CSVRowFormat {

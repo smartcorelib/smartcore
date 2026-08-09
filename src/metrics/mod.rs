@@ -37,7 +37,7 @@
 //!             &[4.9, 2.4, 3.3, 1.0],
 //!             &[6.6, 2.9, 4.6, 1.3],
 //!             &[5.2, 2.7, 3.9, 1.4],
-//!   ]);
+//!   ]).unwrap();
 //! let y: Vec<i8> = vec![
 //!             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 //!   ];
@@ -59,6 +59,8 @@ pub mod auc;
 /// Compute the homogeneity, completeness and V-Measure scores.
 pub mod cluster_hcv;
 pub(crate) mod cluster_helpers;
+/// Per-class confusion-count helpers shared by classification metrics.
+pub(crate) mod confusion;
 /// Multitude of distance metrics are defined here
 pub mod distance;
 /// F1 score, also known as balanced F-score or F-measure.

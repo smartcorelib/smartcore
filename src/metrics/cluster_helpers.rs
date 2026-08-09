@@ -125,7 +125,7 @@ mod tests {
     fn entropy_test() {
         let v1 = vec![0, 0, 1, 1, 2, 0, 4];
 
-        assert!((1.2770 - entropy(&v1).unwrap() as f64).abs() < 1e-4);
+        assert!((1.2770 - entropy(&v1).unwrap()).abs() < 1e-4);
     }
 
     #[cfg_attr(

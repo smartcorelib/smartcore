@@ -13,10 +13,14 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+/// Cosine distance
+pub mod cosine;
 /// Euclidean Distance is the straight-line distance between two points in Euclidean spacere that presents the shortest distance between these points.
 pub mod euclidian;
 /// Hamming Distance between two strings is the number of positions at which the corresponding symbols are different.
 pub mod hamming;
+/// Jaccard distance between two integer-valued vectors.
+pub mod jaccard;
 /// The Mahalanobis distance is the distance between two points in multivariate space.
 pub mod mahalanobis;
 /// Also known as rectilinear distance, city block distance, taxicab metric.
@@ -63,6 +67,11 @@ impl Distances {
     /// Hamming distance, see [`Hamming`](hamming/index.html)
     pub fn hamming<T: Number>() -> hamming::Hamming<T> {
         hamming::Hamming::new()
+    }
+
+    /// Jaccard distance, see [`Jaccard`](jaccard/index.html)
+    pub fn jaccard<T: Number>() -> jaccard::Jaccard<T> {
+        jaccard::Jaccard::new()
     }
 
     /// Mahalanobis distance, see [`Mahalanobis`](mahalanobis/index.html)

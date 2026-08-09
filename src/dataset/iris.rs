@@ -22,7 +22,7 @@ use crate::dataset::Dataset;
 pub fn load_dataset() -> Dataset<f32, u32> {
     let (x, y, num_samples, num_features): (Vec<f32>, Vec<u32>, usize, usize) =
         match deserialize_data(std::include_bytes!("iris.xy")) {
-            Err(why) => panic!("Can't deserialize iris.xy. {}", why),
+            Err(why) => panic!("Can't deserialize iris.xy. {why}"),
             Ok((x, y, num_samples, num_features)) => (
                 x,
                 y.into_iter().map(|x| x as u32).collect(),
@@ -36,7 +36,7 @@ pub fn load_dataset() -> Dataset<f32, u32> {
         target: y,
         num_samples,
         num_features,
-        feature_names: vec![
+        feature_names: [
             "sepal length (cm)",
             "sepal width (cm)",
             "petal length (cm)",
@@ -45,7 +45,7 @@ pub fn load_dataset() -> Dataset<f32, u32> {
         .iter()
         .map(|s| s.to_string())
         .collect(),
-        target_names: vec!["setosa", "versicolor", "virginica"]
+        target_names: ["setosa", "versicolor", "virginica"]
             .iter()
             .map(|s| s.to_string())
             .collect(),

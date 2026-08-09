@@ -35,7 +35,7 @@
 //!                     &[4.9, 2.4, 3.3, 1.0],
 //!                     &[6.6, 2.9, 4.6, 1.3],
 //!                     &[5.2, 2.7, 3.9, 1.4],
-//!                     ]);
+//!                     ]).unwrap();
 //!
 //! let pca = PCA::fit(&iris, PCAParameters::default().with_n_components(2)).unwrap(); // Reduce number of features to 2
 //!
@@ -231,8 +231,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         if parameters.n_components > n {
             return Err(Failed::fit(&format!(
-                "Number of components, n_components should be <= number of attributes ({})",
-                n
+                "Number of components, n_components should be <= number of attributes ({n})"
             )));
         }
 
@@ -374,21 +373,20 @@ mod tests {
         let parameters = PCASearchParameters {
             n_components: vec![2, 4],
             use_correlation_matrix: vec![true, false],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 2);
-        assert_eq!(next.use_correlation_matrix, true);
+        assert!(next.use_correlation_matrix);
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 4);
-        assert_eq!(next.use_correlation_matrix, true);
+        assert!(next.use_correlation_matrix);
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 2);
-        assert_eq!(next.use_correlation_matrix, false);
+        assert!(!next.use_correlation_matrix);
         let next = iter.next().unwrap();
         assert_eq!(next.n_components, 4);
-        assert_eq!(next.use_correlation_matrix, false);
+        assert!(!next.use_correlation_matrix);
         assert!(iter.next().is_none());
     }
 
@@ -445,6 +443,7 @@ mod tests {
             &[2.6, 53.0, 66.0, 10.8],
             &[6.8, 161.0, 60.0, 15.6],
         ])
+        .unwrap()
     }
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
@@ -459,7 +458,8 @@ mod tests {
             &[0.9952, 0.0588],
             &[0.0463, 0.9769],
             &[0.0752, 0.2007],
-        ]);
+        ])
+        .unwrap();
 
         let pca = PCA::fit(&us_arrests, Default::default()).unwrap();
 
@@ -502,7 +502,8 @@ mod tests {
                 -0.974080592182491,
                 0.0723250196376097,
             ],
-        ]);
+        ])
+        .unwrap();
 
         let expected_projection = DenseMatrix::from_2d_array(&[
             &[-64.8022, -11.448, 2.4949, -2.4079],
@@ -555,7 +556,8 @@ mod tests {
             &[91.5446, -22.9529, 0.402, -0.7369],
             &[118.1763, 5.5076, 2.7113, -0.205],
             &[10.4345, -5.9245, 3.7944, 0.5179],
-        ]);
+        ])
+        .unwrap();
 
         let expected_eigenvalues: Vec<f64> = vec![
             343544.6277001563,
@@ -572,8 +574,8 @@ mod tests {
             epsilon = 1e-4
         ));
 
-        for i in 0..pca.eigenvalues.len() {
-            assert!((pca.eigenvalues[i].abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
+        for (i, pca_eigenvalues_i) in pca.eigenvalues.iter().enumerate() {
+            assert!((pca_eigenvalues_i.abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
         let us_arrests_t = pca.transform(&us_arrests).unwrap();
@@ -618,7 +620,8 @@ mod tests {
                 -0.0881962972508558,
                 -0.0096011588898465,
             ],
-        ]);
+        ])
+        .unwrap();
 
         let expected_projection = DenseMatrix::from_2d_array(&[
             &[0.9856, -1.1334, 0.4443, -0.1563],
@@ -671,7 +674,8 @@ mod tests {
             &[-2.1086, -1.4248, -0.1048, -0.1319],
             &[-2.0797, 0.6113, 0.1389, -0.1841],
             &[-0.6294, -0.321, 0.2407, 0.1667],
-        ]);
+        ])
+        .unwrap();
 
         let expected_eigenvalues: Vec<f64> = vec![
             2.480241579149493,
@@ -694,8 +698,8 @@ mod tests {
             epsilon = 1e-4
         ));
 
-        for i in 0..pca.eigenvalues.len() {
-            assert!((pca.eigenvalues[i].abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
+        for (i, pca_eigenvalues_i) in pca.eigenvalues.iter().enumerate() {
+            assert!((pca_eigenvalues_i.abs() - expected_eigenvalues[i].abs()).abs() < 1e-8);
         }
 
         let us_arrests_t = pca.transform(&us_arrests).unwrap();
@@ -734,7 +738,7 @@ mod tests {
     //         &[4.9, 2.4, 3.3, 1.0],
     //         &[6.6, 2.9, 4.6, 1.3],
     //         &[5.2, 2.7, 3.9, 1.4],
-    //     ]);
+    //     ]).unwrap();
 
     //     let pca = PCA::fit(&iris, Default::default()).unwrap();
 

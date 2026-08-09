@@ -33,7 +33,7 @@
 //!              &[4.9, 2.4, 3.3, 1.0],
 //!              &[6.6, 2.9, 4.6, 1.3],
 //!              &[5.2, 2.7, 3.9, 1.4],
-//!         ]);
+//!         ]).unwrap();
 //! let y = vec![
 //!              0, 0, 0, 0, 0, 0, 0, 0,
 //!              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -45,7 +45,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use rand::Rng;
+use rand::RngExt;
 
 use std::default::Default;
 use std::fmt::Debug;
@@ -454,8 +454,12 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         y: &Y,
         parameters: RandomForestClassifierParameters,
     ) -> Result<RandomForestClassifier<TX, TY, X, Y>, Failed> {
-        let (_, num_attributes) = x.shape();
+        let (x_nrows, num_attributes) = x.shape();
         let y_ncols = y.shape();
+        if x_nrows != y_ncols {
+            return Err(Failed::fit("Number of rows in X should = len(y)"));
+        }
+
         let mut yi: Vec<usize> = vec![0; y_ncols];
         let classes = y.unique();
 
@@ -471,13 +475,12 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         let mut rng = get_rng_impl(Some(parameters.seed));
         let classes = y.unique();
         let k = classes.len();
-        // TODO: use with_capacity here
-        let mut trees: Vec<DecisionTreeClassifier<TX, TY, X, Y>> = Vec::new();
+        let n_trees = parameters.n_trees as usize;
+        let mut trees: Vec<DecisionTreeClassifier<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
-            // TODO: use with_capacity here
-            maybe_all_samples = Some(Vec::new());
+            maybe_all_samples = Some(Vec::with_capacity(n_trees));
         }
 
         for _ in 0..parameters.n_trees {
@@ -535,27 +538,34 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         let (n, _) = x.shape();
-        if self.samples.is_none() {
-            Err(Failed::because(
-                FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
-            ))
-        } else if self.samples.as_ref().unwrap()[0].len() != n {
-            Err(Failed::because(
+
+        let samples = match &self.samples {
+            Some(s) => s,
+            None => {
+                return Err(Failed::because(
+                    FailedError::PredictFailed,
+                    "Need samples=true for OOB predictions.",
+                ));
+            }
+        };
+
+        if samples[0].len() != n {
+            return Err(Failed::because(
                 FailedError::PredictFailed,
                 "Prediction matrix must match matrix used in training for OOB predictions.",
-            ))
-        } else {
-            let mut result = Y::zeros(n);
-
-            for i in 0..n {
-                result.set(
-                    i,
-                    self.classes.as_ref().unwrap()[self.predict_for_row_oob(x, i)],
-                );
-            }
-            Ok(result)
+            ));
         }
+
+        let mut result = Y::zeros(n);
+
+        for i in 0..n {
+            result.set(
+                i,
+                self.classes.as_ref().unwrap()[self.predict_for_row_oob(x, i)],
+            );
+        }
+
+        Ok(result)
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
@@ -576,7 +586,11 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         which_max(&result)
     }
 
-    fn sample_with_replacement(y: &[usize], num_classes: usize, rng: &mut impl Rng) -> Vec<usize> {
+    fn sample_with_replacement(
+        y: &[usize],
+        num_classes: usize,
+        rng: &mut impl rand::Rng,
+    ) -> Vec<usize> {
         let class_weight = vec![1.; num_classes];
         let nrows = y.len();
         let mut samples = vec![0; nrows];
@@ -592,7 +606,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
             let size = ((n_samples as f64) / *class_weight_l) as usize;
             for _ in 0..size {
-                let xi: usize = rng.gen_range(0..n_samples);
+                let xi: usize = rng.random_range(0..n_samples);
                 samples[index[xi]] += 1;
             }
         }
@@ -656,7 +670,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
         let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let classifier = RandomForestClassifier::fit(
@@ -676,6 +691,30 @@ mod tests {
         .unwrap();
 
         assert!(accuracy(&y, &classifier.predict(&x).unwrap()) >= 0.95);
+    }
+
+    #[test]
+    fn test_random_matrix_with_wrong_rownum() {
+        let x_rand: DenseMatrix<f64> = DenseMatrix::<f64>::rand(21, 200);
+
+        let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        let fail = RandomForestClassifier::fit(
+            &x_rand,
+            &y,
+            RandomForestClassifierParameters {
+                criterion: SplitCriterion::Gini,
+                max_depth: Option::None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 100,
+                m: Option::None,
+                keep_samples: false,
+                seed: 87,
+            },
+        );
+
+        assert!(fail.is_err());
     }
 
     #[cfg_attr(
@@ -705,7 +744,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
         let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let classifier = RandomForestClassifier::fit(
@@ -758,13 +798,14 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
         let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
 
         let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
-            bincode::deserialize(&bincode::serialize(&forest).unwrap()).unwrap();
+            postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
     }

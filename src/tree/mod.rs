@@ -19,6 +19,7 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+pub(crate) mod base_tree_regressor;
 /// Classification tree for dependent variables that take a finite number of unordered values.
 pub mod decision_tree_classifier;
 /// Regression tree for for dependent variables that take continuous or ordered discrete values.

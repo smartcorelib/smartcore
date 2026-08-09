@@ -17,7 +17,7 @@
 ///     &[4.6, 3.1, 1.5, 0.2],
 ///     &[5.0, 3.6, 1.4, 0.2],
 ///     &[5.4, 3.9, 1.7, 0.4],
-/// ]);
+/// ]).unwrap();
 /// let fastpair = FastPair::new(&x);
 /// let closest_pair: PairwiseDistance<f64> = fastpair.unwrap().closest_pair();
 /// ```
@@ -52,10 +52,8 @@ pub struct FastPair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
 }
 
 impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
-    ///
     /// Constructor
-    /// Instantiate and inizialise the algorithm
-    ///
+    /// Instantiate and initialize the algorithm
     pub fn new(m: &'a M) -> Result<Self, Failed> {
         if m.shape().0 < 3 {
             return Err(Failed::because(
@@ -74,10 +72,8 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         Ok(init)
     }
 
-    ///
     /// Initialise `FastPair` by passing a `Array2`.
     /// Build a FastPairs data-structure from a set of (new) points.
-    ///
     fn init(&mut self) {
         // basic measures
         let len = self.samples.shape().0;
@@ -150,7 +146,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
         // compute sparse matrix (connectivity matrix)
         let mut sparse_matrix = M::zeros(len, len);
-        for (_, p) in distances.iter() {
+        for p in distances.values() {
             sparse_matrix.set((p.node, p.neighbour.unwrap()), p.distance.unwrap());
         }
 
@@ -158,9 +154,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
         self.neighbours = neighbours;
     }
 
-    ///
     /// Find closest pair by scanning list of nearest neighbors.
-    ///
     #[allow(dead_code)]
     pub fn closest_pair(&self) -> PairwiseDistance<T> {
         let mut a = self.neighbours[0]; // Start with first point
@@ -177,6 +171,21 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
             neighbour: b,
             distance: d,
         }
+    }
+
+    ///
+    /// Return order dissimilarities from closest to furthest
+    ///
+    #[allow(dead_code)]
+    pub fn ordered_pairs(&self) -> std::vec::IntoIter<&PairwiseDistance<T>> {
+        // improvement: implement this to return `impl Iterator<Item = &PairwiseDistance<T>>`
+        // need to implement trait `Iterator` for `Vec<&PairwiseDistance<T>>`
+        let mut distances = self
+            .distances
+            .values()
+            .collect::<Vec<&PairwiseDistance<T>>>();
+        distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        distances.into_iter()
     }
 
     //
@@ -217,10 +226,10 @@ mod tests_fastpair {
     use super::*;
     use crate::linalg::basic::{arrays::Array, matrix::DenseMatrix};
 
-    ///
     /// Brute force algorithm, used only for comparison and testing
-    ///
-    pub fn closest_pair_brute(fastpair: &FastPair<f64, DenseMatrix<f64>>) -> PairwiseDistance<f64> {
+    pub fn closest_pair_brute(
+        fastpair: &FastPair<'_, f64, DenseMatrix<f64>>,
+    ) -> PairwiseDistance<f64> {
         use itertools::Itertools;
         let m = fastpair.samples.shape().0;
 
@@ -260,8 +269,8 @@ mod tests_fastpair {
         let distances = fastpair.distances;
         let neighbours = fastpair.neighbours;
 
-        assert!(distances.len() != 0);
-        assert!(neighbours.len() != 0);
+        assert!(!distances.is_empty());
+        assert!(!neighbours.is_empty());
 
         assert_eq!(10, neighbours.len());
         assert_eq!(10, distances.len());
@@ -271,28 +280,24 @@ mod tests_fastpair {
     fn dataset_has_at_least_three_points() {
         // Create a dataset which consists of only two points:
         // A(0.0, 0.0) and B(1.0, 1.0).
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0, 0.0], &[1.0, 1.0]]).unwrap();
 
         // We expect an error when we run `FastPair` on this dataset,
         // becuase `FastPair` currently only works on a minimum of 3
         // points.
-        let _fastpair = FastPair::new(&dataset);
+        let fastpair = FastPair::new(&dataset);
+        assert!(fastpair.is_err());
 
-        match _fastpair {
-            Err(e) => {
-                let expected_error =
-                    Failed::because(FailedError::FindFailed, "min number of rows should be 3");
-                assert_eq!(e, expected_error)
-            }
-            _ => {
-                assert!(false);
-            }
+        if let Err(e) = fastpair {
+            let expected_error =
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3");
+            assert_eq!(e, expected_error)
         }
     }
 
     #[test]
     fn one_dimensional_dataset_minimal() {
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]);
+        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[0.0], &[2.0], &[9.0]]).unwrap();
 
         let result = FastPair::new(&dataset);
         assert!(result.is_ok());
@@ -312,7 +317,8 @@ mod tests_fastpair {
 
     #[test]
     fn one_dimensional_dataset_2() {
-        let dataset = DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]);
+        let dataset =
+            DenseMatrix::<f64>::from_2d_array(&[&[27.0], &[0.0], &[9.0], &[2.0]]).unwrap();
 
         let result = FastPair::new(&dataset);
         assert!(result.is_ok());
@@ -347,7 +353,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
 
@@ -520,7 +527,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         // compute
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
@@ -568,7 +576,8 @@ mod tests_fastpair {
             &[6.9, 3.1, 4.9, 1.5],
             &[5.5, 2.3, 4.0, 1.3],
             &[6.5, 2.8, 4.6, 1.5],
-        ]);
+        ])
+        .unwrap();
         // compute
         let fastpair = FastPair::new(&x);
         assert!(fastpair.is_ok());
@@ -582,7 +591,7 @@ mod tests_fastpair {
         };
         for p in dissimilarities.iter() {
             if p.distance.unwrap() < min_dissimilarity.distance.unwrap() {
-                min_dissimilarity = p.clone()
+                min_dissimilarity = *p
             }
         }
 
@@ -593,5 +602,104 @@ mod tests_fastpair {
         };
 
         assert_eq!(closest, min_dissimilarity);
+    }
+
+    #[test]
+    fn fastpair_ordered_pairs() {
+        let x = DenseMatrix::<f64>::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+        ])
+        .unwrap();
+        let fastpair = FastPair::new(&x).unwrap();
+
+        let ordered = fastpair.ordered_pairs();
+
+        let mut previous: f64 = -1.0;
+        for p in ordered {
+            if previous == -1.0 {
+                previous = p.distance.unwrap();
+            } else {
+                let current = p.distance.unwrap();
+                assert!(current >= previous);
+                previous = current;
+            }
+        }
+    }
+
+    #[test]
+    fn test_empty_set() {
+        let empty_matrix = DenseMatrix::<f64>::zeros(0, 0);
+        let result = FastPair::new(&empty_matrix);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3")
+            );
+        }
+    }
+
+    #[test]
+    fn test_single_point() {
+        let single_point = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0]]).unwrap();
+        let result = FastPair::new(&single_point);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3")
+            );
+        }
+    }
+
+    #[test]
+    fn test_two_points() {
+        let two_points = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
+        let result = FastPair::new(&two_points);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                e,
+                Failed::because(FailedError::FindFailed, "min number of rows should be 3")
+            );
+        }
+    }
+
+    #[test]
+    fn test_three_identical_points() {
+        let identical_points =
+            DenseMatrix::from_2d_array(&[&[1.0, 1.0], &[1.0, 1.0], &[1.0, 1.0]]).unwrap();
+        let result = FastPair::new(&identical_points);
+        assert!(result.is_ok());
+        let fastpair = result.unwrap();
+        let closest_pair = fastpair.closest_pair();
+        assert_eq!(closest_pair.distance, Some(0.0));
+    }
+
+    #[test]
+    fn test_result_unwrapping() {
+        let valid_matrix =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0], &[5.0, 6.0], &[7.0, 8.0]])
+                .unwrap();
+
+        let result = FastPair::new(&valid_matrix);
+        assert!(result.is_ok());
+
+        // This should not panic
+        let _fastpair = result.unwrap();
     }
 }

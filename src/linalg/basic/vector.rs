@@ -15,6 +15,25 @@ pub struct VecView<'a, T: Debug + Display + Copy + Sized> {
     ptr: &'a [T],
 }
 
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for &[T] {
+    fn get(&self, i: usize) -> &T {
+        &self[i]
+    }
+
+    fn shape(&self) -> usize {
+        self.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() > 0
+    }
+
+    fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
+        assert!(axis == 0, "For one dimensional array `axis` should == 0");
+        Box::new(self.iter())
+    }
+}
+
 impl<T: Debug + Display + Copy + Sized> Array<T, usize> for Vec<T> {
     fn get(&self, i: usize) -> &T {
         &self[i]
@@ -36,6 +55,7 @@ impl<T: Debug + Display + Copy + Sized> Array<T, usize> for Vec<T> {
 
 impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for Vec<T> {
     fn set(&mut self, i: usize, x: T) {
+        // NOTE: this panics in case of out of bounds index
         self[i] = x
     }
 
@@ -46,6 +66,7 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for Vec<T> {
 }
 
 impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for Vec<T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for &[T] {}
 
 impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for Vec<T> {}
 
@@ -98,7 +119,7 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for Vec<T> {
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecMutView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecMutView<'_, T> {
     fn get(&self, i: usize) -> &T {
         &self.ptr[i]
     }
@@ -117,7 +138,7 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecMutView<'a, T
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'_, T> {
     fn set(&mut self, i: usize, x: T) {
         self.ptr[i] = x;
     }
@@ -128,10 +149,10 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'a
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for VecMutView<'a, T> {}
-impl<'a, T: Debug + Display + Copy + Sized> MutArrayView1<T> for VecMutView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecMutView<'_, T> {}
+impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for VecMutView<'_, T> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'a, T> {
+impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'_, T> {
     fn get(&self, i: usize) -> &T {
         &self.ptr[i]
     }
@@ -150,7 +171,7 @@ impl<'a, T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'a, T> {
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'a, T> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'_, T> {}
 
 #[cfg(test)]
 mod tests {
@@ -160,8 +181,8 @@ mod tests {
     fn dot_product<T: Number, V: Array1<T>>(v: &V) -> T {
         let vv = V::zeros(10);
         let v_s = vv.slice(0..3);
-        let dot = v_s.dot(v);
-        dot
+
+        v_s.dot(v)
     }
 
     fn vector_ops<T: Number + PartialOrd, V: Array1<T>>(_: &V) -> T {
@@ -191,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_len() {
-        let x = vec![1, 2, 3];
+        let x = [1, 2, 3];
         assert_eq!(3, x.len());
     }
 
@@ -216,7 +237,7 @@ mod tests {
     #[test]
     fn test_mut_iterator() {
         let mut x = vec![1, 2, 3];
-        x.iterator_mut(0).for_each(|v| *v = *v * 2);
+        x.iterator_mut(0).for_each(|v| *v *= 2);
         assert_eq!(vec![2, 4, 6], x);
     }
 

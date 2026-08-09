@@ -4,7 +4,9 @@
 //!
 //! \\[recall = \frac{tp}{tp + fn}\\]
 //!
-//! where tp (true positive) - correct result, fn (false negative) - missing result
+//! where tp (true positive) - correct result, fn (false negative) - missing result.
+//! For binary classification, this is recall for the positive class (assumed to be 1.0).
+//! For multiclass, this is macro-averaged recall (average of per-class recalls).
 //!
 //! Example:
 //!
@@ -20,14 +22,14 @@
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use std::collections::HashSet;
-use std::convert::TryInto;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
+use crate::metrics::confusion::ConfusionCounts;
 use crate::numbers::realnum::RealNumber;
 
 use crate::metrics::Metrics;
@@ -37,6 +39,36 @@ use crate::metrics::Metrics;
 #[derive(Debug)]
 pub struct Recall<T> {
     _phantom: PhantomData<T>,
+}
+
+impl<T: RealNumber> Recall<T> {
+    /// Per-class recall scores derived from shared confusion counts.
+    ///
+    /// Returns a map from label bit pattern to that class's recall
+    /// (`tp / support`, or `0.0` when the class has no support).
+    ///
+    /// Iterates only over `counts.classes_set()` (labels seen in `y_true`).
+    /// A label that appears in `y_pred` but never in `y_true` has no support
+    /// and no true positives, so it is silently ignored — it does not
+    /// inflate or deflate any class's recall. This matches sklearn's
+    /// behaviour, where the label set is derived from `y_true`.
+    pub(crate) fn per_class_scores_from_counts(
+        &self,
+        counts: &ConfusionCounts,
+    ) -> HashMap<u64, f64> {
+        let mut scores: HashMap<u64, f64> = HashMap::new();
+        for &bits in counts.classes_set() {
+            let support_count = counts.support(bits);
+            let tp = counts.tp(bits);
+            let rec = if support_count > 0 {
+                tp as f64 / support_count as f64
+            } else {
+                0.0
+            };
+            scores.insert(bits, rec);
+        }
+        scores
+    }
 }
 
 impl<T: RealNumber> Metrics<T> for Recall<T> {
@@ -52,7 +84,7 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
         }
     }
     /// Calculated recall score
-    /// * `y_true` - cround truth (correct) labels.
+    /// * `y_true` - ground truth (correct) labels.
     /// * `y_pred` - predicted labels, as returned by a classifier.
     fn get_score(&self, y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> f64 {
         if y_true.shape() != y_pred.shape() {
@@ -62,33 +94,31 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
                 y_pred.shape()
             );
         }
-
-        let mut classes = HashSet::new();
-        for i in 0..y_true.shape() {
-            classes.insert(y_true.get(i).to_f64_bits());
+        let n = y_true.shape();
+        // Empty input has no classes; return 0.0 (the multiclass path below
+        // relies on classes >= 1 to divide by `classes`).
+        if n == 0 {
+            return 0.0;
         }
-        let classes: i64 = classes.len().try_into().unwrap();
 
-        let mut tp = 0;
-        let mut fne = 0;
-        for i in 0..y_true.shape() {
-            if y_pred.get(i) == y_true.get(i) {
-                if classes == 2 {
-                    if *y_true.get(i) == T::one() {
-                        tp += 1;
-                    }
-                } else {
-                    tp += 1;
-                }
-            } else if classes == 2 {
-                if *y_true.get(i) != T::one() {
-                    fne += 1;
-                }
-            } else {
-                fne += 1;
-            }
+        let counts = ConfusionCounts::new(y_true, y_pred);
+        let classes = counts.classes_set().len();
+        let scores = self.per_class_scores_from_counts(&counts);
+
+        if classes == 2 {
+            // Binary case: recall for the positive class, assumed to be
+            // T::one() (i.e. 1.0 when labels are 0.0/1.0). If the positive
+            // label is not present in y_true the score is 0.0.
+            let positive_bits = T::one().to_f64_bits();
+            *scores.get(&positive_bits).unwrap_or(&0.0)
+        } else {
+            // Multiclass case: macro-averaged recall. classes >= 1 is
+            // guaranteed here because of the `n == 0` guard above. The sum
+            // over `HashMap::values()` is order-independent (floating-point
+            // addition of non-negative finite values is commutative and
+            // associative for the magnitudes involved here).
+            scores.values().sum::<f64>() / classes as f64
         }
-        tp as f64 / (tp as f64 + fne as f64)
     }
 }
 
@@ -115,7 +145,7 @@ mod tests {
         let y_pred: Vec<f64> = vec![0., 0., 1., 1., 1., 1.];
 
         let score3: f64 = Recall::new().get_score(&y_true, &y_pred);
-        assert!((score3 - 0.5).abs() < 1e-8);
+        assert!((score3 - (2.0 / 3.0)).abs() < 1e-8);
     }
 
     #[cfg_attr(
@@ -132,5 +162,19 @@ mod tests {
 
         assert!((score1 - 0.333333333).abs() < 1e-8);
         assert!((score2 - 1.0).abs() < 1e-8);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn recall_multiclass_imbalanced() {
+        let y_true: Vec<f64> = vec![0., 0., 1., 2., 2., 2.];
+        let y_pred: Vec<f64> = vec![0., 1., 1., 2., 0., 2.];
+
+        let score: f64 = Recall::new().get_score(&y_true, &y_pred);
+        let expected = (0.5 + 1.0 + (2.0 / 3.0)) / 3.0;
+        assert!((score - expected).abs() < 1e-8);
     }
 }

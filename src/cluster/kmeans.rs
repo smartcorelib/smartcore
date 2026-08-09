@@ -41,7 +41,7 @@
 //!            &[4.9, 2.4, 3.3, 1.0],
 //!            &[6.6, 2.9, 4.6, 1.3],
 //!            &[5.2, 2.7, 3.9, 1.4],
-//!            ]);
+//!            ]).unwrap();
 //!
 //! let kmeans = KMeans::fit(&x, KMeansParameters::default().with_k(2)).unwrap(); // Fit to data, 2 clusters
 //! let y_hat: Vec<u8> = kmeans.predict(&x).unwrap(); // use the same points for prediction
@@ -55,7 +55,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use rand::Rng;
+use rand::RngExt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -96,7 +96,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for KMeans<
                     return false;
                 }
                 for j in 0..self.centroids[i].len() {
-                    if (self.centroids[i][j] - other.centroids[i][j]).abs() > std::f64::EPSILON {
+                    if (self.centroids[i][j] - other.centroids[i][j]).abs() > f64::EPSILON {
                         return false;
                     }
                 }
@@ -249,7 +249,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
 
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> {
     /// Fit algorithm to _NxM_ matrix where _N_ is number of samples and _M_ is number of features.
-    /// * `data` - training instances to cluster    
+    /// * `data` - training instances to cluster
     /// * `parameters` - cluster parameters
     pub fn fit(data: &X, parameters: KMeansParameters) -> Result<KMeans<TX, TY, X, Y>, Failed> {
         let bbd = BBDTree::new(data);
@@ -270,7 +270,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
 
         let (n, d) = data.shape();
 
-        let mut distortion = std::f64::MAX;
+        let mut distortion = f64::MAX;
         let mut y = KMeans::<TX, TY, X, Y>::kmeans_plus_plus(data, parameters.k, parameters.seed);
         let mut size = vec![0; parameters.k];
         let mut centroids = vec![vec![0f64; d]; parameters.k];
@@ -331,7 +331,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         let mut row = vec![0f64; x.shape().1];
 
         for i in 0..n {
-            let mut min_dist = std::f64::MAX;
+            let mut min_dist = f64::MAX;
             let mut best_cluster = 0;
 
             for j in 0..self.k {
@@ -356,12 +356,12 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
         let (n, _) = data.shape();
         let mut y = vec![0; n];
         let mut centroid: Vec<TX> = data
-            .get_row(rng.gen_range(0..n))
+            .get_row(rng.random_range(0..n))
             .iterator(0)
             .cloned()
             .collect();
 
-        let mut d = vec![std::f64::MAX; n];
+        let mut d = vec![f64::MAX; n];
         let mut row = vec![TX::zero(); data.shape().1];
 
         for j in 1..k {
@@ -382,7 +382,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> 
             for i in d.iter() {
                 sum += *i;
             }
-            let cutoff = rng.gen::<f64>() * sum;
+            let cutoff = rng.random::<f64>() * sum;
             let mut cost = 0f64;
             let mut index = 0;
             while index < n {
@@ -424,7 +424,7 @@ mod tests {
     )]
     #[test]
     fn invalid_k() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
 
         assert!(KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
             &x,
@@ -492,14 +492,15 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
 
         let kmeans = KMeans::fit(&x, Default::default()).unwrap();
 
         let y: Vec<usize> = kmeans.predict(&x).unwrap();
 
-        for i in 0..y.len() {
-            assert_eq!(y[i] as usize, kmeans._y[i]);
+        for (i, _y_i) in y.iter().enumerate() {
+            assert_eq!({ y[i] }, kmeans._y[i]);
         }
     }
 
@@ -531,7 +532,8 @@ mod tests {
             &[4.9, 2.4, 3.3, 1.0],
             &[6.6, 2.9, 4.6, 1.3],
             &[5.2, 2.7, 3.9, 1.4],
-        ]);
+        ])
+        .unwrap();
 
         let kmeans: KMeans<f32, f32, DenseMatrix<f32>, Vec<f32>> =
             KMeans::fit(&x, Default::default()).unwrap();

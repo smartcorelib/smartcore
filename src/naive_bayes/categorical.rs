@@ -24,7 +24,7 @@
 //!              &[3, 4, 2, 4],
 //!              &[0, 3, 1, 2],
 //!              &[0, 4, 1, 2],
-//!          ]);
+//!          ]).unwrap();
 //! let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
 //!
 //! let nb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
@@ -95,7 +95,7 @@ impl<T: Number + Unsigned> PartialEq for CategoricalNBDistribution<T> {
                         return false;
                     }
                     for (a_i_j, b_i_j) in a_i.iter().zip(b_i.iter()) {
-                        if (*a_i_j - *b_i_j).abs() > std::f64::EPSILON {
+                        if (*a_i_j - *b_i_j).abs() > f64::EPSILON {
                             return false;
                         }
                     }
@@ -158,8 +158,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
     pub fn fit<X: Array2<T>, Y: Array1<T>>(x: &X, y: &Y, alpha: f64) -> Result<Self, Failed> {
         if alpha < 0f64 {
             return Err(Failed::fit(&format!(
-                "alpha should be >= 0, alpha=[{}]",
-                alpha
+                "alpha should be >= 0, alpha=[{alpha}]"
             )));
         }
 
@@ -167,15 +166,13 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                n_samples, y_samples
+                "Size of x should equal size of y; |x|=[{n_samples}], |y|=[{y_samples}]"
             )));
         }
 
         if n_samples == 0 {
             return Err(Failed::fit(&format!(
-                "Size of x and y should greater than 0; |x|=[{}]",
-                n_samples
+                "Size of x and y should greater than 0; |x|=[{n_samples}]"
             )));
         }
         let y: Vec<usize> = y.iterator(0).map(|y_i| y_i.to_usize().unwrap()).collect();
@@ -202,8 +199,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
                 .max()
                 .ok_or_else(|| {
                     Failed::fit(&format!(
-                        "Failed to get the categories for feature = {}",
-                        feature
+                        "Failed to get the categories for feature = {feature}"
                     ))
                 })?;
             n_categories.push(feature_max + 1);
@@ -367,7 +363,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> Predictor<X, Y> for Categ
 impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// Fits CategoricalNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like alpha for smoothing
     pub fn fit(x: &X, y: &Y, parameters: CategoricalNBParameters) -> Result<Self, Failed> {
@@ -379,6 +375,7 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.as_ref().unwrap().predict(x)
@@ -429,7 +426,6 @@ mod tests {
     fn search_parameters() {
         let parameters = CategoricalNBSearchParameters {
             alpha: vec![1., 2.],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
@@ -460,7 +456,8 @@ mod tests {
             &[1, 1, 1, 1],
             &[1, 2, 0, 0],
             &[2, 1, 1, 1],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
@@ -518,7 +515,7 @@ mod tests {
             ]
         );
 
-        let x_test = DenseMatrix::from_2d_array(&[&[0, 2, 1, 0], &[2, 2, 0, 0]]);
+        let x_test = DenseMatrix::from_2d_array(&[&[0, 2, 1, 0], &[2, 2, 0, 0]]).unwrap();
         let y_hat = cnb.predict(&x_test).unwrap();
         assert_eq!(y_hat, vec![0, 1]);
     }
@@ -544,7 +541,8 @@ mod tests {
             &[3, 4, 2, 4],
             &[0, 3, 1, 2],
             &[0, 4, 1, 2],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
 
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();
@@ -576,7 +574,8 @@ mod tests {
             &[3, 4, 2, 4],
             &[0, 3, 1, 2],
             &[0, 4, 1, 2],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<u32> = vec![0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0];
         let cnb = CategoricalNB::fit(&x, &y, Default::default()).unwrap();

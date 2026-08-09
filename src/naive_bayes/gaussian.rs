@@ -16,7 +16,7 @@
 //!              &[ 1.,  1.],
 //!              &[ 2.,  1.],
 //!              &[ 3.,  2.],
-//!          ]);
+//!          ]).unwrap();
 //! let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 //!
 //! let nb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
@@ -174,8 +174,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
-    /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    /// priors are adjusted according to the data.
+    /// * `priors` - Optional vector with prior probabilities of the classes. If not defined, priors are adjusted according to the data.
     pub fn fit<TX: Number + RealNumber, X: Array2<TX>, Y: Array1<TY>>(
         x: &X,
         y: &Y,
@@ -185,15 +184,13 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                n_samples, y_samples
+                "Size of x should equal size of y; |x|=[{n_samples}], |y|=[{y_samples}]"
             )));
         }
 
         if n_samples == 0 {
             return Err(Failed::fit(&format!(
-                "Size of x and y should greater than 0; |x|=[{}]",
-                n_samples
+                "Size of x and y should greater than 0; |x|=[{n_samples}]"
             )));
         }
         let (class_labels, indices) = y.unique_with_indices();
@@ -319,7 +316,7 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 {
     /// Fits GaussianNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors.
     pub fn fit(x: &X, y: &Y, parameters: GaussianNBParameters) -> Result<Self, Failed> {
@@ -330,6 +327,7 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.inner.as_ref().unwrap().predict(x)
@@ -375,7 +373,6 @@ mod tests {
     fn search_parameters() {
         let parameters = GaussianNBSearchParameters {
             priors: vec![Some(vec![1.]), Some(vec![2.])],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
@@ -398,7 +395,8 @@ mod tests {
             &[1., 1.],
             &[2., 1.],
             &[3., 2.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
         let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();
@@ -438,7 +436,8 @@ mod tests {
             &[1., 1.],
             &[2., 1.],
             &[3., 2.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
         let priors = vec![0.3, 0.7];
@@ -465,7 +464,8 @@ mod tests {
             &[1., 1.],
             &[2., 1.],
             &[3., 2.],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![1, 1, 1, 2, 2, 2];
 
         let gnb = GaussianNB::fit(&x, &y, Default::default()).unwrap();

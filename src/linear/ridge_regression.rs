@@ -40,7 +40,7 @@
 //!               &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
 //!               &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
 //!               &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-//!          ]);
+//!          ]).unwrap();
 //!
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
@@ -71,19 +71,14 @@ use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 /// Approach to use for estimation of regression coefficients. Cholesky is more efficient but SVD is more stable.
 pub enum RidgeRegressionSolverName {
     /// Cholesky decomposition, see [Cholesky](../../linalg/cholesky/index.html)
+    #[default]
     Cholesky,
     /// SVD decomposition, see [SVD](../../linalg/svd/index.html)
     SVD,
-}
-
-impl Default for RidgeRegressionSolverName {
-    fn default() -> Self {
-        RidgeRegressionSolverName::Cholesky
-    }
 }
 
 /// Ridge Regression parameters
@@ -384,10 +379,7 @@ impl<
 
         for (i, col_std_i) in col_std.iter().enumerate() {
             if (*col_std_i - TX::zero()).abs() < TX::epsilon() {
-                return Err(Failed::fit(&format!(
-                    "Cannot rescale constant column {}",
-                    i
-                )));
+                return Err(Failed::fit(&format!("Cannot rescale constant column {i}")));
             }
         }
 
@@ -463,7 +455,8 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
@@ -521,7 +514,7 @@ mod tests {
     //         &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
     //         &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
     //         &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-    //     ]);
+    //     ]).unwrap();
 
     //     let y = vec![
     //         83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,

@@ -11,31 +11,29 @@ use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::LineSearchMethod;
 use crate::optimization::{DF, F};
 
-///
+/// Limited-memory BFGS optimization algorithm
 pub struct LBFGS {
-    ///
+    /// Maximum number of iterations
     pub max_iter: usize,
-    ///
+    /// TODO: Add documentation
     pub g_rtol: f64,
-    ///
+    /// TODO: Add documentation
     pub g_atol: f64,
-    ///
+    /// TODO: Add documentation
     pub x_atol: f64,
-    ///
+    /// TODO: Add documentation
     pub x_rtol: f64,
-    ///
+    /// TODO: Add documentation
     pub f_abstol: f64,
-    ///
+    /// TODO: Add documentation
     pub f_reltol: f64,
-    ///
+    /// TODO: Add documentation
     pub successive_f_tol: usize,
-    ///
+    /// TODO: Add documentation
     pub m: usize,
 }
 
-///
 impl Default for LBFGS {
-    ///
     fn default() -> Self {
         LBFGS {
             max_iter: 1000,
@@ -51,9 +49,7 @@ impl Default for LBFGS {
     }
 }
 
-///
 impl LBFGS {
-    ///
     fn two_loops<T: FloatNumber + RealNumber, X: Array1<T>>(&self, state: &mut LBFGSState<T, X>) {
         let lower = state.iteration.max(self.m) - self.m;
         let upper = state.iteration;
@@ -95,7 +91,6 @@ impl LBFGS {
         state.s.mul_scalar_mut(-T::one());
     }
 
-    ///
     fn init_state<T: FloatNumber + RealNumber, X: Array1<T>>(&self, x: &X) -> LBFGSState<T, X> {
         LBFGSState {
             x: x.clone(),
@@ -119,7 +114,6 @@ impl LBFGS {
         }
     }
 
-    ///
     fn update_state<'a, T: FloatNumber + RealNumber, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &'a F<'_, T, X>,
@@ -161,7 +155,6 @@ impl LBFGS {
         df(&mut state.x_df, &state.x);
     }
 
-    ///
     fn assess_convergence<T: FloatNumber, X: Array1<T>>(
         &self,
         state: &mut LBFGSState<T, X>,
@@ -173,7 +166,7 @@ impl LBFGS {
         }
 
         if state.x.max_diff(&state.x_prev)
-            <= T::from_f64(self.x_rtol * state.x.norm(std::f64::INFINITY)).unwrap()
+            <= T::from_f64(self.x_rtol * state.x.norm(f64::INFINITY)).unwrap()
         {
             x_converged = true;
         }
@@ -188,17 +181,16 @@ impl LBFGS {
             state.counter_f_tol += 1;
         }
 
-        if state.x_df.norm(std::f64::INFINITY) <= self.g_atol {
+        if state.x_df.norm(f64::INFINITY) <= self.g_atol {
             g_converged = true;
         }
 
         g_converged || x_converged || state.counter_f_tol > self.successive_f_tol
     }
 
-    ///
-    fn update_hessian<'a, T: FloatNumber, X: Array1<T>>(
+    fn update_hessian<T: FloatNumber, X: Array1<T>>(
         &self,
-        _: &'a DF<'_, X>,
+        _: &DF<'_, X>,
         state: &mut LBFGSState<T, X>,
     ) {
         state.dg = state.x_df.sub(&state.x_df_prev);
@@ -212,7 +204,6 @@ impl LBFGS {
     }
 }
 
-///
 #[derive(Debug)]
 struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     x: X,
@@ -234,9 +225,7 @@ struct LBFGSState<T: FloatNumber, X: Array1<T>> {
     alpha: T,
 }
 
-///
 impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
-    ///
     fn optimize<'a, X: Array1<T>, LS: LineSearchMethod<T>>(
         &self,
         f: &F<'_, T, X>,
@@ -248,7 +237,7 @@ impl<T: FloatNumber + RealNumber> FirstOrderOptimizer<T> for LBFGS {
 
         df(&mut state.x_df, x0);
 
-        let g_converged = state.x_df.norm(std::f64::INFINITY) < self.g_atol;
+        let g_converged = state.x_df.norm(f64::INFINITY) < self.g_atol;
         let mut converged = g_converged;
         let stopped = false;
 
@@ -291,13 +280,15 @@ mod tests {
             g[0] = -2. * (1. - x[0]) - 400. * (x[1] - x[0].powf(2.)) * x[0];
             g[1] = 200. * (x[1] - x[0].powf(2.));
         };
-        let mut ls: Backtracking<f64> = Default::default();
-        ls.order = FunctionOrder::THIRD;
+        let ls: Backtracking<f64> = Backtracking::<f64> {
+            order: FunctionOrder::THIRD,
+            ..Default::default()
+        };
         let optimizer: LBFGS = Default::default();
 
         let result = optimizer.optimize(&f, &df, &x0, &ls);
 
-        assert!((result.f_x - 0.0).abs() < std::f64::EPSILON);
+        assert!((result.f_x - 0.0).abs() < f64::EPSILON);
         assert!((result.x[0] - 1.0).abs() < 1e-8);
         assert!((result.x[1] - 1.0).abs() < 1e-8);
         assert!(result.iterations <= 24);

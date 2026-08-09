@@ -188,8 +188,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
                 _ => max,
             }
         };
-        self.iterator(0)
-            .fold(T::min_value(), |max, x| max_f(max, x))
+        self.iterator(0).fold(T::min_value(), max_f)
     }
     /// return min value from  the view
     fn min(&self) -> T
@@ -202,8 +201,7 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
                 _ => min,
             }
         };
-        self.iterator(0)
-            .fold(T::max_value(), |max, x| min_f(max, x))
+        self.iterator(0).fold(T::max_value(), min_f)
     }
     /// return the position of the max value of the view
     fn argmax(&self) -> usize
@@ -267,11 +265,11 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+                .fold(f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::INFINITY, |a, b| a.min(b))
+                .fold(f64::INFINITY, |a, b| a.min(b))
         } else {
             let mut norm = 0f64;
 
@@ -548,7 +546,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         let (nrows, ncols) = self.shape();
         for r in 0..nrows {
             let row: Vec<T> = (0..ncols).map(|c| *self.get((r, c))).collect();
-            writeln!(f, "{:?}", row)?
+            writeln!(f, "{row:?}")?
         }
         Ok(())
     }
@@ -560,11 +558,11 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         if p.is_infinite() && p.is_sign_positive() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::NEG_INFINITY, |a, b| a.max(b))
+                .fold(f64::NEG_INFINITY, |a, b| a.max(b))
         } else if p.is_infinite() && p.is_sign_negative() {
             self.iterator(0)
                 .map(|x| x.to_f64().unwrap().abs())
-                .fold(std::f64::INFINITY, |a, b| a.min(b))
+                .fold(f64::INFINITY, |a, b| a.min(b))
         } else {
             let mut norm = 0f64;
 
@@ -621,7 +619,7 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
         T: Number + PartialOrd,
     {
         let stack_size = 64;
-        let mut jstack = -1;
+        let mut jstack: i32 = -1;
         let mut l = 0;
         let mut istack = vec![0; stack_size];
         let mut ir = self.shape() - 1;
@@ -733,34 +731,34 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
 pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
     MutArray<T, (usize, usize)> + ArrayView2<T>
 {
-    ///
+    /// copy values from another array
     fn copy_from(&mut self, other: &dyn Array<T, (usize, usize)>) {
         self.iterator_mut(0)
             .zip(other.iterator(0))
             .for_each(|(s, o)| *s = *o);
     }
-    ///
+    /// update view with absolute values
     fn abs_mut(&mut self)
     where
         T: Number + Signed,
     {
         self.iterator_mut(0).for_each(|v| *v = v.abs());
     }
-    ///
+    /// update view values with opposite sign
     fn neg_mut(&mut self)
     where
         T: Number + Neg<Output = T>,
     {
         self.iterator_mut(0).for_each(|v| *v = -*v);
     }
-    ///
+    /// update view values at power `p`
     fn pow_mut(&mut self, p: T)
     where
         T: RealNumber,
     {
         self.iterator_mut(0).for_each(|v| *v = v.powf(p));
     }
-    ///
+    /// scale view values
     fn scale_mut(&mut self, mean: &[T], std: &[T], axis: u8)
     where
         T: Number,
@@ -786,27 +784,27 @@ pub trait MutArrayView2<T: Debug + Display + Copy + Sized>:
 
 /// Trait for mutable 1D-array view
 pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + Clone {
-    ///
+    /// return a view of the array
     fn slice<'a>(&'a self, range: Range<usize>) -> Box<dyn ArrayView1<T> + 'a>;
-    ///
+    /// return a mutable view of the array
     fn slice_mut<'a>(&'a mut self, range: Range<usize>) -> Box<dyn MutArrayView1<T> + 'a>;
-    ///
+    /// fill array with a given value
     fn fill(len: usize, value: T) -> Self
     where
         Self: Sized;
-    ///
+    /// create array from iterator
     fn from_iterator<I: Iterator<Item = T>>(iter: I, len: usize) -> Self
     where
         Self: Sized;
-    ///
+    /// create array from vector
     fn from_vec_slice(slice: &[T]) -> Self
     where
         Self: Sized;
-    ///
+    /// create array from slice
     fn from_slice(slice: &'_ dyn ArrayView1<T>) -> Self
     where
         Self: Sized;
-    ///
+    /// create a zero array
     fn zeros(len: usize) -> Self
     where
         T: Number,
@@ -814,7 +812,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         Self::fill(len, T::zero())
     }
-    ///
+    /// create an array of ones
     fn ones(len: usize) -> Self
     where
         T: Number,
@@ -822,7 +820,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         Self::fill(len, T::one())
     }
-    ///
+    /// create an array of random values
     fn rand(len: usize) -> Self
     where
         T: RealNumber,
@@ -830,7 +828,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     {
         Self::from_iterator((0..len).map(|_| T::rand()), len)
     }
-    ///
+    /// add a scalar to the array
     fn add_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -840,7 +838,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.add_scalar_mut(x);
         result
     }
-    ///
+    /// subtract a scalar from the array
     fn sub_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -850,7 +848,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.sub_scalar_mut(x);
         result
     }
-    ///
+    /// divide a scalar from the array
     fn div_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -860,7 +858,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.div_scalar_mut(x);
         result
     }
-    ///
+    /// multiply a scalar to the array
     fn mul_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -870,7 +868,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.mul_scalar_mut(x);
         result
     }
-    ///
+    /// sum of two arrays
     fn add(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
@@ -880,7 +878,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.add_mut(other);
         result
     }
-    ///
+    /// subtract two arrays
     fn sub(&self, other: &impl Array1<T>) -> Self
     where
         T: Number,
@@ -890,7 +888,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.sub_mut(other);
         result
     }
-    ///
+    /// multiply two arrays
     fn mul(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
@@ -900,7 +898,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.mul_mut(other);
         result
     }
-    ///
+    /// divide two arrays
     fn div(&self, other: &dyn Array<T, usize>) -> Self
     where
         T: Number,
@@ -910,7 +908,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.div_mut(other);
         result
     }
-    ///
+    /// replace values with another array
     fn take(&self, index: &[usize]) -> Self
     where
         Self: Sized,
@@ -918,12 +916,11 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         let len = self.shape();
         assert!(
             index.iter().all(|&i| i < len),
-            "All indices in `take` should be < {}",
-            len
+            "All indices in `take` should be < {len}"
         );
         Self::from_iterator(index.iter().map(move |&i| *self.get(i)), index.len())
     }
-    ///
+    /// create a view of the array with absolute values
     fn abs(&self) -> Self
     where
         T: Number + Signed,
@@ -933,7 +930,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.abs_mut();
         result
     }
-    ///
+    /// create a view of the array with opposite sign
     fn neg(&self) -> Self
     where
         T: Number + Neg<Output = T>,
@@ -943,7 +940,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.neg_mut();
         result
     }
-    ///
+    /// create a view of the array with values at power `p`
     fn pow(&self, p: T) -> Self
     where
         T: RealNumber,
@@ -953,7 +950,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.pow_mut(p);
         result
     }
-    ///
+    /// apply argsort to the array
     fn argsort(&self) -> Vec<usize>
     where
         T: Number + PartialOrd,
@@ -961,12 +958,12 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         let mut v = self.clone();
         v.argsort_mut()
     }
-    ///
+    /// map values of the array
     fn map<O: Debug + Display + Copy + Sized, A: Array1<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
         let len = self.shape();
         A::from_iterator(self.iterator(0).map(f), len)
     }
-    ///
+    /// apply softmax to the array
     fn softmax(&self) -> Self
     where
         T: RealNumber,
@@ -976,7 +973,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result.softmax_mut();
         result
     }
-    ///
+    /// multiply array by matrix
     fn xa(&self, a_transpose: bool, a: &dyn ArrayView2<T>) -> Self
     where
         T: Number,
@@ -990,10 +987,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         };
         assert!(
             d1 == len,
-            "Can not multiply {}x{} matrix by {} vector",
-            nrows,
-            ncols,
-            len
+            "Can not multiply {nrows}x{ncols} matrix by {len} vector"
         );
         let mut result = Self::zeros(d2);
         for i in 0..d2 {
@@ -1009,7 +1003,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         result
     }
 
-    ///
+    /// check if two arrays are approximately equal
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,
@@ -1021,13 +1015,13 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
 
 /// Trait for mutable 2D-array view
 pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + Clone {
-    ///
+    /// fill 2d array with a given value
     fn fill(nrows: usize, ncols: usize, value: T) -> Self;
-    ///
+    /// get a view of the 2d array
     fn slice<'a>(&'a self, rows: Range<usize>, cols: Range<usize>) -> Box<dyn ArrayView2<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// get a mutable view of the 2d array
     fn slice_mut<'a>(
         &'a mut self,
         rows: Range<usize>,
@@ -1035,31 +1029,31 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     ) -> Box<dyn MutArrayView2<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// create 2d array from iterator
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self;
-    ///
+    /// get row from 2d array
     fn get_row<'a>(&'a self, row: usize) -> Box<dyn ArrayView1<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// get column from 2d array
     fn get_col<'a>(&'a self, col: usize) -> Box<dyn ArrayView1<T> + 'a>
     where
         Self: Sized;
-    ///
+    /// create a zero 2d array
     fn zeros(nrows: usize, ncols: usize) -> Self
     where
         T: Number,
     {
         Self::fill(nrows, ncols, T::zero())
     }
-    ///
+    /// create a 2d array of ones
     fn ones(nrows: usize, ncols: usize) -> Self
     where
         T: Number,
     {
         Self::fill(nrows, ncols, T::one())
     }
-    ///
+    /// create an identity matrix
     fn eye(size: usize) -> Self
     where
         T: Number,
@@ -1072,29 +1066,29 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         matrix
     }
-    ///
+    /// create a 2d array of random values
     fn rand(nrows: usize, ncols: usize) -> Self
     where
         T: RealNumber,
     {
         Self::from_iterator((0..nrows * ncols).map(|_| T::rand()), nrows, ncols, 0)
     }
-    ///
+    /// crate from 2d slice
     fn from_slice(slice: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = slice.shape();
         Self::from_iterator(slice.iterator(0).cloned(), nrows, ncols, 0)
     }
-    ///
+    /// create from row
     fn from_row(slice: &dyn ArrayView1<T>) -> Self {
         let ncols = slice.shape();
         Self::from_iterator(slice.iterator(0).cloned(), 1, ncols, 0)
     }
-    ///
+    /// create from column
     fn from_column(slice: &dyn ArrayView1<T>) -> Self {
         let nrows = slice.shape();
         Self::from_iterator(slice.iterator(0).cloned(), nrows, 1, 0)
     }
-    ///
+    /// transpose 2d array
     fn transpose(&self) -> Self {
         let (nrows, ncols) = self.shape();
         let mut m = Self::fill(ncols, nrows, *self.get((0, 0)));
@@ -1105,22 +1099,18 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
         m
     }
-    ///
+    /// change shape of 2d array
     fn reshape(&self, nrows: usize, ncols: usize, axis: u8) -> Self {
         let (onrows, oncols) = self.shape();
 
         assert!(
             nrows * ncols == onrows * oncols,
-            "Can't reshape {}x{} array into a {}x{} array",
-            onrows,
-            oncols,
-            nrows,
-            ncols
+            "Can't reshape {onrows}x{oncols} array into a {nrows}x{ncols} array"
         );
 
         Self::from_iterator(self.iterator(0).cloned(), nrows, ncols, axis)
     }
-    ///
+    /// multiply two 2d arrays
     fn matmul(&self, other: &dyn ArrayView2<T>) -> Self
     where
         T: Number,
@@ -1129,11 +1119,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         let (o_nrows, o_ncols) = other.shape();
         assert!(
             ncols == o_nrows,
-            "Can't multiply {}x{} and {}x{} matrices",
-            nrows,
-            ncols,
-            o_nrows,
-            o_ncols
+            "Can't multiply {nrows}x{ncols} and {o_nrows}x{o_ncols} matrices"
         );
         let inner_d = ncols;
         let mut result = Self::zeros(nrows, o_ncols);
@@ -1150,7 +1136,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
 
         result
     }
-    ///
+    /// matrix multiplication
     fn ab(&self, a_transpose: bool, b: &dyn ArrayView2<T>, b_transpose: bool) -> Self
     where
         T: Number,
@@ -1166,7 +1152,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
                 _ => (nrows, ncols, o_nrows, o_ncols),
             };
             if d1 != d4 {
-                panic!("Can not multiply {}x{} by {}x{} matrices", d2, d1, d4, d3);
+                panic!("Can not multiply {d2}x{d1} by {d4}x{d3} matrices");
             }
             let mut result = Self::zeros(d2, d3);
             for r in 0..d2 {
@@ -1185,7 +1171,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             result
         }
     }
-    ///
+    /// matrix vector multiplication
     fn ax(&self, a_transpose: bool, x: &dyn ArrayView1<T>) -> Self
     where
         T: Number,
@@ -1198,10 +1184,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         };
         assert!(
             d2 == len,
-            "Can not multiply {}x{} matrix by {} vector",
-            nrows,
-            ncols,
-            len
+            "Can not multiply {nrows}x{ncols} matrix by {len} vector"
         );
         let mut result = Self::zeros(d1, 1);
         for i in 0..d1 {
@@ -1216,7 +1199,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         }
         result
     }
-    ///
+    /// concatenate 1d array
     fn concatenate_1d<'a>(arrays: &'a [&'a dyn ArrayView1<T>], axis: u8) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1254,7 +1237,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             ),
         }
     }
-    ///
+    /// concatenate 2d array
     fn concatenate_2d<'a>(arrays: &'a [&'a dyn ArrayView2<T>], axis: u8) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1311,7 +1294,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
-    ///
+    /// merge 1d arrays
     fn merge_1d<'a>(&'a self, arrays: &'a [&'a dyn ArrayView1<T>], axis: u8, append: bool) -> Self {
         assert!(
             axis == 1 || axis == 0,
@@ -1379,7 +1362,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             }
         }
     }
-    ///
+    /// Stack arrays in sequence vertically
     fn v_stack(&self, other: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = self.shape();
         let (other_nrows, other_ncols) = other.shape();
@@ -1395,7 +1378,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             0,
         )
     }
-    ///
+    /// Stack arrays in sequence horizontally
     fn h_stack(&self, other: &dyn ArrayView2<T>) -> Self {
         let (nrows, ncols) = self.shape();
         let (other_nrows, other_ncols) = other.shape();
@@ -1411,20 +1394,20 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             1,
         )
     }
-    ///
+    /// map  array values
     fn map<O: Debug + Display + Copy + Sized, A: Array2<O>, F: FnMut(&T) -> O>(self, f: F) -> A {
         let (nrows, ncols) = self.shape();
         A::from_iterator(self.iterator(0).map(f), nrows, ncols, 0)
     }
-    ///
+    /// iter rows
     fn row_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
         Box::new((0..self.shape().0).map(move |r| self.get_row(r)))
     }
-    ///
+    /// iter cols
     fn col_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Box<dyn ArrayView1<T> + 'a>> + 'a> {
         Box::new((0..self.shape().1).map(move |r| self.get_col(r)))
     }
-    ///
+    /// take elements from 2d array
     fn take(&self, index: &[usize], axis: u8) -> Self {
         let (nrows, ncols) = self.shape();
 
@@ -1432,8 +1415,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             0 => {
                 assert!(
                     index.iter().all(|&i| i < nrows),
-                    "All indices in `take` should be < {}",
-                    nrows
+                    "All indices in `take` should be < {nrows}"
                 );
                 Self::from_iterator(
                     index
@@ -1448,8 +1430,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
             _ => {
                 assert!(
                     index.iter().all(|&i| i < ncols),
-                    "All indices in `take` should be < {}",
-                    ncols
+                    "All indices in `take` should be < {ncols}"
                 );
                 Self::from_iterator(
                     (0..nrows)
@@ -1466,7 +1447,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     fn take_column(&self, column_index: usize) -> Self {
         self.take(&[column_index], 1)
     }
-    ///
+    /// add a scalar to the array
     fn add_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1475,7 +1456,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.add_scalar_mut(x);
         result
     }
-    ///
+    /// subtract a scalar from the array
     fn sub_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1484,7 +1465,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.sub_scalar_mut(x);
         result
     }
-    ///
+    /// divide a scalar from the array
     fn div_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1493,7 +1474,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.div_scalar_mut(x);
         result
     }
-    ///
+    /// multiply a scalar to the array
     fn mul_scalar(&self, x: T) -> Self
     where
         T: Number,
@@ -1502,7 +1483,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.mul_scalar_mut(x);
         result
     }
-    ///
+    /// sum of two arrays
     fn add(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1511,7 +1492,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.add_mut(other);
         result
     }
-    ///
+    /// subtract two arrays
     fn sub(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1520,7 +1501,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.sub_mut(other);
         result
     }
-    ///
+    /// multiply two arrays
     fn mul(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1529,7 +1510,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.mul_mut(other);
         result
     }
-    ///
+    /// divide two arrays
     fn div(&self, other: &dyn Array<T, (usize, usize)>) -> Self
     where
         T: Number,
@@ -1538,7 +1519,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.div_mut(other);
         result
     }
-    ///
+    /// absolute values of the array
     fn abs(&self) -> Self
     where
         T: Number + Signed,
@@ -1547,7 +1528,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.abs_mut();
         result
     }
-    ///
+    /// negation of the array
     fn neg(&self) -> Self
     where
         T: Number + Neg<Output = T>,
@@ -1556,7 +1537,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         result.neg_mut();
         result
     }
-    ///
+    /// values at power `p`
     fn pow(&self, p: T) -> Self
     where
         T: RealNumber,
@@ -1587,14 +1568,14 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         mean
     }
 
-    /// copy coumn as a vector
+    /// copy column as a vector
     fn copy_col_as_vec(&self, col: usize, result: &mut Vec<T>) {
         for (r, result_r) in result.iter_mut().enumerate().take(self.shape().0) {
             *result_r = *self.get((r, col));
         }
     }
 
-    /// appriximate equality of the elements of a matrix according to a given error
+    /// approximate equality of the elements of a matrix according to a given error
     fn approximate_eq(&self, other: &Self, error: T) -> bool
     where
         T: Number + RealNumber,
@@ -1650,8 +1631,8 @@ mod tests {
         let v = vec![3., -2., 6.];
         assert_eq!(v.norm(1.), 11.);
         assert_eq!(v.norm(2.), 7.);
-        assert_eq!(v.norm(std::f64::INFINITY), 6.);
-        assert_eq!(v.norm(std::f64::NEG_INFINITY), 2.);
+        assert_eq!(v.norm(f64::INFINITY), 6.);
+        assert_eq!(v.norm(f64::NEG_INFINITY), 2.);
     }
 
     #[test]
@@ -1736,7 +1717,7 @@ mod tests {
         let r = Vec::<f32>::rand(4);
         assert!(r.iterator(0).all(|&e| e <= 1f32));
         assert!(r.iterator(0).all(|&e| e >= 0f32));
-        assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
+        assert!(r.iterator(0).copied().sum::<f32>() > 0f32);
     }
 
     #[test]
@@ -1794,7 +1775,7 @@ mod tests {
 
     #[test]
     fn test_xa() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(vec![7, 8].xa(false, &a), vec![39, 54, 69]);
         assert_eq!(vec![7, 8, 9].xa(true, &a), vec![50, 122]);
     }
@@ -1802,19 +1783,27 @@ mod tests {
     #[test]
     fn test_min_max() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).max(0),
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+                .unwrap()
+                .max(0),
             vec!(4, 5, 6)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).max(1),
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+                .unwrap()
+                .max(1),
             vec!(3, 6)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).min(0),
+            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]])
+                .unwrap()
+                .min(0),
             vec!(1., 2., 3.)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).min(1),
+            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]])
+                .unwrap()
+                .min(1),
             vec!(1., 4.)
         );
     }
@@ -1822,11 +1811,15 @@ mod tests {
     #[test]
     fn test_argmax() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 5, 3], &[4, 2, 6]]).argmax(0),
+            DenseMatrix::from_2d_array(&[&[1, 5, 3], &[4, 2, 6]])
+                .unwrap()
+                .argmax(0),
             vec!(1, 0, 1)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[4, 2, 3], &[1, 5, 6]]).argmax(1),
+            DenseMatrix::from_2d_array(&[&[4, 2, 3], &[1, 5, 6]])
+                .unwrap()
+                .argmax(1),
             vec!(0, 2)
         );
     }
@@ -1834,168 +1827,181 @@ mod tests {
     #[test]
     fn test_sum() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).sum(0),
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+                .unwrap()
+                .sum(0),
             vec!(5, 7, 9)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).sum(1),
+            DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]])
+                .unwrap()
+                .sum(1),
             vec!(6., 15.)
         );
     }
 
     #[test]
     fn test_abs() {
-        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]);
+        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]).unwrap();
         x.abs_mut();
-        assert_eq!(x, DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]));
+        assert_eq!(
+            x,
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap()
+        );
     }
 
     #[test]
     fn test_neg() {
-        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]);
+        let mut x = DenseMatrix::from_2d_array(&[&[-1, 2, -3], &[4, -5, 6]]).unwrap();
         x.neg_mut();
-        assert_eq!(x, DenseMatrix::from_2d_array(&[&[1, -2, 3], &[-4, 5, -6]]));
+        assert_eq!(
+            x,
+            DenseMatrix::from_2d_array(&[&[1, -2, 3], &[-4, 5, -6]]).unwrap()
+        );
     }
 
     #[test]
     fn test_copy_from() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         let mut y = DenseMatrix::<i32>::zeros(2, 3);
         y.copy_from(&x);
-        assert_eq!(y, DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]));
+        assert_eq!(
+            y,
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap()
+        );
     }
 
     #[test]
     fn test_init() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             DenseMatrix::<i32>::zeros(2, 2),
-            DenseMatrix::from_2d_array(&[&[0, 0], &[0, 0]])
+            DenseMatrix::from_2d_array(&[&[0, 0], &[0, 0]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::<i32>::ones(2, 2),
-            DenseMatrix::from_2d_array(&[&[1, 1], &[1, 1]])
+            DenseMatrix::from_2d_array(&[&[1, 1], &[1, 1]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::<i32>::eye(3),
-            DenseMatrix::from_2d_array(&[&[1, 0, 0], &[0, 1, 0], &[0, 0, 1]])
+            DenseMatrix::from_2d_array(&[&[1, 0, 0], &[0, 1, 0], &[0, 0, 1]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_slice(x.slice(0..2, 0..2).as_ref()),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[4, 5]])
+            DenseMatrix::from_slice(x.slice(0..2, 0..2).as_ref()), // internal only?
+            DenseMatrix::from_2d_array(&[&[1, 2], &[4, 5]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_row(x.get_row(0).as_ref()),
-            DenseMatrix::from_2d_array(&[&[1, 2, 3]])
+            DenseMatrix::from_row(x.get_row(0).as_ref()), // internal only?
+            DenseMatrix::from_2d_array(&[&[1, 2, 3]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_column(x.get_col(0).as_ref()),
-            DenseMatrix::from_2d_array(&[&[1], &[4]])
+            DenseMatrix::from_column(x.get_col(0).as_ref()), // internal only?
+            DenseMatrix::from_2d_array(&[&[1], &[4]]).unwrap()
         );
     }
 
     #[test]
     fn test_transpose() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             x.transpose(),
-            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]]).unwrap()
         );
     }
 
     #[test]
     fn test_reshape() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             x.reshape(3, 2, 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap()
         );
         assert_eq!(
             x.reshape(3, 2, 1),
-            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]]).unwrap()
         );
     }
 
     #[test]
     #[should_panic]
     fn test_failed_reshape() {
-        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             x.reshape(4, 2, 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap()
         );
     }
 
     #[test]
     fn test_matmul() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
         assert_eq!(
             a.matmul(&(*b.slice(0..3, 0..2))),
-            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]])
+            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]]).unwrap()
         );
         assert_eq!(
             a.matmul(&b),
-            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]])
+            DenseMatrix::from_2d_array(&[&[22, 28], &[49, 64]]).unwrap()
         );
     }
 
     #[test]
     fn test_concat() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
-        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]).unwrap();
 
         assert_eq!(
             DenseMatrix::concatenate_1d(&[&vec!(1, 2, 3), &vec!(4, 5, 6)], 0),
-            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::concatenate_1d(&[&vec!(1, 2), &vec!(3, 4)], 1),
-            DenseMatrix::from_2d_array(&[&[1, 3], &[2, 4]])
+            DenseMatrix::from_2d_array(&[&[1, 3], &[2, 4]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::concatenate_2d(&[&a.clone(), &b.clone()], 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]])
+            DenseMatrix::concatenate_2d(&[&a, &b], 0),
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]).unwrap()
         );
         assert_eq!(
             DenseMatrix::concatenate_2d(&[&a, &b], 1),
-            DenseMatrix::from_2d_array(&[&[1, 2, 5, 6], &[3, 4, 7, 8]])
+            DenseMatrix::from_2d_array(&[&[1, 2, 5, 6], &[3, 4, 7, 8]]).unwrap()
         );
     }
 
     #[test]
     fn test_take() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
 
         assert_eq!(
             a.take(&[0, 2], 1),
-            DenseMatrix::from_2d_array(&[&[1, 3], &[4, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 3], &[4, 6]]).unwrap()
         );
         assert_eq!(
             b.take(&[0, 2], 0),
-            DenseMatrix::from_2d_array(&[&[1, 2], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[5, 6]]).unwrap()
         );
     }
 
     #[test]
     fn test_merge() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
 
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]),
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6], &[7, 8]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 0, true)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8], &[1, 2], &[3, 4]]),
+            DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8], &[1, 2], &[3, 4]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 0, false)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2, 5, 7], &[3, 4, 6, 8]]),
+            DenseMatrix::from_2d_array(&[&[1, 2, 5, 7], &[3, 4, 6, 8]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 1, true)
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[5, 7, 1, 2], &[6, 8, 3, 4]]),
+            DenseMatrix::from_2d_array(&[&[5, 7, 1, 2], &[6, 8, 3, 4]]).unwrap(),
             a.merge_1d(&[&vec!(5, 6), &vec!(7, 8)], 1, false)
         );
     }
@@ -2003,20 +2009,28 @@ mod tests {
     #[test]
     fn test_ops() {
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).mul_scalar(2),
-            DenseMatrix::from_2d_array(&[&[2, 4], &[6, 8]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .mul_scalar(2),
+            DenseMatrix::from_2d_array(&[&[2, 4], &[6, 8]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).add_scalar(2),
-            DenseMatrix::from_2d_array(&[&[3, 4], &[5, 6]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .add_scalar(2),
+            DenseMatrix::from_2d_array(&[&[3, 4], &[5, 6]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).sub_scalar(1),
-            DenseMatrix::from_2d_array(&[&[0, 1], &[2, 3]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .sub_scalar(1),
+            DenseMatrix::from_2d_array(&[&[0, 1], &[2, 3]]).unwrap()
         );
         assert_eq!(
-            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).div_scalar(2),
-            DenseMatrix::from_2d_array(&[&[0, 1], &[1, 2]])
+            DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]])
+                .unwrap()
+                .div_scalar(2),
+            DenseMatrix::from_2d_array(&[&[0, 1], &[1, 2]]).unwrap()
         );
     }
 
@@ -2025,47 +2039,50 @@ mod tests {
         let r = DenseMatrix::<f32>::rand(2, 2);
         assert!(r.iterator(0).all(|&e| e <= 1f32));
         assert!(r.iterator(0).all(|&e| e >= 0f32));
-        assert!(r.iterator(0).map(|v| *v).sum::<f32>() > 0f32);
+        assert!(r.iterator(0).copied().sum::<f32>() > 0f32);
     }
 
     #[test]
     fn test_vstack() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         let expected = DenseMatrix::from_2d_array(&[
             &[1, 2, 3],
             &[4, 5, 6],
             &[7, 8, 9],
             &[1, 2, 3],
             &[4, 5, 6],
-        ]);
+        ])
+        .unwrap();
         let result = a.v_stack(&b);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_hstack() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]);
-        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6], &[7, 8, 9]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4], &[5, 6]]).unwrap();
         let expected =
-            DenseMatrix::from_2d_array(&[&[1, 2, 3, 1, 2], &[4, 5, 6, 3, 4], &[7, 8, 9, 5, 6]]);
+            DenseMatrix::from_2d_array(&[&[1, 2, 3, 1, 2], &[4, 5, 6, 3, 4], &[7, 8, 9, 5, 6]])
+                .unwrap();
         let result = a.h_stack(&b);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn test_map() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
-        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        let expected = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
         let result: DenseMatrix<f64> = a.map(|&v| v as f64);
         assert_eq!(result, expected);
     }
 
     #[test]
     fn scale() {
-        let mut m = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]);
-        let expected_0 = DenseMatrix::from_2d_array(&[&[-1., -1., -1.], &[1., 1., 1.]]);
-        let expected_1 = DenseMatrix::from_2d_array(&[&[-1.22, 0.0, 1.22], &[-1.22, 0.0, 1.22]]);
+        let mut m = DenseMatrix::from_2d_array(&[&[1., 2., 3.], &[4., 5., 6.]]).unwrap();
+        let expected_0 = DenseMatrix::from_2d_array(&[&[-1., -1., -1.], &[1., 1., 1.]]).unwrap();
+        let expected_1 =
+            DenseMatrix::from_2d_array(&[&[-1.22, 0.0, 1.22], &[-1.22, 0.0, 1.22]]).unwrap();
 
         {
             let mut m = m.clone();
@@ -2079,52 +2096,52 @@ mod tests {
 
     #[test]
     fn test_pow_mut() {
-        let mut a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]);
+        let mut a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
         a.pow_mut(2.0);
         assert_eq!(
             a,
-            DenseMatrix::from_2d_array(&[&[1.0, 4.0, 9.0], &[16.0, 25.0, 36.0]])
+            DenseMatrix::from_2d_array(&[&[1.0, 4.0, 9.0], &[16.0, 25.0, 36.0]]).unwrap()
         );
     }
 
     #[test]
     fn test_ab() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]);
-        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[5, 6], &[7, 8]]).unwrap();
         assert_eq!(
             a.ab(false, &b, false),
-            DenseMatrix::from_2d_array(&[&[19, 22], &[43, 50]])
+            DenseMatrix::from_2d_array(&[&[19, 22], &[43, 50]]).unwrap()
         );
         assert_eq!(
             a.ab(true, &b, false),
-            DenseMatrix::from_2d_array(&[&[26, 30], &[38, 44]])
+            DenseMatrix::from_2d_array(&[&[26, 30], &[38, 44]]).unwrap()
         );
         assert_eq!(
             a.ab(false, &b, true),
-            DenseMatrix::from_2d_array(&[&[17, 23], &[39, 53]])
+            DenseMatrix::from_2d_array(&[&[17, 23], &[39, 53]]).unwrap()
         );
         assert_eq!(
             a.ab(true, &b, true),
-            DenseMatrix::from_2d_array(&[&[23, 31], &[34, 46]])
+            DenseMatrix::from_2d_array(&[&[23, 31], &[34, 46]]).unwrap()
         );
     }
 
     #[test]
     fn test_ax() {
-        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]);
+        let a = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
         assert_eq!(
             a.ax(false, &vec![7, 8, 9]).transpose(),
-            DenseMatrix::from_2d_array(&[&[50, 122]])
+            DenseMatrix::from_2d_array(&[&[50, 122]]).unwrap()
         );
         assert_eq!(
             a.ax(true, &vec![7, 8]).transpose(),
-            DenseMatrix::from_2d_array(&[&[39, 54, 69]])
+            DenseMatrix::from_2d_array(&[&[39, 54, 69]]).unwrap()
         );
     }
 
     #[test]
     fn diag() {
-        let x = DenseMatrix::from_2d_array(&[&[0, 1, 2], &[3, 4, 5], &[6, 7, 8]]);
+        let x = DenseMatrix::from_2d_array(&[&[0, 1, 2], &[3, 4, 5], &[6, 7, 8]]).unwrap();
         assert_eq!(x.diag(), vec![0, 4, 8]);
     }
 
@@ -2136,13 +2153,15 @@ mod tests {
             &[68, 590, 37],
             &[69, 660, 46],
             &[73, 600, 55],
-        ]);
+        ])
+        .unwrap();
         let mut result = DenseMatrix::zeros(3, 3);
         let expected = DenseMatrix::from_2d_array(&[
             &[11.5, 50.0, 34.75],
             &[50.0, 1250.0, 205.0],
             &[34.75, 205.0, 110.0],
-        ]);
+        ])
+        .unwrap();
 
         a.cov(&mut result);
 
@@ -2170,5 +2189,30 @@ mod tests {
         let result = a.add(&vec_b);
 
         assert_eq!(result, [65, 581, 30])
+    }
+
+    #[test]
+    fn test_argsort_mut_exact_boundary() {
+        // Test index == length - 1 case
+        let boundary =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0, f64::MAX], &[3.0, f64::MAX, 0.0, 2.0]])
+                .unwrap();
+        let mut view0: Vec<f64> = boundary.get_col(0).iterator(0).copied().collect();
+        let indices = view0.argsort_mut();
+        assert_eq!(indices.last(), Some(&1));
+        assert_eq!(indices.first(), Some(&0));
+
+        let mut view1: Vec<f64> = boundary.get_col(3).iterator(0).copied().collect();
+        let indices = view1.argsort_mut();
+        assert_eq!(indices.last(), Some(&0));
+        assert_eq!(indices.first(), Some(&1));
+    }
+
+    #[test]
+    fn test_argsort_mut_filled_array() {
+        let matrix = DenseMatrix::<f64>::rand(1000, 1000);
+        let mut view: Vec<f64> = matrix.get_col(0).iterator(0).copied().collect();
+        let sorted = view.argsort_mut();
+        assert_eq!(sorted.len(), 1000);
     }
 }

@@ -1,4 +1,4 @@
-#![allow(clippy::ptr_arg)]
+#![allow(clippy::ptr_arg, clippy::needless_range_loop)]
 //! # Nearest Neighbors Search Algorithms and Data Structures
 //!
 //! Nearest neighbor search is a basic computational tool that is particularly relevant to machine learning,
@@ -39,6 +39,8 @@ use crate::numbers::basenum::Number;
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod bbd_tree;
+/// a variant of fastpair using cosine distance
+pub mod cosinepair;
 /// tree data structure for fast nearest neighbor search
 pub mod cover_tree;
 /// fastpair closest neighbour algorithm
@@ -49,18 +51,13 @@ pub mod linear_search;
 /// Both, KNN classifier and regressor benefits from underlying search algorithms that helps to speed up queries.
 /// `KNNAlgorithmName` maintains a list of supported search algorithms, see [KNN algorithms](../algorithm/neighbour/index.html)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum KNNAlgorithmName {
     /// Heap Search algorithm, see [`LinearSearch`](../algorithm/neighbour/linear_search/index.html)
     LinearSearch,
     /// Cover Tree Search algorithm, see [`CoverTree`](../algorithm/neighbour/cover_tree/index.html)
+    #[default]
     CoverTree,
-}
-
-impl Default for KNNAlgorithmName {
-    fn default() -> Self {
-        KNNAlgorithmName::CoverTree
-    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

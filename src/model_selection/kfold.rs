@@ -213,17 +213,17 @@ mod tests {
 
         for t in &test_masks[0][0..11] {
             // TODO: this can be prob done better
-            assert_eq!(*t, true)
+            assert!(*t)
         }
         for t in &test_masks[0][11..22] {
-            assert_eq!(*t, false)
+            assert!(!*t)
         }
 
         for t in &test_masks[1][0..11] {
-            assert_eq!(*t, false)
+            assert!(!*t)
         }
         for t in &test_masks[1][11..22] {
-            assert_eq!(*t, true)
+            assert!(*t)
         }
     }
 
@@ -283,9 +283,7 @@ mod tests {
             (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
             (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
         ];
-        for ((train, test), (expected_train, expected_test)) in
-            k.split(&x).into_iter().zip(expected)
-        {
+        for ((train, test), (expected_train, expected_test)) in k.split(&x).zip(expected) {
             assert_eq!(test, expected_test);
             assert_eq!(train, expected_train);
         }
@@ -307,9 +305,7 @@ mod tests {
             (vec![0, 1, 2, 3, 7, 8, 9], vec![4, 5, 6]),
             (vec![0, 1, 2, 3, 4, 5, 6], vec![7, 8, 9]),
         ];
-        for ((train, test), (expected_train, expected_test)) in
-            k.split(&x).into_iter().zip(expected)
-        {
+        for ((train, test), (expected_train, expected_test)) in k.split(&x).zip(expected) {
             assert_eq!(test.len(), expected_test.len());
             assert_eq!(train.len(), expected_train.len());
         }

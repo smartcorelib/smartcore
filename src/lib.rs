@@ -3,10 +3,10 @@
     clippy::too_many_arguments,
     clippy::many_single_char_names,
     clippy::unnecessary_wraps,
-    clippy::upper_case_acronyms
+    clippy::upper_case_acronyms,
+    clippy::approx_constant
 )]
 #![warn(missing_docs)]
-#![warn(rustdoc::missing_doc_code_examples)]
 
 //! # smartcore
 //!
@@ -63,7 +63,7 @@
 //!    &[3., 4.],
 //!    &[5., 6.],
 //!    &[7., 8.],
-//!    &[9., 10.]]);
+//!    &[9., 10.]]).unwrap();
 //! // Our classes are defined as a vector
 //! let y = vec![2, 2, 2, 3, 3];
 //!
@@ -130,5 +130,6 @@ pub mod readers;
 pub mod svm;
 /// Supervised tree-based learning methods
 pub mod tree;
+pub mod xgboost;
 
 pub(crate) mod rand_custom;

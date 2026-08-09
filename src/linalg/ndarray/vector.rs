@@ -17,7 +17,7 @@ impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayBase<OwnedR
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -41,7 +41,7 @@ impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for ArrayBase<OwnedRepr<T>
 
 impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for ArrayBase<OwnedRepr<T>, Ix1> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayView<'a, T, Ix1> {
+impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayView<'_, T, Ix1> {
     fn get(&self, i: usize) -> &T {
         &self[i]
     }
@@ -51,7 +51,7 @@ impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayView<'a
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -60,9 +60,9 @@ impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayView<'a
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for ArrayView<'a, T, Ix1> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for ArrayView<'_, T, Ix1> {}
 
-impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayViewMut<'a, T, Ix1> {
+impl<T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayViewMut<'_, T, Ix1> {
     fn get(&self, i: usize) -> &T {
         &self[i]
     }
@@ -72,7 +72,7 @@ impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayViewMut
     }
 
     fn is_empty(&self) -> bool {
-        self.len() > 0
+        self.len() == 0
     }
 
     fn iterator<'b>(&'b self, axis: u8) -> Box<dyn Iterator<Item = &'b T> + 'b> {
@@ -81,7 +81,7 @@ impl<'a, T: Debug + Display + Copy + Sized> BaseArray<T, usize> for ArrayViewMut
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, usize> for ArrayViewMut<'a, T, Ix1> {
+impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for ArrayViewMut<'_, T, Ix1> {
     fn set(&mut self, i: usize, x: T) {
         self[i] = x;
     }
@@ -92,8 +92,8 @@ impl<'a, T: Debug + Display + Copy + Sized> MutArray<T, usize> for ArrayViewMut<
     }
 }
 
-impl<'a, T: Debug + Display + Copy + Sized> ArrayView1<T> for ArrayViewMut<'a, T, Ix1> {}
-impl<'a, T: Debug + Display + Copy + Sized> MutArrayView1<T> for ArrayViewMut<'a, T, Ix1> {}
+impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for ArrayViewMut<'_, T, Ix1> {}
+impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for ArrayViewMut<'_, T, Ix1> {}
 
 impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn slice<'a>(&'a self, range: Range<usize>) -> Box<dyn ArrayView1<T> + 'a> {
@@ -102,7 +102,7 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix
             "`range` should be <= {}",
             self.len()
         );
-        Box::new(self.slice(s![range]))
+        Box::new(self.view().slice_move(s![range]))
     }
 
     fn slice_mut<'b>(&'b mut self, range: Range<usize>) -> Box<dyn MutArrayView1<T> + 'b> {
@@ -111,7 +111,7 @@ impl<T: Debug + Display + Copy + Sized> Array1<T> for ArrayBase<OwnedRepr<T>, Ix
             "`range` should be <= {}",
             self.len()
         );
-        Box::new(self.slice_mut(s![range]))
+        Box::new(self.view_mut().slice_move(s![range]))
     }
 
     fn fill(len: usize, value: T) -> Self {
@@ -152,7 +152,7 @@ mod tests {
     fn test_iterator() {
         let a = arr1(&[1, 2, 3]);
 
-        let v: Vec<i32> = a.iterator(0).map(|&v| v).collect();
+        let v: Vec<i32> = a.iterator(0).copied().collect();
         assert_eq!(v, vec!(1, 2, 3));
     }
 
@@ -180,5 +180,13 @@ mod tests {
         assert_eq!(2, x_slice.shape());
         assert_eq!(9, *x_slice.get(0));
         assert_eq!(4, *x_slice.get(1));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let empty: ndarray::Array1<i32> = ndarray::Array1::from_vec(vec![]);
+        let non_empty = arr1(&[1, 2, 3]);
+        assert!(BaseArray::is_empty(&empty));
+        assert!(!BaseArray::is_empty(&non_empty));
     }
 }

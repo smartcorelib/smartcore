@@ -44,16 +44,16 @@
 //!               &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
 //!               &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
 //!               &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-//!          ]);
+//!          ]).unwrap();
 //!
 //! let y: Vec<f64> = vec![83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0,
 //!           100.0, 101.2, 104.6, 108.4, 110.8, 112.6, 114.2, 115.7, 116.9];
 //!
 //! let knl = Kernels::linear();
 //! let params = &SVRParameters::default().with_eps(2.0).with_c(10.0).with_kernel(knl);
-//! // let svr = SVR::fit(&x, &y, params).unwrap();
+//! let svr = SVR::fit(&x, &y, params).unwrap();
 //!
-//! // let y_hat = svr.predict(&x).unwrap();
+//! let y_hat = svr.predict(&x).unwrap();
 //! ```
 //!
 //! ## References:
@@ -80,11 +80,12 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArray};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::svm::Kernel;
 
+use crate::svm::{Kernel, Kernels};
+
+/// SVR Parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-/// SVR Parameters
 pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: T,
@@ -97,7 +98,7 @@ pub struct SVRParameters<T: Number + FloatNumber + PartialOrd> {
         all(feature = "serde", target_arch = "wasm32"),
         serde(skip_serializing, skip_deserializing)
     )]
-    pub kernel: Option<Box<dyn Kernel>>,
+    pub kernel: Option<Kernels>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -160,8 +161,8 @@ impl<T: Number + FloatNumber + PartialOrd> SVRParameters<T> {
         self
     }
     /// The kernel function.
-    pub fn with_kernel<K: Kernel + 'static>(mut self, kernel: K) -> Self {
-        self.kernel = Some(Box::new(kernel));
+    pub fn with_kernel(mut self, kernel: Kernels) -> Self {
+        self.kernel = Some(kernel);
         self
     }
 }
@@ -248,19 +249,20 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
 
         let mut y_hat: Vec<T> = Vec::<T>::zeros(n);
 
+        let mut x_i = Vec::with_capacity(n);
         for i in 0..n {
-            y_hat.set(
-                i,
-                self.predict_for_row(Vec::from_iterator(x.get_row(i).iterator(0).copied(), n)),
-            );
+            x_i.clear();
+            x_i.extend(x.get_row(i).iterator(0).copied());
+            y_hat.set(i, self.predict_for_row(&x_i));
         }
 
         Ok(y_hat)
     }
 
-    pub(crate) fn predict_for_row(&self, x: Vec<T>) -> T {
+    pub(crate) fn predict_for_row(&self, x: &[T]) -> T {
         let mut f = self.b;
 
+        let xi: Vec<_> = x.iter().map(|e| e.to_f64().unwrap()).collect();
         for i in 0..self.instances.as_ref().unwrap().len() {
             f += self.w.as_ref().unwrap()[i]
                 * T::from(
@@ -270,10 +272,7 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
                         .kernel
                         .as_ref()
                         .unwrap()
-                        .apply(
-                            &x.iter().map(|e| e.to_f64().unwrap()).collect(),
-                            &self.instances.as_ref().unwrap()[i],
-                        )
+                        .apply(&xi, &self.instances.as_ref().unwrap()[i])
                         .unwrap(),
                 )
                 .unwrap()
@@ -283,8 +282,8 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
     }
 }
 
-impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PartialEq
-    for SVR<'a, T, X, Y>
+impl<T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> PartialEq
+    for SVR<'_, T, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         if (self.b - other.b).abs() > T::epsilon() * T::two()
@@ -599,25 +598,25 @@ mod tests {
     use super::*;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
+    use crate::svm::search::svr_params::SVRSearchParameters;
     use crate::svm::Kernels;
 
-    // #[test]
-    // fn search_parameters() {
-    //     let parameters: SVRSearchParameters<f64, DenseMatrix<f64>, LinearKernel> =
-    //         SVRSearchParameters {
-    //             eps: vec![0., 1.],
-    //             kernel: vec![LinearKernel {}],
-    //             ..Default::default()
-    //         };
-    //     let mut iter = parameters.into_iter();
-    //     let next = iter.next().unwrap();
-    //     assert_eq!(next.eps, 0.);
-    //     assert_eq!(next.kernel, LinearKernel {});
-    //     let next = iter.next().unwrap();
-    //     assert_eq!(next.eps, 1.);
-    //     assert_eq!(next.kernel, LinearKernel {});
-    //     assert!(iter.next().is_none());
-    // }
+    #[test]
+    fn search_parameters() {
+        let parameters: SVRSearchParameters<f64, DenseMatrix<f64>> = SVRSearchParameters {
+            eps: vec![0., 1.],
+            kernel: vec![Kernels::linear()],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.eps, 0.);
+        // assert_eq!(next.kernel, LinearKernel {});
+        // let next = iter.next().unwrap();
+        // assert_eq!(next.eps, 1.);
+        // assert_eq!(next.kernel, LinearKernel {});
+        // assert!(iter.next().is_none());
+    }
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
@@ -642,14 +641,15 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
             114.2, 115.7, 116.9,
         ];
 
-        let knl = Kernels::linear();
+        let knl: Kernels = Kernels::linear();
         let y_hat = SVR::fit(
             &x,
             &y,
@@ -662,7 +662,7 @@ mod tests {
         .unwrap();
 
         let t = mean_squared_error(&y_hat, &y);
-        println!("{:?}", t);
+        println!("{t:?}");
         assert!(t < 2.5);
     }
 
@@ -690,7 +690,8 @@ mod tests {
             &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
             &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
             &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-        ]);
+        ])
+        .unwrap();
 
         let y: Vec<f64> = vec![
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
@@ -702,7 +703,7 @@ mod tests {
 
         let svr = SVR::fit(&x, &y, &params).unwrap();
 
-        let deserialized_svr: SVR<f64, DenseMatrix<f64>, _> =
+        let deserialized_svr: SVR<'_, f64, DenseMatrix<f64>, _> =
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
         assert_eq!(svr, deserialized_svr);

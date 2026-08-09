@@ -32,7 +32,7 @@
 //!                     &[4.9, 2.4, 3.3, 1.0],
 //!                     &[6.6, 2.9, 4.6, 1.3],
 //!                     &[5.2, 2.7, 3.9, 1.4],
-//!                     ]);
+//!                     ]).unwrap();
 //!
 //! let svd = SVD::fit(&iris, SVDParameters::default().
 //!         with_n_components(2)).unwrap(); // Reduce number of features to 2
@@ -180,8 +180,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         if parameters.n_components >= p {
             return Err(Failed::fit(&format!(
-                "Number of components, n_components should be < number of attributes ({})",
-                p
+                "Number of components, n_components should be < number of attributes ({p})"
             )));
         }
 
@@ -202,8 +201,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
         let (p_c, k) = self.components.shape();
         if p_c != p {
             return Err(Failed::transform(&format!(
-                "Can not transform a {}x{} matrix into {}x{} matrix, incorrect input dimentions",
-                n, p, n, k
+                "Can not transform a {n}x{p} matrix into {n}x{k} matrix, incorrect input dimentions"
             )));
         }
 
@@ -227,7 +225,6 @@ mod tests {
     fn search_parameters() {
         let parameters = SVDSearchParameters {
             n_components: vec![10, 100],
-            ..Default::default()
         };
         let mut iter = parameters.into_iter();
         let next = iter.next().unwrap();
@@ -295,7 +292,8 @@ mod tests {
             &[5.7, 81.0, 39.0, 9.3],
             &[2.6, 53.0, 66.0, 10.8],
             &[6.8, 161.0, 60.0, 15.6],
-        ]);
+        ])
+        .unwrap();
 
         let expected = DenseMatrix::from_2d_array(&[
             &[243.54655757, -18.76673788],
@@ -303,7 +301,8 @@ mod tests {
             &[305.93972467, -15.39087376],
             &[197.28420365, -11.66808306],
             &[293.43187394, 1.91163633],
-        ]);
+        ])
+        .unwrap();
         let svd = SVD::fit(&x, Default::default()).unwrap();
 
         let x_transformed = svd.transform(&x).unwrap();
@@ -344,7 +343,7 @@ mod tests {
     //         &[4.9, 2.4, 3.3, 1.0],
     //         &[6.6, 2.9, 4.6, 1.3],
     //         &[5.2, 2.7, 3.9, 1.4],
-    //     ]);
+    //     ]).unwrap();
 
     //     let svd = SVD::fit(&iris, Default::default()).unwrap();
 

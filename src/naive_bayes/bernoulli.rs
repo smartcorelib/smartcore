@@ -19,14 +19,14 @@
 //!           &[0, 1, 0, 0, 1, 0],
 //!           &[0, 1, 0, 1, 0, 0],
 //!           &[0, 1, 1, 0, 0, 1],
-//! ]);
+//! ]).unwrap();
 //! let y: Vec<u32> = vec![0, 0, 0, 1];
 //!
 //! let nb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 //!
 //! // Testing data point is:
 //! // Chinese Chinese Chinese Tokyo Japan
-//! let x_test = DenseMatrix::from_2d_array(&[&[0, 1, 1, 0, 0, 1]]);
+//! let x_test = DenseMatrix::from_2d_array(&[&[0, 1, 1, 0, 0, 1]]).unwrap();
 //! let y_hat = nb.predict(&x_test).unwrap();
 //! ```
 //!
@@ -257,8 +257,7 @@ impl<TY: Number + Ord + Unsigned> BernoulliNBDistribution<TY> {
     /// Fits the distribution to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data.
     /// * `y` - vector with target values (classes) of length N.
-    /// * `priors` - Optional vector with prior probabilities of the classes. If not defined,
-    /// priors are adjusted according to the data.
+    /// * `priors` - Optional vector with prior probabilities of the classes. If not defined, priors are adjusted according to the data.
     /// * `alpha` - Additive (Laplace/Lidstone) smoothing parameter.
     /// * `binarize` - Threshold for binarizing.
     fn fit<TX: Number + PartialOrd, X: Array2<TX>, Y: Array1<TY>>(
@@ -271,21 +270,18 @@ impl<TY: Number + Ord + Unsigned> BernoulliNBDistribution<TY> {
         let y_samples = y.shape();
         if y_samples != n_samples {
             return Err(Failed::fit(&format!(
-                "Size of x should equal size of y; |x|=[{}], |y|=[{}]",
-                n_samples, y_samples
+                "Size of x should equal size of y; |x|=[{n_samples}], |y|=[{y_samples}]"
             )));
         }
 
         if n_samples == 0 {
             return Err(Failed::fit(&format!(
-                "Size of x and y should greater than 0; |x|=[{}]",
-                n_samples
+                "Size of x and y should greater than 0; |x|=[{n_samples}]"
             )));
         }
         if alpha < 0f64 {
             return Err(Failed::fit(&format!(
-                "Alpha should be greater than 0; |alpha|=[{}]",
-                alpha
+                "Alpha should be greater than 0; |alpha|=[{alpha}]"
             )));
         }
 
@@ -318,8 +314,7 @@ impl<TY: Number + Ord + Unsigned> BernoulliNBDistribution<TY> {
                 feature_in_class_counter[class_index][idx] +=
                     row_i.to_usize().ok_or_else(|| {
                         Failed::fit(&format!(
-                            "Elements of the matrix should be 1.0 or 0.0 |found|=[{}]",
-                            row_i
+                            "Elements of the matrix should be 1.0 or 0.0 |found|=[{row_i}]"
                         ))
                     })?;
             }
@@ -406,10 +401,10 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 {
     /// Fits BernoulliNB with given data
     /// * `x` - training data of size NxM where N is the number of samples and M is the number of
-    /// features.
+    ///   features.
     /// * `y` - vector with target values (classes) of length N.
     /// * `parameters` - additional parameters like class priors, alpha for smoothing and
-    /// binarizing threshold.
+    ///   binarizing threshold.
     pub fn fit(x: &X, y: &Y, parameters: BernoulliNBParameters<TX>) -> Result<Self, Failed> {
         let distribution = if let Some(threshold) = parameters.binarize {
             BernoulliNBDistribution::fit(
@@ -431,6 +426,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 
     /// Estimates the class labels for the provided data.
     /// * `x` - data of shape NxM where N is number of data points to estimate and M is number of features.
+    ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         if let Some(threshold) = self.binarize {
@@ -531,7 +527,8 @@ mod tests {
             &[0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
             &[0.0, 1.0, 0.0, 1.0, 0.0, 0.0],
             &[0.0, 1.0, 1.0, 0.0, 0.0, 1.0],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 0, 1];
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 
@@ -562,7 +559,7 @@ mod tests {
 
         // Testing data point is:
         //  Chinese Chinese Chinese Tokyo Japan
-        let x_test = DenseMatrix::from_2d_array(&[&[0.0, 1.0, 1.0, 0.0, 0.0, 1.0]]);
+        let x_test = DenseMatrix::from_2d_array(&[&[0.0, 1.0, 1.0, 0.0, 0.0, 1.0]]).unwrap();
         let y_hat = bnb.predict(&x_test).unwrap();
 
         assert_eq!(y_hat, &[1]);
@@ -590,7 +587,8 @@ mod tests {
             &[2, 0, 3, 3, 1, 2, 0, 2, 4, 1],
             &[2, 4, 0, 4, 2, 4, 1, 3, 1, 4],
             &[0, 2, 2, 3, 4, 0, 4, 4, 4, 4],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![2, 2, 0, 0, 0, 2, 1, 1, 0, 1, 0, 0, 2, 0, 2];
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
 
@@ -647,7 +645,8 @@ mod tests {
             &[0, 1, 0, 0, 1, 0],
             &[0, 1, 0, 1, 0, 0],
             &[0, 1, 1, 0, 0, 1],
-        ]);
+        ])
+        .unwrap();
         let y: Vec<u32> = vec![0, 0, 0, 1];
 
         let bnb = BernoulliNB::fit(&x, &y, Default::default()).unwrap();
