@@ -316,40 +316,42 @@ mod tests {
         ));
     }
 
-    // Disable this test for now
-    // TODO: implement deserialization for new DenseMatrix
-    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let iris = DenseMatrix::from_2d_array(&[
-    //         &[5.1, 3.5, 1.4, 0.2],
-    //         &[4.9, 3.0, 1.4, 0.2],
-    //         &[4.7, 3.2, 1.3, 0.2],
-    //         &[4.6, 3.1, 1.5, 0.2],
-    //         &[5.0, 3.6, 1.4, 0.2],
-    //         &[5.4, 3.9, 1.7, 0.4],
-    //         &[4.6, 3.4, 1.4, 0.3],
-    //         &[5.0, 3.4, 1.5, 0.2],
-    //         &[4.4, 2.9, 1.4, 0.2],
-    //         &[4.9, 3.1, 1.5, 0.1],
-    //         &[7.0, 3.2, 4.7, 1.4],
-    //         &[6.4, 3.2, 4.5, 1.5],
-    //         &[6.9, 3.1, 4.9, 1.5],
-    //         &[5.5, 2.3, 4.0, 1.3],
-    //         &[6.5, 2.8, 4.6, 1.5],
-    //         &[5.7, 2.8, 4.5, 1.3],
-    //         &[6.3, 3.3, 4.7, 1.6],
-    //         &[4.9, 2.4, 3.3, 1.0],
-    //         &[6.6, 2.9, 4.6, 1.3],
-    //         &[5.2, 2.7, 3.9, 1.4],
-    //     ]).unwrap();
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let iris = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ])
+        .unwrap();
 
-    //     let svd = SVD::fit(&iris, Default::default()).unwrap();
+        let svd = SVD::fit(&iris, Default::default()).unwrap();
 
-    //     let deserialized_svd: SVD<f32, DenseMatrix<f32>> =
-    //         serde_json::from_str(&serde_json::to_string(&svd).unwrap()).unwrap();
+        let deserialized_svd: SVD<f64, DenseMatrix<f64>> =
+            postcard::from_bytes(&postcard::to_allocvec(&svd).unwrap()).unwrap();
 
-    //     assert_eq!(svd, deserialized_svd);
-    // }
+        assert_eq!(svd, deserialized_svd);
+    }
 }

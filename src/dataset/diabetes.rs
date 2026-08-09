@@ -72,7 +72,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn boston_dataset() {
+    fn diabetes_dataset() {
         let dataset = load_dataset();
         assert_eq!(
             dataset.data.len(),

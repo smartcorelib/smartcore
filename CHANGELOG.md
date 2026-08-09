@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1]
+### Added
+- Stage 1 test-coverage push (#392): tests for previously-untested modules.
+  - `linalg/traits/high_order.rs`: implemented the `/* TODO */` test module — all 4 `ab` transpose-flag branches, non-square inputs, and a matmul/transpose equivalence check.
+  - `linear/lasso_optimizer.rs`: direct tests for `InteriorPointOptimizer` (`new` shape of `ata`, known-answer l1-regularized least squares with `lambda → 0`).
+  - `error/mod.rs`: tests for all 6 `Failed` constructors, all 8 `FailedError` variants, both `Display` impls, both `PartialEq` impls, and the `Error` trait impl.
+  - `rand_custom.rs`: seeded-RNG determinism and `None`-seed usability tests.
+
+### Changed
+- Revived 6 previously-commented-out serde round-trip tests (migrated to `postcard`, the post-#390 serialization backend) for `LinearRegression`, `RidgeRegression`, `Lasso`, `ElasticNet`, `PCA`, `SVD`.
+- Renamed two copy-paste-misnamed tests: `dataset::diabetes::boston_dataset` → `diabetes_dataset`; `algorithm::sort::quick_sort::with_capacity` → `quick_argsort`.
+
 ## [0.6.0]
 ### Changed
 - CI coverage workflow now includes doctests and enforces a strict 44% line-coverage gate via cargo-tarpaulin (#399).
