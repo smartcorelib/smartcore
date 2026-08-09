@@ -52,10 +52,12 @@ where
         "For two dimensional array `axis` should be either 0 or 1"
     );
 
-    let off = |r: usize, c: usize| if column_major {
-        r + c * stride
-    } else {
-        r * stride + c
+    let off = |r: usize, c: usize| {
+        if column_major {
+            r + c * stride
+        } else {
+            r * stride + c
+        }
     };
 
     let desired: Vec<usize> = match axis {
@@ -96,11 +98,8 @@ where
     // the slice with `split_first_mut` in sorted-offset order, then reorder
     // into the yield order. Safe because each `split_first_mut` borrows a
     // disjoint portion; the borrow checker proves non-aliasing.
-    let mut sorted: Vec<(usize, usize)> = desired
-        .iter()
-        .enumerate()
-        .map(|(i, &o)| (o, i))
-        .collect();
+    let mut sorted: Vec<(usize, usize)> =
+        desired.iter().enumerate().map(|(i, &o)| (o, i)).collect();
     sorted.sort_unstable_by_key(|&(o, _)| o);
 
     let mut result: Vec<Option<&'b mut T>> = (0..n).map(|_| None).collect();
