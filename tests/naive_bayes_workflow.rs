@@ -3,8 +3,10 @@
 //! GaussianNB, BernoulliNB, CategoricalNB, MultinomialNB.
 //! Tracking issue: #397 / #391.
 //!
-//! Note: ComplementNB is not implemented in smartcore; MultinomialNB is used
-//! as the equivalent count-based classifier.
+//! API notes:
+//!   - `CategoricalNB<T>` requires `T: Unsigned`; use `DenseMatrix<u32>` + `Vec<u32>`
+//!   - `MultinomialNB<TX,TY>` requires `TX: Unsigned + TY: Unsigned`; same constraint
+//!   - `GaussianNB` and `BernoulliNB` use `f64` features + `u32` labels (no Unsigned bound)
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -26,25 +28,17 @@ fn gaussian_nb_inline_workflow() {
     use smartcore::naive_bayes::gaussian::{GaussianNB, GaussianNBParameters};
 
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 0.0],
-        &[1.1, 0.1],
-        &[0.9, -0.1],
-        &[1.2, 0.2],
-        &[-1.0, 0.0],
-        &[-1.1, 0.1],
-        &[-0.9, -0.1],
-        &[-1.2, 0.2],
+        &[1.0_f64, 0.0], &[1.1, 0.1], &[0.9, -0.1], &[1.2, 0.2],
+        &[-1.0, 0.0], &[-1.1, 0.1], &[-0.9, -0.1], &[-1.2, 0.2],
     ])
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 0, 1, 1, 1, 1];
 
-    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default()).expect("GaussianNB::fit");
+    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default())
+        .expect("GaussianNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(
-        accuracy_u32(&preds, &y) >= 0.875,
-        "GaussianNB accuracy too low"
-    );
+    assert!(accuracy_u32(&preds, &y) >= 0.875, "GaussianNB accuracy too low");
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +49,6 @@ fn gaussian_nb_inline_workflow() {
 fn bernoulli_nb_inline_workflow() {
     use smartcore::naive_bayes::bernoulli::{BernoulliNB, BernoulliNBParameters};
 
-    // Binary document-term style features
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64, 1.0, 0.0, 0.0],
         &[1.0, 0.0, 1.0, 0.0],
@@ -67,73 +60,66 @@ fn bernoulli_nb_inline_workflow() {
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
 
-    let model =
-        BernoulliNB::fit(&x, &y, BernoulliNBParameters::default()).expect("BernoulliNB::fit");
+    let model = BernoulliNB::fit(&x, &y, BernoulliNBParameters::default())
+        .expect("BernoulliNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(
-        accuracy_u32(&preds, &y) >= 0.666,
-        "BernoulliNB accuracy too low"
-    );
+    assert!(accuracy_u32(&preds, &y) >= 0.666, "BernoulliNB accuracy too low");
 }
 
 // ---------------------------------------------------------------------------
-// CategoricalNB — small integer category matrix
+// CategoricalNB — requires T: Unsigned; use DenseMatrix<u32> + Vec<u32>
 // ---------------------------------------------------------------------------
 
 #[test]
 fn categorical_nb_inline_workflow() {
     use smartcore::naive_bayes::categorical::{CategoricalNB, CategoricalNBParameters};
 
-    // 3-category features stored as f64 (smartcore categorical NB uses RealNumber)
-    let x = DenseMatrix::from_2d_array(&[
-        &[0.0_f64, 1.0, 0.0],
-        &[0.0, 0.0, 1.0],
-        &[1.0, 0.0, 0.0],
-        &[2.0, 1.0, 0.0],
-        &[2.0, 2.0, 1.0],
-        &[1.0, 2.0, 2.0],
+    // Features must be an unsigned integer type (u32 satisfies T: Unsigned)
+    // 3-category features: values in {0, 1, 2}
+    let x: DenseMatrix<u32> = DenseMatrix::from_2d_array(&[
+        &[0_u32, 1, 0],
+        &[0, 0, 1],
+        &[1, 0, 0],
+        &[2, 1, 0],
+        &[2, 2, 1],
+        &[1, 2, 2],
     ])
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
 
-    let model =
-        CategoricalNB::fit(&x, &y, CategoricalNBParameters::default()).expect("CategoricalNB::fit");
+    let model = CategoricalNB::fit(&x, &y, CategoricalNBParameters::default())
+        .expect("CategoricalNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(
-        accuracy_u32(&preds, &y) >= 0.666,
-        "CategoricalNB accuracy too low"
-    );
+    assert!(accuracy_u32(&preds, &y) >= 0.666, "CategoricalNB accuracy too low");
 }
 
 // ---------------------------------------------------------------------------
-// MultinomialNB — count / frequency feature matrix
+// MultinomialNB — requires TX: Unsigned + TY: Unsigned; use u32 throughout
 // ---------------------------------------------------------------------------
 
 #[test]
 fn multinomial_nb_inline_workflow() {
     use smartcore::naive_bayes::multinomial::{MultinomialNB, MultinomialNBParameters};
 
-    let x = DenseMatrix::from_2d_array(&[
-        &[3.0_f64, 1.0, 0.0],
-        &[4.0, 2.0, 0.0],
-        &[5.0, 0.0, 1.0],
-        &[0.0, 3.0, 4.0],
-        &[0.0, 4.0, 5.0],
-        &[1.0, 2.0, 6.0],
+    // Count features and unsigned labels
+    let x: DenseMatrix<u32> = DenseMatrix::from_2d_array(&[
+        &[3_u32, 1, 0],
+        &[4, 2, 0],
+        &[5, 0, 1],
+        &[0, 3, 4],
+        &[0, 4, 5],
+        &[1, 2, 6],
     ])
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
 
-    let model =
-        MultinomialNB::fit(&x, &y, MultinomialNBParameters::default()).expect("MultinomialNB::fit");
+    let model = MultinomialNB::fit(&x, &y, MultinomialNBParameters::default())
+        .expect("MultinomialNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(
-        accuracy_u32(&preds, &y) >= 0.666,
-        "MultinomialNB accuracy too low"
-    );
+    assert!(accuracy_u32(&preds, &y) >= 0.666, "MultinomialNB accuracy too low");
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +141,8 @@ fn gaussian_nb_iris_workflow() {
     );
     let y: Vec<u32> = ds.target.clone();
 
-    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default()).expect("fit on iris");
+    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default())
+        .expect("fit on iris");
     let preds = model.predict(&x).expect("predict");
 
     let acc = accuracy_u32(&preds, &y);
