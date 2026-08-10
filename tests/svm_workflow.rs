@@ -4,21 +4,22 @@
 //! Tracking issue: #397 / #391.
 //!
 //! API notes:
-//!   - `Kernels::rbf()` takes 0 arguments (gamma is fixed internally)
+//!   - `Kernels::rbf()` takes 0 arguments
 //!   - `SVC::fit` / `SVR::fit` take params by reference (`&params`)
-//!   - `SVC<TX, TY>` requires `TY: Number + Ord`; use `Vec<i32>` with ±1 labels
+//!   - `SVC<TX, TY>` requires `TY: Number + Ord`; use `Vec<i32>` for labels
+//!   - `SVC::predict` returns `Vec<f64>` (the decision value), not `Vec<TY>`
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
 // ---------------------------------------------------------------------------
-// Helper
+// Helper: compare f64 predictions against i32 ground-truth labels
 // ---------------------------------------------------------------------------
 
-fn accuracy_i32(predicted: &[i32], actual: &[i32]) -> f64 {
+fn accuracy_svc(predicted: &[f64], actual: &[i32]) -> f64 {
     predicted
         .iter()
         .zip(actual.iter())
-        .filter(|(p, a)| p == a)
+        .filter(|(p, a)| (**p - **a as f64).abs() < 1e-9)
         .count() as f64
         / actual.len() as f64
 }
@@ -34,30 +35,22 @@ fn svc_rbf_inline_workflow() {
         svc::{SVC, SVCParameters},
     };
 
-    // Linearly separable 2-class problem; SVC uses +1/-1 integer labels
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 0.0],
-        &[1.1, 0.1],
-        &[0.9, -0.1],
-        &[1.2, 0.2],
-        &[-1.0, 0.0],
-        &[-1.1, 0.1],
-        &[-0.9, -0.1],
-        &[-1.2, 0.2],
+        &[1.0_f64, 0.0], &[1.1, 0.1], &[0.9, -0.1], &[1.2, 0.2],
+        &[-1.0, 0.0], &[-1.1, 0.1], &[-0.9, -0.1], &[-1.2, 0.2],
     ])
     .unwrap();
-    // TY must satisfy Ord; i32 works, f64 does not
+    // TY: Ord satisfied by i32; ±1 convention
     let y: Vec<i32> = vec![1, 1, 1, 1, -1, -1, -1, -1];
 
-    // Kernels::rbf() takes no arguments
     let params = SVCParameters::default()
         .with_c(1.0)
         .with_kernel(Kernels::rbf());
-    // fit takes params by reference
     let model = SVC::fit(&x, &y, &params).expect("SVC (RBF)::fit");
-    let preds: Vec<i32> = model.predict(&x).expect("predict");
+    // predict returns Vec<f64> decision values
+    let preds: Vec<f64> = model.predict(&x).expect("predict");
 
-    let acc = accuracy_i32(&preds, &y);
+    let acc = accuracy_svc(&preds, &y);
     assert!(acc >= 0.875, "SVC (RBF) accuracy: {acc:.3}");
 }
 
@@ -73,14 +66,8 @@ fn svc_linear_inline_workflow() {
     };
 
     let x = DenseMatrix::from_2d_array(&[
-        &[2.0_f64, 0.0],
-        &[2.1, 0.1],
-        &[1.9, -0.1],
-        &[2.2, 0.2],
-        &[-2.0, 0.0],
-        &[-2.1, 0.1],
-        &[-1.9, -0.1],
-        &[-2.2, 0.2],
+        &[2.0_f64, 0.0], &[2.1, 0.1], &[1.9, -0.1], &[2.2, 0.2],
+        &[-2.0, 0.0], &[-2.1, 0.1], &[-1.9, -0.1], &[-2.2, 0.2],
     ])
     .unwrap();
     let y: Vec<i32> = vec![1, 1, 1, 1, -1, -1, -1, -1];
@@ -89,14 +76,14 @@ fn svc_linear_inline_workflow() {
         .with_c(1.0)
         .with_kernel(Kernels::linear());
     let model = SVC::fit(&x, &y, &params).expect("SVC (linear)::fit");
-    let preds: Vec<i32> = model.predict(&x).expect("predict");
+    let preds: Vec<f64> = model.predict(&x).expect("predict");
 
-    let acc = accuracy_i32(&preds, &y);
+    let acc = accuracy_svc(&preds, &y);
     assert!(acc >= 0.875, "SVC (linear) accuracy: {acc:.3}");
 }
 
 // ---------------------------------------------------------------------------
-// SVR — RBF kernel (regression; no Ord constraint on labels)
+// SVR — RBF kernel
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -106,16 +93,9 @@ fn svr_rbf_inline_workflow() {
         svr::{SVR, SVRParameters},
     };
 
-    // y = x[0] + x[1]
     let x = DenseMatrix::from_2d_array(&[
-        &[0.0_f64, 0.0],
-        &[1.0, 0.0],
-        &[0.0, 1.0],
-        &[1.0, 1.0],
-        &[2.0, 0.0],
-        &[0.0, 2.0],
-        &[2.0, 2.0],
-        &[3.0, 0.0],
+        &[0.0_f64, 0.0], &[1.0, 0.0], &[0.0, 1.0], &[1.0, 1.0],
+        &[2.0, 0.0], &[0.0, 2.0], &[2.0, 2.0], &[3.0, 0.0],
     ])
     .unwrap();
     let y: Vec<f64> = vec![0.0, 1.0, 1.0, 2.0, 2.0, 2.0, 4.0, 3.0];
