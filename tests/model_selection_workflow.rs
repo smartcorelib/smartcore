@@ -2,7 +2,15 @@
 //!
 //! `train_test_split` → fit → evaluate; `cross_validate`.
 //! Tracking issue: #397 / #391.
+//!
+//! API notes:
+//!   - `cross_validate` takes an estimator instance via `::new()`, not a fn pointer
+//!   - `cross_validate` cv parameter is `&KFold`, not a CrossValidationParameters struct
+//!   - score must be passed as `&score_fn`
+//!   - `is_empty()` and `shape()` come from `Array` trait
+//!   - `from_iterator()` comes from `Array2` trait
 
+use smartcore::linalg::basic::arrays::Array;
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
 fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
@@ -42,6 +50,7 @@ fn train_test_split_workflow() {
 
     let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.3, true, Some(42));
 
+    // is_empty() comes from the Array trait (imported at top level)
     assert!(!x_train.is_empty(), "train set empty");
     assert!(!x_test.is_empty(), "test set empty");
     assert_eq!(y_train.len() + y_test.len(), n);
@@ -64,7 +73,7 @@ fn train_test_split_workflow() {
 #[test]
 fn cross_validate_knn_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
-    use smartcore::model_selection::{CrossValidationParameters, cross_validate};
+    use smartcore::model_selection::{KFold, cross_validate};
     use smartcore::neighbors::KNNWeightFunction;
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
@@ -82,13 +91,14 @@ fn cross_validate_knn_workflow() {
     let x = DenseMatrix::from_2d_array(&refs).unwrap();
     let y: Vec<u32> = (0..n).map(|i| if i < n / 2 { 0 } else { 1 }).collect();
 
-    let cv_params = CrossValidationParameters::default().with_n_splits(5);
+    // KFold, not CrossValidationParameters
+    let cv = KFold::default().with_n_splits(5);
     let params = KNNClassifierParameters::default()
         .with_k(3)
         .with_algorithm(KNNAlgorithmName::LinearSearch)
         .with_weight(KNNWeightFunction::Uniform);
 
-    // Scoring function: proportion of matching labels
+    // score function passed as reference; estimator passed via ::new()
     let score_fn = |y_true: &Vec<u32>, y_pred: &Vec<u32>| -> f64 {
         y_true
             .iter()
@@ -98,10 +108,10 @@ fn cross_validate_knn_workflow() {
             / y_true.len() as f64
     };
 
-    let result = cross_validate(KNNClassifier::fit, &x, &y, params, cv_params, score_fn)
+    let result = cross_validate(KNNClassifier::new(), &x, &y, params, &cv, &score_fn)
         .expect("cross_validate");
 
-    let mean_score = result.test_score.iter().sum::<f64>() / result.test_score.len() as f64;
+    let mean_score = result.mean_test_score();
     assert!(
         mean_score >= 0.7,
         "cross_validate mean accuracy: {mean_score:.3}"
@@ -116,6 +126,7 @@ fn cross_validate_knn_workflow() {
 #[test]
 fn train_test_split_iris_workflow() {
     use smartcore::dataset::iris::load_dataset;
+    use smartcore::linalg::basic::arrays::Array2;
     use smartcore::model_selection::train_test_split;
     use smartcore::tree::decision_tree_classifier::{
         DecisionTreeClassifier, DecisionTreeClassifierParameters,

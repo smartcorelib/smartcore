@@ -2,6 +2,9 @@
 //!
 //! `KNNClassifier` / `KNNRegressor`.
 //! Tracking issue: #397 / #391.
+//!
+//! API notes:
+//!   - `from_iterator()` comes from `Array2` trait; import it where used
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -83,10 +86,12 @@ fn knn_regressor_inline_workflow() {
 fn knn_classifier_iris_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
     use smartcore::dataset::iris::load_dataset;
+    use smartcore::linalg::basic::arrays::Array2;
     use smartcore::neighbors::KNNWeightFunction;
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
     let ds = load_dataset();
+    // from_iterator is provided by the Array2 trait
     let x = DenseMatrix::from_iterator(
         ds.data.iter().map(|&v| v as f64),
         ds.num_samples,
