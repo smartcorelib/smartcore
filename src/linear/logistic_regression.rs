@@ -784,12 +784,8 @@ mod tests {
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
         let y_hat = lr.predict(&x).unwrap();
 
-        let acc = y_hat
-            .iter()
-            .zip(y.iter())
-            .filter(|(p, a)| p == a)
-            .count() as f64
-            / y.len() as f64;
+        let acc =
+            y_hat.iter().zip(y.iter()).filter(|(p, a)| p == a).count() as f64 / y.len() as f64;
         assert!(
             acc >= 0.80,
             "lr_fit_predict_multiclass accuracy too low: {acc:.3}"
@@ -847,12 +843,8 @@ mod tests {
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
         let y_hat = lr.predict(&x).unwrap();
 
-        let acc = y_hat
-            .iter()
-            .zip(y.iter())
-            .filter(|(p, a)| p == a)
-            .count() as f64
-            / y.len() as f64;
+        let acc =
+            y_hat.iter().zip(y.iter()).filter(|(p, a)| p == a).count() as f64 / y.len() as f64;
         assert!(
             acc >= 0.90,
             "lr_fit_predict_binary accuracy too low: {acc:.3}"
