@@ -5,11 +5,13 @@
 //!
 //! API notes:
 //!   - `cross_validate` takes an estimator instance via `::new()`, not a fn pointer
+//!   - `::new()` is a method on the `SupervisedEstimator` trait — must be in scope
 //!   - `cross_validate` cv parameter is `&KFold`, not a CrossValidationParameters struct
 //!   - score must be passed as `&score_fn`
 //!   - `is_empty()` and `shape()` come from `Array` trait
 //!   - `from_iterator()` comes from `Array2` trait
 
+use smartcore::api::SupervisedEstimator;
 use smartcore::linalg::basic::arrays::Array;
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -33,7 +35,6 @@ fn train_test_split_workflow() {
     use smartcore::neighbors::KNNWeightFunction;
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
-    // 20 well-separated samples, 2 classes
     let n = 20usize;
     let data: Vec<Vec<f64>> = (0..n)
         .map(|i| {
@@ -50,7 +51,6 @@ fn train_test_split_workflow() {
 
     let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.3, true, Some(42));
 
-    // is_empty() comes from the Array trait (imported at top level)
     assert!(!x_train.is_empty(), "train set empty");
     assert!(!x_test.is_empty(), "test set empty");
     assert_eq!(y_train.len() + y_test.len(), n);
@@ -91,14 +91,12 @@ fn cross_validate_knn_workflow() {
     let x = DenseMatrix::from_2d_array(&refs).unwrap();
     let y: Vec<u32> = (0..n).map(|i| if i < n / 2 { 0 } else { 1 }).collect();
 
-    // KFold, not CrossValidationParameters
     let cv = KFold::default().with_n_splits(5);
     let params = KNNClassifierParameters::default()
         .with_k(3)
         .with_algorithm(KNNAlgorithmName::LinearSearch)
         .with_weight(KNNWeightFunction::Uniform);
 
-    // score function passed as reference; estimator passed via ::new()
     let score_fn = |y_true: &Vec<u32>, y_pred: &Vec<u32>| -> f64 {
         y_true
             .iter()
@@ -108,6 +106,7 @@ fn cross_validate_knn_workflow() {
             / y_true.len() as f64
     };
 
+    // KNNClassifier::new() requires SupervisedEstimator to be in scope (imported at top)
     let result = cross_validate(KNNClassifier::new(), &x, &y, params, &cv, &score_fn)
         .expect("cross_validate");
 
