@@ -34,8 +34,8 @@ fn standard_scaler_round_trip_workflow() {
     ])
     .unwrap();
 
-    let scaler = StandardScaler::fit(&x, StandardScalerParameters::default())
-        .expect("StandardScaler::fit");
+    let scaler =
+        StandardScaler::fit(&x, StandardScalerParameters::default()).expect("StandardScaler::fit");
     let scaled = scaler.transform(&x).expect("transform");
 
     // After standard scaling each column must have mean ≈ 0
@@ -75,10 +75,7 @@ fn standard_scaler_unit_variance_workflow() {
         let mean = col.iter().sum::<f64>() / nr as f64;
         let variance = col.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / nr as f64;
         let std = variance.sqrt();
-        assert!(
-            (std - 1.0).abs() < 1e-6,
-            "col {c} std not 1: {std}"
-        );
+        assert!((std - 1.0).abs() < 1e-6, "col {c} std not 1: {std}");
     }
 }
 
@@ -94,13 +91,8 @@ fn one_hot_encoder_workflow() {
     // 4 samples, 2 categorical columns (indices 0 and 1).
     // Values must be f64 because Categorizable is only impl for f32/f64.
     // col 0: 3 distinct values {0.0, 1.0, 2.0}; col 1: 2 distinct values {0.0, 1.0}
-    let x = DenseMatrix::from_2d_array(&[
-        &[0.0_f64, 0.0],
-        &[1.0, 1.0],
-        &[2.0, 0.0],
-        &[0.0, 1.0],
-    ])
-    .unwrap();
+    let x = DenseMatrix::from_2d_array(&[&[0.0_f64, 0.0], &[1.0, 1.0], &[2.0, 0.0], &[0.0, 1.0]])
+        .unwrap();
 
     // Explicitly list both columns as categorical; no Default for OneHotEncoderParams
     let params = OneHotEncoderParams::from_cat_idx(&[0, 1]);
