@@ -15,20 +15,14 @@ fn kmeans_inline_workflow() {
 
     // Two well-separated clusters
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 1.0],
-        &[1.1, 1.2],
-        &[0.9, 1.1],
-        &[1.2, 0.9],
-        &[9.0, 9.0],
-        &[9.1, 9.2],
-        &[8.9, 9.1],
-        &[9.2, 8.9],
+        &[1.0_f64, 1.0], &[1.1, 1.2], &[0.9, 1.1], &[1.2, 0.9],
+        &[9.0, 9.0], &[9.1, 9.2], &[8.9, 9.1], &[9.2, 8.9],
     ])
     .unwrap();
 
     let params = KMeansParameters::default().with_k(2);
     let model = KMeans::fit(&x, params).expect("KMeans::fit");
-    let labels = model.predict(&x).expect("predict");
+    let labels: Vec<usize> = model.predict(&x).expect("predict");
 
     // Both clusters should be pure: all first-half the same label,
     // all second-half a different label.
@@ -49,37 +43,35 @@ fn kmeans_inline_workflow() {
 #[test]
 fn dbscan_inline_workflow() {
     use smartcore::cluster::dbscan::{DBSCAN, DBSCANParameters};
-    use smartcore::metrics::distance::Distances;
 
     // Two dense clusters + one noise point far away
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 1.0],
-        &[1.1, 1.0],
-        &[1.0, 1.1], // cluster A
-        &[8.0, 8.0],
-        &[8.1, 8.0],
-        &[8.0, 8.1],   // cluster B
-        &[50.0, 50.0], // noise
+        &[1.0_f64, 1.0], &[1.1, 1.0], &[1.0, 1.1],  // cluster A
+        &[8.0, 8.0], &[8.1, 8.0], &[8.0, 8.1],      // cluster B
+        &[50.0, 50.0],                                // noise
     ])
     .unwrap();
 
-    let params = DBSCANParameters::new(2, 0.5, Distances::euclidian());
-    let labels = DBSCAN::fit_predict(&x, params).expect("DBSCAN::fit_predict");
+    // DBSCANParameters has no ::new(); use the builder pattern.
+    // Default distance is Euclidean, so only eps and min_samples need setting.
+    let params = DBSCANParameters::default()
+        .with_min_samples(2)
+        .with_eps(0.5);
 
-    // Noise point should get label -1 (or usize::MAX in some impls).
-    // The two clusters should produce exactly 2 distinct non-noise labels.
-    let noise = labels[6];
-    let non_noise: std::collections::HashSet<_> = labels[..6].iter().cloned().collect();
-    assert_eq!(
-        non_noise.len(),
-        2,
-        "expected 2 DBSCAN clusters, got: {non_noise:?}"
-    );
-    // noise label must differ from both cluster labels
-    assert!(
-        !non_noise.contains(&noise),
-        "noise label overlaps cluster label"
-    );
+    // No fit_predict(); chain fit then predict.
+    let labels: Vec<i32> = DBSCAN::fit(&x, params)
+        .and_then(|m| m.predict(&x))
+        .expect("DBSCAN fit+predict");
+
+    // DBSCAN assigns noise = 0; real clusters start at 1.
+    // The two clusters should produce exactly 2 distinct non-zero labels.
+    let noise_label = 0i32;
+    let non_noise: std::collections::HashSet<i32> =
+        labels[..6].iter().cloned().filter(|&l| l != noise_label).collect();
+    assert_eq!(non_noise.len(), 2, "expected 2 DBSCAN clusters, got: {non_noise:?}");
+
+    // The far-away point should be noise (label 0)
+    assert_eq!(labels[6], noise_label, "expected noise point at index 6");
 }
 
 // ---------------------------------------------------------------------------
@@ -93,11 +85,16 @@ fn kmeans_generated_blobs_workflow() {
     use smartcore::dataset::generator::make_blobs;
 
     let ds = make_blobs(120, 2, 3);
-    let x = DenseMatrix::from_iterator(ds.data.iter().copied(), ds.num_samples, ds.num_features, 0);
+    let x = DenseMatrix::from_iterator(
+        ds.data.iter().copied(),
+        ds.num_samples,
+        ds.num_features,
+        0,
+    );
 
     let params = KMeansParameters::default().with_k(3);
     let model = KMeans::fit(&x, params).expect("KMeans fit on blobs");
-    let labels = model.predict(&x).expect("predict");
+    let labels: Vec<usize> = model.predict(&x).expect("predict");
 
     let unique: std::collections::HashSet<usize> = labels.iter().cloned().collect();
     assert_eq!(unique.len(), 3, "expected 3 KMeans clusters on 3-blob data");
