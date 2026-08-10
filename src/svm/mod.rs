@@ -30,12 +30,10 @@ use core::fmt::Debug;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-// Only import typetag if not compiling for wasm32 and serde is enabled
 #[cfg(all(feature = "serde", not(target_arch = "wasm32")))]
 use typetag;
 
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::{Array1, ArrayView1};
 
 /// Defines a kernel function.
 /// This is a object-safe trait.
@@ -126,32 +124,16 @@ pub enum Kernels {
 
 impl Kernels {
     /// Create a linear kernel.
-    ///
-    /// The linear kernel computes the dot product between two vectors:
-    /// K(x, y) = <x, y>
     pub fn linear() -> Self {
         Kernels::Linear
     }
 
     /// Create an RBF kernel with unspecified gamma.
-    ///
-    /// The RBF kernel is defined as:
-    /// K(x, y) = exp(-gamma * ||x-y||²)
-    ///
-    /// You should specify gamma using `with_gamma()` before using this kernel.
     pub fn rbf() -> Self {
         Kernels::RBF { gamma: None }
     }
 
     /// Create a polynomial kernel with default parameters.
-    ///
-    /// The polynomial kernel is defined as:
-    /// K(x, y) = (gamma * <x, y> + coef0)^degree
-    ///
-    /// Default values:
-    /// - gamma: None (must be specified)
-    /// - degree: None (must be specified)
-    /// - coef0: 1.0
     pub fn polynomial() -> Self {
         Kernels::Polynomial {
             gamma: None,
@@ -161,14 +143,6 @@ impl Kernels {
     }
 
     /// Create a sigmoid kernel with default parameters.
-    ///
-    /// The sigmoid kernel is defined as:
-    /// K(x, y) = tanh(gamma * <x, y> + coef0)
-    ///
-    /// Default values:
-    /// - gamma: None (must be specified)
-    /// - coef0: 1.0
-    ///
     pub fn sigmoid() -> Self {
         Kernels::Sigmoid {
             gamma: None,
@@ -177,12 +151,6 @@ impl Kernels {
     }
 
     /// Set the `gamma` parameter for RBF, polynomial, or sigmoid kernels.
-    ///
-    /// The gamma parameter has different interpretations depending on the kernel:
-    /// - For RBF: Controls the width of the Gaussian. Larger values mean tighter fit.
-    /// - For Polynomial: Scaling factor for the dot product.
-    /// - For Sigmoid: Scaling factor for the dot product.
-    ///
     pub fn with_gamma(self, gamma: f64) -> Self {
         match self {
             Kernels::RBF { .. } => Kernels::RBF { gamma: Some(gamma) },
@@ -200,10 +168,6 @@ impl Kernels {
     }
 
     /// Set the `degree` parameter for the polynomial kernel.
-    ///
-    /// The degree parameter controls the flexibility of the decision boundary.
-    /// Higher degrees create more complex boundaries but may lead to overfitting.
-    ///
     pub fn with_degree(self, degree: f64) -> Self {
         match self {
             Kernels::Polynomial { gamma, coef0, .. } => Kernels::Polynomial {
@@ -216,11 +180,6 @@ impl Kernels {
     }
 
     /// Set the `coef0` parameter for polynomial or sigmoid kernels.
-    ///
-    /// The coef0 parameter is the independent term in the kernel function:
-    /// - For Polynomial: Controls the influence of higher-degree vs. lower-degree terms.
-    /// - For Sigmoid: Acts as a threshold/bias term.
-    ///
     pub fn with_coef0(self, coef0: f64) -> Self {
         match self {
             Kernels::Polynomial { degree, gamma, .. } => Kernels::Polynomial {
@@ -237,53 +196,6 @@ impl Kernels {
     }
 }
 
-/// Implementation of the [`Kernel`] trait for the [`Kernels`] enum in smartcore.
-///
-/// This method computes the value of the kernel function between two feature vectors `x_i` and `x_j`,
-/// according to the variant and parameters of the [`Kernels`] enum. This enables flexible and type-safe
-/// selection of kernel functions for SVM and SVR models in smartcore.
-///
-/// # Supported Kernels
-///
-/// - [`Kernels::Linear`]: Computes the standard dot product between `x_i` and `x_j`.
-/// - [`Kernels::RBF`]: Computes the Radial Basis Function (Gaussian) kernel. Requires `gamma`.
-/// - [`Kernels::Polynomial`]: Computes the polynomial kernel. Requires `degree`, `gamma`, and `coef0`.
-/// - [`Kernels::Sigmoid`]: Computes the sigmoid kernel. Requires `gamma` and `coef0`.
-///
-/// # Parameters
-///
-/// - `x_i`: First input vector (feature vector).
-/// - `x_j`: Second input vector (feature vector).
-///
-/// # Returns
-///
-/// - `Ok(f64)`: The computed kernel value.
-/// - `Err(Failed)`: If any required kernel parameter is missing.
-///
-/// # Errors
-///
-/// Returns `Err(Failed)` if a required parameter (such as `gamma`, `degree`, or `coef0`)
-/// is `None` for the selected kernel variant.
-///
-/// # Example
-///
-/// ```
-/// use smartcore::svm::Kernels;
-/// use smartcore::svm::Kernel;
-///
-/// let x = vec![1.0, 2.0, 3.0];
-/// let y = vec![4.0, 5.0, 6.0];
-/// let kernel = Kernels::rbf().with_gamma(0.5);
-/// let value = kernel.apply(&x, &y).unwrap();
-/// ```
-///
-/// # Notes
-///
-/// - This implementation follows smartcore's philosophy: pure Rust, no macros, no unsafe code,
-///   and an accessible, pythonic API surface for both ML practitioners and Rust beginners.
-/// - All kernel parameters must be set before calling `apply`; missing parameters will result in an error.
-///
-/// See the [`Kernels`] enum documentation for more details on each kernel type and its parameters.
 #[cfg_attr(all(feature = "serde", not(target_arch = "wasm32")), typetag::serde)]
 impl Kernel for Kernels {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
