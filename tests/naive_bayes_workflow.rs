@@ -9,7 +9,11 @@
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
 fn accuracy_u32(predicted: &[u32], actual: &[u32]) -> f64 {
-    predicted.iter().zip(actual.iter()).filter(|(p, a)| p == a).count() as f64
+    predicted
+        .iter()
+        .zip(actual.iter())
+        .filter(|(p, a)| p == a)
+        .count() as f64
         / actual.len() as f64
 }
 
@@ -22,17 +26,25 @@ fn gaussian_nb_inline_workflow() {
     use smartcore::naive_bayes::gaussian::{GaussianNB, GaussianNBParameters};
 
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 0.0], &[1.1, 0.1], &[0.9, -0.1], &[1.2, 0.2],
-        &[-1.0, 0.0], &[-1.1, 0.1], &[-0.9, -0.1], &[-1.2, 0.2],
+        &[1.0_f64, 0.0],
+        &[1.1, 0.1],
+        &[0.9, -0.1],
+        &[1.2, 0.2],
+        &[-1.0, 0.0],
+        &[-1.1, 0.1],
+        &[-0.9, -0.1],
+        &[-1.2, 0.2],
     ])
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 0, 1, 1, 1, 1];
 
-    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default())
-        .expect("GaussianNB::fit");
+    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default()).expect("GaussianNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(accuracy_u32(&preds, &y) >= 0.875, "GaussianNB accuracy too low");
+    assert!(
+        accuracy_u32(&preds, &y) >= 0.875,
+        "GaussianNB accuracy too low"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -55,11 +67,14 @@ fn bernoulli_nb_inline_workflow() {
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
 
-    let model = BernoulliNB::fit(&x, &y, BernoulliNBParameters::default())
-        .expect("BernoulliNB::fit");
+    let model =
+        BernoulliNB::fit(&x, &y, BernoulliNBParameters::default()).expect("BernoulliNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(accuracy_u32(&preds, &y) >= 0.666, "BernoulliNB accuracy too low");
+    assert!(
+        accuracy_u32(&preds, &y) >= 0.666,
+        "BernoulliNB accuracy too low"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -82,11 +97,14 @@ fn categorical_nb_inline_workflow() {
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
 
-    let model = CategoricalNB::fit(&x, &y, CategoricalNBParameters::default())
-        .expect("CategoricalNB::fit");
+    let model =
+        CategoricalNB::fit(&x, &y, CategoricalNBParameters::default()).expect("CategoricalNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(accuracy_u32(&preds, &y) >= 0.666, "CategoricalNB accuracy too low");
+    assert!(
+        accuracy_u32(&preds, &y) >= 0.666,
+        "CategoricalNB accuracy too low"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -108,11 +126,14 @@ fn multinomial_nb_inline_workflow() {
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
 
-    let model = MultinomialNB::fit(&x, &y, MultinomialNBParameters::default())
-        .expect("MultinomialNB::fit");
+    let model =
+        MultinomialNB::fit(&x, &y, MultinomialNBParameters::default()).expect("MultinomialNB::fit");
     let preds = model.predict(&x).expect("predict");
 
-    assert!(accuracy_u32(&preds, &y) >= 0.666, "MultinomialNB accuracy too low");
+    assert!(
+        accuracy_u32(&preds, &y) >= 0.666,
+        "MultinomialNB accuracy too low"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -134,8 +155,7 @@ fn gaussian_nb_iris_workflow() {
     );
     let y: Vec<u32> = ds.target.clone();
 
-    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default())
-        .expect("fit on iris");
+    let model = GaussianNB::fit(&x, &y, GaussianNBParameters::default()).expect("fit on iris");
     let preds = model.predict(&x).expect("predict");
 
     let acc = accuracy_u32(&preds, &y);
