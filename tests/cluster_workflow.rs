@@ -99,12 +99,7 @@ fn kmeans_iris_workflow() {
 
     let ds = load_dataset();
     // from_iterator is provided by the Array2 trait
-    let x = DenseMatrix::from_iterator(
-        ds.data.iter().copied(),
-        ds.num_samples,
-        ds.num_features,
-        0,
-    );
+    let x = DenseMatrix::from_iterator(ds.data.iter().copied(), ds.num_samples, ds.num_features, 0);
 
     let params = KMeansParameters::default().with_k(3);
     let model = KMeans::fit(&x, params).expect("KMeans::fit on iris");
