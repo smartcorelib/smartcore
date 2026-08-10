@@ -7,6 +7,7 @@
 //! API notes:
 //!   - `shape()` comes from `smartcore::linalg::basic::arrays::Array` which must
 //!     be in scope wherever `.shape()` is called on a `DenseMatrix`
+//!   - `from_iterator()` comes from `smartcore::linalg::basic::arrays::Array2`
 //!   - PCA::fit / PCA::transform are inherent methods; no trait import needed
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
@@ -103,6 +104,7 @@ fn pca_iris_reduce_workflow() {
     use smartcore::dataset::iris::load_dataset;
     use smartcore::decomposition::pca::{PCA, PCAParameters};
     use smartcore::linalg::basic::arrays::Array;
+    use smartcore::linalg::basic::arrays::Array2;
 
     let ds = load_dataset();
     let x = DenseMatrix::from_iterator(
