@@ -16,6 +16,10 @@ use smartcore::linalg::basic::matrix::DenseMatrix;
 // PCA — full-rank (no information loss)
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn pca_full_rank_workflow() {
     use smartcore::decomposition::pca::{PCA, PCAParameters};
@@ -40,6 +44,10 @@ fn pca_full_rank_workflow() {
 // PCA — dimensionality reduction
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn pca_reduce_and_reconstruct_workflow() {
     use smartcore::decomposition::pca::{PCA, PCAParameters};
@@ -62,6 +70,7 @@ fn pca_reduce_and_reconstruct_workflow() {
 
 // ---------------------------------------------------------------------------
 // SVD decomposition — singular values non-negative and decreasing
+// (SVD is not available on wasm32)
 // ---------------------------------------------------------------------------
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -99,6 +108,10 @@ fn svd_singular_values_ordered_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn pca_iris_reduce_workflow() {
     use smartcore::dataset::iris::load_dataset;

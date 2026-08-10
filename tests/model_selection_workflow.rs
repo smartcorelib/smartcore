@@ -28,6 +28,10 @@ fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
 // train_test_split — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn train_test_split_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
@@ -70,6 +74,10 @@ fn train_test_split_workflow() {
 // cross_validate — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn cross_validate_knn_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
@@ -106,7 +114,6 @@ fn cross_validate_knn_workflow() {
             / y_true.len() as f64
     };
 
-    // KNNClassifier::new() requires SupervisedEstimator to be in scope (imported at top)
     let result = cross_validate(KNNClassifier::new(), &x, &y, params, &cv, &score_fn)
         .expect("cross_validate");
 
@@ -122,6 +129,10 @@ fn cross_validate_knn_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn train_test_split_iris_workflow() {
     use smartcore::dataset::iris::load_dataset;

@@ -27,6 +27,10 @@ fn mae(predicted: &[f64], actual: &[f64]) -> f64 {
 // RandomForestClassifier — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn random_forest_classifier_inline_workflow() {
     use smartcore::ensemble::random_forest_classifier::{
@@ -60,6 +64,10 @@ fn random_forest_classifier_inline_workflow() {
 // RandomForestRegressor — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn random_forest_regressor_inline_workflow() {
     use smartcore::ensemble::random_forest_regressor::{
@@ -94,12 +102,17 @@ fn random_forest_regressor_inline_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn random_forest_classifier_iris_workflow() {
     use smartcore::dataset::iris::load_dataset;
     use smartcore::ensemble::random_forest_classifier::{
         RandomForestClassifier, RandomForestClassifierParameters,
     };
+    use smartcore::linalg::basic::arrays::Array2;
 
     let ds = load_dataset();
     let x = DenseMatrix::from_iterator(

@@ -28,6 +28,10 @@ fn accuracy_svc(predicted: &[f64], actual: &[i32]) -> f64 {
 // SVC — RBF kernel
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn svc_rbf_inline_workflow() {
     use smartcore::svm::{
@@ -50,7 +54,6 @@ fn svc_rbf_inline_workflow() {
 
     let params = SVCParameters::default()
         .with_c(1.0)
-        // gamma is required; .rbf() alone leaves it as None
         .with_kernel(Kernels::rbf().with_gamma(0.5));
     let model = SVC::fit(&x, &y, &params).expect("SVC (RBF)::fit");
     let preds: Vec<f64> = model.predict(&x).expect("predict");
@@ -63,6 +66,10 @@ fn svc_rbf_inline_workflow() {
 // SVC — linear kernel
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn svc_linear_inline_workflow() {
     use smartcore::svm::{
@@ -97,6 +104,10 @@ fn svc_linear_inline_workflow() {
 // SVR — RBF kernel
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn svr_rbf_inline_workflow() {
     use smartcore::svm::{
@@ -120,7 +131,6 @@ fn svr_rbf_inline_workflow() {
     let params = SVRParameters::default()
         .with_c(10.0)
         .with_eps(0.1)
-        // gamma is required; .rbf() alone leaves it as None
         .with_kernel(Kernels::rbf().with_gamma(0.5));
     let model = SVR::fit(&x, &y, &params).expect("SVR (RBF)::fit");
     let preds: Vec<f64> = model.predict(&x).expect("predict");

@@ -30,6 +30,10 @@ fn mae(predicted: &[f64], actual: &[f64]) -> f64 {
 // KNNClassifier — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn knn_classifier_inline_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
@@ -62,6 +66,10 @@ fn knn_classifier_inline_workflow() {
 // KNNRegressor — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn knn_regressor_inline_workflow() {
     use smartcore::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
@@ -82,6 +90,10 @@ fn knn_regressor_inline_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn knn_classifier_iris_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
@@ -91,7 +103,6 @@ fn knn_classifier_iris_workflow() {
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
     let ds = load_dataset();
-    // from_iterator is provided by the Array2 trait
     let x = DenseMatrix::from_iterator(
         ds.data.iter().map(|&v| v as f64),
         ds.num_samples,
