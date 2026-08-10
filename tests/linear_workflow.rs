@@ -7,12 +7,11 @@
 //! a tiny inline fixture is used for the no-feature path.
 //!
 //! Tracking issue: #397 / #391.
+//!
+//! API notes:
+//!   - `from_iterator()` comes from `Array2` trait; import it where used
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
     assert_eq!(predicted.len(), actual.len());
@@ -38,11 +37,14 @@ fn mae(predicted: &[f64], actual: &[f64]) -> f64 {
 // LinearRegression — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn linear_regression_inline_workflow() {
     use smartcore::linear::linear_regression::{LinearRegression, LinearRegressionParameters};
 
-    // y = 3x + 1  (noise-free)
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64],
         &[2.0],
@@ -70,6 +72,10 @@ fn linear_regression_inline_workflow() {
 // RidgeRegression — inline fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn ridge_regression_inline_workflow() {
     use smartcore::linear::ridge_regression::{RidgeRegression, RidgeRegressionParameters};
@@ -83,13 +89,12 @@ fn ridge_regression_inline_workflow() {
         &[6.0, 36.0],
     ])
     .unwrap();
-    let y: Vec<f64> = vec![2.0, 5.0, 10.0, 17.0, 26.0, 37.0]; // x1^2 + 1
+    let y: Vec<f64> = vec![2.0, 5.0, 10.0, 17.0, 26.0, 37.0];
 
     let params = RidgeRegressionParameters::default().with_alpha(0.1);
     let model = RidgeRegression::fit(&x, &y, params).expect("RidgeRegression::fit");
     let preds = model.predict(&x).expect("RidgeRegression::predict");
 
-    // Ridge with α=0.1 on low-noise quadratic should stay within 2 units MAE
     let err = mae(&preds, &y);
     assert!(err < 2.0, "RidgeRegression MAE too high: {err:.4}");
 }
@@ -98,13 +103,16 @@ fn ridge_regression_inline_workflow() {
 // LogisticRegression — inline binary fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn logistic_regression_inline_workflow() {
     use smartcore::linear::logistic_regression::{
         LogisticRegression, LogisticRegressionParameters,
     };
 
-    // Linearly separable binary data
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64, 1.0],
         &[2.0, 1.5],
@@ -134,13 +142,17 @@ fn logistic_regression_inline_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn linear_regression_iris_sepal_workflow() {
     use smartcore::dataset::iris::load_dataset;
+    use smartcore::linalg::basic::arrays::Array2;
     use smartcore::linear::linear_regression::{LinearRegression, LinearRegressionParameters};
 
     let ds = load_dataset();
-    // Build a 2-column matrix from the first two features (sepal dims)
     let x_f64: DenseMatrix<f64> = DenseMatrix::from_iterator(
         ds.data
             .chunks(ds.num_features)
@@ -159,6 +171,5 @@ fn linear_regression_iris_sepal_workflow() {
         .expect("fit on iris");
     let preds = model.predict(&x_f64).expect("predict on iris");
     let err = mae(&preds, &petal_len);
-    // Sepal → petal-length is a loose regression; MAE < 0.7 is sane
     assert!(err < 0.7, "LinearRegression (iris) MAE too high: {err:.4}");
 }

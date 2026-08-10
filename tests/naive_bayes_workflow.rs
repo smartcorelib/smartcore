@@ -7,6 +7,7 @@
 //!   - `CategoricalNB<T>` requires `T: Unsigned`; use `DenseMatrix<u32>` + `Vec<u32>`
 //!   - `MultinomialNB<TX,TY>` requires `TX: Unsigned + TY: Unsigned`; same constraint
 //!   - `GaussianNB` and `BernoulliNB` use `f64` features + `u32` labels (no Unsigned bound)
+//!   - `from_iterator()` comes from `Array2` trait; import it where used
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -23,6 +24,10 @@ fn accuracy_u32(predicted: &[u32], actual: &[u32]) -> f64 {
 // GaussianNB
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn gaussian_nb_inline_workflow() {
     use smartcore::naive_bayes::gaussian::{GaussianNB, GaussianNBParameters};
@@ -53,6 +58,10 @@ fn gaussian_nb_inline_workflow() {
 // BernoulliNB — binary feature matrix
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn bernoulli_nb_inline_workflow() {
     use smartcore::naive_bayes::bernoulli::{BernoulliNB, BernoulliNBParameters};
@@ -82,12 +91,14 @@ fn bernoulli_nb_inline_workflow() {
 // CategoricalNB — requires T: Unsigned; use DenseMatrix<u32> + Vec<u32>
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn categorical_nb_inline_workflow() {
     use smartcore::naive_bayes::categorical::{CategoricalNB, CategoricalNBParameters};
 
-    // Features must be an unsigned integer type (u32 satisfies T: Unsigned)
-    // 3-category features: values in {0, 1, 2}
     let x: DenseMatrix<u32> = DenseMatrix::from_2d_array(&[
         &[0_u32, 1, 0],
         &[0, 0, 1],
@@ -113,11 +124,15 @@ fn categorical_nb_inline_workflow() {
 // MultinomialNB — requires TX: Unsigned + TY: Unsigned; use u32 throughout
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn multinomial_nb_inline_workflow() {
     use smartcore::naive_bayes::multinomial::{MultinomialNB, MultinomialNBParameters};
 
-    // Count features and unsigned labels
     let x: DenseMatrix<u32> = DenseMatrix::from_2d_array(&[
         &[3_u32, 1, 0],
         &[4, 2, 0],
@@ -144,9 +159,14 @@ fn multinomial_nb_inline_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn gaussian_nb_iris_workflow() {
     use smartcore::dataset::iris::load_dataset;
+    use smartcore::linalg::basic::arrays::Array2;
     use smartcore::naive_bayes::gaussian::{GaussianNB, GaussianNBParameters};
 
     let ds = load_dataset();

@@ -2,6 +2,9 @@
 //!
 //! `DecisionTreeClassifier` / `DecisionTreeRegressor`.
 //! Tracking issue: #397 / #391.
+//!
+//! API notes:
+//!   - `from_iterator()` comes from `Array2` trait; import it where used
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -27,6 +30,10 @@ fn mae(predicted: &[f64], actual: &[f64]) -> f64 {
 // DecisionTreeClassifier — inline XOR fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn decision_tree_classifier_inline_workflow() {
     use smartcore::tree::decision_tree_classifier::{
@@ -44,7 +51,6 @@ fn decision_tree_classifier_inline_workflow() {
         &[1.0, 1.0],
     ])
     .unwrap();
-    // XOR: class 1 when exactly one feature is 1
     let y: Vec<u32> = vec![0, 1, 1, 0, 0, 1, 1, 0];
 
     let params = DecisionTreeClassifierParameters::default().with_max_depth(4);
@@ -62,6 +68,10 @@ fn decision_tree_classifier_inline_workflow() {
 // DecisionTreeRegressor — inline quadratic fixture
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn decision_tree_regressor_inline_workflow() {
     use smartcore::tree::decision_tree_regressor::{
@@ -79,7 +89,7 @@ fn decision_tree_regressor_inline_workflow() {
         &[8.0],
     ])
     .unwrap();
-    let y: Vec<f64> = vec![1.0, 4.0, 9.0, 16.0, 25.0, 36.0, 49.0, 64.0]; // x^2
+    let y: Vec<f64> = vec![1.0, 4.0, 9.0, 16.0, 25.0, 36.0, 49.0, 64.0];
 
     let params = DecisionTreeRegressorParameters::default().with_max_depth(4);
     let model = DecisionTreeRegressor::fit(&x, &y, params).expect("DecisionTreeRegressor::fit");
@@ -94,9 +104,14 @@ fn decision_tree_regressor_inline_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "datasets")]
+#[cfg_attr(
+    all(target_arch = "wasm32", not(target_os = "wasi")),
+    wasm_bindgen_test::wasm_bindgen_test
+)]
 #[test]
 fn decision_tree_classifier_iris_workflow() {
     use smartcore::dataset::iris::load_dataset;
+    use smartcore::linalg::basic::arrays::Array2;
     use smartcore::tree::decision_tree_classifier::{
         DecisionTreeClassifier, DecisionTreeClassifierParameters,
     };
@@ -115,7 +130,6 @@ fn decision_tree_classifier_iris_workflow() {
     let preds = model.predict(&x).expect("predict");
 
     let acc = accuracy(&preds, &y);
-    // A depth-5 tree on 150 iris samples should easily exceed 90 %
     assert!(
         acc >= 0.90,
         "DecisionTreeClassifier (iris) accuracy: {acc:.3}"
