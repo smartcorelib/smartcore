@@ -10,6 +10,8 @@ Agent-focused guidance for working on the `smartcore` Rust machine-learning libr
 - **License**: Apache-2.0.
 - **Authors**: "smartcore Developers".
 
+Always use ASD-STE100 Simplified Technical English
+
 ## Build and test
 
 Common commands used in this codebase:
