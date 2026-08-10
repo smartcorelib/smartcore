@@ -5,8 +5,9 @@
 //! Tracking issue: #397 / #391.
 //!
 //! API notes:
-//!   - `Transformer` lives at `smartcore::api::Transformer` (not re-exported at crate root)
-//!   - `UnsupervisedEstimator` (provides `fit`) lives at `smartcore::api::UnsupervisedEstimator`
+//!   - `shape()` comes from `smartcore::linalg::basic::arrays::Array` which must
+//!     be in scope wherever `.shape()` is called on a `DenseMatrix`
+//!   - PCA::fit / PCA::transform are inherent methods; no trait import needed
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -16,8 +17,8 @@ use smartcore::linalg::basic::matrix::DenseMatrix;
 
 #[test]
 fn pca_full_rank_workflow() {
-    use smartcore::api::{Transformer, UnsupervisedEstimator};
     use smartcore::decomposition::pca::{PCA, PCAParameters};
+    use smartcore::linalg::basic::arrays::Array;
 
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64, 2.0, 3.0],
@@ -28,7 +29,6 @@ fn pca_full_rank_workflow() {
     ])
     .unwrap();
 
-    // Keep all 3 components → transform output shape must be (5, 3)
     let params = PCAParameters::default().with_n_components(3);
     let model = PCA::fit(&x, params).expect("PCA::fit");
     let transformed = model.transform(&x).expect("transform");
@@ -41,10 +41,9 @@ fn pca_full_rank_workflow() {
 
 #[test]
 fn pca_reduce_and_reconstruct_workflow() {
-    use smartcore::api::{Transformer, UnsupervisedEstimator};
     use smartcore::decomposition::pca::{PCA, PCAParameters};
+    use smartcore::linalg::basic::arrays::Array;
 
-    // Build a rank-1 dataset (all rows are multiples of [1,2,3])
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64, 2.0, 3.0],
         &[2.0, 4.0, 6.0],
@@ -54,7 +53,6 @@ fn pca_reduce_and_reconstruct_workflow() {
     ])
     .unwrap();
 
-    // 1 component should capture 100% variance on a rank-1 matrix
     let params = PCAParameters::default().with_n_components(1);
     let model = PCA::fit(&x, params).expect("PCA::fit (rank-1)");
     let transformed = model.transform(&x).expect("transform");
@@ -63,7 +61,6 @@ fn pca_reduce_and_reconstruct_workflow() {
 
 // ---------------------------------------------------------------------------
 // SVD decomposition — singular values non-negative and decreasing
-// (SVD uses `panic!` on wasm32 convergence; skip on that target)
 // ---------------------------------------------------------------------------
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -103,9 +100,9 @@ fn svd_singular_values_ordered_workflow() {
 #[cfg(feature = "datasets")]
 #[test]
 fn pca_iris_reduce_workflow() {
-    use smartcore::api::{Transformer, UnsupervisedEstimator};
     use smartcore::dataset::iris::load_dataset;
     use smartcore::decomposition::pca::{PCA, PCAParameters};
+    use smartcore::linalg::basic::arrays::Array;
 
     let ds = load_dataset();
     let x = DenseMatrix::from_iterator(
