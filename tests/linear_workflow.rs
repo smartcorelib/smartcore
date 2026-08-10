@@ -1,0 +1,159 @@
+//! Integration test: linear models end-to-end workflow.
+//!
+//! `LinearRegression`, `RidgeRegression`, `LogisticRegression` —
+//! load (or inline) data → train → predict → evaluate with non-trivial thresholds.
+//!
+//! Dataset-dependent paths are gated on `#[cfg(feature = "datasets")]`;
+//! a tiny inline fixture is used for the no-feature path.
+//!
+//! Tracking issue: #397 / #391.
+
+use smartcore::linalg::basic::arrays::Array;
+use smartcore::linalg::basic::matrix::DenseMatrix;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
+    assert_eq!(predicted.len(), actual.len());
+    let correct = predicted.iter().zip(actual.iter()).filter(|(p, a)| p == a).count();
+    correct as f64 / actual.len() as f64
+}
+
+fn mae(predicted: &[f64], actual: &[f64]) -> f64 {
+    assert_eq!(predicted.len(), actual.len());
+    predicted
+        .iter()
+        .zip(actual.iter())
+        .map(|(p, a)| (p - a).abs())
+        .sum::<f64>()
+        / actual.len() as f64
+}
+
+// ---------------------------------------------------------------------------
+// LinearRegression — inline fixture
+// ---------------------------------------------------------------------------
+
+#[test]
+fn linear_regression_inline_workflow() {
+    use smartcore::linear::linear_regression::{
+        LinearRegression, LinearRegressionParameters,
+    };
+
+    // y = 3x + 1  (noise-free)
+    let x = DenseMatrix::from_2d_array(&[
+        &[1.0_f64], &[2.0], &[3.0], &[4.0], &[5.0],
+        &[6.0], &[7.0], &[8.0], &[9.0], &[10.0],
+    ])
+    .unwrap();
+    let y: Vec<f64> = (1..=10).map(|i| 3.0 * i as f64 + 1.0).collect();
+
+    let model = LinearRegression::fit(&x, &y, LinearRegressionParameters::default())
+        .expect("LinearRegression::fit");
+    let preds = model.predict(&x).expect("LinearRegression::predict");
+
+    let err = mae(&preds, &y);
+    assert!(err < 0.5, "LinearRegression MAE too high: {err:.4}");
+}
+
+// ---------------------------------------------------------------------------
+// RidgeRegression — inline fixture
+// ---------------------------------------------------------------------------
+
+#[test]
+fn ridge_regression_inline_workflow() {
+    use smartcore::linear::ridge_regression::{
+        RidgeRegression, RidgeRegressionParameters,
+    };
+
+    let x = DenseMatrix::from_2d_array(&[
+        &[1.0_f64, 1.0], &[2.0, 4.0], &[3.0, 9.0],
+        &[4.0, 16.0], &[5.0, 25.0], &[6.0, 36.0],
+    ])
+    .unwrap();
+    let y: Vec<f64> = vec![2.0, 5.0, 10.0, 17.0, 26.0, 37.0]; // x1^2 + 1
+
+    let params = RidgeRegressionParameters::default().with_alpha(0.1);
+    let model = RidgeRegression::fit(&x, &y, params).expect("RidgeRegression::fit");
+    let preds = model.predict(&x).expect("RidgeRegression::predict");
+
+    // Ridge with α=0.1 on low-noise quadratic should stay within 2 units MAE
+    let err = mae(&preds, &y);
+    assert!(err < 2.0, "RidgeRegression MAE too high: {err:.4}");
+}
+
+// ---------------------------------------------------------------------------
+// LogisticRegression — inline binary fixture
+// ---------------------------------------------------------------------------
+
+#[test]
+fn logistic_regression_inline_workflow() {
+    use smartcore::linear::logistic_regression::{
+        LogisticRegression, LogisticRegressionParameters,
+    };
+
+    // Linearly separable binary data
+    let x = DenseMatrix::from_2d_array(&[
+        &[1.0_f64, 1.0], &[2.0, 1.5], &[1.5, 2.0], &[2.5, 2.5],
+        &[8.0, 8.0], &[9.0, 8.5], &[8.5, 9.0], &[9.5, 9.5],
+    ])
+    .unwrap();
+    let y: Vec<u32> = vec![0, 0, 0, 0, 1, 1, 1, 1];
+
+    let model = LogisticRegression::fit(&x, &y, LogisticRegressionParameters::default())
+        .expect("LogisticRegression::fit");
+    let preds = model.predict(&x).expect("LogisticRegression::predict");
+
+    let acc = accuracy(&preds, &y);
+    assert!(acc >= 0.875, "LogisticRegression accuracy too low: {acc:.3}");
+}
+
+// ---------------------------------------------------------------------------
+// LinearRegression on iris dataset (dataset feature)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "datasets")]
+#[test]
+fn linear_regression_iris_sepal_workflow() {
+    use smartcore::dataset::iris::load_dataset;
+    use smartcore::linear::linear_regression::{
+        LinearRegression, LinearRegressionParameters,
+    };
+    use smartcore::linalg::basic::arrays::Array2;
+
+    let ds = load_dataset();
+    // Predict petal-length (feature 2) from sepal dims (features 0, 1)
+    let x_full = DenseMatrix::from_iterator(
+        ds.data.iter().copied(),
+        ds.num_samples,
+        ds.num_features,
+        0,
+    );
+    let x = x_full.slice(0..ds.num_samples, 0..2);
+    let x_mat: DenseMatrix<f32> = DenseMatrix::from_iterator(
+        x.iterator(0).copied(),
+        ds.num_samples,
+        2,
+        0,
+    );
+    let petal_len: Vec<f64> = ds
+        .data
+        .chunks(ds.num_features)
+        .map(|row| row[2] as f64)
+        .collect();
+    let x_f64: DenseMatrix<f64> = DenseMatrix::from_iterator(
+        x.iterator(0).map(|&v| v as f64),
+        ds.num_samples,
+        2,
+        0,
+    );
+
+    let model =
+        LinearRegression::fit(&x_f64, &petal_len, LinearRegressionParameters::default())
+            .expect("fit on iris");
+    let preds = model.predict(&x_f64).expect("predict on iris");
+    let err = mae(&preds, &petal_len);
+    // Sepal → petal-length is a loose regression; MAE < 0.7 is sane
+    assert!(err < 0.7, "LinearRegression (iris) MAE too high: {err:.4}");
+}
