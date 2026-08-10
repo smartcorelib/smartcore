@@ -125,7 +125,6 @@ fn categorical_nb_inline_workflow() {
 // ---------------------------------------------------------------------------
 
 #[cfg_attr(
-
     all(target_arch = "wasm32", not(target_os = "wasi")),
     wasm_bindgen_test::wasm_bindgen_test
 )]
