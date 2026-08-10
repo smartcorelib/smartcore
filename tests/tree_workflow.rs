@@ -97,7 +97,6 @@ fn decision_tree_regressor_inline_workflow() {
 #[test]
 fn decision_tree_classifier_iris_workflow() {
     use smartcore::dataset::iris::load_dataset;
-    use smartcore::linalg::basic::arrays::Array;
     use smartcore::tree::decision_tree_classifier::{
         DecisionTreeClassifier, DecisionTreeClassifierParameters,
     };

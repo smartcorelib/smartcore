@@ -3,6 +3,10 @@
 //! `PCA` fit → transform → shape/column checks;
 //! `SVD` singular-value ordering.
 //! Tracking issue: #397 / #391.
+//!
+//! API notes:
+//!   - `Transformer` lives at `smartcore::api::Transformer` (not re-exported at crate root)
+//!   - `UnsupervisedEstimator` (provides `fit`) lives at `smartcore::api::UnsupervisedEstimator`
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
@@ -12,7 +16,7 @@ use smartcore::linalg::basic::matrix::DenseMatrix;
 
 #[test]
 fn pca_full_rank_workflow() {
-    use smartcore::Transformer;
+    use smartcore::api::{Transformer, UnsupervisedEstimator};
     use smartcore::decomposition::pca::{PCA, PCAParameters};
 
     let x = DenseMatrix::from_2d_array(&[
@@ -37,7 +41,7 @@ fn pca_full_rank_workflow() {
 
 #[test]
 fn pca_reduce_and_reconstruct_workflow() {
-    use smartcore::Transformer;
+    use smartcore::api::{Transformer, UnsupervisedEstimator};
     use smartcore::decomposition::pca::{PCA, PCAParameters};
 
     // Build a rank-1 dataset (all rows are multiples of [1,2,3])
@@ -99,10 +103,9 @@ fn svd_singular_values_ordered_workflow() {
 #[cfg(feature = "datasets")]
 #[test]
 fn pca_iris_reduce_workflow() {
-    use smartcore::Transformer;
+    use smartcore::api::{Transformer, UnsupervisedEstimator};
     use smartcore::dataset::iris::load_dataset;
     use smartcore::decomposition::pca::{PCA, PCAParameters};
-    use smartcore::linalg::basic::arrays::Array;
 
     let ds = load_dataset();
     let x = DenseMatrix::from_iterator(
