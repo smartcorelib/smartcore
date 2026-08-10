@@ -75,11 +75,10 @@ fn dbscan_inline_workflow() {
 fn kmeans_generated_blobs_workflow() {
     use smartcore::cluster::kmeans::{KMeans, KMeansParameters};
     use smartcore::dataset::generator::make_blobs;
-    use smartcore::linalg::basic::arrays::Array;
 
     let ds = make_blobs(120, 2, 3);
     let x = DenseMatrix::from_iterator(
-        ds.data.iter().copied() as _,
+        ds.data.iter().copied(),
         ds.num_samples,
         ds.num_features,
         0,

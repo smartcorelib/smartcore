@@ -8,7 +8,6 @@
 //!
 //! Tracking issue: #397 / #391.
 
-use smartcore::linalg::basic::arrays::Array;
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
 // ---------------------------------------------------------------------------
@@ -120,19 +119,13 @@ fn linear_regression_iris_sepal_workflow() {
     use smartcore::linear::linear_regression::{
         LinearRegression, LinearRegressionParameters,
     };
-    use smartcore::linalg::basic::arrays::Array2;
 
     let ds = load_dataset();
-    // Predict petal-length (feature 2) from sepal dims (features 0, 1)
-    let x_full = DenseMatrix::from_iterator(
-        ds.data.iter().copied(),
-        ds.num_samples,
-        ds.num_features,
-        0,
-    );
-    let x = x_full.slice(0..ds.num_samples, 0..2);
-    let x_mat: DenseMatrix<f32> = DenseMatrix::from_iterator(
-        x.iterator(0).copied(),
+    // Build a 2-column matrix from the first two features (sepal dims)
+    let x_f64: DenseMatrix<f64> = DenseMatrix::from_iterator(
+        ds.data
+            .chunks(ds.num_features)
+            .flat_map(|row| row[..2].iter().map(|&v| v as f64)),
         ds.num_samples,
         2,
         0,
@@ -142,12 +135,6 @@ fn linear_regression_iris_sepal_workflow() {
         .chunks(ds.num_features)
         .map(|row| row[2] as f64)
         .collect();
-    let x_f64: DenseMatrix<f64> = DenseMatrix::from_iterator(
-        x.iterator(0).map(|&v| v as f64),
-        ds.num_samples,
-        2,
-        0,
-    );
 
     let model =
         LinearRegression::fit(&x_f64, &petal_len, LinearRegressionParameters::default())

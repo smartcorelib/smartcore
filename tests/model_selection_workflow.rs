@@ -16,9 +16,9 @@ fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
 
 #[test]
 fn train_test_split_workflow() {
+    use smartcore::algorithm::neighbour::KNNAlgorithmName;
     use smartcore::model_selection::train_test_split;
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
-    use smartcore::algorithm::neighbour::KNNAlgorithmName;
     use smartcore::neighbors::KNNWeightFunction;
 
     // 20 well-separated samples, 2 classes
@@ -60,11 +60,10 @@ fn train_test_split_workflow() {
 
 #[test]
 fn cross_validate_knn_workflow() {
+    use smartcore::algorithm::neighbour::KNNAlgorithmName;
     use smartcore::model_selection::{cross_validate, CrossValidationParameters};
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
-    use smartcore::algorithm::neighbour::KNNAlgorithmName;
     use smartcore::neighbors::KNNWeightFunction;
-    use smartcore::metrics::accuracy;
 
     let n = 30usize;
     let data: Vec<Vec<f64>> = (0..n)
@@ -86,13 +85,23 @@ fn cross_validate_knn_workflow() {
         .with_algorithm(KNNAlgorithmName::LinearSearch)
         .with_weight(KNNWeightFunction::Uniform);
 
+    // Scoring function: proportion of matching labels
+    let score_fn = |y_true: &Vec<u32>, y_pred: &Vec<u32>| -> f64 {
+        y_true
+            .iter()
+            .zip(y_pred.iter())
+            .filter(|(a, b)| a == b)
+            .count() as f64
+            / y_true.len() as f64
+    };
+
     let result = cross_validate(
         KNNClassifier::fit,
         &x,
         &y,
         params,
         cv_params,
-        accuracy,
+        score_fn,
     )
     .expect("cross_validate");
 

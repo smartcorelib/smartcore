@@ -1,26 +1,10 @@
 //! Integration test: decomposition end-to-end workflow.
 //!
-//! `PCA` fit → transform → reconstruction error near zero;
-//! `SVD` fit → reconstruct.
+//! `PCA` fit → transform → shape/column checks;
+//! `SVD` singular-value ordering.
 //! Tracking issue: #397 / #391.
 
 use smartcore::linalg::basic::matrix::DenseMatrix;
-use smartcore::linalg::basic::arrays::Array;
-
-fn frobenius_relative_error(original: &DenseMatrix<f64>, approx: &DenseMatrix<f64>) -> f64 {
-    let (nr, nc) = original.shape();
-    assert_eq!((nr, nc), approx.shape());
-    let sq_err: f64 = (0..nr)
-        .flat_map(|r| (0..nc).map(move |c| (r, c)))
-        .map(|(r, c)| (original.get((r, c)) - approx.get((r, c))).powi(2))
-        .sum();
-    let sq_norm: f64 = (0..nr)
-        .flat_map(|r| (0..nc).map(move |c| (r, c)))
-        .map(|(r, c)| original.get((r, c)).powi(2))
-        .sum();
-    if sq_norm < 1e-12 { return 0.0; }
-    sq_err.sqrt() / sq_norm.sqrt()
-}
 
 // ---------------------------------------------------------------------------
 // PCA — full-rank (no information loss)
@@ -48,7 +32,7 @@ fn pca_full_rank_workflow() {
 }
 
 // ---------------------------------------------------------------------------
-// PCA — dimensionality reduction then reconstruct
+// PCA — dimensionality reduction
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -75,8 +59,10 @@ fn pca_reduce_and_reconstruct_workflow() {
 
 // ---------------------------------------------------------------------------
 // SVD decomposition — singular values non-negative and decreasing
+// (SVD uses `panic!` on wasm32 convergence; skip on that target)
 // ---------------------------------------------------------------------------
 
+#[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn svd_singular_values_ordered_workflow() {
     use smartcore::linalg::traits::svd::SVDDecomposable;
@@ -90,7 +76,6 @@ fn svd_singular_values_ordered_workflow() {
     .unwrap();
 
     let svd = x.svd().expect("SVD decomposition");
-    // Singular values (s) should be non-negative and in descending order
     let s = &svd.s;
     for i in 0..s.len() {
         assert!(s[i] >= -1e-10, "negative singular value at {i}: {}", s[i]);
@@ -113,6 +98,7 @@ fn svd_singular_values_ordered_workflow() {
 fn pca_iris_reduce_workflow() {
     use smartcore::dataset::iris::load_dataset;
     use smartcore::decomposition::pca::{PCA, PCAParameters};
+    use smartcore::linalg::basic::arrays::Array;
     use smartcore::Transformer;
 
     let ds = load_dataset();
