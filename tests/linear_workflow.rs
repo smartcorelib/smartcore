@@ -16,7 +16,11 @@ use smartcore::linalg::basic::matrix::DenseMatrix;
 
 fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
     assert_eq!(predicted.len(), actual.len());
-    let correct = predicted.iter().zip(actual.iter()).filter(|(p, a)| p == a).count();
+    let correct = predicted
+        .iter()
+        .zip(actual.iter())
+        .filter(|(p, a)| p == a)
+        .count();
     correct as f64 / actual.len() as f64
 }
 
@@ -36,14 +40,20 @@ fn mae(predicted: &[f64], actual: &[f64]) -> f64 {
 
 #[test]
 fn linear_regression_inline_workflow() {
-    use smartcore::linear::linear_regression::{
-        LinearRegression, LinearRegressionParameters,
-    };
+    use smartcore::linear::linear_regression::{LinearRegression, LinearRegressionParameters};
 
     // y = 3x + 1  (noise-free)
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64], &[2.0], &[3.0], &[4.0], &[5.0],
-        &[6.0], &[7.0], &[8.0], &[9.0], &[10.0],
+        &[1.0_f64],
+        &[2.0],
+        &[3.0],
+        &[4.0],
+        &[5.0],
+        &[6.0],
+        &[7.0],
+        &[8.0],
+        &[9.0],
+        &[10.0],
     ])
     .unwrap();
     let y: Vec<f64> = (1..=10).map(|i| 3.0 * i as f64 + 1.0).collect();
@@ -62,13 +72,15 @@ fn linear_regression_inline_workflow() {
 
 #[test]
 fn ridge_regression_inline_workflow() {
-    use smartcore::linear::ridge_regression::{
-        RidgeRegression, RidgeRegressionParameters,
-    };
+    use smartcore::linear::ridge_regression::{RidgeRegression, RidgeRegressionParameters};
 
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 1.0], &[2.0, 4.0], &[3.0, 9.0],
-        &[4.0, 16.0], &[5.0, 25.0], &[6.0, 36.0],
+        &[1.0_f64, 1.0],
+        &[2.0, 4.0],
+        &[3.0, 9.0],
+        &[4.0, 16.0],
+        &[5.0, 25.0],
+        &[6.0, 36.0],
     ])
     .unwrap();
     let y: Vec<f64> = vec![2.0, 5.0, 10.0, 17.0, 26.0, 37.0]; // x1^2 + 1
@@ -94,8 +106,14 @@ fn logistic_regression_inline_workflow() {
 
     // Linearly separable binary data
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 1.0], &[2.0, 1.5], &[1.5, 2.0], &[2.5, 2.5],
-        &[8.0, 8.0], &[9.0, 8.5], &[8.5, 9.0], &[9.5, 9.5],
+        &[1.0_f64, 1.0],
+        &[2.0, 1.5],
+        &[1.5, 2.0],
+        &[2.5, 2.5],
+        &[8.0, 8.0],
+        &[9.0, 8.5],
+        &[8.5, 9.0],
+        &[9.5, 9.5],
     ])
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 0, 1, 1, 1, 1];
@@ -105,7 +123,10 @@ fn logistic_regression_inline_workflow() {
     let preds = model.predict(&x).expect("LogisticRegression::predict");
 
     let acc = accuracy(&preds, &y);
-    assert!(acc >= 0.875, "LogisticRegression accuracy too low: {acc:.3}");
+    assert!(
+        acc >= 0.875,
+        "LogisticRegression accuracy too low: {acc:.3}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -116,9 +137,7 @@ fn logistic_regression_inline_workflow() {
 #[test]
 fn linear_regression_iris_sepal_workflow() {
     use smartcore::dataset::iris::load_dataset;
-    use smartcore::linear::linear_regression::{
-        LinearRegression, LinearRegressionParameters,
-    };
+    use smartcore::linear::linear_regression::{LinearRegression, LinearRegressionParameters};
 
     let ds = load_dataset();
     // Build a 2-column matrix from the first two features (sepal dims)
@@ -136,9 +155,8 @@ fn linear_regression_iris_sepal_workflow() {
         .map(|row| row[2] as f64)
         .collect();
 
-    let model =
-        LinearRegression::fit(&x_f64, &petal_len, LinearRegressionParameters::default())
-            .expect("fit on iris");
+    let model = LinearRegression::fit(&x_f64, &petal_len, LinearRegressionParameters::default())
+        .expect("fit on iris");
     let preds = model.predict(&x_f64).expect("predict on iris");
     let err = mae(&preds, &petal_len);
     // Sepal → petal-length is a loose regression; MAE < 0.7 is sane

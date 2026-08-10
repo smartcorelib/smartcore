@@ -15,8 +15,14 @@ fn kmeans_inline_workflow() {
 
     // Two well-separated clusters
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 1.0], &[1.1, 1.2], &[0.9, 1.1], &[1.2, 0.9],
-        &[9.0, 9.0], &[9.1, 9.2], &[8.9, 9.1], &[9.2, 8.9],
+        &[1.0_f64, 1.0],
+        &[1.1, 1.2],
+        &[0.9, 1.1],
+        &[1.2, 0.9],
+        &[9.0, 9.0],
+        &[9.1, 9.2],
+        &[8.9, 9.1],
+        &[9.2, 8.9],
     ])
     .unwrap();
 
@@ -47,9 +53,13 @@ fn dbscan_inline_workflow() {
 
     // Two dense clusters + one noise point far away
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 1.0], &[1.1, 1.0], &[1.0, 1.1],  // cluster A
-        &[8.0, 8.0], &[8.1, 8.0], &[8.0, 8.1],      // cluster B
-        &[50.0, 50.0],                                // noise
+        &[1.0_f64, 1.0],
+        &[1.1, 1.0],
+        &[1.0, 1.1], // cluster A
+        &[8.0, 8.0],
+        &[8.1, 8.0],
+        &[8.0, 8.1],   // cluster B
+        &[50.0, 50.0], // noise
     ])
     .unwrap();
 
@@ -59,11 +69,17 @@ fn dbscan_inline_workflow() {
     // Noise point should get label -1 (or usize::MAX in some impls).
     // The two clusters should produce exactly 2 distinct non-noise labels.
     let noise = labels[6];
-    let non_noise: std::collections::HashSet<_> =
-        labels[..6].iter().cloned().collect();
-    assert_eq!(non_noise.len(), 2, "expected 2 DBSCAN clusters, got: {non_noise:?}");
+    let non_noise: std::collections::HashSet<_> = labels[..6].iter().cloned().collect();
+    assert_eq!(
+        non_noise.len(),
+        2,
+        "expected 2 DBSCAN clusters, got: {non_noise:?}"
+    );
     // noise label must differ from both cluster labels
-    assert!(!non_noise.contains(&noise), "noise label overlaps cluster label");
+    assert!(
+        !non_noise.contains(&noise),
+        "noise label overlaps cluster label"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -77,12 +93,7 @@ fn kmeans_generated_blobs_workflow() {
     use smartcore::dataset::generator::make_blobs;
 
     let ds = make_blobs(120, 2, 3);
-    let x = DenseMatrix::from_iterator(
-        ds.data.iter().copied(),
-        ds.num_samples,
-        ds.num_features,
-        0,
-    );
+    let x = DenseMatrix::from_iterator(ds.data.iter().copied(), ds.num_samples, ds.num_features, 0);
 
     let params = KMeansParameters::default().with_k(3);
     let model = KMeans::fit(&x, params).expect("KMeans fit on blobs");

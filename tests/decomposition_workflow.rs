@@ -12,8 +12,8 @@ use smartcore::linalg::basic::matrix::DenseMatrix;
 
 #[test]
 fn pca_full_rank_workflow() {
-    use smartcore::decomposition::pca::{PCA, PCAParameters};
     use smartcore::Transformer;
+    use smartcore::decomposition::pca::{PCA, PCAParameters};
 
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64, 2.0, 3.0],
@@ -37,8 +37,8 @@ fn pca_full_rank_workflow() {
 
 #[test]
 fn pca_reduce_and_reconstruct_workflow() {
-    use smartcore::decomposition::pca::{PCA, PCAParameters};
     use smartcore::Transformer;
+    use smartcore::decomposition::pca::{PCA, PCAParameters};
 
     // Build a rank-1 dataset (all rows are multiples of [1,2,3])
     let x = DenseMatrix::from_2d_array(&[
@@ -84,7 +84,10 @@ fn svd_singular_values_ordered_workflow() {
         assert!(
             s[i - 1] >= s[i] - 1e-10,
             "singular values not descending: s[{}]={} > s[{}]={}",
-            i - 1, s[i - 1], i, s[i]
+            i - 1,
+            s[i - 1],
+            i,
+            s[i]
         );
     }
 }
@@ -96,10 +99,10 @@ fn svd_singular_values_ordered_workflow() {
 #[cfg(feature = "datasets")]
 #[test]
 fn pca_iris_reduce_workflow() {
+    use smartcore::Transformer;
     use smartcore::dataset::iris::load_dataset;
     use smartcore::decomposition::pca::{PCA, PCAParameters};
     use smartcore::linalg::basic::arrays::Array;
-    use smartcore::Transformer;
 
     let ds = load_dataset();
     let x = DenseMatrix::from_iterator(

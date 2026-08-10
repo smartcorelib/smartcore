@@ -6,7 +6,11 @@
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
 fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
-    predicted.iter().zip(actual.iter()).filter(|(p, a)| p == a).count() as f64
+    predicted
+        .iter()
+        .zip(actual.iter())
+        .filter(|(p, a)| p == a)
+        .count() as f64
         / actual.len() as f64
 }
 
@@ -18,8 +22,8 @@ fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
 fn train_test_split_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
     use smartcore::model_selection::train_test_split;
-    use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
     use smartcore::neighbors::KNNWeightFunction;
+    use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
     // 20 well-separated samples, 2 classes
     let n = 20usize;
@@ -36,8 +40,7 @@ fn train_test_split_workflow() {
     let x = DenseMatrix::from_2d_array(&refs).unwrap();
     let y: Vec<u32> = (0..n).map(|i| if i < n / 2 { 0 } else { 1 }).collect();
 
-    let (x_train, x_test, y_train, y_test) =
-        train_test_split(&x, &y, 0.3, true, Some(42));
+    let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.3, true, Some(42));
 
     assert!(!x_train.is_empty(), "train set empty");
     assert!(!x_test.is_empty(), "test set empty");
@@ -61,9 +64,9 @@ fn train_test_split_workflow() {
 #[test]
 fn cross_validate_knn_workflow() {
     use smartcore::algorithm::neighbour::KNNAlgorithmName;
-    use smartcore::model_selection::{cross_validate, CrossValidationParameters};
-    use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
+    use smartcore::model_selection::{CrossValidationParameters, cross_validate};
     use smartcore::neighbors::KNNWeightFunction;
+    use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
     let n = 30usize;
     let data: Vec<Vec<f64>> = (0..n)
@@ -95,18 +98,14 @@ fn cross_validate_knn_workflow() {
             / y_true.len() as f64
     };
 
-    let result = cross_validate(
-        KNNClassifier::fit,
-        &x,
-        &y,
-        params,
-        cv_params,
-        score_fn,
-    )
-    .expect("cross_validate");
+    let result = cross_validate(KNNClassifier::fit, &x, &y, params, cv_params, score_fn)
+        .expect("cross_validate");
 
     let mean_score = result.test_score.iter().sum::<f64>() / result.test_score.len() as f64;
-    assert!(mean_score >= 0.7, "cross_validate mean accuracy: {mean_score:.3}");
+    assert!(
+        mean_score >= 0.7,
+        "cross_validate mean accuracy: {mean_score:.3}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -131,14 +130,15 @@ fn train_test_split_iris_workflow() {
     );
     let y: Vec<u32> = ds.target.clone();
 
-    let (x_train, x_test, y_train, y_test) =
-        train_test_split(&x, &y, 0.2, true, Some(0));
+    let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true, Some(0));
 
     let params = DecisionTreeClassifierParameters::default().with_max_depth(5);
-    let model = DecisionTreeClassifier::fit(&x_train, &y_train, params)
-        .expect("fit iris train");
+    let model = DecisionTreeClassifier::fit(&x_train, &y_train, params).expect("fit iris train");
     let preds = model.predict(&x_test).expect("predict iris test");
 
     let acc = accuracy(&preds, &y_test);
-    assert!(acc >= 0.85, "DecisionTree (iris test split) accuracy: {acc:.3}");
+    assert!(
+        acc >= 0.85,
+        "DecisionTree (iris test split) accuracy: {acc:.3}"
+    );
 }

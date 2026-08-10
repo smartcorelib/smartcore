@@ -4,8 +4,8 @@
 //! `OneHotEncoder` encode → shape check.
 //! Tracking issue: #397 / #391.
 
-use smartcore::linalg::basic::matrix::DenseMatrix;
 use smartcore::linalg::basic::arrays::Array;
+use smartcore::linalg::basic::matrix::DenseMatrix;
 
 // ---------------------------------------------------------------------------
 // StandardScaler — round-trip
@@ -13,8 +13,8 @@ use smartcore::linalg::basic::arrays::Array;
 
 #[test]
 fn standard_scaler_round_trip_workflow() {
-    use smartcore::preprocessing::StandardScaler;
     use smartcore::Transformer;
+    use smartcore::preprocessing::StandardScaler;
 
     let x = DenseMatrix::from_2d_array(&[
         &[1.0_f64, 10.0],
@@ -43,8 +43,8 @@ fn standard_scaler_round_trip_workflow() {
 
 #[test]
 fn standard_scaler_inverse_transform_workflow() {
-    use smartcore::preprocessing::StandardScaler;
     use smartcore::Transformer;
+    use smartcore::preprocessing::StandardScaler;
 
     let x = DenseMatrix::from_2d_array(&[
         &[10.0_f64, 200.0],
@@ -56,7 +56,9 @@ fn standard_scaler_inverse_transform_workflow() {
 
     let scaler = StandardScaler::fit(&x, Default::default()).expect("fit");
     let scaled = scaler.transform(&x).expect("transform");
-    let recovered = scaler.inverse_transform(&scaled).expect("inverse_transform");
+    let recovered = scaler
+        .inverse_transform(&scaled)
+        .expect("inverse_transform");
 
     let (nr, nc) = x.shape();
     for r in 0..nr {
@@ -77,17 +79,11 @@ fn standard_scaler_inverse_transform_workflow() {
 
 #[test]
 fn one_hot_encoder_workflow() {
-    use smartcore::preprocessing::categorical::OneHotEncoder;
     use smartcore::Transformer;
+    use smartcore::preprocessing::categorical::OneHotEncoder;
 
     // 4 samples, 2 categorical features: feature 0 has 3 categories, feature 1 has 2
-    let x = DenseMatrix::from_2d_array(&[
-        &[0_u32, 0],
-        &[1, 1],
-        &[2, 0],
-        &[0, 1],
-    ])
-    .unwrap();
+    let x = DenseMatrix::from_2d_array(&[&[0_u32, 0], &[1, 1], &[2, 0], &[0, 1]]).unwrap();
 
     let encoder = OneHotEncoder::fit(&x, Default::default()).expect("OneHotEncoder::fit");
     let encoded = encoder.transform(&x).expect("transform");

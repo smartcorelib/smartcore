@@ -6,7 +6,11 @@
 use smartcore::linalg::basic::matrix::DenseMatrix;
 
 fn accuracy(predicted: &[u32], actual: &[u32]) -> f64 {
-    predicted.iter().zip(actual.iter()).filter(|(p, a)| p == a).count() as f64
+    predicted
+        .iter()
+        .zip(actual.iter())
+        .filter(|(p, a)| p == a)
+        .count() as f64
         / actual.len() as f64
 }
 
@@ -30,8 +34,12 @@ fn knn_classifier_inline_workflow() {
     use smartcore::neighbors::knn_classifier::{KNNClassifier, KNNClassifierParameters};
 
     let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64, 2.0], &[1.5, 2.5], &[2.0, 3.0],
-        &[8.0, 8.0], &[8.5, 8.5], &[9.0, 9.0],
+        &[1.0_f64, 2.0],
+        &[1.5, 2.5],
+        &[2.0, 3.0],
+        &[8.0, 8.0],
+        &[8.5, 8.5],
+        &[9.0, 9.0],
     ])
     .unwrap();
     let y: Vec<u32> = vec![0, 0, 0, 1, 1, 1];
@@ -55,10 +63,7 @@ fn knn_classifier_inline_workflow() {
 fn knn_regressor_inline_workflow() {
     use smartcore::neighbors::knn_regressor::{KNNRegressor, KNNRegressorParameters};
 
-    let x = DenseMatrix::from_2d_array(&[
-        &[1.0_f64], &[2.0], &[3.0], &[4.0], &[5.0],
-    ])
-    .unwrap();
+    let x = DenseMatrix::from_2d_array(&[&[1.0_f64], &[2.0], &[3.0], &[4.0], &[5.0]]).unwrap();
     let y: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
     let params = KNNRegressorParameters::default().with_k(2);
