@@ -4,7 +4,7 @@
 //! Tracking issue: #397 / #391.
 //!
 //! API notes:
-//!   - `Kernels::rbf()` takes 0 arguments
+//!   - `Kernels::rbf()` creates an RBF kernel with `gamma: None`; must chain `.with_gamma(f64)`
 //!   - `SVC::fit` / `SVR::fit` take params by reference (`&params`)
 //!   - `SVC<TX, TY>` requires `TY: Number + Ord`; use `Vec<i32>` for labels
 //!   - `SVC::predict` returns `Vec<f64>` (the decision value), not `Vec<TY>`
@@ -46,14 +46,13 @@ fn svc_rbf_inline_workflow() {
         &[-1.2, 0.2],
     ])
     .unwrap();
-    // TY: Ord satisfied by i32; ±1 convention
     let y: Vec<i32> = vec![1, 1, 1, 1, -1, -1, -1, -1];
 
     let params = SVCParameters::default()
         .with_c(1.0)
-        .with_kernel(Kernels::rbf());
+        // gamma is required; .rbf() alone leaves it as None
+        .with_kernel(Kernels::rbf().with_gamma(0.5));
     let model = SVC::fit(&x, &y, &params).expect("SVC (RBF)::fit");
-    // predict returns Vec<f64> decision values
     let preds: Vec<f64> = model.predict(&x).expect("predict");
 
     let acc = accuracy_svc(&preds, &y);
@@ -121,7 +120,8 @@ fn svr_rbf_inline_workflow() {
     let params = SVRParameters::default()
         .with_c(10.0)
         .with_eps(0.1)
-        .with_kernel(Kernels::rbf());
+        // gamma is required; .rbf() alone leaves it as None
+        .with_kernel(Kernels::rbf().with_gamma(0.5));
     let model = SVR::fit(&x, &y, &params).expect("SVR (RBF)::fit");
     let preds: Vec<f64> = model.predict(&x).expect("predict");
 
