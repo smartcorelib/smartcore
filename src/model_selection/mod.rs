@@ -2,7 +2,7 @@
 //!
 //! In statistics and machine learning we usually split our data into two sets: one for training and the other one for testing.
 //! We fit our model to the training data, in order to make predictions on the test data. We do that to avoid overfitting or underfitting model to our data.
-//! Overfitting is bad because the model we trained fits trained data too well and can't make any inferences on new data.
+//! Overfitting is bad because the model we trained fits trained data too well and can’t make any inferences on new data.
 //! Underfitted is bad because the model is undetrained and does not fit the training data well.
 //! Splitting data into multiple subsets helps us to find the right combination of hyperparameters, estimate model performance and choose the right model for
 //! the data.
@@ -116,8 +116,11 @@ use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 use crate::rand_custom::get_rng_impl;
 
+// TODO: fix this module
+// pub(crate) mod hyper_tuning;
 pub(crate) mod kfold;
 
+// pub use hyper_tuning::{GridSearchCV, GridSearchCVParameters};
 pub use kfold::{KFold, KFoldIter};
 
 /// An interface for the K-Folds cross-validator
