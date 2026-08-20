@@ -16,8 +16,9 @@
 //! The QR decomposition is more computationally efficient and more numerically stable than calculating the normal equation directly,
 //! but does not work for all data matrices. Unlike the QR decomposition, all matrices have an SVD decomposition.
 //!
-//! Example:
+//! ### Examples
 //!
+//! #### Single-Output Regression
 //! ```
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
@@ -52,6 +53,23 @@
 //! let y_hat = lr.predict(&x).unwrap();
 //! ```
 //!
+//! #### Multi-Output Regression
+//! ```
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linear::linear_regression::*;
+//!
+//! let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]]).unwrap();
+//! let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]]).unwrap();
+//!
+//! let model = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+//!     &x,
+//!     &y,
+//!     Default::default(),
+//! ).unwrap();
+//!
+//! let y_hat = model.predict_matrix(&x).unwrap();
+//! ```
+//!
 //! ## References:
 //!
 //! * ["Pattern Recognition and Machine Learning", C.M. Bishop, Linear Models for Regression](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf)
@@ -60,6 +78,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -189,18 +208,29 @@ impl<
 > PartialEq for LinearRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.intercept().shape() == other.intercept().shape()
-            && self
-                .intercept()
-                .iterator(0)
-                .zip(other.intercept().iterator(0))
-                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
-            && self.coefficients().shape() == other.coefficients().shape()
-            && self
-                .coefficients()
-                .iterator(0)
-                .zip(other.coefficients().iterator(0))
-                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
+        let intercepts_match = match (&self.intercept, &other.intercept) {
+            (Some(a), Some(b)) => {
+                a.shape() == b.shape()
+                    && a.iterator(0)
+                        .zip(b.iterator(0))
+                        .all(|(&x, &y)| (x - y).abs() <= TX::epsilon())
+            }
+            (None, None) => true,
+            _ => false,
+        };
+
+        let coefficients_match = match (&self.coefficients, &other.coefficients) {
+            (Some(a), Some(b)) => {
+                a.shape() == b.shape()
+                    && a.iterator(0)
+                        .zip(b.iterator(0))
+                        .all(|(&x, &y)| (x - y).abs() <= TX::epsilon())
+            }
+            (None, None) => true,
+            _ => false,
+        };
+
+        intercepts_match && coefficients_match
     }
 }
 
@@ -246,9 +276,9 @@ impl<
 > LinearRegression<TX, TY, X, Y>
 {
     /// Fits Linear Regression when target Y is a matrix (N x K).
-    pub fn fit_matrix(
+    pub fn fit_matrix<YM: Array2<TX>>(
         x: &X,
-        y: &X,
+        y: &YM,
         parameters: LinearRegressionParameters,
     ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
@@ -263,13 +293,15 @@ impl<
         // Augment X with column of ones for intercept fitting
         let a = x.h_stack(&X::ones(x_nrows, 1));
 
+        // Convert YM into X safely via iterator mapping
+        let y_x = X::from_iterator(y.iterator(0).copied(), y_nrows, num_targets, 0);
+
         // Solve A * W = Y for W matrix of size (num_attributes + 1) x K
         let w = match parameters.solver {
-            LinearRegressionSolverName::QR => a.qr_solve_mut(y.clone())?,
-            LinearRegressionSolverName::SVD => a.svd_solve_mut(y.clone())?,
+            LinearRegressionSolverName::QR => a.qr_solve_mut(y_x)?,
+            LinearRegressionSolverName::SVD => a.svd_solve_mut(y_x)?,
         };
 
-        // Extract feature coefficients and intercept vector as 1 x K matrix
         let weights = X::from_slice(w.slice(0..num_attributes, 0..num_targets).as_ref());
         let intercept = X::from_slice(
             w.slice(num_attributes..num_attributes + 1, 0..num_targets)
@@ -290,7 +322,7 @@ impl<
         let (nrows, _) = x.shape();
         let mut y_hat = x.matmul(self.coefficients());
 
-        let intercept = self.intercept();
+        let intercept = self.intercept_matrix();
         let (_, num_targets) = intercept.shape();
 
         for i in 0..nrows {
@@ -308,8 +340,13 @@ impl<
         self.coefficients.as_ref().unwrap()
     }
 
-    /// Get estimate of intercepts
-    pub fn intercept(&self) -> &X {
+    /// Get primary intercept value (for single-output regression callers)
+    pub fn intercept(&self) -> &TX {
+        self.intercept.as_ref().unwrap().get((0, 0))
+    }
+
+    /// Get complete intercept matrix (1 x K) for multi-output models
+    pub fn intercept_matrix(&self) -> &X {
         self.intercept.as_ref().unwrap()
     }
 }
@@ -350,7 +387,7 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::basic::arrays::Array; // <-- Add this import
+    use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
@@ -393,15 +430,16 @@ mod tests {
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8,
         ];
 
-        let y_hat_qr = LinearRegression::fit(
+        let lr = LinearRegression::fit(
             &x,
             &y,
             LinearRegressionParameters {
                 solver: LinearRegressionSolverName::QR,
             },
         )
-        .and_then(|lr| lr.predict(&x))
         .unwrap();
+
+        let y_hat_qr = lr.predict(&x).unwrap();
 
         let y_hat_svd = LinearRegression::fit(&x, &y, Default::default())
             .and_then(|lr| lr.predict(&x))
@@ -417,6 +455,10 @@ mod tests {
                 .zip(y_hat_svd.iter())
                 .all(|(&a, &b)| (a - b).abs() <= 5.0)
         );
+
+        // Confirm single-output intercept getter works properly
+        let intercept: f64 = *lr.intercept();
+        assert!((intercept - 83.0).abs() > 0.0);
     }
 
     #[cfg_attr(
@@ -464,9 +506,52 @@ mod tests {
         let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]])
             .unwrap();
 
-        // 2 target columns (y1, y2)
         let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]])
             .unwrap();
+
+        // Test SVD solver path
+        let model_svd = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::SVD),
+        )
+        .unwrap();
+        let pred_svd = model_svd.predict_matrix(&x).unwrap();
+
+        // Test QR solver path
+        let model_qr = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::QR),
+        )
+        .unwrap();
+        let pred_qr = model_qr.predict_matrix(&x).unwrap();
+
+        assert_eq!(pred_svd.shape(), (4, 2));
+        assert_eq!(pred_qr.shape(), (4, 2));
+        assert_eq!(model_svd.coefficients().shape(), (2, 2));
+    }
+
+    #[test]
+    fn multi_output_numerical_correctness() {
+        // Target model: Y_1 = 2*X_1 + 1*X_2 + 3, Y_2 = 1*X_1 + 3*X_2 + 2
+        let x = DenseMatrix::from_2d_array(&[
+            &[1.0, 0.0],
+            &[0.0, 1.0],
+            &[2.0, 2.0],
+            &[3.0, 1.0],
+            &[1.0, 4.0],
+        ])
+        .unwrap();
+
+        let y = DenseMatrix::from_2d_array(&[
+            &[5.0, 3.0],
+            &[4.0, 5.0],
+            &[9.0, 10.0],
+            &[10.0, 8.0],
+            &[9.0, 15.0],
+        ])
+        .unwrap();
 
         let model = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
             &x,
@@ -474,9 +559,32 @@ mod tests {
             Default::default(),
         )
         .unwrap();
-        let predictions = model.predict_matrix(&x).unwrap();
 
-        assert_eq!(predictions.shape(), (4, 2));
-        assert_eq!(model.coefficients().shape(), (2, 2));
+        let coefs = model.coefficients();
+        let intercept = model.intercept_matrix();
+
+        // Check slope matrix (2 x 2)
+        assert!((coefs.get((0, 0)) - 2.0).abs() < 1e-5);
+        assert!((coefs.get((1, 0)) - 1.0).abs() < 1e-5);
+        assert!((coefs.get((0, 1)) - 1.0).abs() < 1e-5);
+        assert!((coefs.get((1, 1)) - 3.0).abs() < 1e-5);
+
+        // Check intercept vector (1 x 2)
+        assert!((intercept.get((0, 0)) - 3.0).abs() < 1e-5);
+        assert!((intercept.get((0, 1)) - 2.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn fit_matrix_dimension_mismatch() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0]]).unwrap();
+        let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5]]).unwrap();
+
+        let result = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            Default::default(),
+        );
+
+        assert!(result.is_err());
     }
 }
