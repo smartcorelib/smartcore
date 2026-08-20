@@ -461,22 +461,12 @@ mod tests {
 
     #[test]
     fn multi_output_ols_fit_predict() {
-        let x = DenseMatrix::from_2d_array(&[
-            &[1.0, 2.0],
-            &[2.0, 1.0],
-            &[3.0, 4.0],
-            &[4.0, 3.0],
-        ])
-        .unwrap();
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]])
+            .unwrap();
 
         // 2 target columns (y1, y2)
-        let y = DenseMatrix::from_2d_array(&[
-            &[4.0, 1.5],
-            &[5.0, 3.0],
-            &[10.0, 0.5],
-            &[11.0, 2.0],
-        ])
-        .unwrap();
+        let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]])
+            .unwrap();
 
         let model = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
             &x,
