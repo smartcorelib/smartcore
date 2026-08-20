@@ -22,7 +22,7 @@
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
 //!
-//! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
+//! // Longley dataset ([https://www.statsmodels.org/stable/datasets/generated/longley.html](https://www.statsmodels.org/stable/datasets/generated/longley.html))
 //! let x = DenseMatrix::from_2d_array(&[
 //!               &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
 //!               &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
@@ -109,10 +109,11 @@ pub struct LinearRegression<
     TX: Number + RealNumber,
     TY: Number,
     X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-    Y: Array1<TY>,
+    Y,
 > {
     coefficients: Option<X>,
-    intercept: Option<TX>,
+    intercept: Option<X>,
+    _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -184,11 +185,16 @@ impl<
     TX: Number + RealNumber,
     TY: Number,
     X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-    Y: Array1<TY>,
+    Y,
 > PartialEq for LinearRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.intercept == other.intercept
+        self.intercept().shape() == other.intercept().shape()
+            && self
+                .intercept()
+                .iterator(0)
+                .zip(other.intercept().iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
             && self.coefficients().shape() == other.coefficients().shape()
             && self
                 .coefficients()
@@ -209,6 +215,7 @@ impl<
         Self {
             coefficients: Option::None,
             intercept: Option::None,
+            _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -235,77 +242,115 @@ impl<
     TX: Number + RealNumber,
     TY: Number,
     X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-    Y: Array1<TY>,
+    Y,
 > LinearRegression<TX, TY, X, Y>
 {
-    /// Fits Linear Regression to your data.
-    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
-    /// * `y` - target values
-    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
-    pub fn fit(
+    /// Fits Linear Regression when target Y is a matrix (N x K).
+    pub fn fit_matrix(
         x: &X,
-        y: &Y,
+        y: &X,
         parameters: LinearRegressionParameters,
     ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
-        let b = X::from_iterator(
-            y.iterator(0).map(|&v| TX::from(v).unwrap()),
-            y.shape(),
-            1,
-            0,
-        );
         let (x_nrows, num_attributes) = x.shape();
-        let (y_nrows, _) = b.shape();
+        let (y_nrows, num_targets) = y.shape();
 
         if x_nrows != y_nrows {
             return Err(Failed::fit(
-                "Number of rows of X doesn\'t match number of rows of Y",
+                "Number of rows of X doesn't match number of rows of Y",
             ));
         }
 
+        // Augment X with column of ones for intercept fitting
         let a = x.h_stack(&X::ones(x_nrows, 1));
 
+        // Solve A * W = Y for W matrix of size (num_attributes + 1) x K
         let w = match parameters.solver {
-            LinearRegressionSolverName::QR => a.qr_solve_mut(b)?,
-            LinearRegressionSolverName::SVD => a.svd_solve_mut(b)?,
+            LinearRegressionSolverName::QR => a.qr_solve_mut(y.clone())?,
+            LinearRegressionSolverName::SVD => a.svd_solve_mut(y.clone())?,
         };
 
-        let weights = X::from_slice(w.slice(0..num_attributes, 0..1).as_ref());
+        // Extract feature coefficients and intercept vector as 1 x K matrix
+        let weights = X::from_slice(w.slice(0..num_attributes, 0..num_targets).as_ref());
+        let intercept = X::from_slice(
+            w.slice(num_attributes..num_attributes + 1, 0..num_targets)
+                .as_ref(),
+        );
 
         Ok(LinearRegression {
-            intercept: Some(*w.get((num_attributes, 0))),
+            intercept: Some(intercept),
             coefficients: Some(weights),
+            _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         })
     }
 
-    /// Predict target values from `x`
-    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+    /// Predict matrix Y_hat given input feature matrix X
+    pub fn predict_matrix(&self, x: &X) -> Result<X, Failed> {
         let (nrows, _) = x.shape();
-        let bias = X::fill(nrows, 1, *self.intercept());
         let mut y_hat = x.matmul(self.coefficients());
-        y_hat.add_mut(&bias);
-        Ok(Y::from_iterator(
-            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
-            nrows,
-        ))
+
+        let intercept = self.intercept();
+        let (_, num_targets) = intercept.shape();
+
+        for i in 0..nrows {
+            for j in 0..num_targets {
+                let current = y_hat.get((i, j));
+                let bias = intercept.get((0, j));
+                y_hat.set((i, j), *current + *bias);
+            }
+        }
+        Ok(y_hat)
     }
 
-    /// Get estimates regression coefficients
+    /// Get estimated regression coefficients
     pub fn coefficients(&self) -> &X {
         self.coefficients.as_ref().unwrap()
     }
 
-    /// Get estimate of intercept
-    pub fn intercept(&self) -> &TX {
+    /// Get estimate of intercepts
+    pub fn intercept(&self) -> &X {
         self.intercept.as_ref().unwrap()
+    }
+}
+
+impl<
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> LinearRegression<TX, TY, X, Y>
+{
+    /// Fits Linear Regression to 1D target values.
+    pub fn fit(
+        x: &X,
+        y: &Y,
+        parameters: LinearRegressionParameters,
+    ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
+        let y_mat = X::from_iterator(
+            y.iterator(0).map(|&v| TX::from(v).unwrap()),
+            y.shape(),
+            1,
+            0,
+        );
+        Self::fit_matrix(x, &y_mat, parameters)
+    }
+
+    /// Predict 1D target values from `x`
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let y_hat_mat = self.predict_matrix(x)?;
+        let (nrows, _) = x.shape();
+        Ok(Y::from_iterator(
+            y_hat_mat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            nrows,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::linalg::basic::arrays::Array; // <-- Add this import
     use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
@@ -412,5 +457,36 @@ mod tests {
             postcard::from_bytes(&postcard::to_allocvec(&lr).unwrap()).unwrap();
 
         assert_eq!(lr, deserialized_lr);
+    }
+
+    #[test]
+    fn multi_output_ols_fit_predict() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[1.0, 2.0],
+            &[2.0, 1.0],
+            &[3.0, 4.0],
+            &[4.0, 3.0],
+        ])
+        .unwrap();
+
+        // 2 target columns (y1, y2)
+        let y = DenseMatrix::from_2d_array(&[
+            &[4.0, 1.5],
+            &[5.0, 3.0],
+            &[10.0, 0.5],
+            &[11.0, 2.0],
+        ])
+        .unwrap();
+
+        let model = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            Default::default(),
+        )
+        .unwrap();
+        let predictions = model.predict_matrix(&x).unwrap();
+
+        assert_eq!(predictions.shape(), (4, 2));
+        assert_eq!(model.coefficients().shape(), (2, 2));
     }
 }
