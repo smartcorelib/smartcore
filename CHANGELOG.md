@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7]
+### Added
+- `linear/linear_regression.rs`: native multi-output matrix support (#432, #433). `LinearRegression::fit_matrix` fits _N x K_ targets directly (both QR and SVD solvers); `predict_matrix` returns the _K_-column prediction matrix; `intercept_matrix` exposes the _1 x K_ intercept row.
+
+### Changed
+- **Breaking**: `LinearRegression` field `intercept` changed from `Option<TX>` to `Option<X>` (a _1 x K_ matrix) and the struct gained `PhantomData<TX>`. Previously serialized models will not deserialize; re-fit or migrate saved models. `intercept()` still returns a scalar for single-output callers.
+
 ## [0.6.4]
 ### Added
 - Stage 2 test-coverage push (#393): `proptest` dev-dependency + property-based invariant tests and linalg edge cases.

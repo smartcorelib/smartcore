@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.github.io/"
-version = "0.6.6"
+version = "0.6.7"
 authors = ["smartcore Developers"]
 edition = "2024"
 rust-version = "1.85"
