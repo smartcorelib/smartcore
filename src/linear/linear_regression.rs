@@ -292,6 +292,16 @@ impl<
             ));
         }
 
+        // The intercept column adds one unknown, so the solved system has
+        // num_attributes + 1 columns. Both solvers below need at least that
+        // many rows; a shorter system is underdetermined (#435).
+        if x_nrows < num_attributes + 1 {
+            return Err(Failed::fit(&format!(
+                "The system is underdetermined: n_samples = {x_nrows}, \
+                 n_features = {num_attributes}. Need n_samples >= n_features + 1."
+            )));
+        }
+
         // Augment X with column of ones for intercept fitting
         let a = x.h_stack(&X::ones(x_nrows, 1));
 
@@ -638,5 +648,80 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_underdetermined_system_svd_returns_error() {
+        // Issue #435: n_features + 1 > n_samples must yield Err(Failed), not a panic.
+        // The intercept column makes the augmented system 3x4 while only 3 rows exist.
+        let x =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 10.0]])
+                .unwrap();
+        let y: Vec<f64> = vec![1.0, 2.0, 3.0];
+
+        let result = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            Default::default(),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_underdetermined_system_qr_returns_error() {
+        // Issue #435: the QR solver must also report an error instead of
+        // panicking with "Matrix is rank deficient."
+        let x =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 10.0]])
+                .unwrap();
+        let y: Vec<f64> = vec![1.0, 2.0, 3.0];
+
+        let result = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::QR),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_boundary_sample_count_fits_both_solvers() {
+        // n_samples == n_features + 1 gives a full-rank square augmented system;
+        // both solvers must still fit and recover y = x1 + 2*x2 + 1.
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 3.0]]).unwrap();
+        let y: Vec<f64> = vec![6.0, 5.0, 10.0];
+
+        let model_svd = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            Default::default(),
+        )
+        .unwrap();
+        let model_qr = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::QR),
+        )
+        .unwrap();
+
+        for model in [&model_svd, &model_qr] {
+            assert!((*model.coefficients().get((0, 0)) - 1.0).abs() < 1e-8);
+            assert!((*model.coefficients().get((1, 0)) - 2.0).abs() < 1e-8);
+            assert!((*model.intercept() - 1.0).abs() < 1e-8);
+        }
     }
 }
