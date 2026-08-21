@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.9]
 ### Fixed
-- `metrics`: `precision`, `recall`, and `f1` (the free functions and the `Precision` / `Recall` / `F1` metric structs) now accept any label type that implements `Number`, including ordered integers such as `u16` or `i32`; labels no longer need to implement `RealNumber` (#322). The same integer labels can now feed `RandomForestClassifier::fit` and classification metrics inside `model_selection::cross_validate`. Class keys are derived through a shared `f64` conversion instead of raw float bit transmutation; scores for float inputs are unchanged.
+- `metrics`: `precision`, `recall`, and `f1` (the free functions, the `Precision` / `Recall` / `F1` metric structs, and the matching `ClassificationMetrics` entry points) now accept any label type that implements `Number`, including ordered integers such as `u16` or `i32`; labels no longer need to implement `RealNumber` or `FloatNumber` (#322). The same integer labels can now feed `RandomForestClassifier::fit` and classification metrics inside `model_selection::cross_validate`. Class keys are derived through a shared `f64` conversion instead of raw float bit transmutation; scores for float inputs are unchanged.
 
 ## [0.6.8]
 ### Fixed
