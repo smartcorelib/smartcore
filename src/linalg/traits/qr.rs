@@ -30,7 +30,7 @@
 
 use std::fmt::Debug;
 
-use crate::error::Failed;
+use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
@@ -106,7 +106,10 @@ impl<T: Number + RealNumber, M: Array2<T>> QR<T, M> {
         }
 
         if self.singular {
-            panic!("Matrix is rank deficient.");
+            return Err(Failed::because(
+                FailedError::SolutionFailed,
+                "Matrix is rank deficient.",
+            ));
         }
 
         for k in 0..n {
@@ -237,5 +240,19 @@ mod tests {
         .unwrap();
         let w = a.qr_solve_mut(b).unwrap();
         assert!(relative_eq!(w, expected_w, epsilon = 1e-2));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn solve_rank_deficient_returns_error() {
+        // Issue #435: duplicate columns make A rank deficient; the solver must
+        // return Err instead of panicking with "Matrix is rank deficient."
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 1.0], &[2.0, 2.0], &[3.0, 3.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1.0], &[2.0], &[3.0]]).unwrap();
+
+        assert!(a.qr_solve_mut(b).is_err());
     }
 }

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8]
+### Fixed
+- `linear/linear_regression.rs`: `LinearRegression::fit` / `fit_matrix` now return `Err(Failed::fit(...))` instead of panicking when the intercept-augmented system is underdetermined, i.e. `n_features + 1 > n_samples` (#435). Both the default SVD solver and the QR solver are covered.
+- `linalg/traits/svd.rs`: `svd_solve` / `svd_solve_mut` reject systems where _A_ has more columns than rows with `FailedError::SolutionFailed` instead of writing the solution out of `b`'s bounds; `SVD::solve` gained a matching defensive guard.
+- `linalg/traits/qr.rs`: `qr_solve_mut` returns `Err(Failed)` ("Matrix is rank deficient.") for rank-deficient systems (duplicate/collinear columns, underdetermined shapes) instead of panicking.
+
 ## [0.6.7]
 ### Added
 - `linear/linear_regression.rs`: native multi-output matrix support (#432, #433). `LinearRegression::fit_matrix` fits _N x K_ targets directly (both QR and SVD solvers); `predict_matrix` returns the _K_-column prediction matrix; `intercept_matrix` exposes the _1 x K_ intercept row.
