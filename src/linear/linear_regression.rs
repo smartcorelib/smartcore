@@ -23,7 +23,7 @@
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
 //!
-//! // Longley dataset ([https://www.statsmodels.org/stable/datasets/generated/longley.html](https://www.statsmodels.org/stable/datasets/generated/longley.html))
+//! // Longley dataset (https://www.statsmodels.org/stable/datasets/generated/longley.html)
 //! let x = DenseMatrix::from_2d_array(&[
 //!               &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
 //!               &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
@@ -78,7 +78,6 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -275,7 +274,10 @@ impl<
     Y,
 > LinearRegression<TX, TY, X, Y>
 {
-    /// Fits Linear Regression when target Y is a matrix (N x K).
+    /// Fits Linear Regression to your data.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - _NxK_ matrix with _N_ observations and _K_ target values in each observation.
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit_matrix<YM: Array2<TX>>(
         x: &X,
         y: &YM,
@@ -293,7 +295,8 @@ impl<
         // Augment X with column of ones for intercept fitting
         let a = x.h_stack(&X::ones(x_nrows, 1));
 
-        // Convert YM into X safely via iterator mapping
+        // Convert Y into X storage; both iterator(0) and from_iterator(axis = 0)
+        // traverse logical row-major order for every Array2 implementation
         let y_x = X::from_iterator(y.iterator(0).copied(), y_nrows, num_targets, 0);
 
         // Solve A * W = Y for W matrix of size (num_attributes + 1) x K
@@ -317,35 +320,39 @@ impl<
         })
     }
 
-    /// Predict matrix Y_hat given input feature matrix X
+    /// Predict target values from `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict_matrix(&self, x: &X) -> Result<X, Failed> {
         let (nrows, _) = x.shape();
-        let mut y_hat = x.matmul(self.coefficients());
 
         let intercept = self.intercept_matrix();
         let (_, num_targets) = intercept.shape();
 
-        for i in 0..nrows {
-            for j in 0..num_targets {
-                let current = y_hat.get((i, j));
-                let bias = intercept.get((0, j));
-                y_hat.set((i, j), *current + *bias);
-            }
-        }
+        let mut y_hat = x.matmul(self.coefficients());
+
+        // Tile the 1xK intercept across all rows, then add in one pass
+        let bias = X::from_iterator(
+            (0..nrows).flat_map(|_| intercept.iterator(0).copied()),
+            nrows,
+            num_targets,
+            0,
+        );
+        y_hat.add_mut(&bias);
+
         Ok(y_hat)
     }
 
-    /// Get estimated regression coefficients
+    /// Get estimates regression coefficients
     pub fn coefficients(&self) -> &X {
         self.coefficients.as_ref().unwrap()
     }
 
-    /// Get primary intercept value (for single-output regression callers)
+    /// Get estimate of intercept (first target for multi-output models)
     pub fn intercept(&self) -> &TX {
         self.intercept.as_ref().unwrap().get((0, 0))
     }
 
-    /// Get complete intercept matrix (1 x K) for multi-output models
+    /// Get estimates of intercepts as a _1xK_ matrix
     pub fn intercept_matrix(&self) -> &X {
         self.intercept.as_ref().unwrap()
     }
@@ -358,7 +365,10 @@ impl<
     Y: Array1<TY>,
 > LinearRegression<TX, TY, X, Y>
 {
-    /// Fits Linear Regression to 1D target values.
+    /// Fits Linear Regression to your data.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - target values
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
         x: &X,
         y: &Y,
@@ -373,7 +383,8 @@ impl<
         Self::fit_matrix(x, &y_mat, parameters)
     }
 
-    /// Predict 1D target values from `x`
+    /// Predict target values from `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         let y_hat_mat = self.predict_matrix(x)?;
         let (nrows, _) = x.shape();
@@ -502,6 +513,31 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
+    fn multi_output_serde() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]])
+            .unwrap();
+        let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]])
+            .unwrap();
+
+        let lr = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            Default::default(),
+        )
+        .unwrap();
+
+        let deserialized_lr: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            postcard::from_bytes(&postcard::to_allocvec(&lr).unwrap()).unwrap();
+
+        assert_eq!(lr, deserialized_lr);
+        assert_eq!(
+            lr.intercept_matrix().shape(),
+            deserialized_lr.intercept_matrix().shape()
+        );
+    }
+
+    #[test]
     fn multi_output_ols_fit_predict() {
         let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]])
             .unwrap();
@@ -530,6 +566,14 @@ mod tests {
         assert_eq!(pred_svd.shape(), (4, 2));
         assert_eq!(pred_qr.shape(), (4, 2));
         assert_eq!(model_svd.coefficients().shape(), (2, 2));
+
+        // Both solvers should agree on well-conditioned data
+        assert!(
+            pred_svd
+                .iterator(0)
+                .zip(pred_qr.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= 1e-8)
+        );
     }
 
     #[test]
@@ -572,6 +616,14 @@ mod tests {
         // Check intercept vector (1 x 2)
         assert!((intercept.get((0, 0)) - 3.0).abs() < 1e-5);
         assert!((intercept.get((0, 1)) - 2.0).abs() < 1e-5);
+
+        // Predictions should reproduce the exact linear targets
+        let y_hat = model.predict_matrix(&x).unwrap();
+        for i in 0..y.shape().0 {
+            for j in 0..y.shape().1 {
+                assert!((*y_hat.get((i, j)) - *y.get((i, j))).abs() < 1e-5);
+            }
+        }
     }
 
     #[test]
