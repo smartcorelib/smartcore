@@ -21,6 +21,18 @@
 //! let score: f64 = F1::new_with(beta).get_score( &y_true, &y_pred);
 //! ```
 //!
+//! Integer labels work too, so these metrics pair with classifiers like
+//! `RandomForestClassifier`, whose `fit` takes ordered integer labels:
+//!
+//! ```
+//! use smartcore::metrics::f1::F1;
+//! use smartcore::metrics::Metrics;
+//! let y_pred: Vec<u16> = vec![0, 0, 1, 1, 1, 1];
+//! let y_true: Vec<u16> = vec![0, 1, 1, 0, 1, 0];
+//!
+//! let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_pred);
+//! ```
+//!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::marker::PhantomData;
@@ -33,8 +45,6 @@ use crate::metrics::confusion::ConfusionCounts;
 use crate::metrics::precision::Precision;
 use crate::metrics::recall::Recall;
 use crate::numbers::basenum::Number;
-use crate::numbers::floatnum::FloatNumber;
-use crate::numbers::realnum::RealNumber;
 
 use crate::metrics::Metrics;
 
@@ -47,7 +57,7 @@ pub struct F1<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: Number + RealNumber + FloatNumber> Metrics<T> for F1<T> {
+impl<T: Number> Metrics<T> for F1<T> {
     fn new() -> Self {
         let beta: f64 = 1f64;
         Self {
@@ -223,5 +233,30 @@ mod tests {
 
         let perfect: f64 = F1::new_with(1.0).get_score(&y_true, &y_true);
         assert!((perfect - 1.0).abs() < 1e-8);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn f1_integer_labels() {
+        // Binary case with ordered integer labels (#322).
+        // Mirrors the float case above: P=0.5, R=2/3 -> F1 = 4/7.
+        let y_true: Vec<u16> = vec![0, 1, 1, 0, 1, 0];
+        let y_pred: Vec<u16> = vec![0, 0, 1, 1, 1, 1];
+        let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_pred);
+        assert!((score - 0.57142857).abs() < 1e-8);
+
+        // Perfect predictions score 1.0.
+        let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_true);
+        assert!((score - 1.0).abs() < 1e-8);
+
+        // Multiclass macro-average with i64 labels.
+        let y_true: Vec<i64> = vec![0, 0, 1, 1, 2, 2];
+        let y_pred: Vec<i64> = vec![0, 1, 1, 1, 2, 2];
+        let score: f64 = F1::new_with(1.0).get_score(&y_true, &y_pred);
+        let expected = (2.0 / 3.0 + 0.8 + 1.0) / 3.0;
+        assert!((score - expected).abs() < 1e-8);
     }
 }
