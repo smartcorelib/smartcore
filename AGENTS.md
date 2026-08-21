@@ -58,6 +58,8 @@ When touching feature-gated code, run at least `cargo build --all-features` and 
 - Follow the existing **sklearn-inspired API** where possible for a frictionless user experience.
 - Keep the library code **pure Rust**. Unsafe code is strongly discouraged; limited low-level exceptions are allowed only with clear justification.
 - **Do not use macros in library code**. Prefer explicit, readable implementations.
+- Always use **zero-copy data access**. Traverse and transform matrices/vectors through the `iterator(...)` method and the view traits (`ArrayView*`, `MutArrayView*`) instead of cloning into temporary collections.
+- Always rely on the bespoke **`numbers/` abstraction** (`Number`, `RealNumber`, `FloatNumber`, ...) for numeric logic; do not hard-code primitive arithmetic on concrete types or pull in external numeric crates.
 - Target small/average datasets with a limited memory footprint rather than big-data optimizations.
 - Every public module should:
   - Start with a `//!` doc comment that includes references to scientific literature relating the code to research.

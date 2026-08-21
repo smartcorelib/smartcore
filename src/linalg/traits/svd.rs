@@ -33,7 +33,7 @@
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 #![expect(non_snake_case)]
 
-use crate::error::Failed;
+use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
@@ -71,11 +71,23 @@ impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
 pub trait SVDDecomposable<T: Number + RealNumber>: Array2<T> {
     /// Solves Ax = b. Overrides original matrix in the process.
     fn svd_solve_mut(self, b: Self) -> Result<Self, Failed> {
+        if self.shape().1 > self.shape().0 {
+            return Err(Failed::because(
+                FailedError::SolutionFailed,
+                "Cannot solve: the system is underdetermined (A has more columns than rows)",
+            ));
+        }
         self.svd_mut().and_then(|svd| svd.solve(b))
     }
 
     /// Solves Ax = b
     fn svd_solve(&self, b: Self) -> Result<Self, Failed> {
+        if self.shape().1 > self.shape().0 {
+            return Err(Failed::because(
+                FailedError::SolutionFailed,
+                "Cannot solve: the system is underdetermined (A has more columns than rows)",
+            ));
+        }
         self.svd().and_then(|svd| svd.solve(b))
     }
 
@@ -445,6 +457,15 @@ impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
             );
         }
 
+        // The solution has self.n rows; it cannot be written back into a
+        // shorter b (#435). This happens when A has more columns than rows.
+        if self.n > b.shape().0 {
+            return Err(Failed::because(
+                FailedError::SolutionFailed,
+                "Cannot solve: the system is underdetermined (A has more columns than rows)",
+            ));
+        }
+
         for k in 0..p {
             let mut tmp = vec![T::zero(); self.n];
             for (j, tmp_j) in tmp.iter_mut().enumerate().take(self.n) {
@@ -752,5 +773,20 @@ mod tests {
         let a_hat = u.matmul(s).matmul(&v.transpose());
 
         assert!(relative_eq!(a, a_hat, epsilon = 1e-3));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn solve_underdetermined_system_returns_error() {
+        // Issue #435: when A has more columns than rows, the solution cannot be
+        // written back into b (b is too short); the solver must report an error.
+        let a = DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
+        let b = DenseMatrix::from_2d_array(&[&[1.0], &[2.0]]).unwrap();
+
+        assert!(a.svd_solve(b.clone()).is_err());
+        assert!(a.svd_solve_mut(b).is_err());
     }
 }
