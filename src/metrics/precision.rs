@@ -19,6 +19,18 @@
 //! let score: f64 = Precision::new().get_score(&y_true, &y_pred);
 //! ```
 //!
+//! Integer labels work too, so these metrics pair with classifiers like
+//! `RandomForestClassifier`, whose `fit` takes ordered integer labels:
+//!
+//! ```
+//! use smartcore::metrics::precision::Precision;
+//! use smartcore::metrics::Metrics;
+//! let y_pred: Vec<u16> = vec![0, 1, 1, 0];
+//! let y_true: Vec<u16> = vec![0, 0, 1, 1];
+//!
+//! let score: f64 = Precision::new().get_score(&y_true, &y_pred);
+//! ```
+//!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
@@ -29,8 +41,8 @@ use std::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
-use crate::metrics::confusion::ConfusionCounts;
-use crate::numbers::realnum::RealNumber;
+use crate::metrics::confusion::{ConfusionCounts, label_bits};
+use crate::numbers::basenum::Number;
 
 use crate::metrics::Metrics;
 
@@ -41,7 +53,7 @@ pub struct Precision<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: RealNumber> Precision<T> {
+impl<T: Number> Precision<T> {
     /// Per-class precision scores derived from shared confusion counts.
     ///
     /// Returns a map from label bit pattern to that class's precision
@@ -72,7 +84,7 @@ impl<T: RealNumber> Precision<T> {
     }
 }
 
-impl<T: RealNumber> Metrics<T> for Precision<T> {
+impl<T: Number> Metrics<T> for Precision<T> {
     /// create a typed object to call Precision functions
     fn new() -> Self {
         Self {
@@ -113,7 +125,7 @@ impl<T: RealNumber> Metrics<T> for Precision<T> {
             // the positive label — so a spurious predicted label not present
             // in y_true does not affect the score. If the positive label is
             // not present in y_true the score is 0.0.
-            let positive_bits = T::one().to_f64_bits();
+            let positive_bits = label_bits(T::one());
             *scores.get(&positive_bits).unwrap_or(&0.0)
         } else {
             // Multiclass case: macro-averaged precision. classes >= 1 is
@@ -220,6 +232,29 @@ mod tests {
         let y_pred: Vec<f64> = vec![0., 2., 1., 1.];
 
         let score: f64 = Precision::new().get_score(&y_true, &y_pred);
+        assert!((score - 1.0).abs() < 1e-8);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn precision_integer_labels() {
+        // Binary case with ordered integer labels (#322).
+        let y_true: Vec<i32> = vec![0, 1, 1, 0];
+        let y_pred: Vec<i32> = vec![0, 0, 1, 1];
+        let score: f64 = Precision::new().get_score(&y_true, &y_pred);
+        assert!((score - 0.5).abs() < 1e-8);
+
+        // Multiclass macro-average with u16 labels.
+        let y_true: Vec<u16> = vec![0, 0, 0, 1, 1, 1, 2, 2, 2];
+        let y_pred: Vec<u16> = vec![0, 1, 2, 0, 1, 2, 0, 1, 2];
+        let score: f64 = Precision::new().get_score(&y_true, &y_pred);
+        assert!((score - 0.333333333).abs() < 1e-8);
+
+        // Perfect predictions score 1.0.
+        let score: f64 = Precision::new().get_score(&y_true, &y_true);
         assert!((score - 1.0).abs() < 1e-8);
     }
 }
