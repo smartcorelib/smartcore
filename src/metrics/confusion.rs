@@ -6,14 +6,27 @@
 //! [`Recall`](crate::metrics::recall::Recall), and
 //! [`F1`](crate::metrics::f1::F1).
 //!
-//! Labels are keyed by their `f64` bit pattern; note that `-0.0` and `+0.0`
-//! have distinct bit patterns and would be counted as separate classes. This
-//! convention is shared across the classification metrics.
+//! Labels are keyed by their `f64` representation: each label is converted
+//! with [`label_bits`] and the resulting bit pattern is used as the class
+//! key. Note that `-0.0` and `+0.0` have distinct bit patterns and would be
+//! counted as separate classes. This convention is shared across the
+//! classification metrics. Integer labels are supported: they convert to
+//! their exact `f64` value when their magnitude is at most 2^53.
 
 use std::collections::{HashMap, HashSet};
 
 use crate::linalg::basic::arrays::ArrayView1;
-use crate::numbers::realnum::RealNumber;
+use crate::numbers::basenum::Number;
+
+/// Convert a class label to its canonical `u64` key.
+///
+/// The label is widened to `f64` and stored as its bit pattern, so integer
+/// labels (`u16`, `i32`, ...) and float labels produce consistent keys.
+/// All types implementing [`Number`] convert to `f64` without failure;
+/// integer values beyond 2^53 lose precision and may collide.
+pub(crate) fn label_bits<T: Number>(v: T) -> u64 {
+    v.to_f64().unwrap().to_bits()
+}
 
 /// Per-class confusion counts for a classification result.
 ///
@@ -36,20 +49,17 @@ impl ConfusionCounts {
     /// `std::convert::From` trait method (the two-argument signature does
     /// not collide with `From::from`'s single-argument form, but the
     /// shadowing is still confusing for readers).
-    pub(crate) fn new<T: RealNumber>(
-        y_true: &dyn ArrayView1<T>,
-        y_pred: &dyn ArrayView1<T>,
-    ) -> Self {
+    pub(crate) fn new<T: Number>(y_true: &dyn ArrayView1<T>, y_pred: &dyn ArrayView1<T>) -> Self {
         let n = y_true.shape();
         let mut classes_set: HashSet<u64> = HashSet::new();
         let mut predicted: HashMap<u64, usize> = HashMap::new();
         let mut support: HashMap<u64, usize> = HashMap::new();
         let mut tp_map: HashMap<u64, usize> = HashMap::new();
         for i in 0..n {
-            let t_bits = y_true.get(i).to_f64_bits();
+            let t_bits = label_bits(*y_true.get(i));
             classes_set.insert(t_bits);
             *support.entry(t_bits).or_insert(0) += 1;
-            *predicted.entry(y_pred.get(i).to_f64_bits()).or_insert(0) += 1;
+            *predicted.entry(label_bits(*y_pred.get(i))).or_insert(0) += 1;
             if *y_true.get(i) == *y_pred.get(i) {
                 *tp_map.entry(t_bits).or_insert(0) += 1;
             }
@@ -89,7 +99,7 @@ mod tests {
     use super::*;
 
     fn bits_of(v: f64) -> u64 {
-        v.to_f64_bits()
+        v.to_bits()
     }
 
     #[test]

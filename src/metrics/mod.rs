@@ -183,34 +183,33 @@ pub fn accuracy<T: Number + Ord, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f6
 /// Calculated recall score, see [recall](recall/index.html)
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
-    y_true: &V,
-    y_pred: &V,
-) -> f64 {
-    let obj = ClassificationMetrics::<T>::recall();
+///
+/// Works with float and integer labels, e.g. the ordered integer labels
+/// accepted by `RandomForestClassifier::fit`.
+pub fn recall<T: Number, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+    let obj = recall::Recall::<T>::new();
     obj.get_score(y_true, y_pred)
 }
 
 /// Calculated precision score, see [precision](precision/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
-    y_true: &V,
-    y_pred: &V,
-) -> f64 {
-    let obj = ClassificationMetrics::<T>::precision();
+///
+/// Works with float and integer labels, e.g. the ordered integer labels
+/// accepted by `RandomForestClassifier::fit`.
+pub fn precision<T: Number, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+    let obj = precision::Precision::<T>::new();
     obj.get_score(y_true, y_pred)
 }
 
 /// Computes F1 score, see [F1](f1/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
-    y_true: &V,
-    y_pred: &V,
-    beta: f64,
-) -> f64 {
-    let obj = ClassificationMetrics::<T>::f1(beta);
+///
+/// Works with float and integer labels, e.g. the ordered integer labels
+/// accepted by `RandomForestClassifier::fit`.
+pub fn f1<T: Number, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: f64) -> f64 {
+    let obj = f1::F1::<T>::new_with(beta);
     obj.get_score(y_true, y_pred)
 }
 
