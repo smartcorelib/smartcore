@@ -25,7 +25,9 @@ use crate::numbers::basenum::Number;
 /// All types implementing [`Number`] convert to `f64` without failure;
 /// integer values beyond 2^53 lose precision and may collide.
 pub(crate) fn label_bits<T: Number>(v: T) -> u64 {
-    v.to_f64().unwrap().to_bits()
+    v.to_f64()
+        .expect("class label must convert to f64")
+        .to_bits()
 }
 
 /// Per-class confusion counts for a classification result.
