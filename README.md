@@ -40,11 +40,11 @@ Add to Cargo.toml:
 smartcore = "^0.6"
 ```
 
-For the latest development branch:
+For the latest changes from the `main` branch:
 
 ```toml
 [dependencies]
-smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "development" }
+smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "main" }
 ```
 
 Optional features (examples):
@@ -147,7 +147,7 @@ Open the URLs above in a browser. Each page shows a searchable line chart (`data
 Contributions are welcome:
 
 - Open an issue describing the change and link it in the PR.
-- Keep PRs in sync with the development branch and ensure tests pass on stable Rust (MSRV 1.85, edition 2024).
+- Keep PRs in sync with the main branch and ensure tests pass on stable Rust (MSRV 1.85, edition 2024).
 - Provide or update tests; run clippy and apply formatting. Coverage and linting are part of the workflow.
 - Use the provided PR and issue templates to describe behavior changes, new features, and expectations.
 

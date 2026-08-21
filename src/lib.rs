@@ -26,10 +26,10 @@
 //! smartcore = "*"
 //! ```
 //!
-//! To start using smartcore development version with latest unstable additions:
+//! To start using smartcore latest additions from the `main` branch:
 //! ```ignore
 //! [dependencies]
-//! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "development" }
+//! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "main" }
 //! ```
 //!
 //! There are different features that can be added to the base library, for example to add sample datasets:

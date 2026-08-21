@@ -6,7 +6,7 @@ Agent-focused guidance for working on the `smartcore` Rust machine-learning libr
 
 - **Language / edition**: Rust 2024 (MSRV 1.85 — verified by the `msrv` CI job).
 - **Repository**: https://github.com/smartcorelib/smartcore
-- **Default branch**: `development`. All changes should target `development` first.
+- **Default branch**: `main`. All changes should target `main` first.
 - **License**: Apache-2.0.
 - **Authors**: "smartcore Developers".
 
@@ -72,7 +72,7 @@ When touching feature-gated code, run at least `cargo build --all-features` and 
 
 - Open an issue describing the change before starting significant work.
 - Search open and closed issues/PRs for related discussion.
-- Open PRs against the `development` branch.
+- Open PRs against the `main` branch.
 - Use the PR template (`.github/PULL_REQUEST_TEMPLATE.md`) and erase sections that do not apply.
 - Update `CHANGELOG.md` for breaking changes, new environment variables, exposed ports, useful file locations, and container parameters.
 - Ensure CI checks pass:
