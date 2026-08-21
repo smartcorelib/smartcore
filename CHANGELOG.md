@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.10]
+### Fixed
+- `model_selection`: pinned the `KFold` seed in the `test_cross_val_predict_knn` and `test_cross_validate_knn` unit tests. Under `--all-features` (`std_rand`) an unseeded `KFold` draws OS entropy, so each CI run shuffled the folds differently; a sweep of 20 000 seeds showed 0.17% of shuffles violate the `MAE < 10.0` assertion (worst 12.81) and 0.01% violate `train_score < test_score`, making CI flaky. Library behaviour is unchanged; the entropy-seeded path stays covered by the `rand_custom` tests.
+
 ## [0.6.9]
 ### Fixed
 - `metrics`: `precision`, `recall`, and `f1` (the free functions, the `Precision` / `Recall` / `F1` metric structs, and the matching `ClassificationMetrics` entry points) now accept any label type that implements `Number`, including ordered integers such as `u16` or `i32`; labels no longer need to implement `RealNumber` or `FloatNumber` (#322). The same integer labels can now feed `RandomForestClassifier::fit` and classification metrics inside `model_selection::cross_validate`. Class keys are derived through a shared `f64` conversion instead of raw float bit transmutation; scores for float inputs are unchanged.

@@ -451,6 +451,9 @@ mod tests {
 
         let cv = KFold {
             n_splits: 5,
+            // Pinned seed: under std_rand an unseeded KFold draws OS entropy,
+            // which makes these assertions flaky across CI runs.
+            seed: Some(11),
             ..KFold::default()
         };
 
@@ -500,6 +503,9 @@ mod tests {
 
         let cv: KFold = KFold {
             n_splits: 2,
+            // Pinned seed: under std_rand an unseeded KFold draws OS entropy,
+            // which makes these assertions flaky across CI runs.
+            seed: Some(11),
             ..KFold::default()
         };
 
