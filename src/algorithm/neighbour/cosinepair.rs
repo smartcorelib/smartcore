@@ -1,6 +1,10 @@
 ///
 /// ### CosinePair: Data-structure for the dynamic closest-pair problem.
 ///
+/// The structure keeps, for every row, the cosine-distance closest neighbour
+/// found by an exact symmetric half-scan. Construction costs Theta(n^2) dot
+/// products; `top_k` does not make it sub-quadratic.
+///
 /// Reference:
 ///  Eppstein, David: Fast hierarchical clustering and other applications of
 ///  dynamic closest pairs. Journal of Experimental Algorithmics 5 (2000) 1.
@@ -25,24 +29,24 @@
 /// <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use ordered_float::{FloatCore, OrderedFloat};
 
-use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
-use num::Bounded;
-
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::{Array1, Array2};
-use crate::metrics::distance::cosine::Cosine;
-use crate::metrics::distance::{Distance, PairwiseDistance};
+use crate::linalg::basic::arrays::{Array2, ArrayView1};
+use crate::metrics::distance::PairwiseDistance;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
 
 /// Parameters for CosinePair construction
 #[derive(Debug, Clone)]
 pub struct CosinePairParameters {
-    /// Maximum number of neighbors to consider per point (default: all points)
+    /// Maximum number of neighbours returned by
+    /// [`CosinePair::query_row_top_k`] (default: all points). The build stays
+    /// an exact Theta(n^2) scan regardless of this value.
     pub top_k: Option<usize>,
-    /// Whether to use approximate nearest neighbor search
+    /// When `true`, queries score only `top_k` evenly strided candidate rows
+    /// instead of every row, so results are approximate. When `false`
+    /// (default), queries are exact.
     pub approximate: bool,
 }
 
@@ -63,6 +67,13 @@ impl Default for CosinePairParameters {
 ///
 /// affinity used is Cosine as it is the most used
 ///
+/// Construction performs a symmetric half-scan over all unordered row pairs,
+/// so it costs Theta(n^2) dot products over zero-copy row views, with the
+/// Euclidean norm of every row precomputed once in O(n * d). The `top_k`
+/// parameter bounds the number of neighbours kept per row by
+/// [`CosinePair::query_row_top_k`]; it does not make the construction
+/// sub-quadratic.
+///
 #[derive(Debug, Clone)]
 pub struct CosinePair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
     /// initial matrix
@@ -71,6 +82,8 @@ pub struct CosinePair<'a, T: RealNumber + FloatNumber, M: Array2<T>> {
     pub distances: HashMap<usize, PairwiseDistance<T>>,
     /// conga line used to keep track of the closest pair
     pub neighbours: Vec<usize>,
+    /// Euclidean norm (L2) of each row, computed once during construction
+    row_norms: Vec<f64>,
     /// parameters used during construction
     pub parameters: CosinePairParameters,
 }
@@ -81,7 +94,10 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
         Self::with_parameters(m, CosinePairParameters::default())
     }
 
-    /// Constructor with top-k limiting for faster performance
+    /// Constructor that caps the number of neighbours returned by
+    /// [`CosinePair::query_row_top_k`] at `top_k`. Queries stay exact; set
+    /// `approximate` through [`CosinePair::with_parameters`] to score only
+    /// strided candidates.
     pub fn with_top_k(m: &'a M, top_k: usize) -> Result<Self, Failed> {
         Self::with_parameters(
             m,
@@ -101,10 +117,13 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
             ));
         }
 
+        let row_norms = (0..m.shape().0).map(|i| m.get_row(i).norm2()).collect();
+
         let mut init = Self {
             samples: m,
             distances: HashMap::with_capacity(m.shape().0),
             neighbours: Vec::with_capacity(m.shape().0),
+            row_norms,
             parameters,
         };
         init.init();
@@ -121,71 +140,89 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
         ordered.into_inner()
     }
 
-    /// Optimized initialization with top-k neighbor limiting
+    /// Cosine distance between two rows seen as zero-copy views, reusing the
+    /// norms precomputed at construction time. Mirrors
+    /// `Cosine::new().distance(...)`: a zero-magnitude row yields the
+    /// sentinel distance `1 - f64::MIN`.
+    fn cosine_distance_with_norms(
+        row_i: &dyn ArrayView1<T>,
+        norm_i: f64,
+        row_j: &dyn ArrayView1<T>,
+        norm_j: f64,
+    ) -> T {
+        let similarity = if norm_i == 0.0 || norm_j == 0.0 {
+            f64::MIN
+        } else {
+            row_i.dot(row_j).to_f64().unwrap() / (norm_i * norm_j)
+        };
+        T::from(1.0 - similarity).unwrap()
+    }
+
+    /// Cosine distance between two rows of the sample matrix
+    fn row_distance(&self, i: usize, j: usize) -> T {
+        let row_i = self.samples.get_row(i);
+        let row_j = self.samples.get_row(j);
+        Self::cosine_distance_with_norms(
+            row_i.as_ref(),
+            self.row_norms[i],
+            row_j.as_ref(),
+            self.row_norms[j],
+        )
+    }
+
+    /// Exact closest-neighbour search per row.
+    ///
+    /// Cosine distance is symmetric, so each unordered pair `(i, j)` with
+    /// `i < j` is evaluated once and updates the running best candidate of
+    /// both rows. This halves the Theta(n^2) distance evaluations and avoids
+    /// all per-pair allocations by operating on row views.
     fn init(&mut self) {
         let len = self.samples.shape().0;
-        let max_neighbors: usize = self.parameters.top_k.unwrap_or(len - 1).min(len - 1);
 
         let mut distances = HashMap::with_capacity(len);
         let mut neighbours = Vec::with_capacity(len);
 
         neighbours.extend(0..len);
 
-        // Initialize with max distances
+        // best[i] = Some((distance, neighbour index)) of the closest row to i
+        // found so far; `None` until the first candidate arrives
+        let mut best: Vec<Option<(OrderedFloat<T>, usize)>> = vec![None; len];
+
         for i in 0..len {
+            for j in (i + 1)..len {
+                let distance = Self::ordered_float(self.row_distance(i, j));
+                if best[i].is_none_or(|(d, _)| distance < d) {
+                    best[i] = Some((distance, j));
+                }
+                if best[j].is_none_or(|(d, _)| distance < d) {
+                    best[j] = Some((distance, i));
+                }
+            }
+        }
+
+        for (i, best_of_i) in best.iter().enumerate() {
+            let (distance, neighbour) = best_of_i.expect("every row has at least one neighbour");
             distances.insert(
                 i,
                 PairwiseDistance {
                     node: i,
-                    neighbour: None,
-                    distance: Some(<T as Bounded>::max_value()),
+                    neighbour: Some(neighbour),
+                    distance: Some(Self::extract_float(distance)),
                 },
             );
-        }
-
-        // Compute distances for each point using top-k optimization
-        for i in 0..len {
-            let mut candidate_distances = BinaryHeap::new();
-
-            for j in 0..len {
-                if i != j {
-                    let distance = T::from(Cosine::new().distance(
-                        &Vec::from_iterator(
-                            self.samples.get_row(i).iterator(0).copied(),
-                            self.samples.shape().1,
-                        ),
-                        &Vec::from_iterator(
-                            self.samples.get_row(j).iterator(0).copied(),
-                            self.samples.shape().1,
-                        ),
-                    ))
-                    .unwrap();
-
-                    // Use OrderedFloat for stable ordering
-                    candidate_distances.push(Reverse((Self::ordered_float(distance), j)));
-
-                    if candidate_distances.len() > max_neighbors {
-                        candidate_distances.pop();
-                    }
-                }
-            }
-
-            // Find the closest neighbor from candidates
-            if let Some(Reverse((closest_distance, closest_neighbor))) =
-                candidate_distances.iter().min_by_key(|Reverse((d, _))| *d)
-            {
-                distances.entry(i).and_modify(|e| {
-                    e.distance = Some(Self::extract_float(*closest_distance));
-                    e.neighbour = Some(*closest_neighbor);
-                });
-            }
         }
 
         self.distances = distances;
         self.neighbours = neighbours;
     }
 
-    /// Fast query using top-k pre-computed neighbors with ordered-float
+    /// Query the `k` nearest neighbours of a dataset row by cosine distance.
+    ///
+    /// When `parameters.approximate` is `false` (the default), every row is
+    /// scored through a zero-copy view and the returned neighbours are exact.
+    /// When `approximate` is `true` and `top_k` is set, only `top_k` evenly
+    /// strided candidate rows are scored (`step = n / top_k`), so the result
+    /// is approximate. The number of returned neighbours is capped at `top_k`.
     pub fn query_row_top_k(
         &self,
         query_row_index: usize,
@@ -202,53 +239,60 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
             return Ok(Vec::new());
         }
 
-        let max_candidates = self.parameters.top_k.unwrap_or(self.samples.shape().0);
+        let n = self.samples.shape().0;
+        let max_candidates = self.parameters.top_k.unwrap_or(n);
         let actual_k: usize = k.min(max_candidates);
 
-        // Use binary heap with ordered-float for reliable ordering
+        // Max-heap of the `actual_k` closest candidates seen so far: the
+        // greatest entry is evicted first, so the heap keeps the nearest rows
         let mut heap = BinaryHeap::with_capacity(actual_k + 1);
 
-        let candidates = if let Some(top_k) = self.parameters.top_k {
-            let step = (self.samples.shape().0 / top_k).max(1);
-            (0..self.samples.shape().0)
-                .step_by(step)
-                .filter(|&i| i != query_row_index)
-                .take(top_k)
-                .collect::<Vec<_>>()
-        } else {
-            (0..self.samples.shape().0)
-                .filter(|&i| i != query_row_index)
-                .collect::<Vec<_>>()
-        };
+        let query_row = self.samples.get_row(query_row_index);
+        let query_norm = self.row_norms[query_row_index];
 
-        for &candidate_idx in &candidates {
-            let distance = T::from(Cosine::new().distance(
-                &Vec::from_iterator(
-                    self.samples.get_row(query_row_index).iterator(0).copied(),
-                    self.samples.shape().1,
-                ),
-                &Vec::from_iterator(
-                    self.samples.get_row(candidate_idx).iterator(0).copied(),
-                    self.samples.shape().1,
-                ),
-            ))
-            .unwrap();
-
-            heap.push(Reverse((Self::ordered_float(distance), candidate_idx)));
-
+        let score_candidate = |heap: &mut BinaryHeap<(OrderedFloat<T>, usize)>, index: usize| {
+            let row = self.samples.get_row(index);
+            let distance = Self::cosine_distance_with_norms(
+                query_row.as_ref(),
+                query_norm,
+                row.as_ref(),
+                self.row_norms[index],
+            );
+            heap.push((Self::ordered_float(distance), index));
             if heap.len() > actual_k {
                 heap.pop();
             }
+        };
+
+        match (self.parameters.approximate, self.parameters.top_k) {
+            (true, Some(top_k)) => {
+                let step = (n / top_k).max(1);
+                for candidate in (0..n)
+                    .step_by(step)
+                    .filter(|&i| i != query_row_index)
+                    .take(top_k)
+                {
+                    score_candidate(&mut heap, candidate);
+                }
+            }
+            _ => {
+                for candidate in (0..n).filter(|&i| i != query_row_index) {
+                    score_candidate(&mut heap, candidate);
+                }
+            }
         }
 
-        // Convert heap to sorted vector
-        let mut neighbors: Vec<_> = heap
-            .into_vec()
+        // Convert heap to a vector sorted by ascending distance, ties broken
+        // by ascending index
+        let mut neighbors: Vec<(T, usize)> = heap
             .into_iter()
-            .map(|Reverse((dist, idx))| (Self::extract_float(dist), idx))
+            .map(|(distance, index)| (Self::extract_float(distance), index))
             .collect();
-
-        neighbors.sort_by(|a, b| Self::ordered_float(a.0).cmp(&Self::ordered_float(b.0)));
+        neighbors.sort_by(|a, b| {
+            Self::ordered_float(a.0)
+                .cmp(&Self::ordered_float(b.0))
+                .then(a.1.cmp(&b.1))
+        });
 
         Ok(neighbors)
     }
@@ -301,20 +345,22 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
         }
 
         // Compute distances from query vector to all points in the dataset
+        // through zero-copy row views, reusing the precomputed row norms
+        let query_norm = query_vector.norm2();
         let mut distances = Vec::<PairwiseDistance<T>>::with_capacity(self.samples.shape().0);
 
         for i in 0..self.samples.shape().0 {
-            let dataset_point = Vec::from_iterator(
-                self.samples.get_row(i).iterator(0).copied(),
-                self.samples.shape().1,
-            );
-
-            let distance = T::from(Cosine::new().distance(query_vector, &dataset_point)).unwrap();
+            let dataset_point = self.samples.get_row(i);
 
             distances.push(PairwiseDistance {
                 node: i, // This represents the dataset point index
                 neighbour: Some(i),
-                distance: Some(distance),
+                distance: Some(Self::cosine_distance_with_norms(
+                    query_vector,
+                    query_norm,
+                    dataset_point.as_ref(),
+                    self.row_norms[i],
+                )),
             });
         }
 
@@ -388,24 +434,20 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
     #[allow(dead_code)]
     fn distances_from(&self, index_row: usize) -> Vec<PairwiseDistance<T>> {
         let mut distances = Vec::<PairwiseDistance<T>>::with_capacity(self.samples.shape().0);
+        let query_row = self.samples.get_row(index_row);
+        let query_norm = self.row_norms[index_row];
         for other in self.neighbours.iter() {
             if index_row != *other {
+                let row = self.samples.get_row(*other);
                 distances.push(PairwiseDistance {
                     node: index_row,
                     neighbour: Some(*other),
-                    distance: Some(
-                        T::from(Cosine::new().distance(
-                            &Vec::from_iterator(
-                                self.samples.get_row(index_row).iterator(0).copied(),
-                                self.samples.shape().1,
-                            ),
-                            &Vec::from_iterator(
-                                self.samples.get_row(*other).iterator(0).copied(),
-                                self.samples.shape().1,
-                            ),
-                        ))
-                        .unwrap(),
-                    ),
+                    distance: Some(Self::cosine_distance_with_norms(
+                        query_row.as_ref(),
+                        query_norm,
+                        row.as_ref(),
+                        self.row_norms[*other],
+                    )),
                 })
             }
         }
@@ -416,7 +458,10 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::linalg::basic::arrays::Array1;
     use crate::linalg::basic::{arrays::Array, matrix::DenseMatrix};
+    use crate::metrics::distance::Distance;
+    use crate::metrics::distance::cosine::Cosine;
     use approx::{assert_relative_eq, relative_eq};
 
     #[cfg_attr(
@@ -1064,5 +1109,182 @@ mod tests {
 
         // Results should be identical or very close
         assert!((cp_result.distance.unwrap() - brute_result.distance.unwrap()).abs() < 1e-10);
+    }
+
+    // Dataset with a known angular geometry: row 0 points along the x-axis,
+    // the odd rows 1, 3, 5, 7 are near-parallel to row 0 (its true nearest
+    // neighbours), and the even rows 2, 4, 6 are orthogonal to row 0.
+    // Exact top-3 neighbours of row 0 are rows 5, 3, 1 in this order.
+    fn mixed_direction_rows() -> DenseMatrix<f64> {
+        DenseMatrix::<f64>::from_2d_array(&[
+            &[1.0, 0.0, 0.0],   // 0: query row, +x direction
+            &[0.9, 0.1, 0.0],   // 1: near-parallel to row 0
+            &[0.0, 1.0, 0.0],   // 2: orthogonal to row 0
+            &[0.95, 0.05, 0.0], // 3: near-parallel to row 0
+            &[0.0, 0.0, 1.0],   // 4: orthogonal to row 0
+            &[0.99, 0.01, 0.0], // 5: closest row to row 0
+            &[0.0, 1.0, 1.0],   // 6: orthogonal to row 0
+            &[0.8, 0.2, 0.0],   // 7: near-parallel to row 0
+        ])
+        .unwrap()
+    }
+
+    fn cosine_distance_between_rows(m: &DenseMatrix<f64>, i: usize, j: usize) -> f64 {
+        Cosine::new().distance(
+            &Vec::from_iterator(m.get_row(i).iterator(0).copied(), m.shape().1),
+            &Vec::from_iterator(m.get_row(j).iterator(0).copied(), m.shape().1),
+        )
+    }
+
+    // Brute-force oracle: exact top-k neighbours of a row, ties broken by index
+    fn brute_force_top_k(m: &DenseMatrix<f64>, row: usize, k: usize) -> Vec<(f64, usize)> {
+        let mut scored: Vec<(f64, usize)> = (0..m.shape().0)
+            .filter(|&j| j != row)
+            .map(|j| (cosine_distance_between_rows(m, row, j), j))
+            .collect();
+        scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap().then(a.1.cmp(&b.1)));
+        scored.truncate(k);
+        scored
+    }
+
+    #[test]
+    fn query_row_top_k_is_exact_when_approximate_is_false_with_top_k() {
+        let x = mixed_direction_rows();
+        let cosine_pair = CosinePair::with_top_k(&x, 4).unwrap();
+
+        let neighbors = cosine_pair.query_row_top_k(0, 3).unwrap();
+
+        let expected = brute_force_top_k(&x, 0, 3);
+        assert_eq!(neighbors.len(), expected.len());
+        for (got, want) in neighbors.iter().zip(expected.iter()) {
+            assert_eq!(got.1, want.1);
+            assert_relative_eq!(got.0, want.0, epsilon = 1e-12);
+        }
+        // The true nearest neighbours are the near-parallel rows 5, 3, 1.
+        let indices: Vec<usize> = neighbors.iter().map(|&(_, i)| i).collect();
+        assert_eq!(indices, vec![5, 3, 1]);
+    }
+
+    #[test]
+    fn query_row_top_k_is_exact_when_approximate_is_false_with_parameters() {
+        let x = mixed_direction_rows();
+        let cosine_pair = CosinePair::with_parameters(
+            &x,
+            CosinePairParameters {
+                top_k: Some(3),
+                approximate: false,
+            },
+        )
+        .unwrap();
+
+        let neighbors = cosine_pair.query_row_top_k(0, 3).unwrap();
+
+        let expected = brute_force_top_k(&x, 0, 3);
+        assert_eq!(neighbors.len(), expected.len());
+        for (got, want) in neighbors.iter().zip(expected.iter()) {
+            assert_eq!(got.1, want.1);
+            assert_relative_eq!(got.0, want.0, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn query_row_top_k_exact_matches_query_row_from_new() {
+        let x = mixed_direction_rows();
+        let limited = CosinePair::with_top_k(&x, 4).unwrap();
+        let full = CosinePair::new(&x).unwrap();
+
+        // Rows 2, 4, 6 have several neighbours tied at cosine distance 1.0,
+        // where the relative order of equal distances is not specified.
+        for row in [0usize, 1, 3, 5, 7] {
+            let fast = limited.query_row_top_k(row, 3).unwrap();
+            let exact = full.query_row(row, 3).unwrap();
+            assert_eq!(fast.len(), exact.len(), "row {}", row);
+            for (got, want) in fast.iter().zip(exact.iter()) {
+                assert_eq!(got.1, want.1, "row {}", row);
+                assert_relative_eq!(got.0, want.0, epsilon = 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn with_top_k_build_keeps_true_closest_neighbour_per_row() {
+        let x = mixed_direction_rows();
+        let cosine_pair = CosinePair::with_top_k(&x, 4).unwrap();
+
+        for i in 0..x.shape().0 {
+            let expected = brute_force_top_k(&x, i, 1)[0];
+            let stored = cosine_pair.distances[&i];
+            assert_eq!(stored.neighbour, Some(expected.1), "row {}", i);
+            assert_relative_eq!(stored.distance.unwrap(), expected.0, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn with_top_k_full_parity_with_new() {
+        let x = mixed_direction_rows();
+        let n = x.shape().0;
+        let limited = CosinePair::with_top_k(&x, n - 1).unwrap();
+        let full = CosinePair::new(&x).unwrap();
+
+        for i in 0..n {
+            let a = limited.distances[&i];
+            let b = full.distances[&i];
+            assert_eq!(a.neighbour, b.neighbour, "row {}", i);
+            assert_relative_eq!(a.distance.unwrap(), b.distance.unwrap(), epsilon = 1e-12);
+        }
+
+        for row in [0usize, 1, 3, 5, 7] {
+            let fast = limited.query_row_top_k(row, 3).unwrap();
+            let exact = full.query_row(row, 3).unwrap();
+            assert_eq!(fast.len(), exact.len(), "row {}", row);
+            for (got, want) in fast.iter().zip(exact.iter()) {
+                assert_eq!(got.1, want.1, "row {}", row);
+                assert_relative_eq!(got.0, want.0, epsilon = 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn build_closest_neighbour_matches_brute_force_per_row() {
+        let x = mixed_direction_rows();
+        let cosine_pair = CosinePair::new(&x).unwrap();
+
+        for i in 0..x.shape().0 {
+            let expected = brute_force_top_k(&x, i, 1)[0];
+            let stored = cosine_pair.distances[&i];
+            assert_eq!(stored.neighbour, Some(expected.1), "row {}", i);
+            assert_relative_eq!(stored.distance.unwrap(), expected.0, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn query_row_top_k_samples_strided_candidates_when_approximate_is_true() {
+        let x = mixed_direction_rows();
+        let cosine_pair = CosinePair::with_parameters(
+            &x,
+            CosinePairParameters {
+                top_k: Some(4),
+                approximate: true,
+            },
+        )
+        .unwrap();
+
+        let neighbors = cosine_pair.query_row_top_k(0, 3).unwrap();
+
+        assert_eq!(neighbors.len(), 3);
+        // Sampled candidates with step = 8 / 4 = 2 are the even rows 2, 4, 6,
+        // all orthogonal to row 0, so every sampled distance is 1.0 and the
+        // approximate result differs from the exact neighbours 5, 3, 1.
+        let indices: Vec<usize> = neighbors.iter().map(|&(_, i)| i).collect();
+        let mut sorted_indices = indices.clone();
+        sorted_indices.sort_unstable();
+        assert_eq!(sorted_indices, vec![2, 4, 6]);
+        for (distance, index) in &neighbors {
+            assert_relative_eq!(*distance, 1.0, epsilon = 1e-12);
+            assert_ne!(*index, 0);
+        }
+        for i in 1..neighbors.len() {
+            assert!(neighbors[i - 1].0 <= neighbors[i].0);
+        }
     }
 }

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11]
+### Fixed
+- `algorithm/neighbour/cosinepair.rs`: `CosinePair::query_row_top_k` now returns exact nearest neighbours whenever `approximate` is `false` (the default). Previously the query always sampled only `top_k` evenly strided candidate rows without documentation, and the bounded candidate heap evicted its closest entry, so the method could return the farthest of the sampled rows (#442). Strided sampling is now gated behind `CosinePairParameters { approximate: true, .. }` and is documented as approximate.
+- `algorithm/neighbour/cosinepair.rs`: `CosinePair` construction now evaluates each unordered row pair once (symmetric half-scan), precomputes row norms once in O(n·d), and scores pairs through zero-copy row views instead of materialising two `Vec`s per pair (#442). Distances are unchanged (bit-identical formula and operation order as `Cosine::new().distance(...)`); measured build time drops ~3x on a 1500x64 input. Construction remains Theta(n^2) dot products — `top_k` does not make it sub-quadratic; module and method docs now state both facts.
+
+### Changed
+- **Breaking**: `CosinePair` gained a private `row_norms` field holding the precomputed row norms. Construct the structure through `new` / `with_top_k` / `with_parameters` instead of struct literals.
+
 ## [0.6.10]
 ### Fixed
 - `model_selection`: pinned the `KFold` seed in the `test_cross_val_predict_knn` and `test_cross_validate_knn` unit tests. Under `--all-features` (`std_rand`) an unseeded `KFold` draws OS entropy, so each CI run shuffled the folds differently; a sweep of 20 000 seeds showed 0.17% of shuffles violate the `MAE < 10.0` assertion (worst 12.81) and 0.01% violate `train_score < test_score`, making CI flaky. Library behaviour is unchanged; the entropy-seeded path stays covered by the `rand_custom` tests.
