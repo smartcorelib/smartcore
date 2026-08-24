@@ -128,6 +128,7 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct BernoulliNBParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -171,6 +172,7 @@ impl<T: Number + PartialOrd> Default for BernoulliNBParameters<T> {
 /// BernoulliNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct BernoulliNBSearchParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).

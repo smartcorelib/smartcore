@@ -156,6 +156,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
     /// Find closest pair by scanning list of nearest neighbors.
     #[allow(dead_code)]
+    #[must_use]
     pub fn closest_pair(&self) -> PairwiseDistance<T> {
         let mut a = self.neighbours[0]; // Start with first point
         let mut d = self.distances[&a].distance;
@@ -177,6 +178,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     /// Return order dissimilarities from closest to furthest
     ///
     #[allow(dead_code)]
+    #[must_use]
     pub fn ordered_pairs(&self) -> std::vec::IntoIter<&PairwiseDistance<T>> {
         // improvement: implement this to return `impl Iterator<Item = &PairwiseDistance<T>>`
         // need to implement trait `Iterator` for `Vec<&PairwiseDistance<T>>`

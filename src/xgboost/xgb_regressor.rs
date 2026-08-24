@@ -391,6 +391,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 /// This struct holds all the hyperparameters that control the training process.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
+#[must_use]
 pub struct XGRegressorParameters {
     /// The number of boosting rounds or trees to build.
     pub n_estimators: usize,

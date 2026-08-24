@@ -39,11 +39,13 @@ pub enum FailedError {
 impl Failed {
     ///get type of error
     #[inline]
+    #[must_use]
     pub fn error(&self) -> FailedError {
         self.err
     }
 
     /// new instance of `FailedError::FitError`
+    #[must_use]
     pub fn fit(msg: &str) -> Self {
         Failed {
             err: FailedError::FitFailed,
@@ -51,6 +53,7 @@ impl Failed {
         }
     }
     /// new instance of `FailedError::PredictFailed`
+    #[must_use]
     pub fn predict(msg: &str) -> Self {
         Failed {
             err: FailedError::PredictFailed,
@@ -59,6 +62,7 @@ impl Failed {
     }
 
     /// new instance of `FailedError::TransformFailed`
+    #[must_use]
     pub fn transform(msg: &str) -> Self {
         Failed {
             err: FailedError::TransformFailed,
@@ -67,6 +71,7 @@ impl Failed {
     }
 
     /// new instance of `FailedError::ParametersError`
+    #[must_use]
     pub fn input(msg: &str) -> Self {
         Failed {
             err: FailedError::ParametersError,
@@ -75,6 +80,7 @@ impl Failed {
     }
 
     /// new instance of `FailedError::InvalidStateError`
+    #[must_use]
     pub fn invalid_state(msg: &str) -> Self {
         Failed {
             err: FailedError::InvalidStateError,
@@ -83,6 +89,7 @@ impl Failed {
     }
 
     /// new instance of `err`
+    #[must_use]
     pub fn because(err: FailedError, msg: &str) -> Self {
         Failed {
             err,

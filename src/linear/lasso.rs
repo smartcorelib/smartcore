@@ -39,6 +39,7 @@ use crate::numbers::realnum::RealNumber;
 /// Lasso regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LassoParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the strength of the penalty to the loss function.
@@ -151,6 +152,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Pre
 /// Lasso grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LassoSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Controls the strength of the penalty to the loss function.

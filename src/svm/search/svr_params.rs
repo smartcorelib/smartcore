@@ -75,6 +75,7 @@ use std::marker::PhantomData;
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct SVRSearchParameters<T: Number + RealNumber, M: Array2<T>> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: Vec<T>,

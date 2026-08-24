@@ -73,6 +73,7 @@ use crate::numbers::basenum::Number;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// Parameters of Regression Tree
+#[must_use]
 pub struct DecisionTreeRegressorParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the tree.
@@ -128,6 +129,7 @@ impl Default for DecisionTreeRegressorParameters {
 /// DecisionTreeRegressor grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct DecisionTreeRegressorSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)

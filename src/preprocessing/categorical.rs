@@ -34,6 +34,7 @@ use crate::preprocessing::traits::{CategoricalFloat, Categorizable};
 
 /// OneHotEncoder Parameters
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct OneHotEncoderParams {
     /// Column number that contain categorical variable
     pub col_idx_categorical: Option<Vec<usize>>,

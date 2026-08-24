@@ -84,6 +84,7 @@ pub enum RidgeRegressionSolverName {
 /// Ridge Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RidgeRegressionParameters<T: Number + RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
@@ -97,6 +98,7 @@ pub struct RidgeRegressionParameters<T: Number + RealNumber> {
 /// Ridge Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RidgeRegressionSearchParameters<T: Number + RealNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.

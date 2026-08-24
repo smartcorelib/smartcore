@@ -93,6 +93,7 @@ impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 /// `GaussianNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Default, Clone)]
+#[must_use]
 pub struct GaussianNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
@@ -118,6 +119,7 @@ impl GaussianNBParameters {
 /// GaussianNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct GaussianNBSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
@@ -323,30 +325,35 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn classes(&self) -> &Vec<TY> {
         &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Probability of each class
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_priors(&self) -> &Vec<f64> {
         &self.inner.as_ref().unwrap().distribution.class_priors
     }
 
     /// Mean of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
+    #[must_use]
     pub fn theta(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.theta
     }
 
     /// Variance of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
+    #[must_use]
     pub fn var(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.var
     }

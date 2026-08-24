@@ -50,6 +50,7 @@ impl<T: Number> Default for Cosine<T> {
 
 impl<T: Number> Cosine<T> {
     /// Instantiate the initial structure
+    #[must_use]
     pub fn new() -> Cosine<T> {
         Cosine { _t: PhantomData }
     }

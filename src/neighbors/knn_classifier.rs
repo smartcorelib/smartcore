@@ -48,6 +48,7 @@ use crate::numbers::basenum::Number;
 /// `KNNClassifier` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct KNNClassifierParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.

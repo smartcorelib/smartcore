@@ -81,17 +81,20 @@ impl Default for KFold {
 
 impl KFold {
     /// Number of folds. Must be at least 2.
+    #[must_use]
     pub fn with_n_splits(mut self, n_splits: usize) -> Self {
         self.n_splits = n_splits;
         self
     }
     /// Whether to shuffle the data before splitting into batches
+    #[must_use]
     pub fn with_shuffle(mut self, shuffle: bool) -> Self {
         self.shuffle = shuffle;
         self
     }
 
     /// When shuffle is True, random_state affects the ordering of the indices.
+    #[must_use]
     pub fn with_seed(mut self, seed: Option<u64>) -> Self {
         self.seed = seed;
         self

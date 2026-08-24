@@ -124,6 +124,7 @@ impl<T: Number> ClassificationMetrics<T> {
     ///
     /// Works with float and integer labels, e.g. the ordered integer labels
     /// accepted by `RandomForestClassifier::fit`.
+    #[must_use]
     pub fn recall() -> recall::Recall<T> {
         recall::Recall::new()
     }
@@ -132,6 +133,7 @@ impl<T: Number> ClassificationMetrics<T> {
     ///
     /// Works with float and integer labels, e.g. the ordered integer labels
     /// accepted by `RandomForestClassifier::fit`.
+    #[must_use]
     pub fn precision() -> precision::Precision<T> {
         precision::Precision::new()
     }
@@ -140,6 +142,7 @@ impl<T: Number> ClassificationMetrics<T> {
     ///
     /// Works with float and integer labels, e.g. the ordered integer labels
     /// accepted by `RandomForestClassifier::fit`.
+    #[must_use]
     pub fn f1(beta: f64) -> f1::F1<T> {
         f1::F1::new_with(beta)
     }
@@ -147,6 +150,7 @@ impl<T: Number> ClassificationMetrics<T> {
 
 impl<T: Number + FloatNumber + PartialOrd> ClassificationMetrics<T> {
     /// Area Under the Receiver Operating Characteristic Curve (ROC AUC), see [AUC](auc/index.html).
+    #[must_use]
     pub fn roc_auc_score() -> auc::AUC<T> {
         auc::AUC::<T>::new()
     }
@@ -154,6 +158,7 @@ impl<T: Number + FloatNumber + PartialOrd> ClassificationMetrics<T> {
 
 impl<T: Number + Ord> ClassificationMetricsOrd<T> {
     /// Accuracy score, see [accuracy](accuracy/index.html).
+    #[must_use]
     pub fn accuracy() -> accuracy::Accuracy<T> {
         accuracy::Accuracy::new()
     }
@@ -161,16 +166,19 @@ impl<T: Number + Ord> ClassificationMetricsOrd<T> {
 
 impl<T: Number + FloatNumber> RegressionMetrics<T> {
     /// Mean squared error, see [mean squared error](mean_squared_error/index.html).
+    #[must_use]
     pub fn mean_squared_error() -> mean_squared_error::MeanSquareError<T> {
         mean_squared_error::MeanSquareError::new()
     }
 
     /// Mean absolute error, see [mean absolute error](mean_absolute_error/index.html).
+    #[must_use]
     pub fn mean_absolute_error() -> mean_absolute_error::MeanAbsoluteError<T> {
         mean_absolute_error::MeanAbsoluteError::new()
     }
 
     /// Coefficient of determination (R2), see [R2](r2/index.html).
+    #[must_use]
     pub fn r2() -> r2::R2<T> {
         r2::R2::<T>::new()
     }
@@ -178,6 +186,7 @@ impl<T: Number + FloatNumber> RegressionMetrics<T> {
 
 impl<T: Number + Ord> ClusterMetrics<T> {
     /// Homogeneity and completeness and V-Measure scores at once.
+    #[must_use]
     pub fn hcv_score() -> cluster_hcv::HCVScore<T> {
         cluster_hcv::HCVScore::<T>::new()
     }

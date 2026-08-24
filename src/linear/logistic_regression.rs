@@ -82,6 +82,7 @@ pub enum LogisticRegressionSolverName {
 /// Logistic Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -94,6 +95,7 @@ pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
 /// Logistic Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LogisticRegressionSearchParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.

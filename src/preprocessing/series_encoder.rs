@@ -62,6 +62,7 @@ where
     C: Hash + Eq + Clone,
 {
     /// Get the number of categories in the mapper
+    #[must_use]
     pub fn num_categories(&self) -> usize {
         self.num_categories
     }
@@ -87,6 +88,7 @@ where
     }
 
     /// Build an encoder from a predefined (category -> class number) map
+    #[must_use]
     pub fn from_category_map(category_map: HashMap<C, usize>) -> Self {
         let mut _unique_cat: Vec<(C, usize)> =
             category_map.iter().map(|(k, v)| (k.clone(), *v)).collect();
@@ -100,6 +102,7 @@ where
     }
 
     /// Build an encoder from a predefined positional category-class num vector
+    #[must_use]
     pub fn from_positional_category_vec(categories: Vec<C>) -> Self {
         let category_map: HashMap<C, usize> = categories
             .iter()
@@ -119,11 +122,13 @@ where
     }
 
     /// Return category corresponding to label num
+    #[must_use]
     pub fn get_cat(&self, num: usize) -> &C {
         &self.categories[num]
     }
 
     /// List all categories (position = category number)
+    #[must_use]
     pub fn get_categories(&self) -> &[C] {
         &self.categories[..]
     }
@@ -184,6 +189,7 @@ where
 /// let one_hot: Vec<f64> = make_one_hot(2, 3);
 /// assert_eq!(one_hot, vec![0.0, 0.0, 1.0]);
 /// ```
+#[must_use]
 pub fn make_one_hot<T, V>(category_idx: usize, num_categories: usize) -> V
 where
     T: RealNumber,

@@ -38,6 +38,7 @@ pub struct Dataset<X, Y> {
 
 impl<X, Y> Dataset<X, Y> {
     /// Reshape data into a two-dimensional matrix
+    #[must_use]
     pub fn as_matrix(&self) -> Vec<Vec<&X>> {
         let mut result: Vec<Vec<&X>> = Vec::with_capacity(self.num_samples);
 

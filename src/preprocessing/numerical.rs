@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 /// Configure Behaviour of `StandardScaler`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
+#[must_use]
 pub struct StandardScalerParameters {
     /// Optionaly adjust mean to be zero.
     with_mean: bool,
