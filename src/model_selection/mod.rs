@@ -197,6 +197,7 @@ pub struct CrossValidationResult {
 
 impl CrossValidationResult {
     /// Average test score
+    #[must_use]
     pub fn mean_test_score(&self) -> f64 {
         let mut sum = 0f64;
         for s in self.test_score.iter() {
@@ -205,6 +206,7 @@ impl CrossValidationResult {
         sum / self.test_score.len() as f64
     }
     /// Average training score
+    #[must_use]
     pub fn mean_train_score(&self) -> f64 {
         let mut sum = 0f64;
         for s in self.train_score.iter() {

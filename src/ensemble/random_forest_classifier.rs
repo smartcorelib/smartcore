@@ -68,6 +68,7 @@ use crate::tree::decision_tree_classifier::{
 /// Some parameters here are passed directly into base estimator.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RandomForestClassifierParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
@@ -218,6 +219,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
 /// RandomForestClassifier grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RandomForestClassifierSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)

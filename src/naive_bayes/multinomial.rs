@@ -100,6 +100,7 @@ impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 /// `MultinomialNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct MultinomialNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -134,6 +135,7 @@ impl Default for MultinomialNBParameters {
 /// MultinomialNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct MultinomialNBSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -365,29 +367,34 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn classes(&self) -> &Vec<TY> {
         &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Empirical log probability of features given a class, P(x_i|y).
     /// Returns a 2d vector of shape (n_classes, n_features)
+    #[must_use]
     pub fn feature_log_prob(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.feature_log_prob
     }
 
     /// Number of features of each sample
+    #[must_use]
     pub fn n_features(&self) -> usize {
         self.inner.as_ref().unwrap().distribution.n_features
     }
 
     /// Number of samples encountered for each (class, feature)
     /// Returns a 2d vector of shape (n_classes, n_features)
+    #[must_use]
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
         &self.inner.as_ref().unwrap().distribution.feature_count
     }

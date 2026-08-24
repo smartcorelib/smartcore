@@ -42,6 +42,7 @@ impl<T: Number> Default for Euclidian<T> {
 
 impl<T: Number> Euclidian<T> {
     /// instatiate the initial structure
+    #[must_use]
     pub fn new() -> Euclidian<T> {
         Euclidian { _t: PhantomData }
     }

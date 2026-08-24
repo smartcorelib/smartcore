@@ -61,6 +61,7 @@ use crate::tree::base_tree_regressor::Splitter;
 #[derive(Debug, Clone)]
 /// Parameters of the Random Forest Regressor
 /// Some parameters here are passed directly into base estimator.
+#[must_use]
 pub struct RandomForestRegressorParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
@@ -184,6 +185,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 /// RandomForestRegressor grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RandomForestRegressorSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)

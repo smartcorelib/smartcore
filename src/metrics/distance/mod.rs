@@ -49,27 +49,32 @@ pub struct Distances {}
 
 impl Distances {
     /// Euclidian distance, see [`Euclidian`](euclidian/index.html)
+    #[must_use]
     pub fn euclidian<T: Number>() -> euclidian::Euclidian<T> {
         euclidian::Euclidian::new()
     }
 
     /// Minkowski distance, see [`Minkowski`](minkowski/index.html)
     /// * `p` - function order. Should be >= 1
+    #[must_use]
     pub fn minkowski<T: Number>(p: u16) -> minkowski::Minkowski<T> {
         minkowski::Minkowski::new(p)
     }
 
     /// Manhattan distance, see [`Manhattan`](manhattan/index.html)
+    #[must_use]
     pub fn manhattan<T: Number>() -> manhattan::Manhattan<T> {
         manhattan::Manhattan::new()
     }
 
     /// Hamming distance, see [`Hamming`](hamming/index.html)
+    #[must_use]
     pub fn hamming<T: Number>() -> hamming::Hamming<T> {
         hamming::Hamming::new()
     }
 
     /// Jaccard distance, see [`Jaccard`](jaccard/index.html)
+    #[must_use]
     pub fn jaccard<T: Number>() -> jaccard::Jaccard<T> {
         jaccard::Jaccard::new()
     }

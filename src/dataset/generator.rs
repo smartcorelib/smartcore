@@ -16,6 +16,7 @@ fn sample_normal(mean: f32, std: f32, rng: &mut impl rand::Rng) -> f32 {
 }
 
 /// Generate `num_centers` clusters of normally distributed points
+#[must_use]
 pub fn make_blobs(
     num_samples: usize,
     num_features: usize,
@@ -57,6 +58,7 @@ pub fn make_blobs(
 }
 
 /// Make a large circle containing a smaller circle in 2d.
+#[must_use]
 pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32, u32> {
     if !(0.0..1.0).contains(&factor) {
         panic!("'factor' has to be between 0 and 1.");
@@ -97,6 +99,7 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
 }
 
 /// Make two interleaving half circles in 2d
+#[must_use]
 pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, u32> {
     let num_samples_out = num_samples / 2;
     let num_samples_in = num_samples - num_samples_out;

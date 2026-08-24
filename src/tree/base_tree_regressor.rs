@@ -25,6 +25,7 @@ pub enum Splitter {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// Parameters of Regression base_tree
+#[must_use]
 pub struct BaseTreeRegressorParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// The maximum depth of the base_tree.

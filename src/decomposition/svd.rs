@@ -79,6 +79,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// SVD parameters
+#[must_use]
 pub struct SVDParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.
@@ -102,6 +103,7 @@ impl SVDParameters {
 /// SVD grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct SVDSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Maximum number of iterations of the k-means algorithm for a single run.

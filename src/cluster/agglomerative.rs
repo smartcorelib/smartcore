@@ -43,6 +43,7 @@ use crate::numbers::basenum::Number;
 
 /// Parameters for the Agglomerative Clustering algorithm.
 #[derive(Debug, Clone, Copy)]
+#[must_use]
 pub struct AgglomerativeClusteringParameters {
     /// The number of clusters to find.
     pub n_clusters: usize,

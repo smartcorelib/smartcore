@@ -391,6 +391,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 /// This struct holds all the hyperparameters that control the training process.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
+#[must_use]
 pub struct XGRegressorParameters {
     /// The number of boosting rounds or trees to build.
     pub n_estimators: usize,
@@ -492,7 +493,7 @@ impl XGRegressorParameters {
     ///
     /// A value of less than 1.0 introduces randomness and helps prevent overfitting.
     /// The value must be in the range (0, 1]. Each tree gets `floor(n_samples * subsample)`
-    /// rows, but a minimum of one row.
+    /// rows, with a minimum of one row (provided the dataset is non-empty).
     pub fn with_subsample(mut self, subsample: f64) -> Self {
         self.subsample = subsample;
         self
@@ -609,6 +610,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
         subsample_ratio: f64,
         rng: &mut impl Rng,
     ) -> Vec<usize> {
+        debug_assert!(population_size > 0);
+        debug_assert!(subsample_ratio > 0.0 && subsample_ratio <= 1.0);
         let mut indices: Vec<usize> = (0..population_size).collect();
         indices.shuffle(rng);
         // `population_size * subsample_ratio` truncates to 0 for a small population, e.g. 3 rows
@@ -809,7 +812,11 @@ mod tests {
         let predictions: Vec<f64> = model.unwrap().predict(&x).unwrap();
         assert_eq!(predictions.len(), 1);
         assert!(predictions[0].is_finite());
+        // Defaults are base_score 0.5 and learning_rate 0.3. Five boosted steps move
+        // the prediction towards the target 5.0, but do not reach it.
+        assert!(predictions[0] > 0.5 && predictions[0] < 5.0);
     }
+
     #[test]
     fn test_sample_without_replacement_clamps_to_one_row() {
         // (population, ratio): each pair gives `floor(population * ratio) == 0`.

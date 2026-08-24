@@ -72,6 +72,7 @@ use crate::linear::lasso_optimizer::InteriorPointOptimizer;
 /// Elastic net parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct ElasticNetParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.
@@ -147,6 +148,7 @@ impl Default for ElasticNetParameters {
 /// ElasticNet grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct ElasticNetSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Regularization parameter.

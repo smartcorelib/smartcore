@@ -109,6 +109,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for KMeans<
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// K-Means clustering algorithm parameters
+#[must_use]
 pub struct KMeansParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of clusters.
@@ -148,6 +149,7 @@ impl Default for KMeansParameters {
 /// KMeans grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct KMeansSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of clusters.

@@ -16,6 +16,7 @@ use crate::tree::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParam
 #[derive(Debug, Clone)]
 /// Parameters of the Forest Regressor
 /// Some parameters here are passed directly into base estimator.
+#[must_use]
 pub struct BaseForestRegressorParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)

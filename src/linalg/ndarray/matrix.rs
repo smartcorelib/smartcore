@@ -54,6 +54,7 @@ impl<T: Debug + Display + Copy> DenseMatrix<T> {
     /// assert_eq!(matrix.shape(), (3, 4));
     /// assert_eq!(*matrix.get((1, 2)), 6.0);
     /// ```
+    #[must_use]
     pub fn from_ndarray2(a: &ndarray::Array2<T>) -> Self {
         // iter() yields logical row-major order regardless of memory layout.
         Self::from_iterator(a.iter().copied(), a.nrows(), a.ncols(), ROW_MAJOR_AXIS)

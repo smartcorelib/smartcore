@@ -95,6 +95,7 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// PCA parameters
+#[must_use]
 pub struct PCAParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.
@@ -131,6 +132,7 @@ impl Default for PCAParameters {
 /// PCA grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct PCASearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of components to keep.

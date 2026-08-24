@@ -805,6 +805,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
     where
         Self: Sized;
     /// create a zero array
+    #[must_use]
     fn zeros(len: usize) -> Self
     where
         T: Number,
@@ -813,6 +814,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         Self::fill(len, T::zero())
     }
     /// create an array of ones
+    #[must_use]
     fn ones(len: usize) -> Self
     where
         T: Number,
@@ -821,6 +823,7 @@ pub trait Array1<T: Debug + Display + Copy + Sized>: MutArrayView1<T> + Sized + 
         Self::fill(len, T::one())
     }
     /// create an array of random values
+    #[must_use]
     fn rand(len: usize) -> Self
     where
         T: RealNumber,
@@ -1043,6 +1046,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
     where
         Self: Sized;
     /// create a zero 2d array
+    #[must_use]
     fn zeros(nrows: usize, ncols: usize) -> Self
     where
         T: Number,
@@ -1050,6 +1054,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         Self::fill(nrows, ncols, T::zero())
     }
     /// create a 2d array of ones
+    #[must_use]
     fn ones(nrows: usize, ncols: usize) -> Self
     where
         T: Number,
@@ -1057,6 +1062,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         Self::fill(nrows, ncols, T::one())
     }
     /// create an identity matrix
+    #[must_use]
     fn eye(size: usize) -> Self
     where
         T: Number,
@@ -1070,6 +1076,7 @@ pub trait Array2<T: Debug + Display + Copy + Sized>: MutArrayView2<T> + Sized + 
         matrix
     }
     /// create a 2d array of random values
+    #[must_use]
     fn rand(nrows: usize, ncols: usize) -> Self
     where
         T: RealNumber,

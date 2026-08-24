@@ -86,6 +86,7 @@ use crate::rand_custom::get_rng_impl;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// Parameters of Decision Tree
+#[must_use]
 pub struct DecisionTreeClassifierParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree.
@@ -140,6 +141,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         self.classes.as_ref()
     }
     /// Get depth of tree
+    #[must_use]
     pub fn depth(&self) -> u16 {
         self.depth
     }
@@ -249,6 +251,7 @@ impl Default for DecisionTreeClassifierParameters {
 /// DecisionTreeClassifier grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct DecisionTreeClassifierSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Split criteria to use when building a tree. See [Decision Tree Classifier](../../tree/decision_tree_classifier/index.html)
@@ -860,6 +863,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     }
 
     /// Compute feature importances for the fitted tree.
+    #[must_use]
     pub fn compute_feature_importances(&self, normalize: bool) -> Vec<f64> {
         let mut importances = vec![0f64; self.num_features];
 

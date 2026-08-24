@@ -41,6 +41,7 @@ pub struct Jaccard<T: Number> {
 
 impl<T: Number> Jaccard<T> {
     /// instatiate the initial structure
+    #[must_use]
     pub fn new() -> Jaccard<T> {
         Jaccard { _t: PhantomData }
     }

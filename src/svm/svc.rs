@@ -148,7 +148,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     /// # Returns
     /// A `Result` containing a `Vec` of predicted class labels (`TX`) or a `Failed` error.
     fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
-        Ok(self.predict(x).unwrap())
+        self.predict(x)
     }
 }
 
@@ -218,7 +218,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
                 let classes = (class0, class1);
                 let multiclass_config = MultiClassConfig { classes, indices };
                 // Fit a binary SVC for the current pair of classes
-                let svc = SVC::multiclass_fit(x, y, parameters, multiclass_config).unwrap();
+                let svc = SVC::multiclass_fit(x, y, parameters, multiclass_config)?;
                 classifiers.push(svc);
             }
         }
@@ -241,13 +241,15 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     pub fn predict(&self, x: &X) -> Result<Vec<TX>, Failed> {
         // Initialize a HashMap for each data point to store votes for each class
         let mut polls = vec![HashMap::new(); x.shape().0];
-        // Retrieve the trained binary classifiers
-        let classifiers = self.classifiers.as_ref().unwrap();
+        // Retrieve the trained binary classifiers. The field is None only before
+        // fit() has run, e.g. on a deserialized model.
+        let classifiers = self.classifiers.as_ref().ok_or_else(|| {
+            Failed::because(FailedError::PredictFailed, "MultiClassSVC is not fitted")
+        })?;
 
         // Iterate through each binary classifier
-        for i in 0..classifiers.len() {
-            let svc = classifiers.get(i).unwrap();
-            let predictions = svc.predict(x).unwrap(); // call SVC::predict for each binary classifier
+        for svc in classifiers {
+            let predictions = svc.predict(x)?; // call SVC::predict for each binary classifier
 
             // For each prediction from the current binary classifier
             for (j, prediction) in predictions.iter().enumerate() {
@@ -262,20 +264,28 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
             }
         }
 
-        // Determine the final prediction for each data point based on majority vote
-        Ok(polls
+        // Determine the final prediction for each data point based on majority vote.
+        // A poll stays empty when fit() ran on data with fewer than two classes.
+        polls
             .iter()
             .map(|v| {
                 // Find the class with the maximum votes for each data point
-                TX::from(*v.iter().max_by_key(|(_, class)| *class).unwrap().0).unwrap()
+                let (class, _) = v.iter().max_by_key(|(_, class)| *class).ok_or_else(|| {
+                    Failed::because(
+                        FailedError::PredictFailed,
+                        "MultiClassSVC must be fitted on at least two classes",
+                    )
+                })?;
+                Ok(TX::from(*class).unwrap())
             })
-            .collect())
+            .collect()
     }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 /// SVC Parameters
+#[must_use]
 pub struct SVCParameters<TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>> {
     /// Number of epochs.
     pub epoch: usize,
@@ -419,7 +429,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     PredictorBorrow<'a, X, TX> for SVC<'a, TX, TY, X, Y>
 {
     fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
-        Ok(self.predict(x).unwrap())
+        self.predict(x)
     }
 }
 

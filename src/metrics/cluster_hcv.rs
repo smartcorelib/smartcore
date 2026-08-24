@@ -21,14 +21,17 @@ pub struct HCVScore<T> {
 
 impl<T: Number + Ord> HCVScore<T> {
     /// return homogenity score
+    #[must_use]
     pub fn homogeneity(&self) -> Option<f64> {
         self.homogeneity
     }
     /// return completeness score
+    #[must_use]
     pub fn completeness(&self) -> Option<f64> {
         self.completeness
     }
     /// return v_measure score
+    #[must_use]
     pub fn v_measure(&self) -> Option<f64> {
         self.v_measure
     }

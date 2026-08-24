@@ -23,6 +23,7 @@ use crate::dataset::Dataset;
 use crate::dataset::deserialize_data;
 
 /// Get dataset
+#[must_use]
 pub fn load_dataset() -> Dataset<f32, u32> {
     let (x, y, num_samples, num_features) =
         match deserialize_data(std::include_bytes!("diabetes.xy")) {

@@ -258,6 +258,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
 /// `CategoricalNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct CategoricalNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -281,6 +282,7 @@ impl Default for CategoricalNBParameters {
 /// CategoricalNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct CategoricalNBSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -383,22 +385,26 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn classes(&self) -> &Vec<T> {
         &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Number of features of each sample
+    #[must_use]
     pub fn n_features(&self) -> usize {
         self.inner.as_ref().unwrap().distribution.n_features
     }
 
     /// Number of features of each sample
+    #[must_use]
     pub fn n_categories(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.n_categories
     }
@@ -406,12 +412,14 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the number of samples
     /// encountered for each class and category of the specific feature.
+    #[must_use]
     pub fn category_count(&self) -> &Vec<Vec<Vec<usize>>> {
         &self.inner.as_ref().unwrap().distribution.category_count
     }
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the empirical log probability
     /// of categories given the respective feature and class, ``P(x_i|y)``.
+    #[must_use]
     pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<f64>>> {
         &self.inner.as_ref().unwrap().distribution.coefficients
     }
