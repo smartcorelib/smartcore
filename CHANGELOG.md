@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.12]
 ### Fixed
-- `xgboost/xgb_regressor.rs`: `XGRegressor::fit` no longer panics with `attempt to subtract with overflow` when `subsample` is less than 1.0 on a small dataset (#444). `floor(n_samples * subsample)` truncates to 0 rows. This occurs with 3 rows at a ratio of 0.3, or with 1 row at any ratio below 1.0. The tree fit then read `sorted_idxs.len() - 1` on an empty index set. The sample size now keeps a minimum of one row, as scikit-learn does for its own `subsample` parameter. Sample sizes of one row or more are unchanged.
+- `xgboost/xgb_regressor.rs`: `XGRegressor::fit` no longer panics when `subsample` is less than 1.0 on a small dataset (#444). The sample for each tree now keeps a minimum of one row, as scikit-learn does for its own `subsample` parameter. Sample sizes of one row or more are unchanged.
 
 ## [0.6.11]
 ### Fixed
