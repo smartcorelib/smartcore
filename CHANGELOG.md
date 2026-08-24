@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.12]
+### Fixed
+- `xgboost/xgb_regressor.rs`: `XGRegressor::fit` no longer panics with `attempt to subtract with overflow` when `subsample` is less than 1.0 on a small dataset (#444). `floor(n_samples * subsample)` truncates to 0 rows. This occurs with 3 rows at a ratio of 0.3, or with 1 row at any ratio below 1.0. The tree fit then read `sorted_idxs.len() - 1` on an empty index set. The sample size now keeps a minimum of one row, as scikit-learn does for its own `subsample` parameter. Sample sizes of one row or more are unchanged.
+
 ## [0.6.11]
 ### Fixed
 - `algorithm/neighbour/cosinepair.rs`: `CosinePair::query_row_top_k` now returns exact nearest neighbours whenever `approximate` is `false` (the default). Previously the query always sampled only `top_k` evenly strided candidate rows without documentation, and the bounded candidate heap evicted its closest entry, so the method could return the farthest of the sampled rows (#442). Strided sampling is now gated behind `CosinePairParameters { approximate: true, .. }` and is documented as approximate.

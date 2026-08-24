@@ -491,6 +491,8 @@ impl XGRegressorParameters {
     /// Sets the fraction of samples to be used for fitting individual base learners.
     ///
     /// A value of less than 1.0 introduces randomness and helps prevent overfitting.
+    /// The value must be in the range (0, 1]. Each tree gets `floor(n_samples * subsample)`
+    /// rows, but a minimum of one row.
     pub fn with_subsample(mut self, subsample: f64) -> Self {
         self.subsample = subsample;
         self
@@ -599,6 +601,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
     }
 
     /// Creates a random sample of indices without replacement.
+    ///
+    /// The sample holds at least one index when the population is not empty. The tree fit
+    /// needs a minimum of one row, thus the sample size cannot be zero.
     fn sample_without_replacement(
         population_size: usize,
         subsample_ratio: f64,
@@ -606,7 +611,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
     ) -> Vec<usize> {
         let mut indices: Vec<usize> = (0..population_size).collect();
         indices.shuffle(rng);
-        indices.truncate((population_size as f64 * subsample_ratio) as usize);
+        // `population_size * subsample_ratio` truncates to 0 for a small population, e.g. 3 rows
+        // at a ratio of 0.3. Keep one row in that case, as scikit-learn does for its own
+        // `subsample` parameter (#444).
+        indices.truncate(((population_size as f64 * subsample_ratio) as usize).max(1));
         indices
     }
 }
@@ -760,6 +768,95 @@ mod tests {
         let predictions = model.unwrap().predict(&x);
         assert!(predictions.is_ok());
         assert_eq!(predictions.unwrap().len(), 2);
+    }
+
+    /// `subsample` < 1.0 must not panic when the sample size truncates to zero rows.
+    #[test]
+    fn test_subsample_smaller_than_one_sample_does_not_panic() {
+        let x_vec = vec![vec![1.0, 1.0], vec![2.0, 1.0], vec![1.0, 2.0]];
+        let x = DenseMatrix::from_2d_vec(&x_vec).unwrap();
+        let y = vec![5.0, 7.0, 8.0];
+
+        // 3 samples * 0.3 truncates to 0 rows, so the tree is fit on an empty index set.
+        let params = XGRegressorParameters::default()
+            .with_n_estimators(5)
+            .with_max_depth(3)
+            .with_subsample(0.3);
+
+        let model = XGRegressor::fit(&x, &y, params);
+        assert!(model.is_ok(), "Fit failed: {:?}", model.err());
+
+        let predictions: Vec<f64> = model.unwrap().predict(&x).unwrap();
+        assert_eq!(predictions.len(), 3);
+        assert!(predictions.iter().all(|p| p.is_finite()));
+    }
+
+    /// A single-row dataset with any `subsample` < 1.0 also truncates to zero rows.
+    #[test]
+    fn test_subsample_on_single_row_does_not_panic() {
+        let x_vec = vec![vec![1.0, 1.0]];
+        let x = DenseMatrix::from_2d_vec(&x_vec).unwrap();
+        let y = vec![5.0];
+
+        let params = XGRegressorParameters::default()
+            .with_n_estimators(5)
+            .with_max_depth(3)
+            .with_subsample(0.9);
+
+        let model = XGRegressor::fit(&x, &y, params);
+        assert!(model.is_ok(), "Fit failed: {:?}", model.err());
+
+        let predictions: Vec<f64> = model.unwrap().predict(&x).unwrap();
+        assert_eq!(predictions.len(), 1);
+        assert!(predictions[0].is_finite());
+    }
+    #[test]
+    fn test_sample_without_replacement_clamps_to_one_row() {
+        // (population, ratio): each pair gives `floor(population * ratio) == 0`.
+        let cases = [(3, 0.3), (2, 0.4), (1, 0.9), (10, 0.05), (5, 1e-12)];
+
+        for (population, ratio) in cases {
+            let mut rng = get_rng_impl(Some(42));
+            let sample =
+                XGRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::sample_without_replacement(
+                    population, ratio, &mut rng,
+                );
+
+            assert_eq!(
+                sample.len(),
+                1,
+                "population {population} at ratio {ratio} gave {sample:?}"
+            );
+            assert!(sample[0] < population);
+        }
+    }
+
+    /// Regression guard: the clamp must not change a sample size that is already one or more.
+    /// A ratio of 0.8 must still take 80% of the rows, not all of them.
+    #[test]
+    fn test_sample_without_replacement_keeps_the_ratio_above_one_row() {
+        // (population, ratio, expected sample size)
+        let cases = [(2, 0.5, 1), (2, 1.0, 2), (10, 0.8, 8), (100, 0.8, 80)];
+
+        for (population, ratio, expected) in cases {
+            let mut rng = get_rng_impl(Some(42));
+            let mut sample =
+                XGRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::sample_without_replacement(
+                    population, ratio, &mut rng,
+                );
+
+            assert_eq!(
+                sample.len(),
+                expected,
+                "population {population} at ratio {ratio} gave {sample:?}"
+            );
+            assert!(sample.iter().all(|&i| i < population));
+
+            // The indices must stay unique, i.e. the sample is without replacement.
+            sample.sort_unstable();
+            sample.dedup();
+            assert_eq!(sample.len(), expected);
+        }
     }
 
     /// A "smoke test" to ensure the main XGRegressor can fit and predict on multidimensional data.
