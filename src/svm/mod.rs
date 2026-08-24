@@ -68,6 +68,7 @@ pub trait Kernel: Debug {
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
+#[must_use]
 pub enum Kernels {
     /// Linear kernel (default).
     ///
@@ -198,7 +199,7 @@ impl Kernels {
                 gamma: Some(gamma),
                 coef0,
             },
-            other => other,
+            Kernels::Linear => Kernels::Linear,
         }
     }
 
@@ -214,7 +215,7 @@ impl Kernels {
                 gamma,
                 coef0,
             },
-            other => other,
+            Kernels::Linear | Kernels::RBF { .. } | Kernels::Sigmoid { .. } => self,
         }
     }
 
@@ -235,7 +236,7 @@ impl Kernels {
                 gamma,
                 coef0: Some(coef0),
             },
-            other => other,
+            Kernels::Linear | Kernels::RBF { .. } => self,
         }
     }
 }
