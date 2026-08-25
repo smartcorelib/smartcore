@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.13]
+### Added
+- `decomposition/lda.rs`: `LDA`, linear discriminant analysis for supervised dimensionality reduction (#136). It projects the data onto the directions that best separate the classes, keeping `min(n_classes - 1, n_features)` components by default, and implements the `Transformer` interface next to `PCA`. Directions match scikit-learn's `LinearDiscriminantAnalysis(solver="eigen")` up to sign.
+
 ## [0.6.12]
 ### Fixed
 - `xgboost/xgb_regressor.rs`: `XGRegressor::fit` no longer panics when `subsample` is less than 1.0 on a small dataset (#444). The sample for each tree now keeps a minimum of one row, as scikit-learn does for its own `subsample` parameter. Sample sizes of one row or more are unchanged.
