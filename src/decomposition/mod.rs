@@ -11,6 +11,8 @@
 //! ## References
 //! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 6.3 Dimension Reduction Methods](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 
+/// LDA is a supervised approach that projects the data onto the directions that best separate the classes.
+pub mod lda;
 /// PCA is a popular approach for deriving a low-dimensional set of features from a large set of variables.
 pub mod pca;
 pub mod svd;
