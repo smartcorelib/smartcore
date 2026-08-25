@@ -461,6 +461,12 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         if x_nrows != y_ncols {
             return Err(Failed::fit("Number of rows in X should = len(y)"));
         }
+        if x_nrows == 0 || num_attributes == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            ));
+        }
 
         let mut yi: Vec<usize> = vec![0; y_ncols];
         let classes = y.unique();
@@ -619,6 +625,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::*;
 
@@ -777,6 +784,32 @@ mod tests {
         );
 
         assert!(fail.is_err());
+    }
+
+    #[test]
+    fn test_fit_on_empty_data_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 1.0], vec![0.0, 1.0]]).unwrap();
+        let empty = full.take(&[] as &[usize], 0);
+        assert_eq!(empty.shape(), (0, 2));
+
+        let y: Vec<u32> = vec![];
+        let result = RandomForestClassifier::fit(
+            &empty,
+            &y,
+            RandomForestClassifierParameters {
+                criterion: SplitCriterion::Gini,
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 10,
+                m: None,
+                keep_samples: false,
+                seed: 0,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
 
     #[cfg_attr(

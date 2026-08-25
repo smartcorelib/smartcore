@@ -9,7 +9,7 @@ use rand::seq::SliceRandom;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::error::Failed;
+use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
@@ -183,6 +183,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let (x_nrows, num_attributes) = x.shape();
         if x_nrows != y.shape() {
             return Err(Failed::fit("Size of x should equal size of y"));
+        }
+        if x_nrows == 0 || num_attributes == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            ));
         }
 
         let samples = vec![1; x_nrows];
@@ -539,5 +545,58 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::DenseMatrix;
+
+    #[test]
+    fn test_fit_on_empty_data_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 2.0], vec![3.0, 4.0]]).unwrap();
+        let empty = full.take(&[] as &[usize], 0);
+        assert_eq!(empty.shape(), (0, 2));
+
+        let y: Vec<f64> = vec![];
+        let result = BaseTreeRegressor::fit(
+            &empty,
+            &y,
+            BaseTreeRegressorParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                seed: None,
+                splitter: Splitter::Best,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the zero-feature case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 2.0], vec![3.0, 4.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y = vec![1.0_f64, 2.0];
+        let result = BaseTreeRegressor::fit(
+            &no_features,
+            &y,
+            BaseTreeRegressorParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                seed: None,
+                splitter: Splitter::Best,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
 }

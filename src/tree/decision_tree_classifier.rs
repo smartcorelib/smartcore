@@ -76,7 +76,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::error::Failed;
+use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::MutArray;
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::linalg::basic::matrix::DenseMatrix;
@@ -551,6 +551,12 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         let (x_nrows, num_attributes) = x.shape();
         if x_nrows != y.shape() {
             return Err(Failed::fit("Size of x should equal size of y"));
+        }
+        if x_nrows == 0 || num_attributes == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            ));
         }
 
         let samples = vec![1; x_nrows];
@@ -1114,6 +1120,32 @@ mod tests {
         let fail = DecisionTreeClassifier::fit(&x_rand, &y, Default::default());
 
         assert!(fail.is_err());
+    }
+
+    #[test]
+    fn test_fit_on_empty_data_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 1.0], vec![0.0, 1.0]]).unwrap();
+        let empty = full.take(&[] as &[usize], 0);
+        assert_eq!(empty.shape(), (0, 2));
+
+        let y: Vec<u32> = vec![];
+        let result = DecisionTreeClassifier::fit(&empty, &y, Default::default());
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the zero-feature case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 1.0], vec![0.0, 1.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y: Vec<u32> = vec![0, 1];
+        let result = DecisionTreeClassifier::fit(&no_features, &y, Default::default());
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
 
     #[cfg_attr(
