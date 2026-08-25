@@ -535,6 +535,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
         }
 
         let (n_samples, _) = data.shape();
+        if n_samples == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "Training data must have at least one row.",
+            ));
+        }
+
         let learning_rate = parameters.learning_rate;
         let mut predictions = vec![parameters.base_score; n_samples];
 
@@ -815,6 +822,18 @@ mod tests {
         // Defaults are base_score 0.5 and learning_rate 0.3. Five boosted steps move
         // the prediction towards the target 5.0, but do not reach it.
         assert!(predictions[0] > 0.5 && predictions[0] < 5.0);
+    }
+
+    #[test]
+    fn test_fit_on_empty_data_returns_error() {
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0, 1.0], vec![2.0, 1.0]]).unwrap();
+        let empty = full.take(&[] as &[usize], 0);
+        assert_eq!(empty.shape(), (0, 2));
+
+        let y: Vec<f64> = vec![];
+        let model = XGRegressor::fit(&empty, &y, XGRegressorParameters::default());
+        assert!(model.is_err());
+        assert_eq!(model.err().unwrap().error(), FailedError::ParametersError);
     }
 
     #[test]
