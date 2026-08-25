@@ -534,11 +534,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
             ));
         }
 
-        let (n_samples, _) = data.shape();
-        if n_samples == 0 {
+        let (n_samples, n_features) = data.shape();
+        if n_samples == 0 || n_features == 0 {
             return Err(Failed::because(
                 FailedError::ParametersError,
-                "Training data must have at least one row.",
+                "Training data must contain at least one sample and one feature.",
             ));
         }
 
@@ -826,12 +826,25 @@ mod tests {
 
     #[test]
     fn test_fit_on_empty_data_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test
         let full = DenseMatrix::from_2d_vec(&vec![vec![1.0, 1.0], vec![2.0, 1.0]]).unwrap();
         let empty = full.take(&[] as &[usize], 0);
         assert_eq!(empty.shape(), (0, 2));
 
         let y: Vec<f64> = vec![];
         let model = XGRegressor::fit(&empty, &y, XGRegressorParameters::default());
+        assert!(model.is_err());
+        assert_eq!(model.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0, 1.0], vec![2.0, 1.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y = vec![1.0, 2.0];
+        let model = XGRegressor::fit(&no_features, &y, XGRegressorParameters::default());
         assert!(model.is_err());
         assert_eq!(model.err().unwrap().error(), FailedError::ParametersError);
     }
