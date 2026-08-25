@@ -43,7 +43,6 @@
 //! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 4.4 Linear Discriminant Analysis](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 //! * ["Pattern Classification", Duda R.O., Hart P.E., Stork D.G., 2nd ed., 3.8.3 Multiple Discriminant Analysis](https://www.wiley.com/en-us/Pattern+Classification%2C+2nd+Edition-p-9780471056690)
 //!
-//! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -63,7 +62,7 @@ use crate::numbers::realnum::RealNumber;
 #[derive(Debug)]
 pub struct LDA<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> {
     // Projection matrix, one column per kept discriminant direction (n_features x n_components).
-    scalings: X,
+    projection_matrix: X,
     // Generalized eigenvalue of every kept direction, largest first.
     eigenvalues: Vec<T>,
     // Number of features expected by `transform`.
@@ -72,18 +71,19 @@ pub struct LDA<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> {
 
 impl<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> PartialEq for LDA<T, X> {
     fn eq(&self, other: &Self) -> bool {
+        let tol = T::from(1e-10).unwrap();
         if self.n_features != other.n_features
             || self.eigenvalues.len() != other.eigenvalues.len()
             || self
-                .scalings
+                .projection_matrix
                 .iterator(0)
-                .zip(other.scalings.iterator(0))
-                .any(|(&a, &b)| (a - b).abs() > T::epsilon())
+                .zip(other.projection_matrix.iterator(0))
+                .any(|(&a, &b)| (a - b).abs() > tol)
         {
             return false;
         }
         for i in 0..self.eigenvalues.len() {
-            if (self.eigenvalues[i] - other.eigenvalues[i]).abs() > T::epsilon() {
+            if (self.eigenvalues[i] - other.eigenvalues[i]).abs() > tol {
                 return false;
             }
         }
@@ -276,8 +276,13 @@ impl<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> LDA<T, X> {
         let sw_evd = sw.evd(true)?;
         let u = sw_evd.V;
         let l = sw_evd.d;
+        let l_max = l
+            .iter()
+            .cloned()
+            .fold(T::zero(), |a, b| if b > a { b } else { a });
+        let tol = T::from(1e-10).unwrap().max(T::from(1e-4).unwrap() * l_max);
         for &li in &l {
-            if li <= T::epsilon() {
+            if li <= tol {
                 return Err(Failed::fit(
                     "Within-class scatter matrix is singular, provide more samples per class or fewer features",
                 ));
@@ -310,17 +315,17 @@ impl<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> LDA<T, X> {
             }
         });
 
-        let mut scalings = X::zeros(m, n_components);
+        let mut projection_matrix = X::zeros(m, n_components);
         let mut eigenvalues = vec![T::zero(); n_components];
         for (col, &src) in order.iter().take(n_components).enumerate() {
             eigenvalues[col] = g[src];
             for row in 0..m {
-                scalings.set((row, col), *directions.get((row, src)));
+                projection_matrix.set((row, col), *directions.get((row, src)));
             }
         }
 
         Ok(LDA {
-            scalings,
+            projection_matrix,
             eigenvalues,
             n_features: m,
         })
@@ -336,12 +341,12 @@ impl<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> LDA<T, X> {
                 ncols, self.n_features
             )));
         }
-        Ok(x.matmul(&self.scalings))
+        Ok(x.matmul(&self.projection_matrix))
     }
 
     /// Get the projection matrix, one column per discriminant direction.
     pub fn scalings(&self) -> &X {
-        &self.scalings
+        &self.projection_matrix
     }
 }
 
@@ -497,6 +502,27 @@ mod tests {
         let y = vec![0, 0, 0];
         let result = LDA::fit(&x, &y, LDAParameters::default());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn mismatched_x_y_is_rejected() {
+        let (x, _) = three_class_data();
+        let y_short = vec![0i32; x.shape().0 - 1];
+        assert!(LDA::fit(&x, &y_short, LDAParameters::default()).is_err());
+    }
+
+    #[test]
+    fn zero_n_components_is_rejected() {
+        let (x, y) = three_class_data();
+        assert!(LDA::fit(&x, &y, LDAParameters::default().with_n_components(0)).is_err());
+    }
+
+    #[test]
+    fn transform_wrong_features_is_rejected() {
+        let (x, y) = three_class_data();
+        let lda = LDA::fit(&x, &y, LDAParameters::default()).unwrap();
+        let bad = DenseMatrix::<f64>::zeros(3, 2);
+        assert!(lda.transform(&bad).is_err());
     }
 
     #[cfg_attr(
