@@ -278,4 +278,31 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
+
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the zero-feature case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0, 2.0], vec![3.0, 4.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y: Vec<f64> = vec![1.0, 2.0];
+        let result = BaseForestRegressor::fit(
+            &no_features,
+            &y,
+            BaseForestRegressorParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 5,
+                m: None,
+                keep_samples: false,
+                seed: 0,
+                bootstrap: true,
+                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
 }

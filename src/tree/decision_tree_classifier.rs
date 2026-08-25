@@ -1135,6 +1135,19 @@ mod tests {
         assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
 
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the zero-feature case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 1.0], vec![0.0, 1.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y: Vec<u32> = vec![0, 1];
+        let result = DecisionTreeClassifier::fit(&no_features, &y, Default::default());
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test

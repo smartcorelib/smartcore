@@ -151,10 +151,15 @@ impl<T: Number + RealNumber, M: Array2<T>> Transformer<M> for StandardScaler<T> 
         }
 
         let mut output = M::fill(nrows, ncols, T::zero());
-        for j in 0..ncols {
-            let mean = T::from(self.adjust_column_mean(self.means[j])).unwrap();
-            let std = T::from(self.adjust_column_std(self.stds[j])).unwrap();
-            for i in 0..nrows {
+        let col_params: Vec<(T, T)> = (0..ncols)
+            .map(|j| {
+                let mean = T::from(self.adjust_column_mean(self.means[j])).unwrap();
+                let std = T::from(self.adjust_column_std(self.stds[j])).unwrap();
+                (mean, std)
+            })
+            .collect();
+        for i in 0..nrows {
+            for (j, &(mean, std)) in col_params.iter().enumerate() {
                 let val = *x.get((i, j));
                 output.set((i, j), (val - mean) / std);
             }
