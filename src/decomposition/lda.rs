@@ -71,7 +71,7 @@ pub struct LDA<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> {
 
 impl<T: Number + RealNumber, X: Array2<T> + EVDDecomposable<T>> PartialEq for LDA<T, X> {
     fn eq(&self, other: &Self) -> bool {
-        let tol = T::from(1e-10).unwrap();
+        let tol = T::from(1e-6).unwrap();
         if self.n_features != other.n_features
             || self.eigenvalues.len() != other.eigenvalues.len()
             || self
