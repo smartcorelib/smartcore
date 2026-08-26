@@ -109,6 +109,35 @@ impl<'a, T: RealNumber + FloatNumber + FloatCore, M: Array2<T>> CosinePair<'a, T
         )
     }
 
+    /// Lazy constructor that skips the Theta(n^2) [`init`] scan.
+    ///
+    /// [`query_row_top_k`] and [`query`] work unchanged because they
+    /// recompute distances on the fly from `samples`, `row_norms`, and
+    /// `parameters`.  Methods that depend on the precomputed `distances` /
+    /// `neighbours` fields (`closest_pair`, `ordered_pairs`, `query_row`,
+    /// `distances_from`) will panic on a lazy instance.
+    pub fn lazy(m: &'a M, top_k: usize) -> Result<Self, Failed> {
+        if m.shape().0 < 2 {
+            return Err(Failed::because(
+                FailedError::FindFailed,
+                "min number of rows should be 2",
+            ));
+        }
+
+        let row_norms = (0..m.shape().0).map(|i| m.get_row(i).norm2()).collect();
+
+        Ok(Self {
+            samples: m,
+            distances: HashMap::new(),
+            neighbours: Vec::new(),
+            row_norms,
+            parameters: CosinePairParameters {
+                top_k: Some(top_k),
+                approximate: false,
+            },
+        })
+    }
+
     /// Constructor with full parameter control
     pub fn with_parameters(m: &'a M, parameters: CosinePairParameters) -> Result<Self, Failed> {
         if m.shape().0 < 2 {
@@ -1258,6 +1287,46 @@ mod tests {
             assert_eq!(stored.neighbour, Some(expected.1), "row {}", i);
             assert_relative_eq!(stored.distance.unwrap(), expected.0, epsilon = 1e-12);
         }
+    }
+
+    #[test]
+    fn lazy_skips_init_and_query_row_top_k_matches_non_lazy() {
+        let x = mixed_direction_rows();
+        let top_k = 4;
+
+        let lazy = CosinePair::lazy(&x, top_k).unwrap();
+        assert!(
+            lazy.distances.is_empty(),
+            "lazy instance must have empty distances"
+        );
+        assert!(
+            lazy.neighbours.is_empty(),
+            "lazy instance must have empty neighbours"
+        );
+
+        let eager = CosinePair::with_top_k(&x, top_k).unwrap();
+
+        for row in 0..x.shape().0 {
+            let lazy_result = lazy.query_row_top_k(row, 3).unwrap();
+            let eager_result = eager.query_row_top_k(row, 3).unwrap();
+            assert_eq!(lazy_result.len(), eager_result.len(), "row {}", row);
+            for (got, want) in lazy_result.iter().zip(eager_result.iter()) {
+                assert_eq!(got.1, want.1, "row {}", row);
+                assert!(
+                    (got.0 - want.0).abs() < 1e-12,
+                    "row {}: distance mismatch {} vs {}",
+                    row,
+                    got.0,
+                    want.0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn lazy_rejects_single_row() {
+        let x = DenseMatrix::<f64>::from_2d_array(&[&[1.0, 2.0]]).unwrap();
+        assert!(CosinePair::lazy(&x, 1).is_err());
     }
 
     #[test]
