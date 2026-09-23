@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.15]
+### Fixed
+- `tree`: regression tests for the tree growth fix from #464. New `min_samples_split_boundary` tests pin the split rule for `DecisionTreeClassifier` and `BaseTreeRegressor`: a node that holds exactly `min_samples_split` samples must still split, and a node with fewer samples must stay a leaf. The `full_depth` tests now also assert the tree `depth` (3), which guards the public `DecisionTreeClassifier::depth` accessor against silent regressions. Library code is unchanged.
+
 ## [0.6.14]
 ### Added
 - `decomposition/lda.rs`: `LDA`, linear discriminant analysis for supervised dimensionality reduction (#136). It projects the data onto the directions that best separate the classes, keeping `min(n_classes - 1, n_features)` components by default, and implements the `Transformer` interface next to `PCA`. Directions match scikit-learn's `LinearDiscriminantAnalysis(solver="eigen")` up to sign.
