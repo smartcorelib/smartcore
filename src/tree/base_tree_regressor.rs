@@ -68,10 +68,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     fn parameters(&self) -> &BaseTreeRegressorParameters {
         self.parameters.as_ref().unwrap()
     }
-    /// Get estimate of intercept, return value
-    fn depth(&self) -> u16 {
-        self.depth
-    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -244,11 +240,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while base_tree.depth() < base_tree.parameters().max_depth.unwrap_or(u16::MAX) {
-            match visitor_queue.pop_front() {
-                Some(node) => base_tree.split(node, mtry, &mut visitor_queue, &mut rng),
-                None => break,
-            };
+        let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
+        while let Some(node) = visitor_queue.pop_front() {
+            if node.level < max_depth {
+                base_tree.split(node, mtry, &mut visitor_queue, &mut rng);
+            }
         }
 
         Ok(base_tree)
@@ -553,6 +549,7 @@ mod tests {
     use super::*;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::metrics::mean_absolute_error;
 
     #[test]
     fn test_fit_on_empty_data_returns_error() {
@@ -598,5 +595,33 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn full_depth() {
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![2.0],
+            vec![3.0],
+            vec![4.0],
+            vec![5.0],
+            vec![6.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 6.0, 7.0, 11., 12.];
+
+        let parameters = BaseTreeRegressorParameters {
+            max_depth: Some(3),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: None,
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTreeRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        let y_expected = vec![1.0, 2.0, 6.5, 6.5, 11.50, 11.50];
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(tree.nodes().len(), 7);
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
     }
 }

@@ -624,11 +624,11 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
-        while tree.depth() < tree.parameters().max_depth.unwrap_or(u16::MAX) {
-            match visitor_queue.pop_front() {
-                Some(node) => tree.split(node, mtry, &mut visitor_queue, &mut rng),
-                None => break,
-            };
+        let max_depth = tree.parameters().max_depth.unwrap_or(u16::MAX);
+        while let Some(node) = visitor_queue.pop_front() {
+            if node.level < max_depth {
+                tree.split(node, mtry, &mut visitor_queue, &mut rng);
+            }
         }
 
         Ok(tree)
@@ -707,7 +707,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             return false;
         }
 
-        if n <= self.parameters().min_samples_split {
+        if n < self.parameters().min_samples_split {
             return false;
         }
 
@@ -967,6 +967,7 @@ mod tests {
     use super::*;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::metrics::accuracy;
 
     #[test]
     fn search_parameters() {
@@ -1051,6 +1052,35 @@ mod tests {
         for i in 5..10 {
             assert!(probabilities.get((i, 1)) > probabilities.get((i, 0)));
         }
+    }
+
+    #[test]
+    fn full_depth() {
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![2.0],
+            vec![3.0],
+            vec![4.0],
+            vec![5.0],
+            vec![6.0],
+        ])
+        .unwrap();
+        let y = vec![0, 1, 2, 2, 3, 4];
+
+        let parameters = DecisionTreeClassifierParameters {
+            max_depth: Some(3),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: None,
+            criterion: SplitCriterion::Gini,
+        };
+
+        let tree = DecisionTreeClassifier::fit(&x, &y, parameters).expect("Fit should work");
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(tree.nodes().len(), 7);
+
+        // Tree should have 5 out of 6 examples correct
+        assert!((accuracy(&y, &y_hat) - 5.0 / 6.0).abs() < 1e-9);
     }
 
     #[cfg_attr(
