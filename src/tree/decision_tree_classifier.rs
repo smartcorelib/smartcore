@@ -707,7 +707,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
             return false;
         }
 
-        if n <= self.parameters().min_samples_split {
+        if n < self.parameters().min_samples_split {
             return false;
         }
 
@@ -1070,7 +1070,7 @@ mod tests {
         let parameters = DecisionTreeClassifierParameters {
             max_depth: Some(3),
             min_samples_leaf: 1,
-            min_samples_split: 1, // Fix later
+            min_samples_split: 2,
             seed: None,
             criterion: SplitCriterion::Gini,
         };
