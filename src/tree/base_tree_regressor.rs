@@ -622,6 +622,39 @@ mod tests {
         let y_expected = vec![1.0, 2.0, 6.5, 6.5, 11.50, 11.50];
         let y_hat = tree.predict(&x).expect("Predict should work");
         assert_eq!(tree.nodes().len(), 7);
+        assert_eq!(tree.depth, 3);
         assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+    }
+
+    #[test]
+    fn min_samples_split_boundary() {
+        // A node that holds exactly `min_samples_split` samples must still split.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
+        let y = vec![1.0f64, 2.0, 6.0];
+
+        let parameters = BaseTreeRegressorParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 3,
+            seed: None,
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTreeRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        assert_eq!(tree.nodes().len(), 3);
+        assert_eq!(tree.depth, 2);
+
+        // A node with fewer than `min_samples_split` samples must stay a leaf.
+        let parameters = BaseTreeRegressorParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 4,
+            seed: None,
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTreeRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        assert_eq!(tree.nodes().len(), 1);
+        assert_eq!(tree.depth, 0);
     }
 }
