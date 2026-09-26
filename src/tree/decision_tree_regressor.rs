@@ -301,6 +301,28 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         y: &Y,
         parameters: DecisionTreeRegressorParameters,
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
+        Self::fit_inner(x, y, None, parameters)
+    }
+
+    /// Build a decision tree regressor from the training data.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target values
+    /// * `sample_weigts` - weights to use during fitting
+    pub fn fit_with_weights(
+        x: &X,
+        y: &Y,
+        sample_weights: &[f64],
+        parameters: DecisionTreeRegressorParameters,
+    ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
+        Self::fit_inner(x, y, Some(sample_weights), parameters)
+    }
+
+    fn fit_inner(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        parameters: DecisionTreeRegressorParameters,
+    ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
         let tree_parameters = BaseTreeRegressorParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
@@ -308,7 +330,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             seed: parameters.seed,
             splitter: Splitter::Best,
         };
-        let tree = BaseTreeRegressor::fit(x, y, tree_parameters)?;
+        let tree = BaseTreeRegressor::fit_inner(x, y, sample_weights, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
         })
@@ -347,6 +369,40 @@ mod tests {
         assert_eq!(next.max_depth, Some(100));
         assert_eq!(next.min_samples_split, 2);
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn fit_with_weights_validates_weights() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..6).map(|i| i as f64), 3, 2, 0);
+        let y = vec![1.0_f64, 2.0, 3.0];
+        let parameters = DecisionTreeRegressorParameters::default();
+
+        // Valid weights: a zero weight is permitted when the sum is positive
+        for weights in [vec![1.0, 2.0, 3.0], vec![0.0, 0.0, 0.5]] {
+            assert!(
+                DecisionTreeRegressor::fit_with_weights(&x, &y, &weights, parameters.clone())
+                    .is_ok(),
+                "weights: {weights:?}"
+            );
+        }
+
+        let wrong_length = "Number of sample weights must equal number of rows in x";
+        let not_finite_or_negative = "Sample weights must be finite and non-negative";
+        let zero_sum = "Sum of sample weights must be positive";
+        let cases: Vec<(Vec<f64>, &str)> = vec![
+            (vec![], wrong_length),
+            (vec![1.0, 2.0], wrong_length),
+            (vec![1.0, 2.0, 3.0, 4.0], wrong_length),
+            (vec![1.0, -1.0, 3.0], not_finite_or_negative),
+            (vec![1.0, f64::NAN, 3.0], not_finite_or_negative),
+            (vec![1.0, f64::INFINITY, 3.0], not_finite_or_negative),
+            (vec![0.0, 0.0, 0.0], zero_sum),
+        ];
+        for (weights, msg) in cases {
+            let result =
+                DecisionTreeRegressor::fit_with_weights(&x, &y, &weights, parameters.clone());
+            assert_eq!(result.err(), Some(Failed::fit(msg)), "weights: {weights:?}");
+        }
     }
 
     #[cfg_attr(
