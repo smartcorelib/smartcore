@@ -482,7 +482,7 @@ mod tests {
             m: None,
             keep_samples: true, // keep samples used for each tree, so we can check that they are different
             seed: 42,
-            bootstrap: true, // No bootstrapping
+            bootstrap: true, // Use bootstrapping
             splitter: crate::tree::base_tree_regressor::Splitter::Best,
         };
 
