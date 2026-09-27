@@ -181,24 +181,6 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     }
 }
 
-/// Validates the sample weights
-pub(crate) fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
-    if sample_weights.len() != n_rows {
-        return Err(Failed::fit(
-            "Number of sample weights must equal number of rows in x",
-        ));
-    }
-    if sample_weights.iter().any(|v| !v.is_finite() || *v < 0.0) {
-        return Err(Failed::fit(
-            "Sample weights must be finite and non-negative",
-        ));
-    }
-    if sample_weights.iter().sum::<f64>() <= 0.0 {
-        return Err(Failed::fit("Sum of sample weights must be positive"));
-    }
-    Ok(())
-}
-
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     BaseTreeRegressor<TX, TY, X, Y>
 {
@@ -279,7 +261,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
 
-        if base_tree.find_best_cutoff(&mut visitor, mtry, &mut rng) {
+        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng) {
             visitor_queue.push_back(visitor);
         }
 
@@ -329,6 +311,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         mtry: usize,
+        mass: f64,
         rng: &mut impl rand::Rng,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
@@ -339,10 +322,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             return false;
         }
 
-        let mass = match visitor.sample_weights {
-            Some(_) => (0..visitor.samples.len()).map(|i| visitor.mass_of(i)).sum(),
-            None => n as f64,
-        };
         let sum = self.nodes()[visitor.node].output * mass;
 
         let mut variables = (0..n_attr).collect::<Vec<_>>();
@@ -539,6 +518,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let (n, _) = visitor.x.shape();
         let mut tc = 0;
         let mut fc = 0;
+        let mut true_mass = 0f64;
+        let mut false_mass = 0f64;
         let mut true_samples: Vec<usize> = vec![0; n];
 
         for (i, true_sample) in true_samples.iter_mut().enumerate().take(n) {
@@ -552,9 +533,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 {
                     *true_sample = visitor.samples[i];
                     tc += *true_sample;
+                    true_mass += visitor.mass_of(i);
                     visitor.samples[i] = 0;
                 } else {
                     fc += visitor.samples[i];
+                    false_mass += visitor.mass_of(i);
                 }
             }
         }
@@ -588,7 +571,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry, rng) {
+        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng) {
             visitor_queue.push_back(true_visitor);
         }
 
@@ -602,7 +585,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry, rng) {
+        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng) {
             visitor_queue.push_back(false_visitor);
         }
 
