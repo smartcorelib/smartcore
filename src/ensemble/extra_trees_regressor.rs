@@ -64,7 +64,7 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::tree::base_tree_regressor::Splitter;
+use crate::tree::base_tree_regressor::{Splitter, validate_sample_weights};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -193,6 +193,29 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         y: &Y,
         parameters: ExtraTreesRegressorParameters,
     ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
+        Self::fit_inner(x, y, None, parameters)
+    }
+
+    /// Build a forest of trees from the training set.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target class values
+    /// * `sample_weights`: sample_weights to use during fitting
+    pub fn fit_with_weights(
+        x: &X,
+        y: &Y,
+        sample_weights: &[f64],
+        parameters: ExtraTreesRegressorParameters,
+    ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
+        validate_sample_weights(sample_weights, x.shape().0)?;
+        Self::fit_inner(x, y, Some(sample_weights), parameters)
+    }
+
+    fn fit_inner(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        parameters: ExtraTreesRegressorParameters,
+    ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
         let regressor_params = BaseForestRegressorParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
@@ -204,7 +227,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             bootstrap: false,
             splitter: Splitter::Random,
         };
-        let forest_regressor = BaseForestRegressor::fit(x, y, regressor_params)?;
+        let forest_regressor = BaseForestRegressor::fit(x, y, sample_weights, regressor_params)?;
 
         Ok(ExtraTreesRegressor {
             forest_regressor: Some(forest_regressor),
@@ -263,6 +286,41 @@ mod tests {
     }
 
     #[test]
+    fn fit_with_weights_validates_weights() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..6).map(|i| i as f64), 3, 2, 0);
+        let y = vec![1.0_f64, 2.0, 3.0];
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(5)
+            .with_seed(42);
+
+        // Valid weights: a zero weight is permitted when the sum is positive
+        for weights in [vec![1.0, 2.0, 3.0], vec![0.0, 0.0, 0.5]] {
+            assert!(
+                ExtraTreesRegressor::fit_with_weights(&x, &y, &weights, parameters.clone()).is_ok(),
+                "weights: {weights:?}"
+            );
+        }
+
+        let wrong_length = "Number of sample weights must equal number of rows in x";
+        let not_finite_or_negative = "Sample weights must be finite and non-negative";
+        let zero_sum = "Sum of sample weights must be positive";
+        let cases: Vec<(Vec<f64>, &str)> = vec![
+            (vec![], wrong_length),
+            (vec![1.0, 2.0], wrong_length),
+            (vec![1.0, 2.0, 3.0, 4.0], wrong_length),
+            (vec![1.0, -1.0, 3.0], not_finite_or_negative),
+            (vec![1.0, f64::NAN, 3.0], not_finite_or_negative),
+            (vec![1.0, f64::INFINITY, 3.0], not_finite_or_negative),
+            (vec![0.0, 0.0, 0.0], zero_sum),
+        ];
+        for (weights, msg) in cases {
+            let result =
+                ExtraTreesRegressor::fit_with_weights(&x, &y, &weights, parameters.clone());
+            assert_eq!(result.err(), Some(Failed::fit(msg)), "weights: {weights:?}");
+        }
+    }
+
+    #[test]
     fn test_fit_predict_higher_dims() {
         // Dataset with 10 features, but y is only dependent on the 3rd feature (index 2).
         let x = DenseMatrix::from_2d_array(&[
@@ -315,5 +373,44 @@ mod tests {
         let y_hat2 = regressor2.predict(&x).unwrap();
 
         assert_eq!(y_hat1, y_hat2);
+    }
+
+    #[test]
+    fn fit_with_weights_predicts_approx_weighted_mean() {
+        // 20 rows, 1 feature. Stumps (max_depth = 0): each tree predicts the
+        // weighted mean of y over its bootstrap sample (which is also weighted)
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| if i < 10 { 0.0 } else { 10.0 }).collect();
+        // Rows with y = 10 have weight 9, rows with y = 0 have weight 1.
+        let sample_weights: Vec<f64> = (0..20).map(|i| if i < 10 { 1.0 } else { 9.0 }).collect();
+
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_max_depth(0)
+            .with_n_trees(50)
+            .with_seed(42);
+
+        let forest =
+            ExtraTreesRegressor::fit_with_weights(&x, &y, &sample_weights, parameters.clone())
+                .expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
+        for p in y_hat.iter() {
+            assert!(
+                (p - 9.0f64).abs() < 1e-9,
+                "expected value very close to 9, got {p}"
+            );
+        }
+
+        // Without weights, the predicted value should be close to 5
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        for p in y_hat.iter() {
+            assert!(
+                (p - 5.0).abs() < 1e-9,
+                "expected value very close to 5, got {p}"
+            );
+        }
     }
 }
