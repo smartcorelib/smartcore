@@ -428,4 +428,83 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn fit_with_weights_predicts_approx_weighted_mean() {
+        // 20 rows, 1 feature. Stumps (max_depth = 0): each tree predicts the
+        // weighted mean of y over its bootstrap sample (which is also weighted)
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| if i < 10 { 0.0 } else { 10.0 }).collect();
+        // Rows with y = 10 have weight 9, rows with y = 0 have weight 1.
+        let sample_weights: Vec<f64> = (0..20).map(|i| if i < 10 { 1.0 } else { 9.0 }).collect();
+
+        let parameters = BaseForestRegressorParameters {
+            max_depth: Some(1),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 10,
+            m: None,
+            keep_samples: true, // keep samples used for each tree, so we can check that they are different
+            seed: 42,
+            bootstrap: false, // No bootstrapping
+            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+        };
+
+        let forest = BaseForestRegressor::fit(&x, &y, Some(&sample_weights), parameters.clone())
+            .expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
+        for p in y_hat.iter() {
+            assert!(
+                (p - 9.0f64).abs() < 1e-9,
+                "expected value very close to 9, got {p}"
+            );
+        }
+
+        // Without weights, the predicted value should be close to 5
+        let forest = BaseForestRegressor::fit(&x, &y, None, parameters).expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        for p in y_hat.iter() {
+            assert!(
+                (p - 5.0).abs() < 1e-9,
+                "expected value very close to 5, got {p}"
+            );
+        }
+
+        // Use bootstrapping
+        let parameters = BaseForestRegressorParameters {
+            max_depth: Some(1),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 500, // Use more trees than before to smooth out randomness
+            m: None,
+            keep_samples: true, // keep samples used for each tree, so we can check that they are different
+            seed: 42,
+            bootstrap: true, // No bootstrapping
+            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+        };
+
+        let forest = BaseForestRegressor::fit(&x, &y, Some(&sample_weights), parameters.clone())
+            .expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
+        for p in y_hat.iter() {
+            assert!(p > &9.0f64, "expected value well above 9, got {p}");
+        }
+
+        // Without weights, the predicted value should be reasonably close to 5
+        let forest = BaseForestRegressor::fit(&x, &y, None, parameters).expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        // The bootstrapping makes that we will not be very close to 5
+        for p in y_hat.iter() {
+            assert!(
+                (p - 5.0).abs() < 0.1,
+                "expected value reasonably close to 5, got {p}"
+            );
+        }
+    }
 }
