@@ -64,7 +64,7 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::tree::base_tree_regressor::Splitter;
+use crate::tree::base_tree_regressor::{Splitter, validate_sample_weights};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -206,6 +206,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         sample_weights: &[f64],
         parameters: ExtraTreesRegressorParameters,
     ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
+        validate_sample_weights(sample_weights, x.shape().0)?;
         Self::fit_inner(x, y, Some(sample_weights), parameters)
     }
 

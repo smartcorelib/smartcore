@@ -69,6 +69,7 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
+use crate::tree::base_tree_regressor::validate_sample_weights;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -307,13 +308,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// Build a decision tree regressor from the training data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - the target values
-    /// * `sample_weigts` - weights to use during fitting
+    /// * `sample_weights` - weights to use during fitting
     pub fn fit_with_weights(
         x: &X,
         y: &Y,
         sample_weights: &[f64],
         parameters: DecisionTreeRegressorParameters,
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
+        validate_sample_weights(sample_weights, x.shape().0)?;
         Self::fit_inner(x, y, Some(sample_weights), parameters)
     }
 
@@ -483,6 +485,110 @@ mod tests {
 
         for i in 0..y_hat.len() {
             assert!((y_hat[i] - expected_y[i]).abs() < 0.1);
+        }
+    }
+
+    #[test]
+    fn fit_with_weights_matches_sklearn() {
+        // Reference: sklearn DecisionTreeRegressor(max_depth=3, random_state=0)
+        // fitted with the same sample_weight. It gives this tree:
+        //
+        // |--- x1 <= 2.50
+        // |   |--- x2 <= 0.50
+        // |   |   |--- value: [2.00]
+        // |   |--- x2 >  0.50
+        // |   |   |--- x1 <= 1.50
+        // |   |   |   |--- value: [3.00]
+        // |   |   |--- x1 >  1.50
+        // |   |   |   |--- value: [2.50]
+        // |--- x1 >  2.50
+        // |   |--- x1 <= 6.50
+        // |   |   |--- x2 <= 0.50
+        // |   |   |   |--- value: [6.00]
+        // |   |   |--- x2 >  0.50
+        // |   |   |   |--- value: [7.50]
+        // |   |--- x1 >  6.50
+        // |   |   |--- x2 <= 0.50
+        // |   |   |   |--- value: [9.00]
+        // |   |   |--- x2 >  0.50
+        // |   |   |   |--- value: [9.80]
+        let x = DenseMatrix::from_2d_array(&[
+            &[1., 0.],
+            &[1., 1.],
+            &[2., 1.],
+            &[3., 0.],
+            &[3., 0.],
+            &[3., 1.],
+            &[5., 0.],
+            &[5., 1.],
+            &[6., 1.],
+            &[7., 0.],
+            &[8., 1.],
+            &[8., 1.],
+        ])
+        .unwrap();
+        let y: Vec<f64> = vec![2.0, 3.0, 2.5, 6.0, 5.0, 7.0, 6.5, 8.0, 7.5, 9.0, 10.0, 9.5];
+        let sample_weights = [2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 4.0, 1.0, 2.0, 1.0, 3.0, 2.0];
+
+        // smartcore counts the root as level 1, so sklearn max_depth=3 is max_depth=4 here.
+        let parameters = DecisionTreeRegressorParameters::default().with_max_depth(4);
+        let tree = DecisionTreeRegressor::fit_with_weights(&x, &y, &sample_weights, parameters)
+            .expect("Fit should work");
+
+        // Each training row gets the weighted mean of its leaf.
+        let y_hat = tree.predict(&x).unwrap();
+        let y_expected = [2.0, 3.0, 2.5, 6.0, 6.0, 7.5, 6.0, 7.5, 7.5, 9.0, 9.8, 9.8];
+        for i in 0..y_expected.len() {
+            assert!(
+                (y_hat[i] - y_expected[i]).abs() < 1e-9,
+                "row {i}: got {}, expected {}",
+                y_hat[i],
+                y_expected[i]
+            );
+        }
+
+        // Probe points on each side of each threshold check the split features and the
+        // midpoint thresholds. At the node x1 > 6.5, the splits x2 <= 0.5 and x1 <= 7.5 give
+        // the same partition and the same gain. sklearn picks x2 because of its random
+        // feature order. Thus we probe only points where both splits give the same value.
+        let probes = DenseMatrix::from_2d_array(&[
+            // root: x1 <= 2.5
+            &[2.4, 0.],
+            &[2.6, 0.],
+            &[2.4, 1.],
+            &[2.6, 1.],
+            // left: x2 <= 0.5
+            &[1.0, 0.4],
+            &[1.0, 0.6],
+            // left, x2 > 0.5: x1 <= 1.5
+            &[1.4, 1.],
+            &[1.6, 1.],
+            // right: x1 <= 6.5
+            &[6.4, 0.],
+            &[6.6, 0.],
+            &[6.4, 1.],
+            // right, x1 <= 6.5: x2 <= 0.5
+            &[4.0, 0.4],
+            &[4.0, 0.6],
+            // right, x1 > 6.5: tied split
+            &[7.0, 0.4],
+            &[8.0, 0.6],
+            // out of the training range
+            &[0., 0.],
+            &[10., 1.],
+        ])
+        .unwrap();
+        let probes_hat = tree.predict(&probes).unwrap();
+        let probes_expected = [
+            2.0, 6.0, 2.5, 7.5, 2.0, 3.0, 3.0, 2.5, 6.0, 9.0, 7.5, 6.0, 7.5, 9.0, 9.8, 2.0, 9.8,
+        ];
+        for i in 0..probes_expected.len() {
+            assert!(
+                (probes_hat[i] - probes_expected[i]).abs() < 1e-9,
+                "probe {i}: got {}, expected {}",
+                probes_hat[i],
+                probes_expected[i]
+            );
         }
     }
 

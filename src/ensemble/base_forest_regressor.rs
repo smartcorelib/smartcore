@@ -10,9 +10,7 @@ use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
-use crate::tree::base_tree_regressor::{
-    BaseTreeRegressor, BaseTreeRegressorParameters, Splitter, validate_sample_weights,
-};
+use crate::tree::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParameters, Splitter};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -78,6 +76,10 @@ pub struct BaseForestRegressor<
 impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     BaseForestRegressor<TX, TY, X, Y>
 {
+    /// Build a forest of trees from the training set.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target class values
+    /// * `sample_weights`: optional sample_weights to use during fitting
     pub fn fit(
         x: &X,
         y: &Y,
@@ -95,8 +97,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 "Training data must contain at least one sample and one feature.",
             ));
         }
-
-        validate_sample_weights(sample_weights, n_rows)?;
 
         let mtry = parameters
             .m
@@ -241,17 +241,12 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         distribution: Option<&rand::distr::weighted::WeightedIndex<f64>>,
     ) -> Vec<usize> {
         let mut samples = vec![0; nrows];
-        if let Some(dist) = distribution {
-            for _ in 0..nrows {
-                let xi = rng.sample(dist);
-                samples[xi] += 1;
-            }
-        } else {
-            // uniform sampling
-            for _ in 0..nrows {
-                let xi = rng.random_range(0..nrows);
-                samples[xi] += 1;
-            }
+        for _ in 0..nrows {
+            let xi = match distribution {
+                Some(dist) => rng.sample(dist),
+                None => rng.random_range(0..nrows),
+            };
+            samples[xi] += 1;
         }
 
         samples

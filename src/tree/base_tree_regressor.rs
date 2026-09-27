@@ -182,24 +182,19 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
 }
 
 /// Validates the sample weights
-pub(crate) fn validate_sample_weights(
-    sample_weights: Option<&[f64]>,
-    n_rows: usize,
-) -> Result<(), Failed> {
-    if let Some(w) = sample_weights {
-        if w.len() != n_rows {
-            return Err(Failed::fit(
-                "Number of sample weights must equal number of rows in x",
-            ));
-        }
-        if w.iter().any(|v| !v.is_finite() || *v < 0.0) {
-            return Err(Failed::fit(
-                "Sample weights must be finite and non-negative",
-            ));
-        }
-        if w.iter().sum::<f64>() <= 0.0 {
-            return Err(Failed::fit("Sum of sample weights must be positive"));
-        }
+pub(crate) fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
+    if sample_weights.len() != n_rows {
+        return Err(Failed::fit(
+            "Number of sample weights must equal number of rows in x",
+        ));
+    }
+    if sample_weights.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        return Err(Failed::fit(
+            "Sample weights must be finite and non-negative",
+        ));
+    }
+    if sample_weights.iter().sum::<f64>() <= 0.0 {
+        return Err(Failed::fit("Sum of sample weights must be positive"));
     }
     Ok(())
 }
@@ -223,7 +218,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 "Training data must contain at least one sample and one feature.",
             ));
         }
-        validate_sample_weights(sample_weights, x_nrows)?;
 
         let samples = vec![1; x_nrows];
         BaseTreeRegressor::fit_weak_learner(
@@ -499,9 +493,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                     continue;
                 }
 
-                let true_mean = true_sum / true_mass;
+                let true_mean = if true_mass > 0.0 {
+                    true_sum / true_mass
+                } else {
+                    0.0
+                };
                 let false_mass = mass - true_mass;
-                let false_mean = (sum - true_sum) / false_mass;
+                let false_mean = if false_mass > 0.0 {
+                    (sum - true_sum) / false_mass
+                } else {
+                    0.0
+                };
 
                 let gain = (true_mass * true_mean * true_mean
                     + false_mass * false_mean * false_mean)
@@ -868,5 +870,118 @@ mod tests {
         let tree = BaseTreeRegressor::fit_inner(&x, &y, None, parameters).expect("Fit should work");
         assert_eq!(tree.nodes().len(), 1);
         assert_eq!(tree.depth, 0);
+    }
+
+    #[test]
+    fn zero_weight_on_true_side_gives_finite_predictions() {
+        // The first candidate split has only zero-weight samples on its true side,
+        // so true_mass is 0 in find_best_split. This must not produce NaN.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
+        let y = vec![1.0f64, 2.0, 3.0];
+        let sample_weights = [0.0f64, 1.0, 1.0];
+
+        let parameters = BaseTreeRegressorParameters {
+            max_depth: Some(2),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: None,
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters)
+            .expect("Fit should work");
+
+        assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
+        assert!(
+            tree.nodes()
+                .iter()
+                .all(|node| node.split_score.is_none_or(f64::is_finite))
+        );
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert!(y_hat.iter().all(|v| v.is_finite()));
+
+        // The best split separates x=3 from the other rows.
+        let y_expected = vec![2.0, 2.0, 3.0];
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+    }
+
+    #[test]
+    fn zero_weight_on_false_side_gives_finite_predictions() {
+        // The two first rows share x=1, so the only candidate split is between x=1 and x=2.
+        // The false side of that split holds only a zero-weight sample,
+        // so false_mass is 0 in find_best_split. This must not produce NaN.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![1.0], vec![2.0]]).unwrap();
+        let y = vec![1.0f64, 2.0, 3.0];
+        let sample_weights = [1.0f64, 1.0, 0.0];
+
+        let parameters = BaseTreeRegressorParameters {
+            max_depth: Some(2),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: None,
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters)
+            .expect("Fit should work");
+
+        assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
+        assert!(
+            tree.nodes()
+                .iter()
+                .all(|node| node.split_score.is_none_or(f64::is_finite))
+        );
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert!(y_hat.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn weights_on_tied_feature_values() {
+        // Rows with the same feature value but different weights. The split must keep each
+        // tie group together, and each leaf must give the weighted mean of its group.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![1.0], vec![2.0], vec![2.0]])
+            .unwrap();
+        let y = vec![0.0f64, 10.0, 20.0, 30.0];
+        let sample_weights = [3.0f64, 1.0, 1.0, 3.0];
+
+        let parameters = BaseTreeRegressorParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: None,
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters.clone())
+            .expect("Fit should work");
+
+        assert_eq!(tree.nodes().len(), 3);
+        assert_eq!(tree.depth, 2);
+        assert!((tree.nodes()[0].split_value.unwrap() - 1.5).abs() < 1e-9); // Split should be at 1.5
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_expected = vec![2.5, 2.5, 27.5, 27.5]; // Expected values are weighted means
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+
+        // Integer weights must give the same tree as repeated rows.
+        let x_repeated = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![1.0],
+            vec![1.0],
+            vec![1.0],
+            vec![2.0],
+            vec![2.0],
+            vec![2.0],
+            vec![2.0],
+        ])
+        .unwrap();
+        let y_repeated = vec![0.0f64, 0.0, 0.0, 10.0, 20.0, 30.0, 30.0, 30.0];
+        let tree_repeated =
+            BaseTreeRegressor::fit_inner(&x_repeated, &y_repeated, None, parameters)
+                .expect("Fit should work");
+        let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
+        assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
     }
 }
