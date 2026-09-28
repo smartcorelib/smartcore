@@ -503,6 +503,11 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Predict class labels for samples in `x`.
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        if self.coefficients.is_none() {
+            return Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            ));
+        }
         let n = x.shape().0;
         let mut result = Y::zeros(n);
         if self.num_classes == 2 {
@@ -994,5 +999,16 @@ mod tests {
         println!("y_hat shape: {:?}", y_hat.shape());
 
         assert_eq!(y_hat.shape(), 52181);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let model: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            LogisticRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }
