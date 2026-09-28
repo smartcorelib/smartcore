@@ -265,6 +265,11 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        if self.knn_algorithm.is_none() {
+            return Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            ));
+        }
         let mut result = Y::zeros(x.shape().0);
 
         let mut row_vec = vec![TX::zero(); x.shape().1];
@@ -334,6 +339,11 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     /// Returns a vector of probability vectors, one per sample.
     /// Each probability vector has length equal to number of classes and sums to 1.
     pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
+        if self.knn_algorithm.is_none() {
+            return Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            ));
+        }
         let mut result = Vec::with_capacity(x.shape().0);
         let mut row_vec = vec![TX::zero(); x.shape().1];
         for row in x.row_iter() {
@@ -725,5 +735,27 @@ mod tests {
         let deserialized_knn = postcard::from_bytes(&postcard::to_allocvec(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let knn: KNNClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>, Euclidian<f64>> =
+            KNNClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = knn.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[test]
+    fn predict_proba_without_fit_should_not_panic() {
+        let knn: KNNClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>, Euclidian<f64>> =
+            KNNClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = knn.predict_proba(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

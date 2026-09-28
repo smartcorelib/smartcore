@@ -246,6 +246,11 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &'a X) -> Result<Vec<T>, Failed> {
+        if self.instances.is_none() {
+            return Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            ));
+        }
         let (n, _) = x.shape();
 
         let mut y_hat: Vec<T> = Vec::<T>::zeros(n);
@@ -708,5 +713,15 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&svr).unwrap()).unwrap();
 
         assert_eq!(svr, deserialized_svr);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let svr: SVR<'_, f64, DenseMatrix<f64>, Vec<f64>> = SVR::new();
+        let yhat = svr.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

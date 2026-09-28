@@ -250,6 +250,11 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     ///
     /// Returns a vector of size N with estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        if self.knn_algorithm.is_none() {
+            return Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            ));
+        }
         let mut result = Y::zeros(x.shape().0);
 
         let mut row_vec = vec![TX::zero(); x.shape().1];
@@ -350,5 +355,16 @@ mod tests {
         let deserialized_knn = postcard::from_bytes(&postcard::to_allocvec(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let knn: KNNRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>> =
+            KNNRegressor::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = knn.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }
