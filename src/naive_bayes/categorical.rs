@@ -380,7 +380,12 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.as_ref().unwrap().predict(x)
+        match &self.inner {
+            Some(inner) => inner.predict(x),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Class labels known to the classifier.
@@ -592,5 +597,15 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&cnb).unwrap()).unwrap();
 
         assert_eq!(cnb, deserialized_cnb);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let cnb: CategoricalNB<u32, DenseMatrix<u32>, Vec<u32>> = CategoricalNB::new();
+        let x = DenseMatrix::from_2d_array(&[&[1u32]]).expect("Construction of x should work");
+        let yhat = cnb.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }
