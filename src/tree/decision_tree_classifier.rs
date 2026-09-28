@@ -1299,10 +1299,21 @@ mod tests {
 
     #[test]
     fn predict_without_fit_should_not_panic() {
-        let knn: DecisionTreeClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+        let tree: DecisionTreeClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
             DecisionTreeClassifier::new();
         let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
-        let yhat = knn.predict(&x);
+        let yhat = tree.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[test]
+    fn predict_proba_without_fit_should_not_panic() {
+        let tree: DecisionTreeClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            DecisionTreeClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict_proba(&x);
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));

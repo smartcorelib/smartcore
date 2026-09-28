@@ -246,23 +246,25 @@ impl<'a, T: Number + FloatNumber + PartialOrd, X: Array2<T>, Y: Array1<T>> SVR<'
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &'a X) -> Result<Vec<T>, Failed> {
-        if self.instances.is_none() {
-            return Err(Failed::predict(
+        match &self.instances {
+            Some(_) => {
+                let (n, _) = x.shape();
+
+                let mut y_hat: Vec<T> = Vec::<T>::zeros(n);
+
+                let mut x_i = Vec::with_capacity(n);
+                for i in 0..n {
+                    x_i.clear();
+                    x_i.extend(x.get_row(i).iterator(0).copied());
+                    y_hat.set(i, self.predict_for_row(&x_i));
+                }
+
+                Ok(y_hat)
+            }
+            None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
-            ));
+            )),
         }
-        let (n, _) = x.shape();
-
-        let mut y_hat: Vec<T> = Vec::<T>::zeros(n);
-
-        let mut x_i = Vec::with_capacity(n);
-        for i in 0..n {
-            x_i.clear();
-            x_i.extend(x.get_row(i).iterator(0).copied());
-            y_hat.set(i, self.predict_for_row(&x_i));
-        }
-
-        Ok(y_hat)
     }
 
     pub(crate) fn predict_for_row(&self, x: &[T]) -> T {

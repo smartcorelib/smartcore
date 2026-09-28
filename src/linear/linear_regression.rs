@@ -335,28 +335,29 @@ impl<
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict_matrix(&self, x: &X) -> Result<X, Failed> {
-        if self.coefficients.is_none() {
-            return Err(Failed::predict(
+        match (&self.coefficients, &self.intercept) {
+            (Some(coefficients), Some(intercept)) => {
+                let (nrows, _) = x.shape();
+
+                let (_, num_targets) = intercept.shape();
+
+                let mut y_hat = x.matmul(coefficients);
+
+                // Tile the 1xK intercept across all rows, then add in one pass
+                let bias = X::from_iterator(
+                    (0..nrows).flat_map(|_| intercept.iterator(0).copied()),
+                    nrows,
+                    num_targets,
+                    0,
+                );
+                y_hat.add_mut(&bias);
+
+                Ok(y_hat)
+            }
+            (_, _) => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
-            ));
+            )),
         }
-        let (nrows, _) = x.shape();
-
-        let intercept = self.intercept_matrix();
-        let (_, num_targets) = intercept.shape();
-
-        let mut y_hat = x.matmul(self.coefficients());
-
-        // Tile the 1xK intercept across all rows, then add in one pass
-        let bias = X::from_iterator(
-            (0..nrows).flat_map(|_| intercept.iterator(0).copied()),
-            nrows,
-            num_targets,
-            0,
-        );
-        y_hat.add_mut(&bias);
-
-        Ok(y_hat)
     }
 
     /// Get estimates regression coefficients
@@ -741,6 +742,7 @@ mod tests {
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
+
     #[test]
     fn predict_matrix_without_fit_should_not_panic() {
         let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();

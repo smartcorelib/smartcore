@@ -395,19 +395,21 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        if self.coefficients.is_none() {
-            return Err(Failed::predict(
+        match (&self.coefficients, &self.intercept) {
+            (Some(coefficients), Some(intercept)) => {
+                let (nrows, _) = x.shape();
+                let mut y_hat = x.matmul(coefficients);
+                let bias = X::fill(nrows, 1, *intercept);
+                y_hat.add_mut(&bias);
+                Ok(Y::from_iterator(
+                    y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+                    nrows,
+                ))
+            }
+            (_, _) => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
-            ));
+            )),
         }
-        let (nrows, _) = x.shape();
-        let mut y_hat = x.matmul(self.coefficients.as_ref().unwrap());
-        let bias = X::fill(nrows, 1, self.intercept.unwrap());
-        y_hat.add_mut(&bias);
-        Ok(Y::from_iterator(
-            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
-            nrows,
-        ))
     }
 
     /// Get estimates regression coefficients

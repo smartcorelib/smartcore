@@ -265,22 +265,24 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        if self.knn_algorithm.is_none() {
-            return Err(Failed::predict(
+        match &self.knn_algorithm {
+            Some(_) => {
+                let mut result = Y::zeros(x.shape().0);
+
+                let mut row_vec = vec![TX::zero(); x.shape().1];
+                for (i, row) in x.row_iter().enumerate() {
+                    row.iterator(0)
+                        .zip(row_vec.iter_mut())
+                        .for_each(|(&s, v)| *v = s);
+                    result.set(i, self.classes()[self.predict_for_row(&row_vec)?]);
+                }
+
+                Ok(result)
+            }
+            None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
-            ));
+            )),
         }
-        let mut result = Y::zeros(x.shape().0);
-
-        let mut row_vec = vec![TX::zero(); x.shape().1];
-        for (i, row) in x.row_iter().enumerate() {
-            row.iterator(0)
-                .zip(row_vec.iter_mut())
-                .for_each(|(&s, v)| *v = s);
-            result.set(i, self.classes()[self.predict_for_row(&row_vec)?]);
-        }
-
-        Ok(result)
     }
 
     /// Compute class probabilities for a single row. All the rest functions will use it
@@ -339,21 +341,23 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     /// Returns a vector of probability vectors, one per sample.
     /// Each probability vector has length equal to number of classes and sums to 1.
     pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
-        if self.knn_algorithm.is_none() {
-            return Err(Failed::predict(
-                "'fit' should be called before calling 'predict'",
-            ));
-        }
-        let mut result = Vec::with_capacity(x.shape().0);
-        let mut row_vec = vec![TX::zero(); x.shape().1];
-        for row in x.row_iter() {
-            row.iterator(0)
-                .zip(row_vec.iter_mut())
-                .for_each(|(&s, v)| *v = s);
-            result.push(self.predict_proba_for_row(&row_vec)?);
-        }
+        match &self.knn_algorithm {
+            Some(_) => {
+                let mut result = Vec::with_capacity(x.shape().0);
+                let mut row_vec = vec![TX::zero(); x.shape().1];
+                for row in x.row_iter() {
+                    row.iterator(0)
+                        .zip(row_vec.iter_mut())
+                        .for_each(|(&s, v)| *v = s);
+                    result.push(self.predict_proba_for_row(&row_vec)?);
+                }
 
-        Ok(result)
+                Ok(result)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 }
 

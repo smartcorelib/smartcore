@@ -554,35 +554,40 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
                 "'fit' should be called before calling 'predict'",
             ));
         }
-        let (n, _) = x.shape();
 
-        let samples = match &self.samples {
-            Some(s) => s,
-            None => {
-                return Err(Failed::because(
-                    FailedError::PredictFailed,
-                    "Need samples=true for OOB predictions.",
-                ));
+        match &self.classes {
+            Some(classes) => {
+                let (n, _) = x.shape();
+
+                let samples = match &self.samples {
+                    Some(s) => s,
+                    None => {
+                        return Err(Failed::because(
+                            FailedError::PredictFailed,
+                            "Need samples=true for OOB predictions.",
+                        ));
+                    }
+                };
+
+                if samples[0].len() != n {
+                    return Err(Failed::because(
+                        FailedError::PredictFailed,
+                        "Prediction matrix must match matrix used in training for OOB predictions.",
+                    ));
+                }
+
+                let mut result = Y::zeros(n);
+
+                for i in 0..n {
+                    result.set(i, classes[self.predict_for_row_oob(x, i)]);
+                }
+
+                Ok(result)
             }
-        };
-
-        if samples[0].len() != n {
-            return Err(Failed::because(
-                FailedError::PredictFailed,
-                "Prediction matrix must match matrix used in training for OOB predictions.",
-            ));
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        let mut result = Y::zeros(n);
-
-        for i in 0..n {
-            result.set(
-                i,
-                self.classes.as_ref().unwrap()[self.predict_for_row_oob(x, i)],
-            );
-        }
-
-        Ok(result)
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
@@ -880,6 +885,17 @@ mod tests {
             RandomForestClassifier::new();
         let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
         let yhat = tree.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[test]
+    fn predict_oob_without_fit_should_not_panic() {
+        let tree: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            RandomForestClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict_oob(&x);
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));

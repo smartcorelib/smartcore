@@ -250,22 +250,24 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     ///
     /// Returns a vector of size N with estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        if self.knn_algorithm.is_none() {
-            return Err(Failed::predict(
+        match &self.knn_algorithm {
+            Some(_) => {
+                let mut result = Y::zeros(x.shape().0);
+
+                let mut row_vec = vec![TX::zero(); x.shape().1];
+                for (i, row) in x.row_iter().enumerate() {
+                    row.iterator(0)
+                        .zip(row_vec.iter_mut())
+                        .for_each(|(&s, v)| *v = s);
+                    result.set(i, self.predict_for_row(&row_vec)?);
+                }
+
+                Ok(result)
+            }
+            None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
-            ));
+            )),
         }
-        let mut result = Y::zeros(x.shape().0);
-
-        let mut row_vec = vec![TX::zero(); x.shape().1];
-        for (i, row) in x.row_iter().enumerate() {
-            row.iterator(0)
-                .zip(row_vec.iter_mut())
-                .for_each(|(&s, v)| *v = s);
-            result.set(i, self.predict_for_row(&row_vec)?);
-        }
-
-        Ok(result)
     }
 
     fn predict_for_row(&self, row: &Vec<TX>) -> Result<TY, Failed> {
