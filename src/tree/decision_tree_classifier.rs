@@ -637,6 +637,8 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     /// Predict class value for `x`.
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        // Guard style differs from the Option-based models: `nodes` is a plain
+        // Vec that `fit` fills, so an empty vector marks an unfitted tree.
         if self.nodes.is_empty() {
             return Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
@@ -916,6 +918,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
     ///
     /// Returns an error if at least one row prediction process fails.
     pub fn predict_proba(&self, x: &X) -> Result<DenseMatrix<f64>, Failed> {
+        // Same guard as `predict`: an empty `nodes` vector means `fit` never ran.
         if self.nodes.is_empty() {
             return Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
@@ -1297,6 +1300,10 @@ mod tests {
         );
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let tree: DecisionTreeClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
@@ -1308,6 +1315,10 @@ mod tests {
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_proba_without_fit_should_not_panic() {
         let tree: DecisionTreeClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =

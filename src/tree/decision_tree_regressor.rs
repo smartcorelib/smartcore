@@ -614,6 +614,10 @@ mod tests {
         }
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let tree: DecisionTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =

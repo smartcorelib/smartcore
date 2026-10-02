@@ -541,6 +541,10 @@ mod tests {
         assert_eq!(lr, deserialized_lr);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let model: RidgeRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = RidgeRegression::new();

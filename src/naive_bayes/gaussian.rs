@@ -475,6 +475,10 @@ mod tests {
         assert_eq!(gnb, deserialized_gnb);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let gnb: GaussianNB<f64, u32, DenseMatrix<f64>, Vec<u32>> = GaussianNB::new();

@@ -599,6 +599,10 @@ mod tests {
         assert_eq!(cnb, deserialized_cnb);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let cnb: CategoricalNB<u32, DenseMatrix<u32>, Vec<u32>> = CategoricalNB::new();

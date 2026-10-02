@@ -733,6 +733,10 @@ mod tests {
         }
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();
@@ -743,6 +747,10 @@ mod tests {
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_matrix_without_fit_should_not_panic() {
         let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();

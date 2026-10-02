@@ -1003,6 +1003,10 @@ mod tests {
         assert_eq!(y_hat.shape(), 52181);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let model: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
