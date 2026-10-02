@@ -1,4 +1,4 @@
-use std::collections::LinkedList;
+use std::collections::VecDeque;
 use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -302,9 +302,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         order: &[Vec<usize>],
         parameters: BaseTreeRegressorParameters,
     ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
-        let y_m = y.clone();
-
-        let y_ncols = y_m.shape();
+        let n_rows = y.shape();
 
         let mut nodes: Vec<Node> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
@@ -312,10 +310,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut sum = 0f64;
         let mut mass = 0f64;
 
-        for i in 0..y_ncols {
+        for i in 0..n_rows {
             let mass_i = mass_of(i, &samples, sample_weights);
             mass += mass_i;
-            sum += mass_i * y_m.get(i).to_f64().unwrap();
+            sum += mass_i * y.get(i).to_f64().unwrap();
         }
 
         let root = Node::new(sum / mass);
@@ -353,9 +351,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, 0, end_idx, x, &y_m, 1);
+        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, 0, end_idx, x, y, 1);
 
-        let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
+        let mut visitor_queue: VecDeque<NodeVisitor<'_, TX, TY, X, Y>> = VecDeque::new();
 
         if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &scratch_pad) {
             visitor_queue.push_back(visitor);
@@ -613,7 +611,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         &mut self,
         visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
-        visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
+        visitor_queue: &mut VecDeque<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
         scratch_pad: &mut ScratchPad, // buffer used to track the splitting
     ) -> bool {
@@ -623,6 +621,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         // Vec< (Vec, Vec) > and then into
         // (Vec<Vec>, Vec<Vec>)
 
+        let mut tc = 0usize;
+        let mut true_mass = 0f64;
+        let mut fc = 0usize;
+        let mut false_mass = 0f64;
         // for each row_index, does it belong in the true branch or not?
         let is_true = &mut scratch_pad.is_true;
         let mut n_true = 0usize;
@@ -630,35 +632,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             let t = is_true_sample(e, visitor.x, this_node);
             is_true[e.row()] = t;
             n_true += t as usize;
+            // Fill in tc, etc while we are at it
+            if t {
+                tc += e.count as usize;
+                true_mass += e.mass;
+            } else {
+                fc += e.count as usize;
+                false_mass += e.mass;
+            }
         }
 
-        for j in 0..visitor.x.shape().1 {
-            stable_partition(
-                &mut scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx],
-                &mut scratch_pad.node_elements,
-                is_true,
-            );
-        }
-
-        let split_idx = visitor.start_idx + n_true;
-
-        let tc: usize = scratch_pad.shared_node_elements[0][visitor.start_idx..split_idx]
-            .iter()
-            .map(|node_elem| node_elem.count as usize)
-            .sum::<usize>();
-        let true_mass = scratch_pad.shared_node_elements[0][visitor.start_idx..split_idx]
-            .iter()
-            .map(|node_elem| node_elem.mass)
-            .sum::<f64>();
-        let fc: usize = scratch_pad.shared_node_elements[0][split_idx..visitor.end_idx]
-            .iter()
-            .map(|node_elem| node_elem.count as usize)
-            .sum::<usize>();
-        let false_mass = scratch_pad.shared_node_elements[0][split_idx..visitor.end_idx]
-            .iter()
-            .map(|node_elem| node_elem.mass)
-            .sum::<f64>();
-
+        // Stop early if it is clear that there will be too few examples in the leaf
         if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
@@ -666,6 +650,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
             return false;
         }
+
+        // Add the child nodes to the tree
+        let split_idx = visitor.start_idx + n_true;
 
         let true_child_idx = self.nodes().len();
 
@@ -677,6 +664,24 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         self.nodes[visitor.node].false_child = Some(false_child_idx);
 
         self.depth = u16::max(self.depth, visitor.level + 1);
+
+        // If the child nodes can not be split any further, there is no point is partitioning the ranges
+        let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
+        let child_level = visitor.level + 1;
+        let min_split = self.parameters().min_samples_split;
+        let true_can_split = child_level < max_depth && tc >= min_split;
+        let false_can_split = child_level < max_depth && fc >= min_split;
+        if !true_can_split && !false_can_split {
+            return true; // both children are leaves: no partition, no search
+        }
+
+        for j in 0..visitor.x.shape().1 {
+            stable_partition(
+                &mut scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx],
+                &mut scratch_pad.node_elements,
+                is_true,
+            );
+        }
 
         let mut true_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             true_child_idx,
