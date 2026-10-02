@@ -362,12 +362,6 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        if self.coefficients.is_none() {
-            return Err(Failed::predict(
-                "'fit' should be called before calling 'predict'",
-            ));
-        }
-
         match (&self.coefficients, &self.intercept) {
             (Some(coefficients), Some(intercept)) => {
                 let (nrows, _) = x.shape();

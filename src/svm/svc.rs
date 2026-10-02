@@ -587,18 +587,25 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     /// Evaluates the decision function for the rows in `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn decision_function(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
-        let (n, _) = x.shape();
-        let mut y_hat: Vec<TX> = Array1::zeros(n);
+        match &self.classes {
+            Some(_) => {
+                let (n, _) = x.shape();
+                let mut y_hat: Vec<TX> = Array1::zeros(n);
 
-        let mut row = Vec::with_capacity(n);
-        for i in 0..n {
-            row.clear();
-            row.extend(x.get_row(i).iterator(0).copied());
-            let row_pred: TX = self.predict_for_row(&row);
-            y_hat.set(i, row_pred);
+                let mut row = Vec::with_capacity(n);
+                for i in 0..n {
+                    row.clear();
+                    row.extend(x.get_row(i).iterator(0).copied());
+                    let row_pred: TX = self.predict_for_row(&row);
+                    y_hat.set(i, row_pred);
+                }
+
+                Ok(y_hat)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'decision_function'",
+            )),
         }
-
-        Ok(y_hat)
     }
 
     fn predict_for_row(&self, x: &[TX]) -> TX {
@@ -1466,5 +1473,15 @@ mod tests {
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[test]
+    fn decision_function_without_fit_should_not_panic() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let svc: SVC<'_, f64, i32, DenseMatrix<f64>, Vec<i32>> = SVC::new();
+        let dec_fn = svc.decision_function(&x);
+        assert!(dec_fn.is_err());
+        let msg = "'fit' should be called before calling 'decision_function'";
+        assert_eq!(dec_fn.err(), Some(Failed::predict(msg)));
     }
 }
