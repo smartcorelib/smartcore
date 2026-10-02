@@ -188,7 +188,7 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     /// * `x` - A reference to the input features (2D array).
     /// * `y` - A reference to the target labels (1D array).
     /// * `parameters` - A reference to the `SVCParameters` controlling the SVM training for each individual binary classifier.
-    ///  
+    ///
     ///
     /// # Returns
     /// A `Result` indicating success (`MultiClassSVC`) or failure (`Failed`).
@@ -239,46 +239,49 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     /// A `Result` containing a `Vec` of predicted class labels (`TX`) or a `Failed` error.
     ///
     pub fn predict(&self, x: &X) -> Result<Vec<TX>, Failed> {
-        // Initialize a HashMap for each data point to store votes for each class
-        let mut polls = vec![HashMap::new(); x.shape().0];
-        // Retrieve the trained binary classifiers. The field is None only before
-        // fit() has run, e.g. on a deserialized model.
-        let classifiers = self.classifiers.as_ref().ok_or_else(|| {
-            Failed::because(FailedError::PredictFailed, "MultiClassSVC is not fitted")
-        })?;
+        match &self.classifiers {
+            Some(classifiers) => {
+                // Initialize a HashMap for each data point to store votes for each class
+                let mut polls = vec![HashMap::new(); x.shape().0];
 
-        // Iterate through each binary classifier
-        for svc in classifiers {
-            let predictions = svc.predict(x)?; // call SVC::predict for each binary classifier
+                // Iterate through each binary classifier
+                for svc in classifiers {
+                    let predictions = svc.predict(x)?; // call SVC::predict for each binary classifier
 
-            // For each prediction from the current binary classifier
-            for (j, prediction) in predictions.iter().enumerate() {
-                let prediction = prediction.to_i32().unwrap();
-                let poll = polls.get_mut(j).unwrap(); // Get the poll for the current data point
-                // Increment the vote for the predicted class
-                if let Some(count) = poll.get_mut(&prediction) {
-                    *count += 1
-                } else {
-                    poll.insert(prediction, 1);
+                    // For each prediction from the current binary classifier
+                    for (j, prediction) in predictions.iter().enumerate() {
+                        let prediction = prediction.to_i32().unwrap();
+                        let poll = polls.get_mut(j).unwrap(); // Get the poll for the current data point
+                        // Increment the vote for the predicted class
+                        if let Some(count) = poll.get_mut(&prediction) {
+                            *count += 1
+                        } else {
+                            poll.insert(prediction, 1);
+                        }
+                    }
                 }
-            }
-        }
 
-        // Determine the final prediction for each data point based on majority vote.
-        // A poll stays empty when fit() ran on data with fewer than two classes.
-        polls
-            .iter()
-            .map(|v| {
-                // Find the class with the maximum votes for each data point
-                let (class, _) = v.iter().max_by_key(|(_, class)| *class).ok_or_else(|| {
-                    Failed::because(
-                        FailedError::PredictFailed,
-                        "MultiClassSVC must be fitted on at least two classes",
-                    )
-                })?;
-                Ok(TX::from(*class).unwrap())
-            })
-            .collect()
+                // Determine the final prediction for each data point based on majority vote.
+                // A poll stays empty when fit() ran on data with fewer than two classes.
+                polls
+                    .iter()
+                    .map(|v| {
+                        // Find the class with the maximum votes for each data point
+                        let (class, _) =
+                            v.iter().max_by_key(|(_, class)| *class).ok_or_else(|| {
+                                Failed::because(
+                                    FailedError::PredictFailed,
+                                    "MultiClassSVC must be fitted on at least two classes",
+                                )
+                            })?;
+                        Ok(TX::from(*class).unwrap())
+                    })
+                    .collect()
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 }
 
@@ -560,35 +563,49 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX> + 'a, Y: Array
     /// Predicts estimated class labels from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
-        let mut y_hat: Vec<TX> = self.decision_function(x)?;
+        match &self.classes {
+            Some(classes) => {
+                let mut y_hat: Vec<TX> = self.decision_function(x)?;
 
-        for i in 0..y_hat.len() {
-            let cls_idx = match *y_hat.get(i) > TX::zero() {
-                false => TX::from(self.classes.as_ref().unwrap().0).unwrap(),
-                true => TX::from(self.classes.as_ref().unwrap().1).unwrap(),
-            };
+                for i in 0..y_hat.len() {
+                    let cls_idx = match *y_hat.get(i) > TX::zero() {
+                        false => TX::from(classes.0).unwrap(),
+                        true => TX::from(classes.1).unwrap(),
+                    };
 
-            y_hat.set(i, cls_idx);
+                    y_hat.set(i, cls_idx);
+                }
+
+                Ok(y_hat)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(y_hat)
     }
 
     /// Evaluates the decision function for the rows in `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn decision_function(&self, x: &'a X) -> Result<Vec<TX>, Failed> {
-        let (n, _) = x.shape();
-        let mut y_hat: Vec<TX> = Array1::zeros(n);
+        match &self.classes {
+            Some(_) => {
+                let (n, _) = x.shape();
+                let mut y_hat: Vec<TX> = Array1::zeros(n);
 
-        let mut row = Vec::with_capacity(n);
-        for i in 0..n {
-            row.clear();
-            row.extend(x.get_row(i).iterator(0).copied());
-            let row_pred: TX = self.predict_for_row(&row);
-            y_hat.set(i, row_pred);
+                let mut row = Vec::with_capacity(n);
+                for i in 0..n {
+                    row.clear();
+                    row.extend(x.get_row(i).iterator(0).copied());
+                    let row_pred: TX = self.predict_for_row(&row);
+                    y_hat.set(i, row_pred);
+                }
+
+                Ok(y_hat)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'decision_function'",
+            )),
         }
-
-        Ok(y_hat)
     }
 
     fn predict_for_row(&self, x: &[TX]) -> TX {
@@ -1436,5 +1453,35 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&svc).unwrap()).unwrap();
 
         assert_eq!(svc, deserialized_svc);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let svc: SVC<'_, f64, i32, DenseMatrix<f64>, Vec<i32>> = SVC::new();
+        let yhat = svc.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[test]
+    fn multiclass_predict_without_fit_should_not_panic() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let svc: MultiClassSVC<'_, f64, i32, DenseMatrix<f64>, Vec<i32>> = MultiClassSVC::new();
+        let yhat = svc.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[test]
+    fn decision_function_without_fit_should_not_panic() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let svc: SVC<'_, f64, i32, DenseMatrix<f64>, Vec<i32>> = SVC::new();
+        let dec_fn = svc.decision_function(&x);
+        assert!(dec_fn.is_err());
+        let msg = "'fit' should be called before calling 'decision_function'";
+        assert_eq!(dec_fn.err(), Some(Failed::predict(msg)));
     }
 }

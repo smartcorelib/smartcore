@@ -362,7 +362,12 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.as_ref().unwrap().predict(x)
+        match &self.inner {
+            Some(inner) => inner.predict(x),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Class labels known to the classifier.
@@ -572,5 +577,15 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&mnb).unwrap()).unwrap();
 
         assert_eq!(mnb, deserialized_mnb);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let mnb: MultinomialNB<u32, u32, DenseMatrix<u32>, Vec<u32>> = MultinomialNB::new();
+        let x = DenseMatrix::from_2d_array(&[&[1u32]]).expect("Construction of x should work");
+        let yhat = mnb.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

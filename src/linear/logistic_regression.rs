@@ -503,32 +503,39 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Predict class labels for samples in `x`.
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let n = x.shape().0;
-        let mut result = Y::zeros(n);
-        if self.num_classes == 2 {
-            let y_hat = x.ab(false, self.coefficients(), true);
-            let intercept = *self.intercept().get((0, 0));
-            for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
-                result.set(
-                    i,
-                    self.classes()[usize::from(
-                        RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half(),
-                    )],
-                );
-            }
-        } else {
-            let mut y_hat = x.matmul(&self.coefficients().transpose());
-            for r in 0..n {
-                for c in 0..self.num_classes {
-                    y_hat.set((r, c), *y_hat.get((r, c)) + *self.intercept().get((c, 0)));
+        match (&self.coefficients, &self.intercept, &self.classes) {
+            (Some(coefficients), Some(intercept), Some(classes)) => {
+                let n = x.shape().0;
+                let mut result = Y::zeros(n);
+                if self.num_classes == 2 {
+                    let y_hat = x.ab(false, coefficients, true);
+                    let intercept = *intercept.get((0, 0));
+                    for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
+                        result.set(
+                            i,
+                            classes[usize::from(
+                                RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half(),
+                            )],
+                        );
+                    }
+                } else {
+                    let mut y_hat = x.matmul(&coefficients.transpose());
+                    for r in 0..n {
+                        for c in 0..self.num_classes {
+                            y_hat.set((r, c), *y_hat.get((r, c)) + *intercept.get((c, 0)));
+                        }
+                    }
+                    let class_idxs = y_hat.argmax(1);
+                    for (i, class_i) in class_idxs.iter().enumerate().take(n) {
+                        result.set(i, classes[*class_i]);
+                    }
                 }
+                Ok(result)
             }
-            let class_idxs = y_hat.argmax(1);
-            for (i, class_i) in class_idxs.iter().enumerate().take(n) {
-                result.set(i, self.classes()[*class_i]);
-            }
+            (_, _, _) => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-        Ok(result)
     }
 
     /// Get estimates regression coefficients, this create a sharable reference
@@ -994,5 +1001,16 @@ mod tests {
         println!("y_hat shape: {:?}", y_hat.shape());
 
         assert_eq!(y_hat.shape(), 52181);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let model: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            LogisticRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

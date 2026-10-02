@@ -589,23 +589,29 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
 
     /// Predicts target values for the given input data.
     pub fn predict(&self, data: &X) -> Result<Vec<TX>, Failed> {
-        let (n_samples, _) = data.shape();
+        match &self.parameters {
+            Some(parameters) => {
+                let (n_samples, _) = data.shape();
 
-        let parameters = self.parameters.as_ref().unwrap();
-        let mut predictions = vec![parameters.base_score; n_samples];
-        let regressors = self.regressors.as_ref().unwrap();
+                let mut predictions = vec![parameters.base_score; n_samples];
+                let regressors = self.regressors.as_ref().unwrap();
 
-        for regressor in regressors.iter() {
-            let corrections = regressor.predict(data);
-            predictions = zip(predictions, corrections)
-                .map(|(pred, correction)| pred + (parameters.learning_rate * correction))
-                .collect();
+                for regressor in regressors.iter() {
+                    let corrections = regressor.predict(data);
+                    predictions = zip(predictions, corrections)
+                        .map(|(pred, correction)| pred + (parameters.learning_rate * correction))
+                        .collect();
+                }
+
+                Ok(predictions
+                    .into_iter()
+                    .map(|p| TX::from_f64(p).unwrap())
+                    .collect())
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(predictions
-            .into_iter()
-            .map(|p| TX::from_f64(p).unwrap())
-            .collect())
     }
 
     /// Creates a random sample of indices without replacement.
@@ -932,5 +938,15 @@ mod tests {
 
         let predictions = predict_result.unwrap();
         assert_eq!(predictions.len(), 4);
+    }
+
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let tree: XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> = XGRegressor::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }
