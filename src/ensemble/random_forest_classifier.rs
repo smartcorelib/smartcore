@@ -519,18 +519,22 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
+        match &self.classes {
+            Some(classes) => {
+                let mut result = Y::zeros(x.shape().0);
 
-        let (n, _) = x.shape();
+                let (n, _) = x.shape();
 
-        for i in 0..n {
-            result.set(
-                i,
-                self.classes.as_ref().unwrap()[self.predict_for_row(x, i)],
-            );
+                for i in 0..n {
+                    result.set(i, classes[self.predict_for_row(x, i)]);
+                }
+
+                Ok(result)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(result)
     }
 
     fn predict_for_row(&self, x: &X, row: usize) -> usize {
@@ -545,35 +549,39 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        let (n, _) = x.shape();
+        match (&self.trees, &self.classes) {
+            (Some(_), Some(classes)) => {
+                let (n, _) = x.shape();
 
-        let samples = match &self.samples {
-            Some(s) => s,
-            None => {
-                return Err(Failed::because(
-                    FailedError::PredictFailed,
-                    "Need samples=true for OOB predictions.",
-                ));
+                let samples = match &self.samples {
+                    Some(s) => s,
+                    None => {
+                        return Err(Failed::because(
+                            FailedError::PredictFailed,
+                            "Need samples=true for OOB predictions.",
+                        ));
+                    }
+                };
+
+                if samples[0].len() != n {
+                    return Err(Failed::because(
+                        FailedError::PredictFailed,
+                        "Prediction matrix must match matrix used in training for OOB predictions.",
+                    ));
+                }
+
+                let mut result = Y::zeros(n);
+
+                for i in 0..n {
+                    result.set(i, classes[self.predict_for_row_oob(x, i)]);
+                }
+
+                Ok(result)
             }
-        };
-
-        if samples[0].len() != n {
-            return Err(Failed::because(
-                FailedError::PredictFailed,
-                "Prediction matrix must match matrix used in training for OOB predictions.",
-            ));
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        let mut result = Y::zeros(n);
-
-        for i in 0..n {
-            result.set(
-                i,
-                self.classes.as_ref().unwrap()[self.predict_for_row_oob(x, i)],
-            );
-        }
-
-        Ok(result)
     }
 
     fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
@@ -863,6 +871,36 @@ mod tests {
             accuracy(&y, &classifier.predict_oob(&x).unwrap())
                 < accuracy(&y, &classifier.predict(&x).unwrap())
         );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let tree: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            RandomForestClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_without_fit_should_not_panic() {
+        let tree: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            RandomForestClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict_oob(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 
     #[cfg_attr(

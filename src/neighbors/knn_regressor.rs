@@ -250,17 +250,24 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec<TX>>>
     ///
     /// Returns a vector of size N with estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
+        match &self.knn_algorithm {
+            Some(_) => {
+                let mut result = Y::zeros(x.shape().0);
 
-        let mut row_vec = vec![TX::zero(); x.shape().1];
-        for (i, row) in x.row_iter().enumerate() {
-            row.iterator(0)
-                .zip(row_vec.iter_mut())
-                .for_each(|(&s, v)| *v = s);
-            result.set(i, self.predict_for_row(&row_vec)?);
+                let mut row_vec = vec![TX::zero(); x.shape().1];
+                for (i, row) in x.row_iter().enumerate() {
+                    row.iterator(0)
+                        .zip(row_vec.iter_mut())
+                        .for_each(|(&s, v)| *v = s);
+                    result.set(i, self.predict_for_row(&row_vec)?);
+                }
+
+                Ok(result)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(result)
     }
 
     fn predict_for_row(&self, row: &Vec<TX>) -> Result<TY, Failed> {
@@ -350,5 +357,20 @@ mod tests {
         let deserialized_knn = postcard::from_bytes(&postcard::to_allocvec(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let knn: KNNRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>, Euclidian<f64>> =
+            KNNRegressor::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = knn.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

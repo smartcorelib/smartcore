@@ -589,23 +589,30 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
 
     /// Predicts target values for the given input data.
     pub fn predict(&self, data: &X) -> Result<Vec<TX>, Failed> {
-        let (n_samples, _) = data.shape();
+        // Match on both fields: after deserialization, 'parameters' and
+        // 'regressors' could be out of sync, so a single check must cover them.
+        match (&self.parameters, &self.regressors) {
+            (Some(parameters), Some(regressors)) => {
+                let (n_samples, _) = data.shape();
 
-        let parameters = self.parameters.as_ref().unwrap();
-        let mut predictions = vec![parameters.base_score; n_samples];
-        let regressors = self.regressors.as_ref().unwrap();
+                let mut predictions = vec![parameters.base_score; n_samples];
 
-        for regressor in regressors.iter() {
-            let corrections = regressor.predict(data);
-            predictions = zip(predictions, corrections)
-                .map(|(pred, correction)| pred + (parameters.learning_rate * correction))
-                .collect();
+                for regressor in regressors.iter() {
+                    let corrections = regressor.predict(data);
+                    predictions = zip(predictions, corrections)
+                        .map(|(pred, correction)| pred + (parameters.learning_rate * correction))
+                        .collect();
+                }
+
+                Ok(predictions
+                    .into_iter()
+                    .map(|p| TX::from_f64(p).unwrap())
+                    .collect())
+            }
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(predictions
-            .into_iter()
-            .map(|p| TX::from_f64(p).unwrap())
-            .collect())
     }
 
     /// Creates a random sample of indices without replacement.
@@ -932,5 +939,19 @@ mod tests {
 
         let predictions = predict_result.unwrap();
         assert_eq!(predictions.len(), 4);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let tree: XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> = XGRegressor::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

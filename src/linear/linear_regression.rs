@@ -335,23 +335,29 @@ impl<
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict_matrix(&self, x: &X) -> Result<X, Failed> {
-        let (nrows, _) = x.shape();
+        match (&self.coefficients, &self.intercept) {
+            (Some(coefficients), Some(intercept)) => {
+                let (nrows, _) = x.shape();
 
-        let intercept = self.intercept_matrix();
-        let (_, num_targets) = intercept.shape();
+                let (_, num_targets) = intercept.shape();
 
-        let mut y_hat = x.matmul(self.coefficients());
+                let mut y_hat = x.matmul(coefficients);
 
-        // Tile the 1xK intercept across all rows, then add in one pass
-        let bias = X::from_iterator(
-            (0..nrows).flat_map(|_| intercept.iterator(0).copied()),
-            nrows,
-            num_targets,
-            0,
-        );
-        y_hat.add_mut(&bias);
+                // Tile the 1xK intercept across all rows, then add in one pass
+                let bias = X::from_iterator(
+                    (0..nrows).flat_map(|_| intercept.iterator(0).copied()),
+                    nrows,
+                    num_targets,
+                    0,
+                );
+                y_hat.add_mut(&bias);
 
-        Ok(y_hat)
+                Ok(y_hat)
+            }
+            (_, _) => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Get estimates regression coefficients
@@ -725,5 +731,33 @@ mod tests {
             assert!((*model.coefficients().get((1, 0)) - 2.0).abs() < 1e-8);
             assert!((*model.intercept() - 1.0).abs() < 1e-8);
         }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_matrix_without_fit_should_not_panic() {
+        let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict_matrix(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }
