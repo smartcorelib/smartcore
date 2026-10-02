@@ -131,7 +131,9 @@ struct NodeVisitor<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Ar
     y: &'a Y,
     node: usize,
     // holds the elements for this node, sorted for each feature [num_features, num_samples]
-    sorted_node_elements: Vec<Vec<NodeElement>>,
+    //sorted_node_elements: Vec<Vec<NodeElement>>,
+    start_idx: usize,
+    end_idx: usize,
     true_child_output: f64,
     false_child_output: f64,
     level: u16,
@@ -144,7 +146,8 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new(
         node_id: usize,
-        sorted_node_elements: Vec<Vec<NodeElement>>,
+        start_idx: usize,
+        end_idx: usize,
         x: &'a X,
         y: &'a Y,
         level: u16,
@@ -153,21 +156,14 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             x,
             y,
             node: node_id,
-            sorted_node_elements,
+            start_idx,
+            end_idx,
             true_child_output: 0f64,
             false_child_output: 0f64,
             level,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
         }
-    }
-
-    /// number of samples in this node (nodevisitor)
-    fn num_samples(&self) -> usize {
-        self.sorted_node_elements[0]
-            .iter()
-            .map(|node_elem| node_elem.count)
-            .sum()
     }
 }
 
@@ -180,15 +176,23 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
 }
 
 // Struct representing an element that belongs logically to a Node, as stored in NodeVisitor
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 struct NodeElement {
     // the row index in the dataset
-    pub row_idx: usize,
+    pub row_idx: u32,
     // the number of times this row is present, should always be > 0
-    pub count: usize,
+    pub count: u32,
     // total mass of this element, equals count * mass of individual element.
     // equals count when no sample weights were used
     pub mass: f64,
+}
+
+impl NodeElement {
+    // return the row_idx as usize
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
 }
 
 // Checks whether the example indicated by node_element is a "true child" for this node
@@ -197,10 +201,56 @@ where
     TX: Number + PartialOrd,
     X: Array2<TX>,
 {
-    x.get((node_element.row_idx, node.split_feature))
+    x.get((node_element.row(), node.split_feature))
         .to_f64()
         .unwrap()
         <= node.split_value.unwrap_or(f64::NAN)
+}
+
+// slice: slice that will be partitioned
+// scratch: temp buffer
+// is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
+// returns: index of first element of false branch
+fn stable_partition(
+    slice: &mut [NodeElement],
+    scratch: &mut [NodeElement],
+    is_true: &[bool],
+) -> usize {
+    // Note: this is intentionally written without an if/else branch in the main loop
+    let n = slice.len();
+    let scratch = &mut scratch[..n];
+    let (mut w, mut f) = (0usize, 0usize);
+    for i in 0..n {
+        let e = slice[i];
+        let t = is_true[e.row_idx as usize];
+        slice[w] = e; // w <= i, so this never clobbers an unread element
+        scratch[f] = e;
+        // advance only one of the pointers
+        w += t as usize;
+        f += (!t) as usize;
+    }
+    slice[w..].copy_from_slice(&scratch[..f]);
+    w
+}
+
+struct ScratchPad {
+    is_true: Vec<bool>,
+    node_elements: Vec<NodeElement>,
+    shared_node_elements: Vec<Vec<NodeElement>>,
+}
+
+impl ScratchPad {
+    fn new(
+        is_true: Vec<bool>,
+        node_elements: Vec<NodeElement>,
+        shared_node_elements: Vec<Vec<NodeElement>>,
+    ) -> Self {
+        Self {
+            is_true,
+            node_elements,
+            shared_node_elements,
+        }
+    }
 }
 
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
@@ -271,20 +321,27 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let root = Node::new(sum / mass);
         nodes.push(root);
 
-        let sorted_node_elements: Vec<Vec<NodeElement>> = order
+        let shared_node_elements: Vec<Vec<NodeElement>> = order
             .iter()
             .map(|col_order| {
                 col_order
                     .iter()
                     .filter(|&&i| samples[i] > 0)
                     .map(|&i| NodeElement {
-                        row_idx: i,
-                        count: samples[i],
+                        row_idx: i as u32,
+                        count: samples[i] as u32,
                         mass: mass_of(i, &samples, sample_weights),
                     })
                     .collect()
             })
             .collect();
+        let end_idx = shared_node_elements[0].len();
+
+        let mut scratch_pad = ScratchPad::new(
+            vec![false; x.shape().0],
+            vec![NodeElement::default(); end_idx],
+            shared_node_elements,
+        );
 
         let mut base_tree = BaseTreeRegressor {
             nodes,
@@ -296,25 +353,18 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, sorted_node_elements, x, &y_m, 1);
+        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, 0, end_idx, x, &y_m, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
 
-        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng) {
+        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &scratch_pad) {
             visitor_queue.push_back(visitor);
         }
 
-        let mut scratch_buffer = vec![false; x.shape().0];
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
         while let Some(node) = visitor_queue.pop_front() {
             if node.level < max_depth {
-                base_tree.split(
-                    node,
-                    mtry,
-                    &mut visitor_queue,
-                    &mut rng,
-                    &mut scratch_buffer,
-                );
+                base_tree.split(node, mtry, &mut visitor_queue, &mut rng, &mut scratch_pad);
             }
         }
 
@@ -359,10 +409,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mtry: usize,
         mass: f64,
         rng: &mut impl rand::Rng,
+        scratch_pad: &ScratchPad,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
-        let n: usize = visitor.num_samples();
+        //let n: usize = visitor.num_samples();
+        let n: usize = scratch_pad.shared_node_elements[0][visitor.start_idx..visitor.end_idx]
+            .iter()
+            .map(|elem| elem.count as usize)
+            .sum();
 
         if n < self.parameters().min_samples_split {
             return false;
@@ -385,10 +440,27 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         for variable in variables.iter().take(mtry) {
             match splitter {
                 Splitter::Random => {
-                    self.find_random_split(visitor, n, mass, sum, parent_gain, *variable, rng);
+                    self.find_random_split(
+                        visitor,
+                        n,
+                        mass,
+                        sum,
+                        parent_gain,
+                        *variable,
+                        rng,
+                        scratch_pad,
+                    );
                 }
                 Splitter::Best => {
-                    self.find_best_split(visitor, n, mass, sum, parent_gain, *variable);
+                    self.find_best_split(
+                        visitor,
+                        n,
+                        mass,
+                        sum,
+                        parent_gain,
+                        *variable,
+                        scratch_pad,
+                    );
                 }
             }
         }
@@ -405,19 +477,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         parent_gain: f64,
         j: usize,
         rng: &mut impl rand::Rng,
+        scratch_pad: &ScratchPad,
     ) {
-        let (min_val, max_val) = {
-            let min_opt = visitor.sorted_node_elements[j]
-                .first()
-                .map(|elem| visitor.x.get((elem.row_idx, j)));
-            let max_opt = visitor.sorted_node_elements[j]
-                .last()
-                .map(|elem| visitor.x.get((elem.row_idx, j)));
-            if min_opt.is_none() {
-                return;
-            }
-            (min_opt.unwrap(), max_opt.unwrap())
-        };
+        if visitor.start_idx == visitor.end_idx {
+            return;
+        }
+        let first_elem = scratch_pad.shared_node_elements[j][visitor.start_idx];
+        let min_val = visitor.x.get((first_elem.row(), j));
+        let last_elem = scratch_pad.shared_node_elements[j][visitor.end_idx - 1];
+        let max_val = visitor.x.get((last_elem.row(), j));
 
         if min_val >= max_val {
             return;
@@ -428,17 +496,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut true_sum = 0f64;
         let mut true_mass = 0f64;
         let mut true_count = 0;
-        for elem in &visitor.sorted_node_elements[j] {
-            if visitor.x.get((elem.row_idx, j)).to_f64().unwrap() <= split_value {
-                true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+        for elem in &scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx] {
+            if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
+                true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
                 true_count += elem.count;
                 true_mass += elem.mass;
             }
         }
 
-        let false_count = n - true_count;
+        let false_count = n - (true_count as usize);
 
-        if true_count < self.parameters().min_samples_leaf
+        if (true_count as usize) < self.parameters().min_samples_leaf
             || false_count < self.parameters().min_samples_leaf
         {
             return;
@@ -477,32 +545,33 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sum: f64,
         parent_gain: f64,
         j: usize,
+        scratch_pad: &ScratchPad,
     ) {
         let mut true_sum = 0f64;
         let mut true_count = 0;
         let mut true_mass = 0f64;
         let mut prevx = Option::None;
 
-        for elem in visitor.sorted_node_elements[j].iter() {
-            let x_ij = *visitor.x.get((elem.row_idx, j));
+        for elem in &scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx] {
+            let x_ij = *visitor.x.get((elem.row(), j));
 
             if prevx.is_none() || x_ij == prevx.unwrap() {
                 prevx = Some(x_ij);
                 true_count += elem.count;
                 true_mass += elem.mass;
-                true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+                true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
                 continue;
             }
 
-            let false_count = n - true_count;
+            let false_count = n - (true_count as usize);
 
-            if true_count < self.parameters().min_samples_leaf
+            if (true_count as usize) < self.parameters().min_samples_leaf
                 || false_count < self.parameters().min_samples_leaf
             {
                 prevx = Some(x_ij);
                 true_count += elem.count;
                 true_mass += elem.mass;
-                true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+                true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
                 continue;
             }
 
@@ -534,7 +603,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             }
 
             prevx = Some(x_ij);
-            true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+            true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
             true_count += elem.count;
             true_mass += elem.mass;
         }
@@ -546,7 +615,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
-        buffer: &mut [bool], // buffer used to track the splitting
+        scratch_pad: &mut ScratchPad, // buffer used to track the splitting
     ) -> bool {
         let this_node = &self.nodes()[visitor.node];
 
@@ -555,46 +624,37 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         // (Vec<Vec>, Vec<Vec>)
 
         // for each row_index, does it belong in the true branch or not?
-        let is_true = buffer;
+        let is_true = &mut scratch_pad.is_true;
         let mut n_true = 0usize;
-        for e in &visitor.sorted_node_elements[0] {
+        for e in &scratch_pad.shared_node_elements[0][visitor.start_idx..visitor.end_idx] {
             let t = is_true_sample(e, visitor.x, this_node);
-            is_true[e.row_idx] = t;
+            is_true[e.row()] = t;
             n_true += t as usize;
         }
-        let n_false = visitor.sorted_node_elements[0].len() - n_true;
 
-        // now use this to partition each of the vectors. Preallocate vectors to avoid reallocations
-        let (true_samples, false_samples): (Vec<Vec<NodeElement>>, Vec<Vec<NodeElement>>) = visitor
-            .sorted_node_elements
-            .iter()
-            .map(|col| {
-                let mut true_vec = Vec::with_capacity(n_true); // preallocate
-                let mut false_vec = Vec::with_capacity(n_false);
-                for e in col {
-                    if is_true[e.row_idx] {
-                        true_vec.push(*e);
-                    } else {
-                        false_vec.push(*e);
-                    }
-                }
-                (true_vec, false_vec)
-            })
-            .unzip();
+        for j in 0..visitor.x.shape().1 {
+            stable_partition(
+                &mut scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx],
+                &mut scratch_pad.node_elements,
+                is_true,
+            );
+        }
 
-        let tc: usize = true_samples[0usize]
+        let split_idx = visitor.start_idx + n_true;
+
+        let tc: usize = scratch_pad.shared_node_elements[0][visitor.start_idx..split_idx]
             .iter()
-            .map(|node_elem| node_elem.count)
+            .map(|node_elem| node_elem.count as usize)
             .sum::<usize>();
-        let true_mass = true_samples[0usize]
+        let true_mass = scratch_pad.shared_node_elements[0][visitor.start_idx..split_idx]
             .iter()
             .map(|node_elem| node_elem.mass)
             .sum::<f64>();
-        let fc: usize = false_samples[0usize]
+        let fc: usize = scratch_pad.shared_node_elements[0][split_idx..visitor.end_idx]
             .iter()
-            .map(|node_elem| node_elem.count)
+            .map(|node_elem| node_elem.count as usize)
             .sum::<usize>();
-        let false_mass = false_samples[0usize]
+        let false_mass = scratch_pad.shared_node_elements[0][split_idx..visitor.end_idx]
             .iter()
             .map(|node_elem| node_elem.mass)
             .sum::<f64>();
@@ -620,25 +680,27 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut true_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             true_child_idx,
-            true_samples,
+            visitor.start_idx,
+            split_idx,
             visitor.x,
             visitor.y,
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng) {
+        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng, scratch_pad) {
             visitor_queue.push_back(true_visitor);
         }
 
         let mut false_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             false_child_idx,
-            false_samples,
+            split_idx,
+            visitor.end_idx,
             visitor.x,
             visitor.y,
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng) {
+        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng, scratch_pad) {
             visitor_queue.push_back(false_visitor);
         }
 
