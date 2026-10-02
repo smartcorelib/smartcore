@@ -57,6 +57,7 @@ jobs:
           - "--features serde"
           - "--features datasets"
           - "--features ndarray-bindings"
+          - "--features std,ndarray-bindings"
           - ""
     steps:
       - uses: actions/checkout@v4
@@ -72,9 +73,100 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Stable Build
         run: cargo build --no-default-features ${{ matrix.features }}
+      - name: Assert ndarray feature resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # `cargo tree --edges normal,build` omits dev-dependency edges.
+          # `{p} {f}` is "name version feat1,feat2". Match the ndarray package
+          # name exactly and compare the comma-separated feature tokens to
+          # "std" so a substring on another package cannot pass.
+          assert_ndarray() {
+            local expect="$1"
+            shift
+            local tree line features has_std token found
+            # Assign separately so `local` cannot mask a failing `cargo tree`.
+            tree="$(cargo tree --edges normal,build --prefix none --format '{p} {f}' "$@")"
+            found=0
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              # Cargo appends " (*)" on repeated packages; it is not a feature.
+              line="${line% (*)}"
+              case "$line" in
+                ndarray[[:space:]]*) ;;
+                *) continue ;;
+              esac
+              found=1
+              # Drop the package name and version; the rest is `{f}`.
+              features="$(printf '%s\n' "$line" | awk '{ $1=""; $2=""; sub(/^[[:space:]]+/, ""); print }')"
+              has_std=0
+              if [ -n "$features" ]; then
+                IFS=',' read -ra tokens <<< "$features"
+                for token in "${tokens[@]}"; do
+                  token="${token#"${token%%[![:space:]]*}"}"
+                  token="${token%"${token##*[![:space:]]}"}"
+                  if [ "$token" = "std" ]; then
+                    has_std=1
+                  fi
+                done
+              fi
+              if [ "$expect" = "absent" ]; then
+                echo "ndarray unexpectedly present in the normal/build graph: $line" >&2
+                exit 1
+              fi
+              if [ "$expect" = "std" ] && [ "$has_std" -ne 1 ]; then
+                echo "ndarray is missing the std feature token: $line" >&2
+                exit 1
+              fi
+              if [ "$expect" = "no-std" ] && [ "$has_std" -ne 0 ]; then
+                echo "ndarray unexpectedly enables std: $line" >&2
+                exit 1
+              fi
+              echo "ndarray feature check passed ($expect): $line"
+            done <<< "$tree"
+            if [ "$found" -eq 0 ]; then
+              if [ "$expect" = "absent" ]; then
+                echo "ndarray is absent from the normal/build graph"
+                return 0
+              fi
+              echo "expected ndarray package line is missing" >&2
+              printf '%s\n' "$tree" >&2
+              exit 1
+            fi
+          }
+
+          case "${{ matrix.features }}" in
+            "--features ndarray-bindings")
+              assert_ndarray no-std --no-default-features ${{ matrix.features }}
+              ;;
+            "--features std,ndarray-bindings")
+              assert_ndarray std --no-default-features ${{ matrix.features }}
+              ;;
+            "")
+              assert_ndarray absent --no-default-features
+              # Default features and explicit std must not activate ndarray.
+              # This catches strong `ndarray/std` forwarding.
+              assert_ndarray absent
+              assert_ndarray absent --no-default-features --features std
+              # Default plus bindings keeps ndarray's std feature on.
+              assert_ndarray std --features default,ndarray-bindings
+              ;;
+            *)
+              assert_ndarray absent --no-default-features ${{ matrix.features }}
+              ;;
+          esac
       - name: Tests
-        if: matrix.features == '--features ndarray-bindings'
+        if: matrix.features == '--features ndarray-bindings' || matrix.features == '--features std,ndarray-bindings'
         run: cargo test --no-default-features ${{ matrix.features }}
+      - name: Explicit std does not activate ndarray
+        if: matrix.features == ''
+        run: cargo build --no-default-features --features std
+      - name: Default plus ndarray-bindings
+        if: matrix.features == ''
+        run: |
+          cargo build --features default,ndarray-bindings
+          cargo test --features default,ndarray-bindings
 
   msrv:
     # Verify the declared rust-version (MSRV) in Cargo.toml still builds.

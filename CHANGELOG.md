@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `predict`, `predict_proba`, `predict_oob`, `predict_matrix` and `decision_function` now return `Err(Failed)` instead of panicking when `fit` has not run (#469, #470). Models return the same unfitted error even after deserialization, when the state fields are `None`. The guarded methods cover the decision trees, the random forests, the extra-trees regressor, the KNN classifier and regressor, `SVC`, `MultiClassSVC`, `SVR`, the linear models, the naive Bayes classifiers and `XGRegressor`.
 
 ### Changed
+- `Cargo.toml`: optional `ndarray` is now `default-features = false`, and the default feature set is `std` (`ndarray?/std`). Ordinary builds still enable ndarray's standard-library support when `ndarray-bindings` is on, while `std` alone does not activate ndarray. Disabling `std` controls ndarray's std support at this stage; it does not yet make all of smartcore usable on a bare-metal target (#421).
 - The error text for an unfitted `MultiClassSVC::predict` changed from "MultiClassSVC is not fitted" to the common "'fit' should be called before calling 'predict'". Code that matched the old string must be updated.
 
 ## [0.6.15]
