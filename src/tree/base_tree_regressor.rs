@@ -592,8 +592,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 || gain > self.nodes()[visitor.node].split_score.unwrap()
             {
                 self.nodes[visitor.node].split_feature = j;
-                self.nodes[visitor.node].split_value =
-                    Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
+                self.nodes[visitor.node].split_value = Option::Some(
+                    (x_ij.to_f64().unwrap() + prevx.unwrap().to_f64().unwrap()) / 2f64,
+                );
                 self.nodes[visitor.node].split_score = Option::Some(gain);
 
                 visitor.true_child_output = true_mean;
