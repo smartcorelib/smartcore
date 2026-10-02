@@ -503,7 +503,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
-                seed: Some(parameters.seed),
+                seed: Some(rng.random::<u64>()), // give each tree a different seed for its rng
             };
             let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
