@@ -130,9 +130,8 @@ struct NodeVisitor<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Ar
     x: &'a X,
     y: &'a Y,
     node: usize,
-    samples: Vec<usize>,
-    sample_weights: Option<&'a [f64]>,
-    order: &'a [Vec<usize>],
+    // holds the elements for this node, sorted for each feature [num_features, num_samples]
+    sorted_node_elements: Vec<Vec<NodeElement>>,
     true_child_output: f64,
     false_child_output: f64,
     level: u16,
@@ -145,9 +144,7 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new(
         node_id: usize,
-        samples: Vec<usize>,
-        sample_weights: Option<&'a [f64]>,
-        order: &'a [Vec<usize>],
+        sorted_node_elements: Vec<Vec<NodeElement>>,
         x: &'a X,
         y: &'a Y,
         level: u16,
@@ -156,9 +153,7 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             x,
             y,
             node: node_id,
-            samples,
-            sample_weights,
-            order,
+            sorted_node_elements,
             true_child_output: 0f64,
             false_child_output: 0f64,
             level,
@@ -167,9 +162,12 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
-    /// Weighted count of sample `i`. The weight is 1.0 if no weights are given.
-    fn mass_of(&self, i: usize) -> f64 {
-        mass_of(i, &self.samples, self.sample_weights)
+    /// number of samples in this node (nodevisitor)
+    fn num_samples(&self) -> usize {
+        self.sorted_node_elements[0]
+            .iter()
+            .map(|node_elem| node_elem.count)
+            .sum()
     }
 }
 
@@ -179,6 +177,30 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
         Some(weights) => samples[i] as f64 * weights[i],
         None => samples[i] as f64,
     }
+}
+
+// Struct representing an element that belongs logically to a Node, as stored in NodeVisitor
+#[derive(Copy, Clone)]
+struct NodeElement {
+    // the row index in the dataset
+    pub row_idx: usize,
+    // the number of times this row is present, should always be > 0
+    pub count: usize,
+    // total mass of this element, equals count * mass of individual element.
+    // equals count when no sample weights were used
+    pub mass: f64,
+}
+
+// Checks whether the example indicated by node_element is a "true child" for this node
+fn is_true_sample<TX, X>(node_element: &NodeElement, x: &X, node: &Node) -> bool
+where
+    TX: Number + PartialOrd,
+    X: Array2<TX>,
+{
+    x.get((node_element.row_idx, node.split_feature))
+        .to_f64()
+        .unwrap()
+        <= node.split_value.unwrap_or(f64::NAN)
 }
 
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
@@ -246,6 +268,21 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             order.push(col_i.argsort_mut());
         }
 
+        let sorted_node_elements: Vec<Vec<NodeElement>> = order
+            .iter()
+            .map(|col_order| {
+                col_order
+                    .iter()
+                    .filter(|&&i| samples[i] > 0)
+                    .map(|&i| NodeElement {
+                        row_idx: i,
+                        count: samples[i],
+                        mass: mass_of(i, &samples, sample_weights),
+                    })
+                    .collect()
+            })
+            .collect();
+
         let mut base_tree = BaseTreeRegressor {
             nodes,
             parameters: Some(parameters),
@@ -256,8 +293,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor =
-            NodeVisitor::<TX, TY, X, Y>::new(0, samples, sample_weights, &order, x, &y_m, 1);
+        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, sorted_node_elements, x, &y_m, 1);
 
         let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
 
@@ -316,7 +352,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
-        let n: usize = visitor.samples.iter().sum();
+        let n: usize = visitor.num_samples();
 
         if n < self.parameters().min_samples_split {
             return false;
@@ -324,6 +360,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let sum = self.nodes()[visitor.node].output * mass;
 
+        // TODO later: get rid of this allocation in every iteration
         let mut variables = (0..n_attr).collect::<Vec<_>>();
 
         if mtry < n_attr {
@@ -360,20 +397,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         rng: &mut impl rand::Rng,
     ) {
         let (min_val, max_val) = {
-            let mut min_opt = None;
-            let mut max_opt = None;
-            for &i in &visitor.order[j] {
-                if visitor.samples[i] > 0 {
-                    min_opt = Some(*visitor.x.get((i, j)));
-                    break;
-                }
-            }
-            for &i in visitor.order[j].iter().rev() {
-                if visitor.samples[i] > 0 {
-                    max_opt = Some(*visitor.x.get((i, j)));
-                    break;
-                }
-            }
+            let min_opt = visitor.sorted_node_elements[j]
+                .first()
+                .map(|elem| visitor.x.get((elem.row_idx, j)));
+            let max_opt = visitor.sorted_node_elements[j]
+                .last()
+                .map(|elem| visitor.x.get((elem.row_idx, j)));
             if min_opt.is_none() {
                 return;
             }
@@ -389,15 +418,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut true_sum = 0f64;
         let mut true_mass = 0f64;
         let mut true_count = 0;
-        for &i in &visitor.order[j] {
-            if visitor.samples[i] > 0 {
-                if visitor.x.get((i, j)).to_f64().unwrap() <= split_value {
-                    true_sum += visitor.mass_of(i) * visitor.y.get(i).to_f64().unwrap();
-                    true_count += visitor.samples[i];
-                    true_mass += visitor.mass_of(i);
-                } else {
-                    break;
-                }
+        for elem in &visitor.sorted_node_elements[j] {
+            if visitor.x.get((elem.row_idx, j)).to_f64().unwrap() <= split_value {
+                true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+                true_count += elem.count;
+                true_mass += elem.mass;
             }
         }
 
@@ -448,99 +473,104 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut true_mass = 0f64;
         let mut prevx = Option::None;
 
-        for i in visitor.order[j].iter() {
-            if visitor.samples[*i] > 0 {
-                let x_ij = *visitor.x.get((*i, j));
+        for elem in visitor.sorted_node_elements[j].iter() {
+            let x_ij = *visitor.x.get((elem.row_idx, j));
 
-                if prevx.is_none() || x_ij == prevx.unwrap() {
-                    prevx = Some(x_ij);
-                    true_count += visitor.samples[*i];
-                    true_mass += visitor.mass_of(*i);
-                    true_sum += visitor.mass_of(*i) * visitor.y.get(*i).to_f64().unwrap();
-                    continue;
-                }
-
-                let false_count = n - true_count;
-
-                if true_count < self.parameters().min_samples_leaf
-                    || false_count < self.parameters().min_samples_leaf
-                {
-                    prevx = Some(x_ij);
-                    true_count += visitor.samples[*i];
-                    true_mass += visitor.mass_of(*i);
-                    true_sum += visitor.mass_of(*i) * visitor.y.get(*i).to_f64().unwrap();
-                    continue;
-                }
-
-                let true_mean = if true_mass > 0.0 {
-                    true_sum / true_mass
-                } else {
-                    0.0
-                };
-                let false_mass = mass - true_mass;
-                let false_mean = if false_mass > 0.0 {
-                    (sum - true_sum) / false_mass
-                } else {
-                    0.0
-                };
-
-                let gain = (true_mass * true_mean * true_mean
-                    + false_mass * false_mean * false_mean)
-                    - parent_gain;
-
-                if self.nodes()[visitor.node].split_score.is_none()
-                    || gain > self.nodes()[visitor.node].split_score.unwrap()
-                {
-                    self.nodes[visitor.node].split_feature = j;
-                    self.nodes[visitor.node].split_value =
-                        Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
-                    self.nodes[visitor.node].split_score = Option::Some(gain);
-
-                    visitor.true_child_output = true_mean;
-                    visitor.false_child_output = false_mean;
-                }
-
+            if prevx.is_none() || x_ij == prevx.unwrap() {
                 prevx = Some(x_ij);
-                true_sum += visitor.mass_of(*i) * visitor.y.get(*i).to_f64().unwrap();
-                true_count += visitor.samples[*i];
-                true_mass += visitor.mass_of(*i);
+                true_count += elem.count;
+                true_mass += elem.mass;
+                true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+                continue;
             }
+
+            let false_count = n - true_count;
+
+            if true_count < self.parameters().min_samples_leaf
+                || false_count < self.parameters().min_samples_leaf
+            {
+                prevx = Some(x_ij);
+                true_count += elem.count;
+                true_mass += elem.mass;
+                true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+                continue;
+            }
+
+            let true_mean = if true_mass > 0.0 {
+                true_sum / true_mass
+            } else {
+                0.0
+            };
+            let false_mass = mass - true_mass;
+            let false_mean = if false_mass > 0.0 {
+                (sum - true_sum) / false_mass
+            } else {
+                0.0
+            };
+
+            let gain = (true_mass * true_mean * true_mean + false_mass * false_mean * false_mean)
+                - parent_gain;
+
+            if self.nodes()[visitor.node].split_score.is_none()
+                || gain > self.nodes()[visitor.node].split_score.unwrap()
+            {
+                self.nodes[visitor.node].split_feature = j;
+                self.nodes[visitor.node].split_value =
+                    Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
+                self.nodes[visitor.node].split_score = Option::Some(gain);
+
+                visitor.true_child_output = true_mean;
+                visitor.false_child_output = false_mean;
+            }
+
+            prevx = Some(x_ij);
+            true_sum += elem.mass * visitor.y.get(elem.row_idx).to_f64().unwrap();
+            true_count += elem.count;
+            true_mass += elem.mass;
         }
     }
 
     fn split<'a>(
         &mut self,
-        mut visitor: NodeVisitor<'a, TX, TY, X, Y>,
+        visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
     ) -> bool {
-        let (n, _) = visitor.x.shape();
-        let mut tc = 0;
-        let mut fc = 0;
-        let mut true_mass = 0f64;
-        let mut false_mass = 0f64;
-        let mut true_samples: Vec<usize> = vec![0; n];
+        let this_node = &self.nodes()[visitor.node];
 
-        for (i, true_sample) in true_samples.iter_mut().enumerate().take(n) {
-            if visitor.samples[i] > 0 {
-                if visitor
-                    .x
-                    .get((i, self.nodes()[visitor.node].split_feature))
-                    .to_f64()
-                    .unwrap()
-                    <= self.nodes()[visitor.node].split_value.unwrap_or(f64::NAN)
-                {
-                    *true_sample = visitor.samples[i];
-                    tc += *true_sample;
-                    true_mass += visitor.mass_of(i);
-                    visitor.samples[i] = 0;
-                } else {
-                    fc += visitor.samples[i];
-                    false_mass += visitor.mass_of(i);
-                }
-            }
+        // sorted_node_elements needs to be turned into
+        // Vec< (Vec, Vec) > and then into
+        // (Vec<Vec>, Vec<Vec>)
+
+        // for each row_index, does it belong in the true branch or not?
+        let mut is_true = vec![false; visitor.x.shape().0];
+        for e in &visitor.sorted_node_elements[0] {
+            is_true[e.row_idx] = is_true_sample(e, visitor.x, this_node);
         }
+        // now use this to partition each of the vectors
+        let (true_samples, false_samples): (Vec<Vec<NodeElement>>, Vec<Vec<NodeElement>>) = visitor
+            .sorted_node_elements
+            .iter()
+            .map(|col| col.iter().partition(|e| is_true[e.row_idx]))
+            .unzip();
+
+        let tc: usize = true_samples[0usize]
+            .iter()
+            .map(|node_elem| node_elem.count)
+            .sum::<usize>();
+        let true_mass = true_samples[0usize]
+            .iter()
+            .map(|node_elem| node_elem.mass)
+            .sum::<f64>();
+        let fc: usize = false_samples[0usize]
+            .iter()
+            .map(|node_elem| node_elem.count)
+            .sum::<usize>();
+        let false_mass = false_samples[0usize]
+            .iter()
+            .map(|node_elem| node_elem.mass)
+            .sum::<f64>();
 
         if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
             self.nodes[visitor.node].split_feature = 0;
@@ -564,8 +594,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut true_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             true_child_idx,
             true_samples,
-            visitor.sample_weights,
-            visitor.order,
             visitor.x,
             visitor.y,
             visitor.level + 1,
@@ -577,9 +605,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut false_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             false_child_idx,
-            visitor.samples,
-            visitor.sample_weights,
-            visitor.order,
+            false_samples,
             visitor.x,
             visitor.y,
             visitor.level + 1,
