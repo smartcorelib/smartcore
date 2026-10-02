@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Failed, FailedError};
+use crate::linalg::basic::arrays::MutArrayView1;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
@@ -120,6 +121,14 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             })
             .transpose()?;
 
+        // Compute the order of each attribute once
+        let mut order: Vec<Vec<usize>> = Vec::with_capacity(num_attributes);
+
+        for i in 0..num_attributes {
+            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+            order.push(col_i.argsort_mut());
+        }
+
         for _ in 0..parameters.n_trees {
             if parameters.bootstrap {
                 samples = BaseForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
@@ -147,6 +156,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 sample_weights,
                 samples.clone(),
                 mtry,
+                &order,
                 params,
             )?;
             trees.push(tree);

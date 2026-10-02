@@ -223,6 +223,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             ));
         }
 
+        // Compute the order of each attribute once
+        let mut order: Vec<Vec<usize>> = Vec::new();
+
+        for i in 0..num_attributes {
+            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+            order.push(col_i.argsort_mut());
+        }
+
         let samples = vec![1; x_nrows];
         BaseTreeRegressor::fit_weak_learner(
             x,
@@ -230,6 +238,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             sample_weights,
             samples,
             num_attributes,
+            &order,
             parameters,
         )
     }
@@ -240,12 +249,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sample_weights: Option<&[f64]>,
         samples: Vec<usize>,
         mtry: usize,
+        order: &[Vec<usize>],
         parameters: BaseTreeRegressorParameters,
     ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
         let y_m = y.clone();
 
         let y_ncols = y_m.shape();
-        let (_, num_attributes) = x.shape();
 
         let mut nodes: Vec<Node> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
@@ -261,12 +270,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let root = Node::new(sum / mass);
         nodes.push(root);
-        let mut order: Vec<Vec<usize>> = Vec::new();
-
-        for i in 0..num_attributes {
-            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
-            order.push(col_i.argsort_mut());
-        }
 
         let sorted_node_elements: Vec<Vec<NodeElement>> = order
             .iter()
@@ -301,10 +304,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor_queue.push_back(visitor);
         }
 
+        let mut scratch_buffer = vec![false; x.shape().0];
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
         while let Some(node) = visitor_queue.pop_front() {
             if node.level < max_depth {
-                base_tree.split(node, mtry, &mut visitor_queue, &mut rng);
+                base_tree.split(
+                    node,
+                    mtry,
+                    &mut visitor_queue,
+                    &mut rng,
+                    &mut scratch_buffer,
+                );
             }
         }
 
@@ -536,6 +546,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mtry: usize,
         visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
+        buffer: &mut [bool], // buffer used to track the splitting
     ) -> bool {
         let this_node = &self.nodes()[visitor.node];
 
@@ -544,15 +555,31 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         // (Vec<Vec>, Vec<Vec>)
 
         // for each row_index, does it belong in the true branch or not?
-        let mut is_true = vec![false; visitor.x.shape().0];
+        let is_true = buffer;
+        let mut n_true = 0usize;
         for e in &visitor.sorted_node_elements[0] {
-            is_true[e.row_idx] = is_true_sample(e, visitor.x, this_node);
+            let t = is_true_sample(e, visitor.x, this_node);
+            is_true[e.row_idx] = t;
+            n_true += t as usize;
         }
-        // now use this to partition each of the vectors
+        let n_false = visitor.sorted_node_elements[0].len() - n_true;
+
+        // now use this to partition each of the vectors. Preallocate vectors to avoid reallocations
         let (true_samples, false_samples): (Vec<Vec<NodeElement>>, Vec<Vec<NodeElement>>) = visitor
             .sorted_node_elements
             .iter()
-            .map(|col| col.iter().partition(|e| is_true[e.row_idx]))
+            .map(|col| {
+                let mut true_vec = Vec::with_capacity(n_true); // preallocate
+                let mut false_vec = Vec::with_capacity(n_false);
+                for e in col {
+                    if is_true[e.row_idx] {
+                        true_vec.push(*e);
+                    } else {
+                        false_vec.push(*e);
+                    }
+                }
+                (true_vec, false_vec)
+            })
             .unzip();
 
         let tc: usize = true_samples[0usize]
