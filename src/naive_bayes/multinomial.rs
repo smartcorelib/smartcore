@@ -579,6 +579,10 @@ mod tests {
         assert_eq!(mnb, deserialized_mnb);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let mnb: MultinomialNB<u32, u32, DenseMatrix<u32>, Vec<u32>> = MultinomialNB::new();

@@ -741,6 +741,10 @@ mod tests {
         assert_eq!(knn, deserialized_knn);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let knn: KNNClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>, Euclidian<f64>> =
@@ -752,6 +756,10 @@ mod tests {
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_proba_without_fit_should_not_panic() {
         let knn: KNNClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>, Euclidian<f64>> =

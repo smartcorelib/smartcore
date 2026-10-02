@@ -768,6 +768,10 @@ mod tests {
         assert_eq!(forest, deserialized_forest);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
@@ -779,6 +783,10 @@ mod tests {
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_oob_without_fit_should_not_panic() {
         let forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =

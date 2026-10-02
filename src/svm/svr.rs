@@ -717,6 +717,10 @@ mod tests {
         assert_eq!(svr, deserialized_svr);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");

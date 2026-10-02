@@ -549,14 +549,8 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
     /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        if self.trees.is_none() {
-            return Err(Failed::predict(
-                "'fit' should be called before calling 'predict'",
-            ));
-        }
-
-        match &self.classes {
-            Some(classes) => {
+        match (&self.trees, &self.classes) {
+            (Some(_), Some(classes)) => {
                 let (n, _) = x.shape();
 
                 let samples = match &self.samples {
@@ -584,7 +578,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
                 Ok(result)
             }
-            None => Err(Failed::predict(
+            _ => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
         }
@@ -879,6 +873,10 @@ mod tests {
         );
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let tree: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
@@ -890,6 +888,10 @@ mod tests {
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_oob_without_fit_should_not_panic() {
         let tree: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =

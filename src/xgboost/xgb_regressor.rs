@@ -589,12 +589,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
 
     /// Predicts target values for the given input data.
     pub fn predict(&self, data: &X) -> Result<Vec<TX>, Failed> {
-        match &self.parameters {
-            Some(parameters) => {
+        // Match on both fields: after deserialization, 'parameters' and
+        // 'regressors' could be out of sync, so a single check must cover them.
+        match (&self.parameters, &self.regressors) {
+            (Some(parameters), Some(regressors)) => {
                 let (n_samples, _) = data.shape();
 
                 let mut predictions = vec![parameters.base_score; n_samples];
-                let regressors = self.regressors.as_ref().unwrap();
 
                 for regressor in regressors.iter() {
                     let corrections = regressor.predict(data);
@@ -608,7 +609,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
                     .map(|p| TX::from_f64(p).unwrap())
                     .collect())
             }
-            None => Err(Failed::predict(
+            _ => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
         }
@@ -940,6 +941,10 @@ mod tests {
         assert_eq!(predictions.len(), 4);
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn predict_without_fit_should_not_panic() {
         let tree: XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> = XGRegressor::new();
