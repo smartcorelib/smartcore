@@ -130,10 +130,8 @@ struct NodeVisitor<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Ar
     x: &'a X,
     y: &'a Y,
     node: usize,
-    // holds the elements for this node, sorted for each feature [num_features, num_samples]
-    //sorted_node_elements: Vec<Vec<NodeElement>>,
-    start_idx: usize,
-    end_idx: usize,
+    start_idx: usize, // start index for the elements in `sorted_by_feature` of SplitWorkspace
+    end_idx: usize,   // end index (exclusive) in the same vector(s)
     true_child_output: f64,
     false_child_output: f64,
     level: u16,
@@ -175,7 +173,7 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     }
 }
 
-// Struct representing an element that belongs logically to a Node, as stored in NodeVisitor
+// Struct representing an element that belongs logically to a Node, as stored in SplitWorkspace
 #[derive(Copy, Clone, Default)]
 struct NodeElement {
     // the row index in the dataset
@@ -233,22 +231,22 @@ fn stable_partition(
     w
 }
 
-struct ScratchPad {
-    is_true: Vec<bool>,
-    node_elements: Vec<NodeElement>,
-    shared_node_elements: Vec<Vec<NodeElement>>,
+struct SplitWorkspace {
+    in_true_branch: Vec<bool>, // indexed by row index in X
+    partition_buffer: Vec<NodeElement>,
+    sorted_by_feature: Vec<Vec<NodeElement>>,
 }
 
-impl ScratchPad {
+impl SplitWorkspace {
     fn new(
-        is_true: Vec<bool>,
-        node_elements: Vec<NodeElement>,
-        shared_node_elements: Vec<Vec<NodeElement>>,
+        in_true_branch: Vec<bool>,
+        partition_buffer: Vec<NodeElement>,
+        sorted_by_feature: Vec<Vec<NodeElement>>,
     ) -> Self {
         Self {
-            is_true,
-            node_elements,
-            shared_node_elements,
+            in_true_branch,
+            partition_buffer,
+            sorted_by_feature,
         }
     }
 }
@@ -319,7 +317,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let root = Node::new(sum / mass);
         nodes.push(root);
 
-        let shared_node_elements: Vec<Vec<NodeElement>> = order
+        let sorted_by_feature: Vec<Vec<NodeElement>> = order
             .iter()
             .map(|col_order| {
                 col_order
@@ -333,12 +331,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                     .collect()
             })
             .collect();
-        let end_idx = shared_node_elements[0].len();
+        let end_idx = sorted_by_feature[0].len();
 
-        let mut scratch_pad = ScratchPad::new(
+        let mut workspace = SplitWorkspace::new(
             vec![false; x.shape().0],
             vec![NodeElement::default(); end_idx],
-            shared_node_elements,
+            sorted_by_feature,
         );
 
         let mut base_tree = BaseTreeRegressor {
@@ -355,14 +353,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut visitor_queue: VecDeque<NodeVisitor<'_, TX, TY, X, Y>> = VecDeque::new();
 
-        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &scratch_pad) {
+        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &workspace) {
             visitor_queue.push_back(visitor);
         }
 
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
         while let Some(node) = visitor_queue.pop_front() {
             if node.level < max_depth {
-                base_tree.split(node, mtry, &mut visitor_queue, &mut rng, &mut scratch_pad);
+                base_tree.split(node, mtry, &mut visitor_queue, &mut rng, &mut workspace);
             }
         }
 
@@ -407,12 +405,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mtry: usize,
         mass: f64,
         rng: &mut impl rand::Rng,
-        scratch_pad: &ScratchPad,
+        workspace: &SplitWorkspace,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
-        //let n: usize = visitor.num_samples();
-        let n: usize = scratch_pad.shared_node_elements[0][visitor.start_idx..visitor.end_idx]
+        let n: usize = workspace.sorted_by_feature[0][visitor.start_idx..visitor.end_idx]
             .iter()
             .map(|elem| elem.count as usize)
             .sum();
@@ -446,19 +443,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                         parent_gain,
                         *variable,
                         rng,
-                        scratch_pad,
+                        workspace,
                     );
                 }
                 Splitter::Best => {
-                    self.find_best_split(
-                        visitor,
-                        n,
-                        mass,
-                        sum,
-                        parent_gain,
-                        *variable,
-                        scratch_pad,
-                    );
+                    self.find_best_split(visitor, n, mass, sum, parent_gain, *variable, workspace);
                 }
             }
         }
@@ -475,14 +464,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         parent_gain: f64,
         j: usize,
         rng: &mut impl rand::Rng,
-        scratch_pad: &ScratchPad,
+        workspace: &SplitWorkspace,
     ) {
         if visitor.start_idx == visitor.end_idx {
             return;
         }
-        let first_elem = scratch_pad.shared_node_elements[j][visitor.start_idx];
+        let first_elem = workspace.sorted_by_feature[j][visitor.start_idx];
         let min_val = visitor.x.get((first_elem.row(), j));
-        let last_elem = scratch_pad.shared_node_elements[j][visitor.end_idx - 1];
+        let last_elem = workspace.sorted_by_feature[j][visitor.end_idx - 1];
         let max_val = visitor.x.get((last_elem.row(), j));
 
         if min_val >= max_val {
@@ -494,7 +483,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut true_sum = 0f64;
         let mut true_mass = 0f64;
         let mut true_count = 0;
-        for elem in &scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx] {
+        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
             if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
                 true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
                 true_count += elem.count;
@@ -543,14 +532,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sum: f64,
         parent_gain: f64,
         j: usize,
-        scratch_pad: &ScratchPad,
+        workspace: &SplitWorkspace,
     ) {
         let mut true_sum = 0f64;
         let mut true_count = 0;
         let mut true_mass = 0f64;
         let mut prevx = Option::None;
 
-        for elem in &scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx] {
+        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
             let x_ij = *visitor.x.get((elem.row(), j));
 
             if prevx.is_none() || x_ij == prevx.unwrap() {
@@ -614,24 +603,20 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mtry: usize,
         visitor_queue: &mut VecDeque<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
-        scratch_pad: &mut ScratchPad, // buffer used to track the splitting
+        workspace: &mut SplitWorkspace,
     ) -> bool {
         let this_node = &self.nodes()[visitor.node];
-
-        // sorted_node_elements needs to be turned into
-        // Vec< (Vec, Vec) > and then into
-        // (Vec<Vec>, Vec<Vec>)
 
         let mut tc = 0usize;
         let mut true_mass = 0f64;
         let mut fc = 0usize;
         let mut false_mass = 0f64;
         // for each row_index, does it belong in the true branch or not?
-        let is_true = &mut scratch_pad.is_true;
+        let in_true_branch = &mut workspace.in_true_branch;
         let mut n_true = 0usize;
-        for e in &scratch_pad.shared_node_elements[0][visitor.start_idx..visitor.end_idx] {
+        for e in &workspace.sorted_by_feature[0][visitor.start_idx..visitor.end_idx] {
             let t = is_true_sample(e, visitor.x, this_node);
-            is_true[e.row()] = t;
+            in_true_branch[e.row()] = t;
             n_true += t as usize;
             // Fill in tc, etc while we are at it
             if t {
@@ -666,21 +651,21 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         self.depth = u16::max(self.depth, visitor.level + 1);
 
-        // If the child nodes can not be split any further, there is no point is partitioning the ranges
+        // If the child nodes can not be split any further, there is no point in partitioning the ranges
         let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
         let child_level = visitor.level + 1;
         let min_split = self.parameters().min_samples_split;
         let true_can_split = child_level < max_depth && tc >= min_split;
         let false_can_split = child_level < max_depth && fc >= min_split;
         if !true_can_split && !false_can_split {
-            return true; // both children are leaves: no partition, no search
+            return true; // both children are leaves: no partition
         }
 
         for j in 0..visitor.x.shape().1 {
             stable_partition(
-                &mut scratch_pad.shared_node_elements[j][visitor.start_idx..visitor.end_idx],
-                &mut scratch_pad.node_elements,
-                is_true,
+                &mut workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx],
+                &mut workspace.partition_buffer,
+                in_true_branch,
             );
         }
 
@@ -693,7 +678,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng, scratch_pad) {
+        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng, workspace) {
             visitor_queue.push_back(true_visitor);
         }
 
@@ -706,7 +691,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.level + 1,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng, scratch_pad) {
+        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng, workspace) {
             visitor_queue.push_back(false_visitor);
         }
 
