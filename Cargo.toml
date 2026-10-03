@@ -37,10 +37,10 @@ typetag = { version = "0.2", optional = true }
 [features]
 # `std` stays on by default so ordinary builds keep ndarray's standard-library
 # support when `ndarray-bindings` is enabled. Weak forwarding (`ndarray?/std`)
-# does not activate the optional ndarray dependency by itself. Disabling `std`
-# controls ndarray's std support at this stage; it does not yet make all of
-# smartcore usable on a bare-metal target. serde and rand stay opt-in, which
-# keeps the default dependency set WASM-compatible.
+# does not activate the optional ndarray dependency by itself. `std` only
+# controls ndarray's standard-library support; smartcore itself is not
+# `no_std`. serde and rand stay opt-in, which keeps the default dependency set
+# WASM-compatible.
 default = ["std"]
 
 # Enable ndarray's `std` feature when ndarray is already enabled.
