@@ -120,7 +120,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             })
             .transpose()?;
 
-        for _ in 0..parameters.n_trees {
+        for tree_idx in 0..parameters.n_trees {
             if parameters.bootstrap {
                 samples = BaseForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
                     n_rows,
@@ -138,7 +138,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
-                seed: Some(parameters.seed),
+                seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
                 splitter: parameters.splitter.clone(),
             };
             let tree = BaseTreeRegressor::fit_weak_learner(
@@ -426,6 +426,43 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn each_tree_gets_different_feature_sample() {
+        // Without bootstrap, all trees get the same rows. With m = 1, each node uses one
+        // random feature, thus the trees must be different. If all trees use the same seed,
+        // all trees are equal. The Random splitter also uses this rng for the thresholds.
+
+        // Create some data
+        let n_rows = 30;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            4,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let params = BaseForestRegressorParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 10,
+                m: Some(1),
+                keep_samples: false,
+                seed: 42,
+                bootstrap: false,
+                splitter: splitter.clone(),
+            };
+            let forest = BaseForestRegressor::fit(&x, &y, None, params).unwrap();
+            let trees = forest.trees.unwrap();
+            assert!(
+                trees.iter().any(|tree| tree != &trees[0]),
+                "all trees are equal (splitter: {splitter:?})"
+            );
         }
     }
 
