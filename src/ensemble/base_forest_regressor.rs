@@ -544,4 +544,67 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn fit_twice_with_same_seed_gives_identical_forest() {
+        // With bootstrap, m = 1 and the Random splitter, each random path is used:
+        // bootstrap sample, feature selection and random thresholds.
+        let n_rows = 30;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            4,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
+        let sample_weights: Vec<f64> = (0..n_rows).map(|i| 1.0 + (i % 4) as f64).collect();
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for weights in [None, Some(sample_weights.as_slice())] {
+                let params = BaseForestRegressorParameters {
+                    max_depth: None,
+                    min_samples_leaf: 1,
+                    min_samples_split: 2,
+                    n_trees: 10,
+                    m: Some(1),
+                    keep_samples: true,
+                    seed: 42,
+                    bootstrap: true,
+                    splitter: splitter.clone(),
+                };
+
+                let forest_a = BaseForestRegressor::fit(&x, &y, weights, params.clone())
+                    .expect("Fit should work");
+                let forest_b = BaseForestRegressor::fit(&x, &y, weights, params.clone())
+                    .expect("Fit should work");
+
+                assert_eq!(
+                    forest_a, forest_b,
+                    "forests differ (splitter: {splitter:?}, weights: {weights:?})"
+                );
+                assert_eq!(
+                    forest_a.samples, forest_b.samples,
+                    "bootstrap samples differ (splitter: {splitter:?}, weights: {weights:?})"
+                );
+                assert_eq!(
+                    forest_a.predict(&x).unwrap(),
+                    forest_b.predict(&x).unwrap(),
+                    "predictions differ (splitter: {splitter:?}, weights: {weights:?})"
+                );
+
+                // A different seed must give a different forest, else the check above is trivial
+                let forest_c = BaseForestRegressor::fit(
+                    &x,
+                    &y,
+                    weights,
+                    BaseForestRegressorParameters { seed: 43, ..params },
+                )
+                .expect("Fit should work");
+                assert_ne!(
+                    forest_a, forest_c,
+                    "seeds 42 and 43 give the same forest (splitter: {splitter:?}, weights: {weights:?})"
+                );
+            }
+        }
+    }
 }
