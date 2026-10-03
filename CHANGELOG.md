@@ -4,13 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0]
+### Changed
+- `Cargo.toml`: optional `ndarray` is now `default-features = false`, and the default feature set is `std` (`ndarray?/std`). Ordinary builds still enable ndarray's standard-library support when `ndarray-bindings` is on, while `std` alone does not activate ndarray. The `std` feature only controls ndarray's standard-library support; smartcore itself is not `no_std` (#421).
+  - **Migration:** builds that use `--no-default-features --features ndarray-bindings` (or `default-features = false` with `ndarray-bindings`) no longer get ndarray's `std` feature. Add `std` to the feature list to keep the previous behavior.
+
 ## [0.6.16]
 ### Fixed
 - `predict`, `predict_proba`, `predict_oob`, `predict_matrix` and `decision_function` now return `Err(Failed)` instead of panicking when `fit` has not run (#469, #470). Models return the same unfitted error even after deserialization, when the state fields are `None`. The guarded methods cover the decision trees, the random forests, the extra-trees regressor, the KNN classifier and regressor, `SVC`, `MultiClassSVC`, `SVR`, the linear models, the naive Bayes classifiers and `XGRegressor`.
 
 ### Changed
-- `Cargo.toml`: optional `ndarray` is now `default-features = false`, and the default feature set is `std` (`ndarray?/std`). Ordinary builds still enable ndarray's standard-library support when `ndarray-bindings` is on, while `std` alone does not activate ndarray. The `std` feature only controls ndarray's standard-library support; smartcore itself is not `no_std` (#421).
-  - **Migration:** builds that use `--no-default-features --features ndarray-bindings` (or `default-features = false` with `ndarray-bindings`) no longer get ndarray's `std` feature. Add `std` to the feature list to keep the previous behavior.
 - The error text for an unfitted `MultiClassSVC::predict` changed from "MultiClassSVC is not fitted" to the common "'fit' should be called before calling 'predict'". Code that matched the old string must be updated.
 
 ## [0.6.15]
