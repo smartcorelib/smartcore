@@ -141,10 +141,16 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
                 splitter: parameters.splitter.clone(),
             };
+            // Only use sample weights on base tree if not already applied during bootstrapping
+            let sample_weights_for_base_tree = if parameters.bootstrap {
+                None
+            } else {
+                sample_weights
+            };
             let tree = BaseTreeRegressor::fit_weak_learner(
                 x,
                 y,
-                sample_weights,
+                sample_weights_for_base_tree,
                 samples.clone(),
                 mtry,
                 params,
