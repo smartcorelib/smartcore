@@ -241,9 +241,9 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
             )));
         }
 
-        if parameters.k <= 1 {
+        if parameters.k < 1 {
             return Err(Failed::fit(&format!(
-                "k should be > 1, k=[{}]",
+                "k should be > 0, k=[{}]",
                 parameters.k
             )));
         }
@@ -419,6 +419,16 @@ mod tests {
             .predict(&DenseMatrix::from_2d_array(&[&[4.1]]).unwrap())
             .unwrap();
         assert_eq!(vec![3], y_hat);
+    }
+
+    #[test]
+    fn knn_fit_predict_k1() {
+        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]).unwrap();
+        let y = vec![2, 3, 2, 3, 2];
+
+        let knn = KNNClassifier::fit(&x, &y, KNNClassifierParameters::default().with_k(1)).unwrap();
+
+        assert_eq!(y, knn.predict(&x).unwrap());
     }
 
     // New 8 tests (2026-03-19)
