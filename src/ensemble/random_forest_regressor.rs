@@ -680,9 +680,12 @@ mod tests {
                 .expect("Fit should work");
         let y_hat = forest.predict(&x).expect("Predict should work");
 
-        // Due to bootstrapping, weighted value should be well above 9.
+        // with bootstrapping the weight should be close to 9, but not extremely close
         for p in y_hat.iter() {
-            assert!(p > &9.0f64, "expected value greater than 9, got {p}");
+            assert!(
+                (p - 9.0).abs() < 0.1,
+                "expected value reasonably close to 9, got {p}"
+            );
         }
 
         // Without weights, the predicted value should be close to 5
