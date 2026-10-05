@@ -425,10 +425,35 @@ mod tests {
     fn knn_fit_predict_k1() {
         let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]).unwrap();
         let y = vec![2, 3, 2, 3, 2];
+        let one_hot = vec![
+            vec![1., 0.],
+            vec![0., 1.],
+            vec![1., 0.],
+            vec![0., 1.],
+            vec![1., 0.],
+        ];
 
-        let knn = KNNClassifier::fit(&x, &y, KNNClassifierParameters::default().with_k(1)).unwrap();
+        for algorithm in [KNNAlgorithmName::CoverTree, KNNAlgorithmName::LinearSearch] {
+            let knn = KNNClassifier::fit(
+                &x,
+                &y,
+                KNNClassifierParameters::default()
+                    .with_k(1)
+                    .with_algorithm(algorithm),
+            )
+            .unwrap();
 
-        assert_eq!(y, knn.predict(&x).unwrap());
+            assert_eq!(y, knn.predict(&x).unwrap());
+            assert_eq!(one_hot, knn.predict_proba(&x).unwrap());
+        }
+    }
+
+    #[test]
+    fn knn_fit_k0_fails() {
+        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.]]).unwrap();
+        let y = vec![2, 3];
+
+        assert!(KNNClassifier::fit(&x, &y, KNNClassifierParameters::default().with_k(0)).is_err());
     }
 
     // New 8 tests (2026-03-19)
