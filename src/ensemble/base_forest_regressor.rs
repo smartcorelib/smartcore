@@ -150,10 +150,16 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
                 splitter: parameters.splitter.clone(),
             };
+            // Only use sample weights on base tree if not already applied during bootstrapping
+            let sample_weights_for_base_tree = if parameters.bootstrap {
+                None
+            } else {
+                sample_weights
+            };
             let tree = BaseTreeRegressor::fit_weak_learner(
                 x,
                 y,
-                sample_weights,
+                sample_weights_for_base_tree,
                 samples.clone(),
                 mtry,
                 &order,
@@ -486,12 +492,12 @@ mod tests {
         let sample_weights: Vec<f64> = (0..20).map(|i| if i < 10 { 1.0 } else { 9.0 }).collect();
 
         let parameters = BaseForestRegressorParameters {
-            max_depth: Some(1),
+            max_depth: Some(0),
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
             m: None,
-            keep_samples: true, // keep samples used for each tree, so we can check that they are different
+            keep_samples: true,
             seed: 42,
             bootstrap: false, // No bootstrapping
             splitter: crate::tree::base_tree_regressor::Splitter::Best,
@@ -522,7 +528,7 @@ mod tests {
 
         // Use bootstrapping
         let parameters = BaseForestRegressorParameters {
-            max_depth: Some(1),
+            max_depth: Some(0), // Match sibling test on RandomForestRegressor
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 500, // Use more trees than before to smooth out randomness
@@ -537,9 +543,12 @@ mod tests {
             .expect("Fit should work");
         let y_hat = forest.predict(&x).expect("Predict should work");
 
-        // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
+        // with bootstrapping the weight should be close to 9, but not extremely close
         for p in y_hat.iter() {
-            assert!(p > &9.0f64, "expected value well above 9, got {p}");
+            assert!(
+                (p - 9.0).abs() < 0.1,
+                "expected value reasonably close to 9, got {p}"
+            );
         }
 
         // Without weights, the predicted value should be reasonably close to 5
