@@ -57,6 +57,7 @@ jobs:
           - "--features serde"
           - "--features datasets"
           - "--features ndarray-bindings"
+          - "--features std,ndarray-bindings"
           - ""
     steps:
       - uses: actions/checkout@v4
@@ -72,9 +73,39 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Stable Build
         run: cargo build --no-default-features ${{ matrix.features }}
+      - name: Assert ndarray feature resolution
+        shell: bash
+        run: |
+          case "${{ matrix.features }}" in
+            "--features ndarray-bindings")
+              ci/check-ndarray-features.sh no-std --no-default-features ${{ matrix.features }}
+              ;;
+            "--features std,ndarray-bindings")
+              ci/check-ndarray-features.sh std --no-default-features ${{ matrix.features }}
+              ;;
+            "")
+              ci/check-ndarray-features.sh absent --no-default-features
+              # Default features and explicit std must not activate ndarray.
+              ci/check-ndarray-features.sh absent
+              ci/check-ndarray-features.sh absent --no-default-features --features std
+              # Default plus bindings keeps ndarray's std feature on.
+              ci/check-ndarray-features.sh std --features default,ndarray-bindings
+              ;;
+            *)
+              ci/check-ndarray-features.sh absent --no-default-features ${{ matrix.features }}
+              ;;
+          esac
       - name: Tests
-        if: matrix.features == '--features ndarray-bindings'
+        if: matrix.features == '--features ndarray-bindings' || matrix.features == '--features std,ndarray-bindings'
         run: cargo test --no-default-features ${{ matrix.features }}
+      - name: Explicit std does not activate ndarray
+        if: matrix.features == ''
+        run: cargo build --no-default-features --features std
+      - name: Default plus ndarray-bindings
+        if: matrix.features == ''
+        run: |
+          cargo build --features default,ndarray-bindings
+          cargo test --features default,ndarray-bindings
 
   msrv:
     # Verify the declared rust-version (MSRV) in Cargo.toml still builds.
