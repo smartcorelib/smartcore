@@ -102,6 +102,14 @@ Recent refactors emphasize reusable components in trees/forests and expanded mul
 
 ## Data access and readers
 
+The optional `lazy-normalization` feature lets Lasso and Elastic Net borrow the
+design matrix during normalization. Elastic Net also applies its identity-block
+augmentation without storing the augmented design. Enable it with `features =
+["lazy-normalization"]`; the estimator APIs and normalization options stay the
+same. It works with `DenseMatrix` and `ndarray-bindings`. Lazy normalization
+trades repeated arithmetic for lower memory use and can be slower, especially
+on smaller inputs.
+
 - CSV readers: Read matrices from CSV with configurable delimiter and header rows, with helpful error messages and testing utilities (including non-IO reader abstractions).
 - Dataset generators: make_blobs, make_circles, make_moons for quick experiments.
 - Built-in datasets (feature-gated): digits, diabetes, breast cancer, boston, with serialization utilities to persist or refresh .xy bundles.

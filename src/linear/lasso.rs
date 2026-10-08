@@ -32,6 +32,8 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1};
 use crate::linear::lasso_optimizer::InteriorPointOptimizer;
+#[cfg(feature = "lazy-normalization")]
+use crate::linear::lazy_normalization::LazyDesign;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
@@ -301,11 +303,32 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
         let l1_reg = TX::from_f64(parameters.alpha * n as f64).unwrap();
 
         let (w, b) = if parameters.normalize {
+            #[cfg(not(feature = "lazy-normalization"))]
             let (scaled_x, col_mean, col_std) = Self::rescale_x(x)?;
+            #[cfg(feature = "lazy-normalization")]
+            let scaled_x = {
+                let (col_mean, col_std) = Self::normalization_stats(x)?;
+                LazyDesign::new(x, Some(col_mean), Some(col_std))
+            };
+            #[cfg(feature = "lazy-normalization")]
+            let (col_mean, col_std) = (scaled_x.centers(), scaled_x.scales());
 
+            #[cfg(not(feature = "lazy-normalization"))]
             let mut optimizer = InteriorPointOptimizer::new(&scaled_x, p);
+            #[cfg(feature = "lazy-normalization")]
+            let mut optimizer = InteriorPointOptimizer::new_lazy(&scaled_x);
 
+            #[cfg(not(feature = "lazy-normalization"))]
             let mut w = optimizer.optimize(
+                &scaled_x,
+                &y,
+                l1_reg,
+                parameters.max_iter,
+                TX::from_f64(parameters.tol).unwrap(),
+                parameters.fit_intercept,
+            )?;
+            #[cfg(feature = "lazy-normalization")]
+            let mut w = optimizer.optimize_lazy(
                 &scaled_x,
                 &y,
                 l1_reg,
@@ -389,7 +412,7 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
         self.intercept.as_ref().unwrap()
     }
 
-    fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
+    fn normalization_stats(x: &X) -> Result<(Vec<TX>, Vec<TX>), Failed> {
         let col_mean: Vec<TX> = x
             .mean_by(0)
             .iter()
@@ -407,6 +430,12 @@ impl<TX: FloatNumber + RealNumber, TY: Number, X: Array2<TX>, Y: Array1<TY>> Las
             }
         }
 
+        Ok((col_mean, col_std))
+    }
+
+    #[cfg(any(test, not(feature = "lazy-normalization")))]
+    fn rescale_x(x: &X) -> Result<(X, Vec<TX>, Vec<TX>), Failed> {
+        let (col_mean, col_std) = Self::normalization_stats(x)?;
         let mut scaled_x = x.clone();
         scaled_x.scale_mut(&col_mean, &col_std, 0);
         Ok((scaled_x, col_mean, col_std))
@@ -419,6 +448,100 @@ mod tests {
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
+
+    #[cfg(feature = "lazy-normalization")]
+    fn compare_eager_fit<T: FloatNumber + RealNumber, X: Array2<T>>(tolerance: f64) {
+        let values = [
+            1., 2., 2., 1., 3., 5., 4., 3., 5., 8., 6., 4., 7., 6., 8., 7.,
+        ];
+        let x = X::from_iterator(values.into_iter().map(|v| T::from_f64(v).unwrap()), 8, 2, 0);
+        let y: Vec<T> = (0..8)
+            .map(|i| T::from_f64(3.0 + 2.0 * values[2 * i] - 0.4 * values[2 * i + 1]).unwrap())
+            .collect();
+        for normalize in [false, true] {
+            for fit_intercept in [false, true] {
+                let parameters = LassoParameters::default()
+                    .with_alpha(0.03)
+                    .with_normalize(normalize)
+                    .with_fit_intercept(fit_intercept);
+                let (eager, centers, scales) = if normalize {
+                    Lasso::<T, T, X, Vec<T>>::rescale_x(&x).unwrap()
+                } else {
+                    (x.clone(), vec![T::zero(); 2], vec![T::one(); 2])
+                };
+                let mut optimizer = InteriorPointOptimizer::new(&eager, 2);
+                let mut expected = optimizer
+                    .optimize(
+                        &eager,
+                        &y,
+                        T::from_f64(0.03 * 8.0).unwrap(),
+                        parameters.max_iter,
+                        T::from_f64(parameters.tol).unwrap(),
+                        fit_intercept,
+                    )
+                    .unwrap();
+                for (w, scale) in expected.iter_mut().zip(scales) {
+                    *w /= scale;
+                }
+                let model = Lasso::fit(&x, &y, parameters).unwrap();
+                for (&a, &b) in model.coefficients().iterator(0).zip(&expected) {
+                    assert!((a - b).abs().to_f64().unwrap() < tolerance, "{a} != {b}");
+                }
+                if fit_intercept {
+                    let intercept = T::from_f64(y.mean_by()).unwrap()
+                        - expected.iter().zip(centers).map(|(&w, c)| w * c).sum::<T>();
+                    assert!((*model.intercept() - intercept).abs().to_f64().unwrap() < tolerance);
+                    let prediction = model.predict(&x).unwrap();
+                    for (i, &actual) in prediction.iter().enumerate() {
+                        let expected =
+                            (0..2).map(|j| *x.get((i, j)) * expected[j]).sum::<T>() + intercept;
+                        assert!((actual - expected).abs().to_f64().unwrap() < 10.0 * tolerance);
+                    }
+                } else {
+                    assert!(model.intercept.is_none());
+                }
+                assert!(
+                    x.iterator(0)
+                        .zip(values)
+                        .all(|(&actual, original)| actual == T::from_f64(original).unwrap())
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "lazy-normalization")]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn lazy_fit_matches_eager_for_normalization_and_intercept_options() {
+        compare_eager_fit::<f64, DenseMatrix<f64>>(1e-8);
+        compare_eager_fit::<f32, DenseMatrix<f32>>(5e-3);
+        #[cfg(feature = "ndarray-bindings")]
+        {
+            compare_eager_fit::<f64, ndarray::Array2<f64>>(1e-8);
+            compare_eager_fit::<f32, ndarray::Array2<f32>>(5e-3);
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn normalization_rejects_constant_and_near_constant_columns() {
+        for step in [0.0, f64::EPSILON / 16.0] {
+            let x = DenseMatrix::from_2d_array(&[&[0.0, 1.0], &[step, 2.0], &[2.0 * step, 4.0]])
+                .unwrap();
+            let error = Lasso::fit(&x, &vec![1., 2., 3.], LassoParameters::default()).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("Cannot rescale constant column 0")
+            );
+        }
+    }
 
     #[test]
     fn search_parameters() {
