@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the dense Gram workspace. Enable the feature and set `with_lazy_normalization(true)` to select this path. The default remains eager. The new parameter field is available only with the feature and defaults to false during deserialization (#479).
+
+### Changed
+- **Breaking change:** Enabling `lazy-normalization` adds a public `lazy_normalization` field to `LassoParameters`, `LassoSearchParameters`, `ElasticNetParameters`, and `ElasticNetSearchParameters`. Struct literals without `..Default::default()` must add `lazy_normalization: false` to retain the eager path, or `true` to select the lazy path. This also applies when another dependency enables the feature through Cargo feature unification (#479).
 
 ## [0.6.16]
 ### Fixed
