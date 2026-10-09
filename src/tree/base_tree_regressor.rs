@@ -290,6 +290,7 @@ where
 // scratch: temp buffer
 // is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
 // returns: index of first element of false branch
+#[inline(never)]
 fn stable_partition<E>(slice: &mut [E], scratch: &mut [E], is_true: &[bool]) -> usize
 where
     E: NodeElement,
@@ -475,7 +476,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
-        while let Some(node) = visitor_queue.pop_front() {
+        while let Some(node) = visitor_queue.pop_back() {
             if node.level < max_depth {
                 base_tree.split(node, mtry, &mut visitor_queue, &mut rng, &mut workspace);
             }
