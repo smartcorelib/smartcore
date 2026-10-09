@@ -470,6 +470,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::FailedError;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
 
@@ -799,6 +800,30 @@ mod tests {
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_with_empty_x_should_not_panic() {
+        let parameters = RandomForestRegressorParameters::default()
+            .with_n_trees(5)
+            .with_seed(42);
+        // (rows, columns, y): no rows, no columns, or both
+        let cases: Vec<(usize, usize, Vec<f64>)> =
+            vec![(0, 0, vec![]), (0, 3, vec![]), (3, 0, vec![1.0, 2.0, 3.0])];
+        for (nrows, ncols, y) in cases {
+            let x: DenseMatrix<f64> = DenseMatrix::new(nrows, ncols, vec![], false)
+                .expect("Construction of empty x should work");
+            let result = RandomForestRegressor::fit(&x, &y, parameters.clone());
+            let expected = Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            );
+            assert_eq!(result.err(), Some(expected), "shape: ({nrows}, {ncols})");
+        }
     }
 
     mod sklearn_parity {

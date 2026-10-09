@@ -171,6 +171,16 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     }
 }
 
+/// Node elements store row indices and counts as `u32`.
+fn check_row_count(n_rows: usize) -> Result<(), Failed> {
+    if u32::try_from(n_rows).is_err() {
+        return Err(Failed::fit(
+            "Number of rows in x must not be larger than u32::MAX",
+        ));
+    }
+    Ok(())
+}
+
 // Trait representing an element that belongs logically to a Node. Implementations of it are stored in SplitWorkspace
 trait NodeElement: Copy + Default {
     fn new(row: usize, count: usize, mass: f64) -> Self;
@@ -281,12 +291,12 @@ where
 // scratch: temp buffer
 // is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
 // returns: index of first element of false branch
-#[inline(never)]
+#[inline(never)] // inline(never) is faster as seen during profiling
 fn stable_partition<E>(slice: &mut [E], scratch: &mut [E], is_true: &[bool]) -> usize
 where
     E: NodeElement,
 {
-    // Note: this is intentionally written without an if/else branch in the main loop
+    // Note: this is intentionally written without an explicit if/else branch in the main loop
     let n = slice.len();
     let scratch = &mut scratch[..n];
     let (mut w, mut f) = (0usize, 0usize);
@@ -375,6 +385,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         order: &[Vec<usize>],
         parameters: BaseTreeRegressorParameters,
     ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
+        check_row_count(y.shape())?;
         match sample_weights {
             Some(_) => Self::grow::<WeightedElement>(
                 x,
@@ -594,6 +605,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
                 true_count += elem.count();
                 true_mass += elem.mass();
+            } else {
+                break;
             }
         }
 
@@ -828,6 +841,19 @@ mod tests {
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn check_row_count_rejects_more_rows_than_u32_max() {
+        assert!(check_row_count(0).is_ok());
+        assert!(check_row_count(u32::MAX as usize).is_ok());
+        assert_eq!(
+            check_row_count(u32::MAX as usize + 1).err(),
+            Some(Failed::fit(
+                "Number of rows in x must not be larger than u32::MAX"
+            ))
+        );
+    }
 
     #[test]
     fn test_fit_on_empty_data_returns_error() {
@@ -1199,8 +1225,8 @@ mod tests {
 
     #[test]
     fn test_node_element_sizes() {
-        assert_eq!(size_of::<UnitElement>(), 4);
-        assert_eq!(size_of::<CountedElement>(), 8);
-        assert_eq!(size_of::<WeightedElement>(), 16);
+        assert_eq!(std::mem::size_of::<UnitElement>(), 4);
+        assert_eq!(std::mem::size_of::<CountedElement>(), 8);
+        assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
     }
 }
