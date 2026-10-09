@@ -135,14 +135,25 @@ impl<T: FloatNumber, X: Array2<T>> MatVecInto<Vec<T>> for MatrixAdapter<'_, T, X
         check_vector_length(x.len(), self.ncols());
         check_vector_length(out.len(), self.nrows());
         out.fill(T::zero());
+        if self.nrows() == 0 {
+            return Ok(());
+        }
         // Column traversal reuses each view while preserving each row's summation order.
         for (j, &v) in x.iter().enumerate() {
             let center = centers.map_or(T::zero(), |c| T::from(c[j]).unwrap());
             let scale = scales.map_or(T::one(), |s| T::from(s[j]).unwrap());
+            // Keep division when a reciprocal would overflow or lose normal precision.
+            let reciprocal = T::one() / scale;
+            let use_reciprocal = scale.is_normal() && reciprocal.is_normal();
             let column = self.0.get_col(j);
             for (&raw, result) in column.iterator(0).zip(out.iter_mut()) {
                 // Center before accumulation to retain small variations at large offsets.
-                *result += ((raw - center) / scale) * v;
+                let normalized = if use_reciprocal {
+                    (raw - center) * reciprocal
+                } else {
+                    (raw - center) / scale
+                };
+                *result += normalized * v;
             }
         }
         Ok(())
@@ -181,15 +192,27 @@ impl<'v, T: FloatNumber, X: Array2<T>> MatTransposeVecInto<VectorRef<'v, T>, Vec
     {
         check_vector_length(x.0.len(), self.nrows());
         check_vector_length(out.len(), self.ncols());
+        if self.nrows() == 0 {
+            out.fill(T::zero());
+            return Ok(());
+        }
         for (j, result) in out.iter_mut().enumerate() {
             let center = centers.map_or(T::zero(), |c| T::from(c[j]).unwrap());
             let scale = scales.map_or(T::one(), |s| T::from(s[j]).unwrap());
+            // Keep division when a reciprocal would overflow or lose normal precision.
+            let reciprocal = T::one() / scale;
+            let use_reciprocal = scale.is_normal() && reciprocal.is_normal();
             let column = self.0.get_col(j);
             *result = column
                 .iterator(0)
                 .zip(x.0)
                 .fold(T::zero(), |sum, (&raw, &v)| {
-                    sum + ((raw - center) / scale) * v
+                    let normalized = if use_reciprocal {
+                        (raw - center) * reciprocal
+                    } else {
+                        (raw - center) / scale
+                    };
+                    sum + normalized * v
                 });
         }
         Ok(())
@@ -412,6 +435,55 @@ mod tests {
         }
     }
 
+    fn assert_relative_close<T: FloatNumber>(actual: &[T], expected: &[T], tolerance: f64) {
+        assert_eq!(actual.len(), expected.len());
+        for (&a, &b) in actual.iter().zip(expected) {
+            let scale = a.abs().max(b.abs()).max(T::one()).to_f64().unwrap();
+            assert!(
+                (a - b).abs().to_f64().unwrap() <= tolerance * scale,
+                "{a} != {b}"
+            );
+        }
+    }
+
+    fn check_extreme_product_scales<T: FloatNumber>() {
+        for scale in [
+            T::min_positive_value() * T::epsilon(),
+            T::min_positive_value(),
+            <T as num_traits::Bounded>::max_value(),
+            -<T as num_traits::Bounded>::max_value(),
+            T::infinity(),
+            T::neg_infinity(),
+            T::nan(),
+        ] {
+            let raw = if scale.is_finite() { scale } else { T::one() };
+            let x = DenseMatrix::new(2, 1, vec![raw, -raw], true).unwrap();
+            let design = LazyDesign::new(&x, None, Some(vec![scale]));
+            let expected = vec![raw / scale, -raw / scale];
+            let actual = design.matvec(&vec![T::one()]);
+            for (&a, &b) in actual.iter().zip(&expected) {
+                if b.is_nan() {
+                    assert!(a.is_nan());
+                } else {
+                    assert_eq!(a, b);
+                }
+            }
+            let actual = design.transpose_matvec(&[T::one(), -T::one()]);
+            let expected = expected[0] - expected[1];
+            if expected.is_nan() {
+                assert!(actual[0].is_nan());
+            } else {
+                assert_eq!(actual[0], expected);
+            }
+        }
+    }
+
+    #[test]
+    fn products_preserve_extreme_scales() {
+        check_extreme_product_scales::<f32>();
+        check_extreme_product_scales::<f64>();
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
@@ -478,6 +550,19 @@ mod tests {
         let design = LazyDesign::new(&x, Some(vec![1e12 + 1., 1e12 + 2.]), Some(vec![2., 4.]));
         assert_eq!(design.matvec(&vec![2., -1.]), vec![-0.5, 0., 1.]);
         assert_eq!(design.transpose_matvec(&vec![1., -2., 3.]), vec![3.5, 4.5]);
+        let nonbinary = LazyDesign::new(&x, Some(vec![1e12 + 1., 1e12 + 2.]), Some(vec![3., 7.]));
+        let mut eager = x.clone();
+        eager.scale_mut(&[1e12 + 1., 1e12 + 2.], &[3., 7.], 0);
+        assert_relative_close(
+            &nonbinary.matvec(&vec![2., -1.]),
+            &vec![2., -1.].xa(true, &eager),
+            8.0 * f64::EPSILON,
+        );
+        assert_relative_close(
+            &nonbinary.transpose_matvec(&[1., -2., 3.]),
+            &vec![1., -2., 3.].xa(false, &eager),
+            8.0 * f64::EPSILON,
+        );
         let gram = design.gram();
         assert_eq!(*gram.get((0, 0)), 2.5);
         assert_eq!(*gram.get((0, 1)), 3.5);
@@ -536,6 +621,20 @@ mod tests {
                             &x,
                             centered.then_some(centers),
                             scaled.then_some(scales),
+                        );
+                        let coefficients: Vec<T> = (0..p)
+                            .map(|j| T::from_f64((j % 5) as f64 - 2.0).unwrap())
+                            .collect();
+                        let tolerance = 128.0 * T::epsilon().to_f64().unwrap();
+                        assert_relative_close(
+                            &design.matvec(&coefficients),
+                            &coefficients.xa(true, &eager),
+                            tolerance,
+                        );
+                        assert_relative_close(
+                            &design.transpose_matvec(&weights),
+                            &weights.xa(false, &eager),
+                            tolerance,
                         );
                         let mut actual = X::fill(p, p, T::nan());
                         design

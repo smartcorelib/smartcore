@@ -4,6 +4,8 @@
 //! `cargo run --release --example lazy_normalization -- lasso 8192 32 5`
 //! `cargo run --release --example lazy_normalization --features lazy-normalization -- lasso 8192 32 5`
 //! Replace `lasso` with `elastic-net` for the augmented design comparison.
+//! With the feature enabled, append `eager` or `lazy` after the repeat count
+//! to compare both paths with the same executable.
 //! Input construction is excluded from the reported fit time. Process memory
 //! measurements include the input and the fitting workspace.
 //! For peak memory, build first, then run the executable directly under GNU
@@ -27,6 +29,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     if n < p || p == 0 || repeats == 0 {
         return Err("Require n >= p > 0 and repeats > 0".into());
     }
+    let mode = args.get(5).map_or(
+        if cfg!(feature = "lazy-normalization") {
+            "lazy"
+        } else {
+            "eager"
+        },
+        String::as_str,
+    );
+    if !matches!(mode, "eager" | "lazy") {
+        return Err("Mode must be eager or lazy".into());
+    }
+    if mode == "lazy" && !cfg!(feature = "lazy-normalization") {
+        return Err("Lazy mode requires the lazy-normalization feature".into());
+    }
     let mut state = 42_u64;
     let mut values = Vec::with_capacity(n * p);
     let mut y = vec![3.0; n];
@@ -44,9 +60,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let lasso_parameters = LassoParameters::default().with_alpha(0.05);
     let elastic_net_parameters = ElasticNetParameters::default().with_alpha(0.05);
     #[cfg(feature = "lazy-normalization")]
-    let lasso_parameters = lasso_parameters.with_lazy_normalization(true);
+    let lasso_parameters = lasso_parameters.with_lazy_normalization(mode == "lazy");
     #[cfg(feature = "lazy-normalization")]
-    let elastic_net_parameters = elastic_net_parameters.with_lazy_normalization(true);
+    let elastic_net_parameters = elastic_net_parameters.with_lazy_normalization(mode == "lazy");
     let start = Instant::now();
     let mut checksum = 0.0;
     for _ in 0..repeats {
@@ -64,11 +80,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         checksum += black_box(coefficients.iterator(0).copied().sum::<f64>());
     }
     let elapsed = start.elapsed().as_secs_f64() / repeats as f64;
-    let mode = if cfg!(feature = "lazy-normalization") {
-        "lazy"
-    } else {
-        "eager"
-    };
     println!("{mode},{model},{n},{p},{repeats},{elapsed:.6},{checksum:.12}");
     Ok(())
 }
