@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 use lazymatrix::{
     DotSlice, ElemDivAssign, LazyMatrix, MatTransposeVecInto, MatVecInto, MatrixErrorType,
     MatrixShape, MatrixWrite, Scalar, ScaledSubSlice, SubScalarAssign, SumEntries, VectorView,
-    WeightedGramInto, WeightedGramKernel,
+    WeightedGramKernel,
 };
 
 use crate::linalg::basic::arrays::{Array1, Array2};
@@ -84,13 +84,16 @@ impl<'a, T: FloatNumber, X: Array2<T>> LazyDesign<'a, T, X> {
         let p = self.normalized.ncols();
         let mut out = X::zeros(p, p);
         self.normalized
-            .weighted_gram_into(
+            .data()
+            .weighted_gram_scaled_into(
                 &UnitWeights(self.normalized.nrows()),
+                self.normalized.centers(),
+                self.normalized.scales(),
+                self.gamma(),
                 &mut MatrixOutput(&mut out, PhantomData),
             )
             .unwrap();
-        if let Some((gamma, padding)) = self.augmentation {
-            out.mul_scalar_mut(gamma * gamma);
+        if let Some((_, padding)) = self.augmentation {
             for j in 0..p {
                 out.add_element_mut((j, j), padding * padding);
             }
@@ -205,6 +208,23 @@ impl<T: FloatNumber, X: Array2<T>> WeightedGramKernel<T> for MatrixAdapter<'_, T
         W: VectorView<T> + ?Sized,
         O: MatrixWrite<T> + ?Sized,
     {
+        self.weighted_gram_scaled_into(weights, centers, scales, T::one(), out)
+    }
+}
+
+impl<T: FloatNumber, X: Array2<T>> MatrixAdapter<'_, T, X> {
+    fn weighted_gram_scaled_into<W, O>(
+        &self,
+        weights: &W,
+        centers: Option<&[T]>,
+        scales: Option<&[T]>,
+        gamma: T,
+        out: &mut O,
+    ) -> Result<(), Infallible>
+    where
+        W: VectorView<T> + ?Sized,
+        O: MatrixWrite<T> + ?Sized,
+    {
         // Panels reuse normalized values across column pairs without storing the design.
         const ROWS: usize = 256;
         const COLS: usize = 32;
@@ -221,11 +241,11 @@ impl<T: FloatNumber, X: Array2<T>> WeightedGramKernel<T> for MatrixAdapter<'_, T
                 sums.fill(T::zero());
                 for row in (0..n).step_by(ROWS) {
                     let nr = (n - row).min(ROWS);
-                    self.normalized_panel(row, nr, j, nj, centers, scales, &mut left);
+                    self.normalized_panel(row, nr, j, nj, centers, scales, gamma, &mut left);
                     if j == k {
                         right[..nr * nk].copy_from_slice(&left[..nr * nj]);
                     } else {
-                        self.normalized_panel(row, nr, k, nk, centers, scales, &mut right);
+                        self.normalized_panel(row, nr, k, nk, centers, scales, gamma, &mut right);
                     }
                     for column in left[..nr * nj].chunks_exact_mut(nr) {
                         for (i, value) in column.iter_mut().enumerate() {
@@ -259,9 +279,7 @@ impl<T: FloatNumber, X: Array2<T>> WeightedGramKernel<T> for MatrixAdapter<'_, T
         }
         Ok(())
     }
-}
 
-impl<T: FloatNumber, X: Array2<T>> MatrixAdapter<'_, T, X> {
     fn normalized_panel(
         &self,
         row: usize,
@@ -270,6 +288,7 @@ impl<T: FloatNumber, X: Array2<T>> MatrixAdapter<'_, T, X> {
         ncols: usize,
         centers: Option<&[T]>,
         scales: Option<&[T]>,
+        gamma: T,
         out: &mut [T],
     ) {
         for j in 0..ncols {
@@ -280,7 +299,8 @@ impl<T: FloatNumber, X: Array2<T>> MatrixAdapter<'_, T, X> {
                 .iter_mut()
                 .zip(view.iterator(0))
             {
-                *value = (raw - center) / scale;
+                // Scale each factor before multiplication to prevent Gram overflow.
+                *value = gamma * ((raw - center) / scale);
             }
         }
     }
@@ -330,6 +350,7 @@ mod tests {
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::linear::lasso_optimizer::InteriorPointOptimizer;
     use crate::numbers::floatnum::FloatNumber;
+    use lazymatrix::WeightedGramInto;
 
     fn check_products<T: FloatNumber, X: Array2<T>>(x: X, tolerance: f64) {
         let value = |v| T::from_f64(v).unwrap();

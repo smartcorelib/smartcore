@@ -630,6 +630,32 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
+    fn elasticnet_fits_large_finite_inputs() {
+        let x = DenseMatrix::from_2d_array(&[&[1e20_f32], &[-1e20_f32]]).unwrap();
+        let y = vec![1.0_f32, -1.0_f32];
+        let model = ElasticNet::fit(
+            &x,
+            &y,
+            ElasticNetParameters::default()
+                .with_normalize(false)
+                .with_alpha(1e30)
+                .with_l1_ratio(1e-20),
+        )
+        .unwrap();
+
+        let coefficient = *model.coefficients().get((0, 0));
+        assert!((coefficient / 1e-20_f32 - 1.0).abs() < 1e-5);
+        assert_eq!(*model.intercept(), 0.0);
+        for (&actual, &expected) in model.predict(&x).unwrap().iter().zip(&y) {
+            assert!((actual - expected).abs() < 1e-5);
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
     fn normalization_rejects_constant_and_near_constant_columns() {
         for step in [0.0, f64::EPSILON / 16.0] {
             let x = DenseMatrix::from_2d_array(&[&[0.0, 1.0], &[step, 2.0], &[2.0 * step, 4.0]])
