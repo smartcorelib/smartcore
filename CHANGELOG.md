@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the existing estimator APIs and dense Gram workspace (#479).
+- Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the dense Gram workspace. Enable the feature and set `with_lazy_normalization(true)` to select this path. The default remains eager. The new parameter field is available only with the feature and defaults to false during deserialization (#479).
 
 ## [0.6.16]
 ### Fixed

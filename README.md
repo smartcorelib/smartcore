@@ -105,8 +105,13 @@ Recent refactors emphasize reusable components in trees/forests and expanded mul
 The optional `lazy-normalization` feature lets Lasso and Elastic Net borrow the
 design matrix during normalization. Elastic Net also applies its identity-block
 augmentation without storing the augmented design. Enable it with `features =
-["lazy-normalization"]`; the estimator APIs and normalization options stay the
-same. It works with `DenseMatrix` and `ndarray-bindings`. Lazy normalization
+["lazy-normalization"]`, then select it with
+`LassoParameters::default().with_lazy_normalization(true)` or
+`ElasticNetParameters::default().with_lazy_normalization(true)`. The default
+remains eager, even when the feature is enabled. The `normalize` option still
+controls whether columns are centered and scaled. Parameter searches use the
+fixed `lazy_normalization` setting. It works with `DenseMatrix` and
+`ndarray-bindings`. Lazy normalization
 trades repeated arithmetic for lower memory use and can be slower, especially
 on smaller inputs.
 

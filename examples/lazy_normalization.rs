@@ -41,24 +41,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     let x = DenseMatrix::new(n, p, values, true)?;
+    let lasso_parameters = LassoParameters::default().with_alpha(0.05);
+    let elastic_net_parameters = ElasticNetParameters::default().with_alpha(0.05);
+    #[cfg(feature = "lazy-normalization")]
+    let lasso_parameters = lasso_parameters.with_lazy_normalization(true);
+    #[cfg(feature = "lazy-normalization")]
+    let elastic_net_parameters = elastic_net_parameters.with_lazy_normalization(true);
     let start = Instant::now();
     let mut checksum = 0.0;
     for _ in 0..repeats {
         let coefficients = match model {
-            "lasso" => Lasso::fit(
-                black_box(&x),
-                black_box(&y),
-                LassoParameters::default().with_alpha(0.05),
-            )?
-            .coefficients()
-            .clone(),
-            "elastic-net" => ElasticNet::fit(
-                black_box(&x),
-                black_box(&y),
-                ElasticNetParameters::default().with_alpha(0.05),
-            )?
-            .coefficients()
-            .clone(),
+            "lasso" => Lasso::fit(black_box(&x), black_box(&y), lasso_parameters.clone())?
+                .coefficients()
+                .clone(),
+            "elastic-net" => {
+                ElasticNet::fit(black_box(&x), black_box(&y), elastic_net_parameters.clone())?
+                    .coefficients()
+                    .clone()
+            }
             _ => return Err("Model must be lasso or elastic-net".into()),
         };
         checksum += black_box(coefficients.iterator(0).copied().sum::<f64>());
