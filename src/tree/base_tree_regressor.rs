@@ -215,33 +215,25 @@ impl NodeElement for WeightedElement {
     }
 }
 
+// implement CountedElement as a single u64, so it can be retrieved in a single read
 #[derive(Copy, Clone, Default)]
-struct CountedElement {
-    row_idx: u32,
-    count: u32,
-}
+struct CountedElement(u64); // low 32 bits: row, high 32 bits: count
 
 impl NodeElement for CountedElement {
     fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
-        Self {
-            row_idx: row_idx as u32,
-            count: count as u32,
-        }
+        Self(row_idx as u64 | ((count as u64) << 32))
     }
-
     #[inline(always)]
     fn row(&self) -> usize {
-        self.row_idx as usize
+        self.0 as u32 as usize
     }
-
     #[inline(always)]
     fn count(&self) -> usize {
-        self.count as usize
+        (self.0 >> 32) as usize
     }
-
     #[inline(always)]
     fn mass(&self) -> f64 {
-        self.count as f64
+        (self.0 >> 32) as f64
     }
 }
 
