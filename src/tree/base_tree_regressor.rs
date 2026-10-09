@@ -235,6 +235,7 @@ struct SplitWorkspace {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<NodeElement>,
     sorted_by_feature: Vec<Vec<NodeElement>>,
+    variables: Vec<usize>, // the variables. Can this be made smaller?
 }
 
 impl SplitWorkspace {
@@ -242,11 +243,13 @@ impl SplitWorkspace {
         in_true_branch: Vec<bool>,
         partition_buffer: Vec<NodeElement>,
         sorted_by_feature: Vec<Vec<NodeElement>>,
+        n: usize,
     ) -> Self {
         Self {
             in_true_branch,
             partition_buffer,
             sorted_by_feature,
+            variables: (0..n).collect::<Vec<_>>(),
         }
     }
 }
@@ -337,6 +340,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             vec![false; x.shape().0],
             vec![NodeElement::default(); end_idx],
             sorted_by_feature,
+            x.shape().1,
         );
 
         let mut base_tree = BaseTreeRegressor {
@@ -353,7 +357,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut visitor_queue: VecDeque<NodeVisitor<'_, TX, TY, X, Y>> = VecDeque::new();
 
-        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &workspace) {
+        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &mut workspace) {
             visitor_queue.push_back(visitor);
         }
 
@@ -405,7 +409,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         mtry: usize,
         mass: f64,
         rng: &mut impl rand::Rng,
-        workspace: &SplitWorkspace,
+        workspace: &mut SplitWorkspace,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
@@ -420,11 +424,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let sum = self.nodes()[visitor.node].output * mass;
 
-        // TODO later: get rid of this allocation in every iteration
-        let mut variables = (0..n_attr).collect::<Vec<_>>();
-
+        // Note: in sklearn, the attributes are always considered in a random order
         if mtry < n_attr {
-            variables.shuffle(rng);
+            workspace.variables.shuffle(rng);
         }
 
         let parent_gain =
@@ -432,7 +434,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let splitter = self.parameters().splitter.clone();
 
-        for variable in variables.iter().take(mtry) {
+        for variable in workspace.variables.iter().take(mtry) {
             match splitter {
                 Splitter::Random => {
                     self.find_random_split(
