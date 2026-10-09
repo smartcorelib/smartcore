@@ -192,7 +192,6 @@ struct WeightedElement {
 
 impl NodeElement for WeightedElement {
     fn new(row_idx: usize, count: usize, mass: f64) -> Self {
-        debug_assert!(count > 0);
         Self {
             row_idx: row_idx as u32,
             count: count as u32,
@@ -224,7 +223,6 @@ struct CountedElement {
 
 impl NodeElement for CountedElement {
     fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
-        debug_assert!(count > 0);
         Self {
             row_idx: row_idx as u32,
             count: count as u32,
@@ -253,8 +251,7 @@ struct UnitElement {
 }
 
 impl NodeElement for UnitElement {
-    fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
-        debug_assert_eq!(count, 1);
+    fn new(row_idx: usize, _count: usize, _mass: f64) -> Self {
         Self {
             row_idx: row_idx as u32,
         }
@@ -431,16 +428,25 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let root = Node::new(sum / mass);
         nodes.push(root);
 
+        let counts: Vec<u32> = samples.iter().map(|&s| s as u32).collect();
+        // number of distinct rows of x in this tree
+        let n_kept = counts.iter().filter(|&&c| c > 0).count();
+
         let sorted_by_feature: Vec<Vec<E>> = order
             .iter()
             .map(|col_order| {
-                col_order
-                    .iter()
-                    .filter(|&&i| samples[i] > 0)
-                    .map(|&i| E::new(i, samples[i], mass_of(i, &samples, sample_weights)))
-                    .collect()
+                let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                let mut w = 0usize; // index to write to
+                for &i in col_order {
+                    let c = counts[i];
+                    out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
+                    w += (c > 0) as usize; // update w in a branchless way
+                }
+                out.truncate(n_kept);
+                out
             })
             .collect();
+
         let end_idx = sorted_by_feature[0].len();
 
         let mut workspace = SplitWorkspace::new(
