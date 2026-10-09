@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -173,34 +172,34 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     }
 }
 
+// Trait representing an element that belongs logically to a Node. Implementations of it are stored in SplitWorkspace
 trait NodeElement: Copy + Default {
     fn new(row: usize, count: usize, mass: f64) -> Self;
+    // The row index in the dataset
     fn row(&self) -> usize;
+    // The number of times this row was sampled, should always be > 0
     fn count(&self) -> usize;
+    // The total mass of this element: count * sample_weight of row or count if no sample weights are used
     fn mass(&self) -> f64;
 }
 
-// Struct representing an element that belongs logically to a Node, as stored in SplitWorkspace
 #[derive(Copy, Clone, Default)]
 struct WeightedElement {
-    // the row index in the dataset
-    pub row_idx: u32,
-    // the number of times this row is present, should always be > 0
-    pub count: u32,
-    // total mass of this element, equals count * mass of individual element.
-    // equals count when no sample weights were used
-    pub mass: f64,
+    row_idx: u32,
+    count: u32,
+    mass: f64,
 }
 
 impl NodeElement for WeightedElement {
     fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        debug_assert!(count > 0);
         Self {
             row_idx: row_idx as u32,
             count: count as u32,
             mass,
         }
     }
-    // return the row_idx as usize
+
     #[inline(always)]
     fn row(&self) -> usize {
         self.row_idx as usize
@@ -219,20 +218,19 @@ impl NodeElement for WeightedElement {
 
 #[derive(Copy, Clone, Default)]
 struct CountedElement {
-    // the row index in the dataset
-    pub row_idx: u32,
-    // the number of times this row is present, should always be > 0
-    pub count: u32,
+    row_idx: u32,
+    count: u32,
 }
 
 impl NodeElement for CountedElement {
     fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
+        debug_assert!(count > 0);
         Self {
             row_idx: row_idx as u32,
             count: count as u32,
         }
     }
-    // return the row_idx as usize
+
     #[inline(always)]
     fn row(&self) -> usize {
         self.row_idx as usize
@@ -251,17 +249,17 @@ impl NodeElement for CountedElement {
 
 #[derive(Copy, Clone, Default)]
 struct UnitElement {
-    // the row index in the dataset
-    pub row_idx: u32,
+    row_idx: u32,
 }
 
 impl NodeElement for UnitElement {
-    fn new(row_idx: usize, _count: usize, _mass: f64) -> Self {
+    fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
+        debug_assert_eq!(count, 1);
         Self {
             row_idx: row_idx as u32,
         }
     }
-    // return the row_idx as usize
+
     #[inline(always)]
     fn row(&self) -> usize {
         self.row_idx as usize
@@ -320,7 +318,7 @@ struct SplitWorkspace<E> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
     sorted_by_feature: Vec<Vec<E>>,
-    variables: Vec<usize>, // the variables. Can this be made smaller?
+    variables: Vec<usize>, // feature indices which will be shuffled when mtry < n_features
 }
 
 impl<E> SplitWorkspace<E> {
@@ -398,12 +396,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 order,
                 parameters,
             ),
-            None if samples.iter().all(|&s| s == 1) => {
-                Self::grow::<UnitElement>(x, y, sample_weights, samples, mtry, order, parameters)
+            None if samples.iter().all(|&s| s <= 1) => {
+                // Note: if any sample has count zero, it will be filtered out, so we should
+                // use the smallest possible NodeElement
+                Self::grow::<UnitElement>(x, y, None, samples, mtry, order, parameters)
             }
-            None => {
-                Self::grow::<CountedElement>(x, y, sample_weights, samples, mtry, order, parameters)
-            }
+            None => Self::grow::<CountedElement>(x, y, None, samples, mtry, order, parameters),
         }
     }
 
@@ -718,9 +716,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     ) -> bool {
         let this_node = &self.nodes()[visitor.node];
 
-        let mut tc = 0usize;
+        let mut true_count = 0usize;
         let mut true_mass = 0f64;
-        let mut fc = 0usize;
+        let mut false_count = 0usize;
         let mut false_mass = 0f64;
         // for each row_index, does it belong in the true branch or not?
         let in_true_branch = &mut workspace.in_true_branch;
@@ -731,16 +729,18 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             n_true += t as usize;
             // Fill in tc, etc while we are at it
             if t {
-                tc += e.count();
+                true_count += e.count();
                 true_mass += e.mass();
             } else {
-                fc += e.count();
+                false_count += e.count();
                 false_mass += e.mass();
             }
         }
 
         // Stop early if it is clear that there will be too few examples in the leaf
-        if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
+        if true_count < self.parameters().min_samples_leaf
+            || false_count < self.parameters().min_samples_leaf
+        {
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
             self.nodes[visitor.node].split_score = Option::None;
@@ -766,8 +766,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
         let child_level = visitor.level + 1;
         let min_split = self.parameters().min_samples_split;
-        let true_can_split = child_level < max_depth && tc >= min_split;
-        let false_can_split = child_level < max_depth && fc >= min_split;
+        let true_can_split = child_level < max_depth && true_count >= min_split;
+        let false_can_split = child_level < max_depth && false_count >= min_split;
         if !true_can_split && !false_can_split {
             return true; // both children are leaves: no partition
         }
@@ -1183,5 +1183,12 @@ mod tests {
                 .expect("Fit should work");
         let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
         assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
+    }
+
+    #[test]
+    fn test_node_element_sizes() {
+        assert_eq!(size_of::<UnitElement>(), 4);
+        assert_eq!(size_of::<CountedElement>(), 8);
+        assert_eq!(size_of::<WeightedElement>(), 16);
     }
 }
