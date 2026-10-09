@@ -148,7 +148,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
                 seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
-                splitter: parameters.splitter.clone(),
+                splitter: parameters.splitter,
             };
             // Only use sample weights on base tree if not already applied during bootstrapping
             let sample_weights_for_base_tree = if parameters.bootstrap {

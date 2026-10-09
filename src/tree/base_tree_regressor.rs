@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -14,7 +13,7 @@ use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Splitter {
     Random,
     #[default]
@@ -114,10 +113,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialE
     for BaseTreeRegressor<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.depth != other.depth || self.nodes().len() != other.nodes().len() {
+        if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
             false
         } else {
-            self.nodes()
+            self.nodes
                 .iter()
                 .zip(other.nodes().iter())
                 .all(|(a, b)| a == b)
@@ -316,13 +315,13 @@ impl<E> SplitWorkspace<E> {
         in_true_branch: Vec<bool>,
         partition_buffer: Vec<E>,
         sorted_by_feature: Vec<Vec<E>>,
-        n: usize,
+        n_features: usize,
     ) -> Self {
         Self {
             in_true_branch,
             partition_buffer,
             sorted_by_feature,
-            variables: (0..n).collect::<Vec<_>>(),
+            variables: (0..n_features).collect::<Vec<_>>(),
         }
     }
 }
@@ -461,16 +460,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, 0, end_idx, x, y, 1);
 
-        let mut visitor_queue: VecDeque<NodeVisitor<'_, TX, TY, X, Y>> = VecDeque::new();
+        let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y>> = Vec::new();
 
         if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &mut workspace) {
-            visitor_queue.push_back(visitor);
+            visitor_stack.push(visitor);
         }
 
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
-        while let Some(node) = visitor_queue.pop_back() {
+        while let Some(node) = visitor_stack.pop() {
             if node.level < max_depth {
-                base_tree.split(node, mtry, &mut visitor_queue, &mut rng, &mut workspace);
+                base_tree.split(node, mtry, &mut visitor_stack, &mut rng, &mut workspace);
             }
         }
 
@@ -494,7 +493,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
         let mut node_id = 0;
         loop {
-            let node = &self.nodes()[node_id];
+            let node = &self.nodes[node_id];
             let Some(true_child) = node.true_child else {
                 return TY::from_f64(node.output).unwrap();
             };
@@ -528,17 +527,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             return false;
         }
 
-        let sum = self.nodes()[visitor.node].output * mass;
+        let sum = self.nodes[visitor.node].output * mass;
 
         // Note: in sklearn, the attributes are always considered in a random order
         if mtry < n_attr {
             workspace.variables.shuffle(rng);
         }
 
-        let parent_gain =
-            mass * self.nodes()[visitor.node].output * self.nodes()[visitor.node].output;
+        let parent_gain = mass * self.nodes[visitor.node].output * self.nodes[visitor.node].output;
 
-        let splitter = self.parameters().splitter.clone();
+        let splitter = self.parameters().splitter;
 
         for variable in workspace.variables.iter().take(mtry) {
             match splitter {
@@ -560,7 +558,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             }
         }
 
-        self.nodes()[visitor.node].split_score.is_some()
+        self.nodes[visitor.node].split_score.is_some()
     }
 
     fn find_random_split<E: NodeElement>(
@@ -685,8 +683,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             let gain = (true_mass * true_mean * true_mean + false_mass * false_mean * false_mean)
                 - parent_gain;
 
-            if self.nodes()[visitor.node].split_score.is_none()
-                || gain > self.nodes()[visitor.node].split_score.unwrap()
+            if self.nodes[visitor.node].split_score.is_none()
+                || gain > self.nodes[visitor.node].split_score.unwrap()
             {
                 self.nodes[visitor.node].split_feature = j;
                 self.nodes[visitor.node].split_value = Option::Some(
@@ -705,15 +703,21 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
+    /// Apply the split that was found for `visitor.node`: add its two child nodes and
+    /// partition the node's range in each `sorted_by_feature` column into a true part
+    /// and a false part. Then find the best cutoff for each child. If a child can be
+    /// split, push it on `visitor_stack`.
+    /// If a branch has fewer than `min_samples_leaf` samples, clear the split and
+    /// keep the node as a leaf.
     fn split<'a, E: NodeElement>(
         &mut self,
         visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
-        visitor_queue: &mut VecDeque<NodeVisitor<'a, TX, TY, X, Y>>,
+        visitor_stack: &mut Vec<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
         workspace: &mut SplitWorkspace<E>,
     ) -> bool {
-        let this_node = &self.nodes()[visitor.node];
+        let this_node = &self.nodes[visitor.node];
 
         let mut true_count = 0usize;
         let mut true_mass = 0f64;
@@ -721,19 +725,24 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut false_mass = 0f64;
         // for each row_index, does it belong in the true branch or not?
         let in_true_branch = &mut workspace.in_true_branch;
+
+        // the column for split_feature is in order, so all the true samples should come first, all the false samples second
+        let split_feature = this_node.split_feature;
+        let col = &workspace.sorted_by_feature[split_feature][visitor.start_idx..visitor.end_idx];
         let mut n_true = 0usize;
-        for e in &workspace.sorted_by_feature[0][visitor.start_idx..visitor.end_idx] {
-            let t = is_true_sample(e, visitor.x, this_node);
-            in_true_branch[e.row()] = t;
-            n_true += t as usize;
-            // Fill in tc, etc while we are at it
-            if t {
-                true_count += e.count();
-                true_mass += e.mass();
-            } else {
-                false_count += e.count();
-                false_mass += e.mass();
+        for e in col {
+            if !is_true_sample(e, visitor.x, this_node) {
+                break;
             }
+            in_true_branch[e.row()] = true;
+            true_count += e.count();
+            true_mass += e.mass();
+            n_true += 1;
+        }
+        for e in &col[n_true..] {
+            in_true_branch[e.row()] = false;
+            false_count += e.count();
+            false_mass += e.mass();
         }
 
         // Stop early if it is clear that there will be too few examples in the leaf
@@ -750,20 +759,20 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         // Add the child nodes to the tree
         let split_idx = visitor.start_idx + n_true;
 
-        let true_child_idx = self.nodes().len();
+        let true_child_idx = self.nodes.len();
 
         self.nodes.push(Node::new(visitor.true_child_output));
-        let false_child_idx = self.nodes().len();
+        let false_child_idx = self.nodes.len();
         self.nodes.push(Node::new(visitor.false_child_output));
 
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);
 
-        self.depth = u16::max(self.depth, visitor.level + 1);
+        let child_level = visitor.level + 1;
+        self.depth = u16::max(self.depth, child_level);
 
         // If the child nodes can not be split any further, there is no point in partitioning the ranges
         let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
-        let child_level = visitor.level + 1;
         let min_split = self.parameters().min_samples_split;
         let true_can_split = child_level < max_depth && true_count >= min_split;
         let false_can_split = child_level < max_depth && false_count >= min_split;
@@ -785,11 +794,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             split_idx,
             visitor.x,
             visitor.y,
-            visitor.level + 1,
+            child_level,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng, workspace) {
-            visitor_queue.push_back(true_visitor);
+        if true_can_split
+            && self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng, workspace)
+        {
+            visitor_stack.push(true_visitor);
         }
 
         let mut false_visitor = NodeVisitor::<TX, TY, X, Y>::new(
@@ -798,11 +809,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             visitor.end_idx,
             visitor.x,
             visitor.y,
-            visitor.level + 1,
+            child_level,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng, workspace) {
-            visitor_queue.push_back(false_visitor);
+        if false_can_split
+            && self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng, workspace)
+        {
+            visitor_stack.push(false_visitor);
         }
 
         true
