@@ -147,17 +147,14 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
-        // `into_shape` was deprecated in ndarray 0.16; use `into_shape_with_order` instead.
-        let a = Array::from_iter(iter.take(nrows * ncols))
-            .into_shape_with_order(((nrows, ncols), Order::RowMajor))
-            .unwrap();
-        match axis {
-            0 => a,
-            _ => a
-                .reversed_axes()
-                .into_shape_with_order(((nrows, ncols), Order::RowMajor))
-                .unwrap(),
-        }
+        let order = if axis == 0 {
+            Order::RowMajor
+        } else {
+            Order::ColumnMajor
+        };
+        Array::from_iter(iter.take(nrows * ncols))
+            .into_shape_with_order(((nrows, ncols), order))
+            .unwrap()
     }
 
     fn transpose(&self) -> Self {
@@ -265,6 +262,28 @@ impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T,
 mod tests {
     use super::*;
     use ndarray::arr2;
+
+    #[test]
+    fn from_iterator_preserves_input_order() {
+        let row_major = <ndarray::Array2<i32> as Array2<i32>>::from_iterator(1..=6, 2, 3, 0);
+        assert_eq!(row_major, arr2(&[[1, 2, 3], [4, 5, 6]]));
+
+        let column_major = <ndarray::Array2<i32> as Array2<i32>>::from_iterator(1..=6, 2, 3, 1);
+        assert_eq!(column_major, arr2(&[[1, 3, 5], [2, 4, 6]]));
+        assert_eq!(column_major.strides(), &[1, 2]);
+
+        for (nrows, ncols) in [(0, 3), (3, 0)] {
+            for axis in [0, 1] {
+                let empty = <ndarray::Array2<i32> as Array2<i32>>::from_iterator(
+                    std::iter::empty(),
+                    nrows,
+                    ncols,
+                    axis,
+                );
+                assert_eq!(BaseArray::shape(&empty), (nrows, ncols));
+            }
+        }
+    }
 
     #[test]
     fn test_dense_matrix_from_ndarray2() {
