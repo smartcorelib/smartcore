@@ -173,9 +173,16 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     }
 }
 
+trait NodeElement: Copy + Default {
+    fn new(row: usize, count: usize, mass: f64) -> Self;
+    fn row(&self) -> usize;
+    fn count(&self) -> usize;
+    fn mass(&self) -> f64;
+}
+
 // Struct representing an element that belongs logically to a Node, as stored in SplitWorkspace
 #[derive(Copy, Clone, Default)]
-struct NodeElement {
+struct WeightedElement {
     // the row index in the dataset
     pub row_idx: u32,
     // the number of times this row is present, should always be > 0
@@ -185,19 +192,98 @@ struct NodeElement {
     pub mass: f64,
 }
 
-impl NodeElement {
+impl NodeElement for WeightedElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        Self {
+            row_idx: row_idx as u32,
+            count: count as u32,
+            mass,
+        }
+    }
     // return the row_idx as usize
     #[inline(always)]
     fn row(&self) -> usize {
         self.row_idx as usize
     }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        self.count as usize
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        self.mass
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+struct CountedElement {
+    // the row index in the dataset
+    pub row_idx: u32,
+    // the number of times this row is present, should always be > 0
+    pub count: u32,
+}
+
+impl NodeElement for CountedElement {
+    fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
+        Self {
+            row_idx: row_idx as u32,
+            count: count as u32,
+        }
+    }
+    // return the row_idx as usize
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        self.count as usize
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        self.count as f64
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+struct UnitElement {
+    // the row index in the dataset
+    pub row_idx: u32,
+}
+
+impl NodeElement for UnitElement {
+    fn new(row_idx: usize, _count: usize, _mass: f64) -> Self {
+        Self {
+            row_idx: row_idx as u32,
+        }
+    }
+    // return the row_idx as usize
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        1
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        1.0
+    }
 }
 
 // Checks whether the example indicated by node_element is a "true child" for this node
-fn is_true_sample<TX, X>(node_element: &NodeElement, x: &X, node: &Node) -> bool
+fn is_true_sample<TX, X, E>(node_element: &E, x: &X, node: &Node) -> bool
 where
     TX: Number + PartialOrd,
     X: Array2<TX>,
+    E: NodeElement,
 {
     x.get((node_element.row(), node.split_feature))
         .to_f64()
@@ -209,18 +295,17 @@ where
 // scratch: temp buffer
 // is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
 // returns: index of first element of false branch
-fn stable_partition(
-    slice: &mut [NodeElement],
-    scratch: &mut [NodeElement],
-    is_true: &[bool],
-) -> usize {
+fn stable_partition<E>(slice: &mut [E], scratch: &mut [E], is_true: &[bool]) -> usize
+where
+    E: NodeElement,
+{
     // Note: this is intentionally written without an if/else branch in the main loop
     let n = slice.len();
     let scratch = &mut scratch[..n];
     let (mut w, mut f) = (0usize, 0usize);
     for i in 0..n {
         let e = slice[i];
-        let t = is_true[e.row_idx as usize];
+        let t = is_true[e.row()];
         slice[w] = e; // w <= i, so this never clobbers an unread element
         scratch[f] = e;
         // advance only one of the pointers
@@ -231,18 +316,18 @@ fn stable_partition(
     w
 }
 
-struct SplitWorkspace {
+struct SplitWorkspace<E> {
     in_true_branch: Vec<bool>, // indexed by row index in X
-    partition_buffer: Vec<NodeElement>,
-    sorted_by_feature: Vec<Vec<NodeElement>>,
+    partition_buffer: Vec<E>,
+    sorted_by_feature: Vec<Vec<E>>,
     variables: Vec<usize>, // the variables. Can this be made smaller?
 }
 
-impl SplitWorkspace {
+impl<E> SplitWorkspace<E> {
     fn new(
         in_true_branch: Vec<bool>,
-        partition_buffer: Vec<NodeElement>,
-        sorted_by_feature: Vec<Vec<NodeElement>>,
+        partition_buffer: Vec<E>,
+        sorted_by_feature: Vec<Vec<E>>,
         n: usize,
     ) -> Self {
         Self {
@@ -303,6 +388,34 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         order: &[Vec<usize>],
         parameters: BaseTreeRegressorParameters,
     ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
+        match sample_weights {
+            Some(_) => Self::grow::<WeightedElement>(
+                x,
+                y,
+                sample_weights,
+                samples,
+                mtry,
+                order,
+                parameters,
+            ),
+            None if samples.iter().all(|&s| s == 1) => {
+                Self::grow::<UnitElement>(x, y, sample_weights, samples, mtry, order, parameters)
+            }
+            None => {
+                Self::grow::<CountedElement>(x, y, sample_weights, samples, mtry, order, parameters)
+            }
+        }
+    }
+
+    fn grow<E: NodeElement>(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        samples: Vec<usize>,
+        mtry: usize,
+        order: &[Vec<usize>],
+        parameters: BaseTreeRegressorParameters,
+    ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
         let n_rows = y.shape();
 
         let mut nodes: Vec<Node> = Vec::new();
@@ -320,17 +433,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let root = Node::new(sum / mass);
         nodes.push(root);
 
-        let sorted_by_feature: Vec<Vec<NodeElement>> = order
+        let sorted_by_feature: Vec<Vec<E>> = order
             .iter()
             .map(|col_order| {
                 col_order
                     .iter()
                     .filter(|&&i| samples[i] > 0)
-                    .map(|&i| NodeElement {
-                        row_idx: i as u32,
-                        count: samples[i] as u32,
-                        mass: mass_of(i, &samples, sample_weights),
-                    })
+                    .map(|&i| E::new(i, samples[i], mass_of(i, &samples, sample_weights)))
                     .collect()
             })
             .collect();
@@ -338,7 +447,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut workspace = SplitWorkspace::new(
             vec![false; x.shape().0],
-            vec![NodeElement::default(); end_idx],
+            vec![E::default(); end_idx],
             sorted_by_feature,
             x.shape().1,
         );
@@ -403,19 +512,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
-    fn find_best_cutoff(
+    fn find_best_cutoff<E: NodeElement>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         mtry: usize,
         mass: f64,
         rng: &mut impl rand::Rng,
-        workspace: &mut SplitWorkspace,
+        workspace: &mut SplitWorkspace<E>,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
         let n: usize = workspace.sorted_by_feature[0][visitor.start_idx..visitor.end_idx]
             .iter()
-            .map(|elem| elem.count as usize)
+            .map(|elem| elem.count())
             .sum();
 
         if n < self.parameters().min_samples_split {
@@ -457,7 +566,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         self.nodes()[visitor.node].split_score.is_some()
     }
 
-    fn find_random_split(
+    fn find_random_split<E: NodeElement>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         n: usize,
@@ -466,7 +575,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         parent_gain: f64,
         j: usize,
         rng: &mut impl rand::Rng,
-        workspace: &SplitWorkspace,
+        workspace: &SplitWorkspace<E>,
     ) {
         if visitor.start_idx == visitor.end_idx {
             return;
@@ -487,15 +596,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut true_count = 0;
         for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
             if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
-                true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
-                true_count += elem.count;
-                true_mass += elem.mass;
+                true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
+                true_count += elem.count();
+                true_mass += elem.mass();
             }
         }
 
-        let false_count = n - (true_count as usize);
+        let false_count = n - true_count;
 
-        if (true_count as usize) < self.parameters().min_samples_leaf
+        if true_count < self.parameters().min_samples_leaf
             || false_count < self.parameters().min_samples_leaf
         {
             return;
@@ -526,7 +635,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
-    fn find_best_split(
+    fn find_best_split<E: NodeElement>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         n: usize,
@@ -534,7 +643,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sum: f64,
         parent_gain: f64,
         j: usize,
-        workspace: &SplitWorkspace,
+        workspace: &SplitWorkspace<E>,
     ) {
         let mut true_sum = 0f64;
         let mut true_count = 0;
@@ -546,21 +655,21 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
             if prevx.is_none() || x_ij == prevx.unwrap() {
                 prevx = Some(x_ij);
-                true_count += elem.count;
-                true_mass += elem.mass;
-                true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
+                true_count += elem.count();
+                true_mass += elem.mass();
+                true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
                 continue;
             }
 
-            let false_count = n - (true_count as usize);
+            let false_count = n - true_count;
 
-            if (true_count as usize) < self.parameters().min_samples_leaf
+            if true_count < self.parameters().min_samples_leaf
                 || false_count < self.parameters().min_samples_leaf
             {
                 prevx = Some(x_ij);
-                true_count += elem.count;
-                true_mass += elem.mass;
-                true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
+                true_count += elem.count();
+                true_mass += elem.mass();
+                true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
                 continue;
             }
 
@@ -593,19 +702,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             }
 
             prevx = Some(x_ij);
-            true_sum += elem.mass * visitor.y.get(elem.row()).to_f64().unwrap();
-            true_count += elem.count;
-            true_mass += elem.mass;
+            true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
+            true_count += elem.count();
+            true_mass += elem.mass();
         }
     }
 
-    fn split<'a>(
+    fn split<'a, E: NodeElement>(
         &mut self,
         visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
         visitor_queue: &mut VecDeque<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
-        workspace: &mut SplitWorkspace,
+        workspace: &mut SplitWorkspace<E>,
     ) -> bool {
         let this_node = &self.nodes()[visitor.node];
 
@@ -622,11 +731,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             n_true += t as usize;
             // Fill in tc, etc while we are at it
             if t {
-                tc += e.count as usize;
-                true_mass += e.mass;
+                tc += e.count();
+                true_mass += e.mass();
             } else {
-                fc += e.count as usize;
-                false_mass += e.mass;
+                fc += e.count();
+                false_mass += e.mass();
             }
         }
 
