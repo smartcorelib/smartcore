@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Failed, FailedError};
+use crate::linalg::basic::arrays::MutArrayView1;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
@@ -120,6 +121,14 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             })
             .transpose()?;
 
+        // Compute the order of each attribute once
+        let mut order: Vec<Vec<usize>> = Vec::with_capacity(num_attributes);
+
+        for i in 0..num_attributes {
+            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+            order.push(col_i.argsort_mut());
+        }
+
         for tree_idx in 0..parameters.n_trees {
             if parameters.bootstrap {
                 samples = BaseForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
@@ -139,7 +148,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
                 seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
-                splitter: parameters.splitter.clone(),
+                splitter: parameters.splitter,
             };
             // Only use sample weights on base tree if not already applied during bootstrapping
             let sample_weights_for_base_tree = if parameters.bootstrap {
@@ -153,6 +162,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 sample_weights_for_base_tree,
                 samples.clone(),
                 mtry,
+                &order,
                 params,
             )?;
             trees.push(tree);

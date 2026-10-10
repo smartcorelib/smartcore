@@ -1,5 +1,3 @@
-use std::collections::LinkedList;
-use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -15,7 +13,7 @@ use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Splitter {
     Random,
     #[default]
@@ -115,10 +113,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialE
     for BaseTreeRegressor<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.depth != other.depth || self.nodes().len() != other.nodes().len() {
+        if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
             false
         } else {
-            self.nodes()
+            self.nodes
                 .iter()
                 .zip(other.nodes().iter())
                 .all(|(a, b)| a == b)
@@ -130,9 +128,8 @@ struct NodeVisitor<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Ar
     x: &'a X,
     y: &'a Y,
     node: usize,
-    samples: Vec<usize>,
-    sample_weights: Option<&'a [f64]>,
-    order: &'a [Vec<usize>],
+    start_idx: usize, // start index for the elements in `sorted_by_feature` of SplitWorkspace
+    end_idx: usize,   // end index (exclusive) in the same vector(s)
     true_child_output: f64,
     false_child_output: f64,
     level: u16,
@@ -145,9 +142,8 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     fn new(
         node_id: usize,
-        samples: Vec<usize>,
-        sample_weights: Option<&'a [f64]>,
-        order: &'a [Vec<usize>],
+        start_idx: usize,
+        end_idx: usize,
         x: &'a X,
         y: &'a Y,
         level: u16,
@@ -156,20 +152,14 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             x,
             y,
             node: node_id,
-            samples,
-            sample_weights,
-            order,
+            start_idx,
+            end_idx,
             true_child_output: 0f64,
             false_child_output: 0f64,
             level,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
         }
-    }
-
-    /// Weighted count of sample `i`. The weight is 1.0 if no weights are given.
-    fn mass_of(&self, i: usize) -> f64 {
-        mass_of(i, &self.samples, self.sample_weights)
     }
 }
 
@@ -178,6 +168,177 @@ fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     match sample_weights {
         Some(weights) => samples[i] as f64 * weights[i],
         None => samples[i] as f64,
+    }
+}
+
+/// Node elements store row indices and counts as `u32`.
+fn check_row_count(n_rows: usize) -> Result<(), Failed> {
+    if u32::try_from(n_rows).is_err() {
+        return Err(Failed::fit(
+            "Number of rows in x must not be larger than u32::MAX",
+        ));
+    }
+    Ok(())
+}
+
+// Trait representing an element that belongs logically to a Node. Implementations of it are stored in SplitWorkspace
+trait NodeElement: Copy + Default {
+    fn new(row: usize, count: usize, mass: f64) -> Self;
+    // The row index in the dataset
+    fn row(&self) -> usize;
+    // The number of times this row was sampled, should always be > 0
+    fn count(&self) -> usize;
+    // The total mass of this element: count * sample_weight of row or count if no sample weights are used
+    fn mass(&self) -> f64;
+}
+
+#[derive(Copy, Clone, Default)]
+struct WeightedElement {
+    row_idx: u32,
+    count: u32,
+    mass: f64,
+}
+
+impl NodeElement for WeightedElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        Self {
+            row_idx: row_idx as u32,
+            count: count as u32,
+            mass,
+        }
+    }
+
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        self.count as usize
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        self.mass
+    }
+}
+
+// implement CountedElement as a single u64, so it can be retrieved in a single read
+#[derive(Copy, Clone, Default)]
+struct CountedElement(u64); // low 32 bits: row, high 32 bits: count
+
+impl NodeElement for CountedElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        // mass() is derived from count, so sample weights must not be used
+        debug_assert_eq!(mass, count as f64);
+        Self(row_idx as u64 | ((count as u64) << 32))
+    }
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.0 as u32 as usize
+    }
+    #[inline(always)]
+    fn count(&self) -> usize {
+        (self.0 >> 32) as usize
+    }
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        (self.0 >> 32) as f64
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+struct UnitElement {
+    row_idx: u32,
+}
+
+impl NodeElement for UnitElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        // count() and mass() are always 1, so sample weights and counts > 1 must not be used.
+        // A count of 0 is allowed: such elements are overwritten during setup.
+        debug_assert!(count <= 1);
+        debug_assert_eq!(mass, count as f64);
+        Self {
+            row_idx: row_idx as u32,
+        }
+    }
+
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        1
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        1.0
+    }
+}
+
+// Checks whether the example indicated by node_element is a "true child" for this node
+fn is_true_sample<TX, X, E>(node_element: &E, x: &X, node: &Node) -> bool
+where
+    TX: Number + PartialOrd,
+    X: Array2<TX>,
+    E: NodeElement,
+{
+    x.get((node_element.row(), node.split_feature))
+        .to_f64()
+        .unwrap()
+        <= node.split_value.unwrap_or(f64::NAN)
+}
+
+// slice: slice that will be partitioned
+// scratch: temp buffer
+// is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
+// returns: index of first element of false branch
+#[inline(never)] // inline(never) is faster as seen during profiling
+fn stable_partition<E>(slice: &mut [E], scratch: &mut [E], is_true: &[bool]) -> usize
+where
+    E: NodeElement,
+{
+    // Note: this is intentionally written without an explicit if/else branch in the main loop
+    let n = slice.len();
+    let scratch = &mut scratch[..n];
+    let (mut w, mut f) = (0usize, 0usize);
+    for i in 0..n {
+        let e = slice[i];
+        let t = is_true[e.row()];
+        slice[w] = e; // w <= i, so this never clobbers an unread element
+        scratch[f] = e;
+        // advance only one of the pointers
+        w += t as usize;
+        f += (!t) as usize;
+    }
+    slice[w..].copy_from_slice(&scratch[..f]);
+    w
+}
+
+struct SplitWorkspace<E> {
+    in_true_branch: Vec<bool>, // indexed by row index in X
+    partition_buffer: Vec<E>,
+    sorted_by_feature: Vec<Vec<E>>,
+    variables: Vec<usize>, // feature indices which will be shuffled when mtry < n_features
+}
+
+impl<E> SplitWorkspace<E> {
+    fn new(
+        in_true_branch: Vec<bool>,
+        partition_buffer: Vec<E>,
+        sorted_by_feature: Vec<Vec<E>>,
+        n_features: usize,
+    ) -> Self {
+        Self {
+            in_true_branch,
+            partition_buffer,
+            sorted_by_feature,
+            variables: (0..n_features).collect::<Vec<_>>(),
+        }
     }
 }
 
@@ -201,6 +362,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             ));
         }
 
+        // Compute the order of each attribute once
+        let mut order: Vec<Vec<usize>> = Vec::new();
+
+        for i in 0..num_attributes {
+            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+            order.push(col_i.argsort_mut());
+        }
+
         let samples = vec![1; x_nrows];
         BaseTreeRegressor::fit_weak_learner(
             x,
@@ -208,6 +377,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             sample_weights,
             samples,
             num_attributes,
+            &order,
             parameters,
         )
     }
@@ -218,12 +388,39 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sample_weights: Option<&[f64]>,
         samples: Vec<usize>,
         mtry: usize,
+        order: &[Vec<usize>],
         parameters: BaseTreeRegressorParameters,
     ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
-        let y_m = y.clone();
+        check_row_count(y.shape())?;
+        match sample_weights {
+            Some(_) => Self::grow::<WeightedElement>(
+                x,
+                y,
+                sample_weights,
+                samples,
+                mtry,
+                order,
+                parameters,
+            ),
+            None if samples.iter().all(|&s| s <= 1) => {
+                // Note: if any sample has count zero, it will be filtered out, so we should
+                // use the smallest possible NodeElement
+                Self::grow::<UnitElement>(x, y, None, samples, mtry, order, parameters)
+            }
+            None => Self::grow::<CountedElement>(x, y, None, samples, mtry, order, parameters),
+        }
+    }
 
-        let y_ncols = y_m.shape();
-        let (_, num_attributes) = x.shape();
+    fn grow<E: NodeElement>(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        samples: Vec<usize>,
+        mtry: usize,
+        order: &[Vec<usize>],
+        parameters: BaseTreeRegressorParameters,
+    ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
+        let n_rows = y.shape();
 
         let mut nodes: Vec<Node> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
@@ -231,20 +428,42 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut sum = 0f64;
         let mut mass = 0f64;
 
-        for i in 0..y_ncols {
+        for i in 0..n_rows {
             let mass_i = mass_of(i, &samples, sample_weights);
             mass += mass_i;
-            sum += mass_i * y_m.get(i).to_f64().unwrap();
+            sum += mass_i * y.get(i).to_f64().unwrap();
         }
 
         let root = Node::new(sum / mass);
         nodes.push(root);
-        let mut order: Vec<Vec<usize>> = Vec::new();
 
-        for i in 0..num_attributes {
-            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
-            order.push(col_i.argsort_mut());
-        }
+        let counts: Vec<u32> = samples.iter().map(|&s| s as u32).collect();
+        // number of distinct rows of x in this tree
+        let n_kept = counts.iter().filter(|&&c| c > 0).count();
+
+        let sorted_by_feature: Vec<Vec<E>> = order
+            .iter()
+            .map(|col_order| {
+                let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                let mut w = 0usize; // index to write to
+                for &i in col_order {
+                    let c = counts[i];
+                    out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
+                    w += (c > 0) as usize; // update w in a branchless way
+                }
+                out.truncate(n_kept);
+                out
+            })
+            .collect();
+
+        let end_idx = sorted_by_feature[0].len();
+
+        let mut workspace = SplitWorkspace::new(
+            vec![false; x.shape().0],
+            vec![E::default(); end_idx],
+            sorted_by_feature,
+            x.shape().1,
+        );
 
         let mut base_tree = BaseTreeRegressor {
             nodes,
@@ -256,19 +475,18 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor =
-            NodeVisitor::<TX, TY, X, Y>::new(0, samples, sample_weights, &order, x, &y_m, 1);
+        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, 0, end_idx, x, y, 1);
 
-        let mut visitor_queue: LinkedList<NodeVisitor<'_, TX, TY, X, Y>> = LinkedList::new();
+        let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y>> = Vec::new();
 
-        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng) {
-            visitor_queue.push_back(visitor);
+        if base_tree.find_best_cutoff(&mut visitor, mtry, mass, &mut rng, &mut workspace) {
+            visitor_stack.push(visitor);
         }
 
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
-        while let Some(node) = visitor_queue.pop_front() {
+        while let Some(node) = visitor_stack.pop() {
             if node.level < max_depth {
-                base_tree.split(node, mtry, &mut visitor_queue, &mut rng);
+                base_tree.split(node, mtry, &mut visitor_stack, &mut rng, &mut workspace);
             }
         }
 
@@ -292,7 +510,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
         let mut node_id = 0;
         loop {
-            let node = &self.nodes()[node_id];
+            let node = &self.nodes[node_id];
             let Some(true_child) = node.true_child else {
                 return TY::from_f64(node.output).unwrap();
             };
@@ -307,49 +525,60 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
-    fn find_best_cutoff(
+    fn find_best_cutoff<E: NodeElement>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         mtry: usize,
         mass: f64,
         rng: &mut impl rand::Rng,
+        workspace: &mut SplitWorkspace<E>,
     ) -> bool {
         let (_, n_attr) = visitor.x.shape();
 
-        let n: usize = visitor.samples.iter().sum();
+        let n: usize = workspace.sorted_by_feature[0][visitor.start_idx..visitor.end_idx]
+            .iter()
+            .map(|elem| elem.count())
+            .sum();
 
         if n < self.parameters().min_samples_split {
             return false;
         }
 
-        let sum = self.nodes()[visitor.node].output * mass;
+        let sum = self.nodes[visitor.node].output * mass;
 
-        let mut variables = (0..n_attr).collect::<Vec<_>>();
-
+        // Note: in sklearn, the attributes are always considered in a random order
         if mtry < n_attr {
-            variables.shuffle(rng);
+            workspace.variables.shuffle(rng);
         }
 
-        let parent_gain =
-            mass * self.nodes()[visitor.node].output * self.nodes()[visitor.node].output;
+        let parent_gain = mass * self.nodes[visitor.node].output * self.nodes[visitor.node].output;
 
-        let splitter = self.parameters().splitter.clone();
+        let splitter = self.parameters().splitter;
 
-        for variable in variables.iter().take(mtry) {
+        for variable in workspace.variables.iter().take(mtry) {
             match splitter {
                 Splitter::Random => {
-                    self.find_random_split(visitor, n, mass, sum, parent_gain, *variable, rng);
+                    self.find_random_split(
+                        visitor,
+                        n,
+                        mass,
+                        sum,
+                        parent_gain,
+                        *variable,
+                        rng,
+                        workspace,
+                    );
                 }
                 Splitter::Best => {
-                    self.find_best_split(visitor, n, mass, sum, parent_gain, *variable);
+                    self.find_best_split(visitor, n, mass, sum, parent_gain, *variable, workspace);
                 }
             }
         }
 
-        self.nodes()[visitor.node].split_score.is_some()
+        self.nodes[visitor.node].split_score.is_some()
     }
 
-    fn find_random_split(
+    fn find_random_split<E: NodeElement>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         n: usize,
@@ -358,46 +587,37 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         parent_gain: f64,
         j: usize,
         rng: &mut impl rand::Rng,
+        workspace: &SplitWorkspace<E>,
     ) {
-        let (min_val, max_val) = {
-            let mut min_opt = None;
-            let mut max_opt = None;
-            for &i in &visitor.order[j] {
-                if visitor.samples[i] > 0 {
-                    min_opt = Some(*visitor.x.get((i, j)));
-                    break;
-                }
-            }
-            for &i in visitor.order[j].iter().rev() {
-                if visitor.samples[i] > 0 {
-                    max_opt = Some(*visitor.x.get((i, j)));
-                    break;
-                }
-            }
-            if min_opt.is_none() {
-                return;
-            }
-            (min_opt.unwrap(), max_opt.unwrap())
-        };
+        if visitor.start_idx == visitor.end_idx {
+            return;
+        }
+        let first_elem = workspace.sorted_by_feature[j][visitor.start_idx];
+        let min_val = visitor.x.get((first_elem.row(), j));
+        let last_elem = workspace.sorted_by_feature[j][visitor.end_idx - 1];
+        let max_val = visitor.x.get((last_elem.row(), j));
+
+        // Convert min_val and max_val to f64 first, so that values that are different in type TX
+        // but equal in f64 do not end up panicking the call to the rng.random_range function.
+        let min_val = min_val.to_f64().unwrap();
+        let max_val = max_val.to_f64().unwrap();
 
         if min_val >= max_val {
             return;
         }
 
-        let split_value = rng.random_range(min_val.to_f64().unwrap()..max_val.to_f64().unwrap());
+        let split_value = rng.random_range(min_val..max_val);
 
         let mut true_sum = 0f64;
         let mut true_mass = 0f64;
         let mut true_count = 0;
-        for &i in &visitor.order[j] {
-            if visitor.samples[i] > 0 {
-                if visitor.x.get((i, j)).to_f64().unwrap() <= split_value {
-                    true_sum += visitor.mass_of(i) * visitor.y.get(i).to_f64().unwrap();
-                    true_count += visitor.samples[i];
-                    true_mass += visitor.mass_of(i);
-                } else {
-                    break;
-                }
+        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
+            if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
+                true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
+                true_count += elem.count();
+                true_mass += elem.mass();
+            } else {
+                break;
             }
         }
 
@@ -434,7 +654,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
     }
 
-    fn find_best_split(
+    fn find_best_split<E: NodeElement>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
         n: usize,
@@ -442,107 +662,126 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sum: f64,
         parent_gain: f64,
         j: usize,
+        workspace: &SplitWorkspace<E>,
     ) {
         let mut true_sum = 0f64;
         let mut true_count = 0;
         let mut true_mass = 0f64;
         let mut prevx = Option::None;
 
-        for i in visitor.order[j].iter() {
-            if visitor.samples[*i] > 0 {
-                let x_ij = *visitor.x.get((*i, j));
+        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
+            // Comparison for equality is done directly on f64 to avoid later problems
+            // with values being unequal in TX but equal in f64.
+            let x_ij = visitor.x.get((elem.row(), j)).to_f64().unwrap();
 
-                if prevx.is_none() || x_ij == prevx.unwrap() {
-                    prevx = Some(x_ij);
-                    true_count += visitor.samples[*i];
-                    true_mass += visitor.mass_of(*i);
-                    true_sum += visitor.mass_of(*i) * visitor.y.get(*i).to_f64().unwrap();
-                    continue;
-                }
-
-                let false_count = n - true_count;
-
-                if true_count < self.parameters().min_samples_leaf
-                    || false_count < self.parameters().min_samples_leaf
-                {
-                    prevx = Some(x_ij);
-                    true_count += visitor.samples[*i];
-                    true_mass += visitor.mass_of(*i);
-                    true_sum += visitor.mass_of(*i) * visitor.y.get(*i).to_f64().unwrap();
-                    continue;
-                }
-
-                let true_mean = if true_mass > 0.0 {
-                    true_sum / true_mass
-                } else {
-                    0.0
-                };
-                let false_mass = mass - true_mass;
-                let false_mean = if false_mass > 0.0 {
-                    (sum - true_sum) / false_mass
-                } else {
-                    0.0
-                };
-
-                let gain = (true_mass * true_mean * true_mean
-                    + false_mass * false_mean * false_mean)
-                    - parent_gain;
-
-                if self.nodes()[visitor.node].split_score.is_none()
-                    || gain > self.nodes()[visitor.node].split_score.unwrap()
-                {
-                    self.nodes[visitor.node].split_feature = j;
-                    self.nodes[visitor.node].split_value =
-                        Option::Some((x_ij + prevx.unwrap()).to_f64().unwrap() / 2f64);
-                    self.nodes[visitor.node].split_score = Option::Some(gain);
-
-                    visitor.true_child_output = true_mean;
-                    visitor.false_child_output = false_mean;
-                }
-
+            if prevx.is_none() || x_ij == prevx.unwrap() {
                 prevx = Some(x_ij);
-                true_sum += visitor.mass_of(*i) * visitor.y.get(*i).to_f64().unwrap();
-                true_count += visitor.samples[*i];
-                true_mass += visitor.mass_of(*i);
+                true_count += elem.count();
+                true_mass += elem.mass();
+                true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
+                continue;
             }
+
+            let false_count = n - true_count;
+
+            if true_count < self.parameters().min_samples_leaf
+                || false_count < self.parameters().min_samples_leaf
+            {
+                prevx = Some(x_ij);
+                true_count += elem.count();
+                true_mass += elem.mass();
+                true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
+                continue;
+            }
+
+            let true_mean = if true_mass > 0.0 {
+                true_sum / true_mass
+            } else {
+                0.0
+            };
+            let false_mass = mass - true_mass;
+            let false_mean = if false_mass > 0.0 {
+                (sum - true_sum) / false_mass
+            } else {
+                0.0
+            };
+
+            let gain = (true_mass * true_mean * true_mean + false_mass * false_mean * false_mean)
+                - parent_gain;
+
+            if self.nodes[visitor.node].split_score.is_none()
+                || gain > self.nodes[visitor.node].split_score.unwrap()
+            {
+                let prev = prevx.unwrap();
+                // compute the midpoint in a way that does not overflow when x_ij and prevx have the same sign
+                let mid = prev + (x_ij - prev) / 2.0;
+
+                // The midpoint should put prevx in the true branch, and x_ij in the false branch.
+                // However, mid could round up to x_ij, in which case we would also assign x_ij to the true branch.
+                // In this case, we set the midpoint equal to prevx, which is always smaller
+                // than x_ij.
+                let threshold = if mid < x_ij { mid } else { prev };
+                self.nodes[visitor.node].split_feature = j;
+                self.nodes[visitor.node].split_value = Option::Some(threshold);
+                self.nodes[visitor.node].split_score = Option::Some(gain);
+
+                visitor.true_child_output = true_mean;
+                visitor.false_child_output = false_mean;
+            }
+
+            prevx = Some(x_ij);
+            true_sum += elem.mass() * visitor.y.get(elem.row()).to_f64().unwrap();
+            true_count += elem.count();
+            true_mass += elem.mass();
         }
     }
 
-    fn split<'a>(
+    /// Apply the split that was found for `visitor.node`: add its two child nodes and
+    /// partition the node's range in each `sorted_by_feature` column into a true part
+    /// and a false part. Then find the best cutoff for each child. If a child can be
+    /// split, push it on `visitor_stack`.
+    /// If a branch has fewer than `min_samples_leaf` samples, clear the split and
+    /// keep the node as a leaf.
+    fn split<'a, E: NodeElement>(
         &mut self,
-        mut visitor: NodeVisitor<'a, TX, TY, X, Y>,
+        visitor: NodeVisitor<'a, TX, TY, X, Y>,
         mtry: usize,
-        visitor_queue: &mut LinkedList<NodeVisitor<'a, TX, TY, X, Y>>,
+        visitor_stack: &mut Vec<NodeVisitor<'a, TX, TY, X, Y>>,
         rng: &mut impl rand::Rng,
+        workspace: &mut SplitWorkspace<E>,
     ) -> bool {
-        let (n, _) = visitor.x.shape();
-        let mut tc = 0;
-        let mut fc = 0;
-        let mut true_mass = 0f64;
-        let mut false_mass = 0f64;
-        let mut true_samples: Vec<usize> = vec![0; n];
+        let this_node = &self.nodes[visitor.node];
 
-        for (i, true_sample) in true_samples.iter_mut().enumerate().take(n) {
-            if visitor.samples[i] > 0 {
-                if visitor
-                    .x
-                    .get((i, self.nodes()[visitor.node].split_feature))
-                    .to_f64()
-                    .unwrap()
-                    <= self.nodes()[visitor.node].split_value.unwrap_or(f64::NAN)
-                {
-                    *true_sample = visitor.samples[i];
-                    tc += *true_sample;
-                    true_mass += visitor.mass_of(i);
-                    visitor.samples[i] = 0;
-                } else {
-                    fc += visitor.samples[i];
-                    false_mass += visitor.mass_of(i);
-                }
+        let mut true_count = 0usize;
+        let mut true_mass = 0f64;
+        let mut false_count = 0usize;
+        let mut false_mass = 0f64;
+        // for each row_index, does it belong in the true branch or not?
+        let in_true_branch = &mut workspace.in_true_branch;
+
+        // the column for split_feature is in order, so all the true samples should come first, all the false samples second
+        let split_feature = this_node.split_feature;
+        let col = &workspace.sorted_by_feature[split_feature][visitor.start_idx..visitor.end_idx];
+        let mut n_true = 0usize;
+        for e in col {
+            if !is_true_sample(e, visitor.x, this_node) {
+                break;
             }
+            in_true_branch[e.row()] = true;
+            true_count += e.count();
+            true_mass += e.mass();
+            n_true += 1;
+        }
+        for e in &col[n_true..] {
+            in_true_branch[e.row()] = false;
+            false_count += e.count();
+            false_mass += e.mass();
         }
 
-        if tc < self.parameters().min_samples_leaf || fc < self.parameters().min_samples_leaf {
+        // Stop early if it is clear that there will be too few examples in the leaf
+        if true_count < self.parameters().min_samples_leaf
+            || false_count < self.parameters().min_samples_leaf
+        {
             self.nodes[visitor.node].split_feature = 0;
             self.nodes[visitor.node].split_value = Option::None;
             self.nodes[visitor.node].split_score = Option::None;
@@ -550,43 +789,66 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             return false;
         }
 
-        let true_child_idx = self.nodes().len();
+        // Add the child nodes to the tree
+        let split_idx = visitor.start_idx + n_true;
+
+        let true_child_idx = self.nodes.len();
 
         self.nodes.push(Node::new(visitor.true_child_output));
-        let false_child_idx = self.nodes().len();
+        let false_child_idx = self.nodes.len();
         self.nodes.push(Node::new(visitor.false_child_output));
 
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);
 
-        self.depth = u16::max(self.depth, visitor.level + 1);
+        let child_level = visitor.level + 1;
+        self.depth = u16::max(self.depth, child_level);
+
+        // If the child nodes can not be split any further, there is no point in partitioning the ranges
+        let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
+        let min_split = self.parameters().min_samples_split;
+        let true_can_split = child_level < max_depth && true_count >= min_split;
+        let false_can_split = child_level < max_depth && false_count >= min_split;
+        if !true_can_split && !false_can_split {
+            return true; // both children are leaves: no partition
+        }
+
+        for j in 0..visitor.x.shape().1 {
+            stable_partition(
+                &mut workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx],
+                &mut workspace.partition_buffer,
+                in_true_branch,
+            );
+        }
 
         let mut true_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             true_child_idx,
-            true_samples,
-            visitor.sample_weights,
-            visitor.order,
+            visitor.start_idx,
+            split_idx,
             visitor.x,
             visitor.y,
-            visitor.level + 1,
+            child_level,
         );
 
-        if self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng) {
-            visitor_queue.push_back(true_visitor);
+        if true_can_split
+            && self.find_best_cutoff(&mut true_visitor, mtry, true_mass, rng, workspace)
+        {
+            visitor_stack.push(true_visitor);
         }
 
         let mut false_visitor = NodeVisitor::<TX, TY, X, Y>::new(
             false_child_idx,
-            visitor.samples,
-            visitor.sample_weights,
-            visitor.order,
+            split_idx,
+            visitor.end_idx,
             visitor.x,
             visitor.y,
-            visitor.level + 1,
+            child_level,
         );
 
-        if self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng) {
-            visitor_queue.push_back(false_visitor);
+        if false_can_split
+            && self.find_best_cutoff(&mut false_visitor, mtry, false_mass, rng, workspace)
+        {
+            visitor_stack.push(false_visitor);
         }
 
         true
@@ -599,6 +861,19 @@ mod tests {
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn check_row_count_rejects_more_rows_than_u32_max() {
+        assert!(check_row_count(0).is_ok());
+        assert!(check_row_count(u32::MAX as usize).is_ok());
+        assert_eq!(
+            check_row_count(u32::MAX as usize + 1).err(),
+            Some(Failed::fit(
+                "Number of rows in x must not be larger than u32::MAX"
+            ))
+        );
+    }
 
     #[test]
     fn test_fit_on_empty_data_returns_error() {
@@ -966,5 +1241,99 @@ mod tests {
                 .expect("Fit should work");
         let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
         assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
+    }
+
+    // Above 2^53, f64 cannot hold every integer. Split search compares values in TX,
+    // but partitioning and predict compare them as f64 against an f64 threshold.
+    const TWO_POW_53: i64 = 1 << 53;
+
+    fn split_value_parameters(splitter: Splitter) -> BaseTreeRegressorParameters {
+        BaseTreeRegressorParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    #[test]
+    fn large_integer_midpoint_threshold_separates_values() {
+        // Both values are exact in f64, but the midpoint 2^53 + 3 is not.
+        // It rounds to 2^53 + 4 (ties to even), so both rows go to the true branch.
+        let x =
+            DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53 + 2], vec![TWO_POW_53 + 4]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
+                .expect("Fit should work");
+
+        let threshold = tree.nodes()[0].split_value.expect("Root should split");
+        assert!((TWO_POW_53 + 2) as f64 <= threshold);
+        assert!(((TWO_POW_53 + 4) as f64) > threshold);
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![0.0, 10.0]);
+    }
+
+    #[test]
+    fn large_integer_values_equal_as_f64_do_not_split() {
+        // 2^53 and 2^53 + 1 differ as i64 but are the same f64. No f64 threshold can
+        // separate them, so the tree must not split and must predict the mean.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
+                .expect("Fit should work");
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn large_integer_values_equal_as_f64_random_splitter() {
+        // min_val < max_val as i64, but the f64 range is empty. This must not panic.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Random))
+                .expect("Fit should work");
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn adjacent_f64_midpoint_threshold_separates_values() {
+        // a and b are adjacent f64 values. Their exact midpoint 1 + 1.5 * EPSILON is not
+        // representable. It is a tie, and ties round to the even mantissa, which is b.
+        // So the threshold becomes b, and both rows go to the true branch.
+        let a = 1.0 + f64::EPSILON;
+        let b = 1.0 + 2.0 * f64::EPSILON;
+        assert_eq!((a + b) / 2.0, b); // the rounding that causes the problem
+
+        let x = DenseMatrix::from_2d_vec(&vec![vec![a], vec![b]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
+                .expect("Fit should work");
+
+        let threshold = tree.nodes()[0].split_value.expect("Root should split");
+        assert!(a <= threshold);
+        assert!(b > threshold);
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![0.0, 10.0]);
+    }
+
+    #[test]
+    fn test_node_element_sizes() {
+        assert_eq!(std::mem::size_of::<UnitElement>(), 4);
+        assert_eq!(std::mem::size_of::<CountedElement>(), 8);
+        assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
     }
 }
