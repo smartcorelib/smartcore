@@ -229,7 +229,9 @@ impl NodeElement for WeightedElement {
 struct CountedElement(u64); // low 32 bits: row, high 32 bits: count
 
 impl NodeElement for CountedElement {
-    fn new(row_idx: usize, count: usize, _mass: f64) -> Self {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        // mass() is derived from count, so sample weights must not be used
+        debug_assert_eq!(mass, count as f64);
         Self(row_idx as u64 | ((count as u64) << 32))
     }
     #[inline(always)]
@@ -252,7 +254,11 @@ struct UnitElement {
 }
 
 impl NodeElement for UnitElement {
-    fn new(row_idx: usize, _count: usize, _mass: f64) -> Self {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        // count() and mass() are always 1, so sample weights and counts > 1 must not be used.
+        // A count of 0 is allowed: such elements are overwritten during setup.
+        debug_assert!(count <= 1);
+        debug_assert_eq!(mass, count as f64);
         Self {
             row_idx: row_idx as u32,
         }
@@ -591,11 +597,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let last_elem = workspace.sorted_by_feature[j][visitor.end_idx - 1];
         let max_val = visitor.x.get((last_elem.row(), j));
 
+        // Convert min_val and max_val to f64 first, so that values that are different in type TX
+        // but equal in f64 do not end up panicking the call to the rng.random_range function.
+        let min_val = min_val.to_f64().unwrap();
+        let max_val = max_val.to_f64().unwrap();
+
         if min_val >= max_val {
             return;
         }
 
-        let split_value = rng.random_range(min_val.to_f64().unwrap()..max_val.to_f64().unwrap());
+        let split_value = rng.random_range(min_val..max_val);
 
         let mut true_sum = 0f64;
         let mut true_mass = 0f64;
@@ -659,7 +670,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut prevx = Option::None;
 
         for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
-            let x_ij = *visitor.x.get((elem.row(), j));
+            // Comparison for equality is done directly on f64 to avoid later problems
+            // with values being unequal in TX but equal in f64.
+            let x_ij = visitor.x.get((elem.row(), j)).to_f64().unwrap();
 
             if prevx.is_none() || x_ij == prevx.unwrap() {
                 prevx = Some(x_ij);
@@ -699,10 +712,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             if self.nodes[visitor.node].split_score.is_none()
                 || gain > self.nodes[visitor.node].split_score.unwrap()
             {
+                let prev = prevx.unwrap();
+                // compute the midpoint in a way that does not overflow when x_ij and prevx have the same sign
+                let mid = prev + (x_ij - prev) / 2.0;
+
+                // The midpoint should put prevx in the true branch, and x_ij in the false branch.
+                // However, mid could round up to x_ij, in which case we would also assign x_ij to the true branch.
+                // In this case, we set the midpoint equal to prevx, which is always smaller
+                // than x_ij.
+                let threshold = if mid < x_ij { mid } else { prev };
                 self.nodes[visitor.node].split_feature = j;
-                self.nodes[visitor.node].split_value = Option::Some(
-                    (x_ij.to_f64().unwrap() + prevx.unwrap().to_f64().unwrap()) / 2f64,
-                );
+                self.nodes[visitor.node].split_value = Option::Some(threshold);
                 self.nodes[visitor.node].split_score = Option::Some(gain);
 
                 visitor.true_child_output = true_mean;
@@ -1221,6 +1241,93 @@ mod tests {
                 .expect("Fit should work");
         let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
         assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
+    }
+
+    // Above 2^53, f64 cannot hold every integer. Split search compares values in TX,
+    // but partitioning and predict compare them as f64 against an f64 threshold.
+    const TWO_POW_53: i64 = 1 << 53;
+
+    fn split_value_parameters(splitter: Splitter) -> BaseTreeRegressorParameters {
+        BaseTreeRegressorParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    #[test]
+    fn large_integer_midpoint_threshold_separates_values() {
+        // Both values are exact in f64, but the midpoint 2^53 + 3 is not.
+        // It rounds to 2^53 + 4 (ties to even), so both rows go to the true branch.
+        let x =
+            DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53 + 2], vec![TWO_POW_53 + 4]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
+                .expect("Fit should work");
+
+        let threshold = tree.nodes()[0].split_value.expect("Root should split");
+        assert!((TWO_POW_53 + 2) as f64 <= threshold);
+        assert!(((TWO_POW_53 + 4) as f64) > threshold);
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![0.0, 10.0]);
+    }
+
+    #[test]
+    fn large_integer_values_equal_as_f64_do_not_split() {
+        // 2^53 and 2^53 + 1 differ as i64 but are the same f64. No f64 threshold can
+        // separate them, so the tree must not split and must predict the mean.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
+                .expect("Fit should work");
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn large_integer_values_equal_as_f64_random_splitter() {
+        // min_val < max_val as i64, but the f64 range is empty. This must not panic.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Random))
+                .expect("Fit should work");
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn adjacent_f64_midpoint_threshold_separates_values() {
+        // a and b are adjacent f64 values. Their exact midpoint 1 + 1.5 * EPSILON is not
+        // representable. It is a tie, and ties round to the even mantissa, which is b.
+        // So the threshold becomes b, and both rows go to the true branch.
+        let a = 1.0 + f64::EPSILON;
+        let b = 1.0 + 2.0 * f64::EPSILON;
+        assert_eq!((a + b) / 2.0, b); // the rounding that causes the problem
+
+        let x = DenseMatrix::from_2d_vec(&vec![vec![a], vec![b]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
+                .expect("Fit should work");
+
+        let threshold = tree.nodes()[0].split_value.expect("Root should split");
+        assert!(a <= threshold);
+        assert!(b > threshold);
+
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![0.0, 10.0]);
     }
 
     #[test]
