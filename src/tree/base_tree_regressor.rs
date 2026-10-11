@@ -1336,4 +1336,443 @@ mod tests {
         assert_eq!(std::mem::size_of::<CountedElement>(), 8);
         assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
     }
+
+    type TestTree = BaseTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>;
+
+    fn params(
+        max_depth: Option<u16>,
+        min_samples_leaf: usize,
+        min_samples_split: usize,
+        splitter: Splitter,
+    ) -> BaseTreeRegressorParameters {
+        BaseTreeRegressorParameters {
+            max_depth,
+            min_samples_leaf,
+            min_samples_split,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    /// Row order of each column, computed in the same way as in `fit_inner`.
+    fn order_of(x: &DenseMatrix<f64>) -> Vec<Vec<usize>> {
+        (0..x.shape().1)
+            .map(|j| {
+                let mut col: Vec<f64> = x.get_col(j).iterator(0).copied().collect();
+                col.argsort_mut()
+            })
+            .collect()
+    }
+
+    /// Index of the leaf that gets row `row` of `x`. Uses the same rule as `predict_for_row`.
+    fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
+        let mut node_id = 0;
+        while let Some(true_child) = tree.nodes()[node_id].true_child {
+            let node = &tree.nodes()[node_id];
+            node_id = if *x.get((row, node.split_feature)) <= node.split_value.unwrap() {
+                true_child
+            } else {
+                node.false_child.unwrap()
+            };
+        }
+        node_id
+    }
+
+    /// Number of training samples in each leaf of `tree`.
+    /// `counts[i]` is the number of times that row `i` of `x` is in the training set.
+    fn leaf_counts(tree: &TestTree, x: &DenseMatrix<f64>, counts: &[usize]) -> Vec<usize> {
+        let mut per_node = vec![0usize; tree.nodes().len()];
+        for (row, &count) in counts.iter().enumerate() {
+            per_node[leaf_of(tree, x, row)] += count;
+        }
+        tree.nodes()
+            .iter()
+            .zip(per_node)
+            .filter(|(node, _)| node.true_child.is_none()) // filter out the leaves
+            .map(|(_, count)| count)
+            .collect()
+    }
+
+    /// Both trees must have the same structure, the same splits and the same outputs.
+    /// `split_score` is not compared, because a different summation order can change it.
+    fn assert_same_tree(a: &TestTree, b: &TestTree) {
+        assert_eq!(a.nodes().len(), b.nodes().len());
+        assert_eq!(a.depth, b.depth);
+        for (na, nb) in a.nodes().iter().zip(b.nodes().iter()) {
+            assert_eq!(na.split_feature, nb.split_feature);
+            assert_eq!(na.split_value, nb.split_value);
+            assert_eq!(na.true_child, nb.true_child);
+            assert_eq!(na.false_child, nb.false_child);
+            assert!((na.output - nb.output).abs() < 1e-9);
+        }
+    }
+
+    /// Repeat row `i` of `x`, `y` and `w` `counts[i]` times.
+    fn repeat_rows(
+        x: &[Vec<f64>],
+        y: &[f64],
+        w: &[f64],
+        counts: &[usize],
+    ) -> (DenseMatrix<f64>, Vec<f64>, Vec<f64>) {
+        let mut x_rep = Vec::new();
+        let mut y_rep = Vec::new();
+        let mut w_rep = Vec::new();
+        for (i, &count) in counts.iter().enumerate() {
+            for _ in 0..count {
+                x_rep.push(x[i].clone());
+                y_rep.push(y[i]);
+                w_rep.push(w[i]);
+            }
+        }
+        (DenseMatrix::from_2d_vec(&x_rep).unwrap(), y_rep, w_rep)
+    }
+
+    /// Data for the element path tests: ties in both columns, integer targets.
+    fn element_path_data() -> (Vec<Vec<f64>>, Vec<f64>) {
+        let x = vec![
+            vec![1.0, 4.0],
+            vec![2.0, 4.0],
+            vec![2.0, 1.0],
+            vec![3.0, 3.0],
+            vec![5.0, 2.0],
+            vec![6.0, 1.0],
+            vec![6.0, 5.0],
+            vec![7.0, 3.0],
+        ];
+        let y = vec![3.0, 8.0, 1.0, 9.0, 4.0, 12.0, 7.0, 2.0];
+        (x, y)
+    }
+
+    #[test]
+    fn max_depth_boundary() {
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![0.0f64, 1.0, 10.0, 11.0, 100.0, 101.0, 110.0, 111.0];
+
+        // The root is at level 1. A node at level `max_depth` is not split.
+        // (max_depth, number of nodes, depth)
+        let cases = [
+            (Some(1), 1, 0),
+            (Some(2), 3, 2),
+            (Some(3), 7, 3),
+            (None, 15, 4),
+        ];
+        for (max_depth, n_nodes, depth) in cases {
+            let tree: TestTree =
+                BaseTreeRegressor::fit_inner(&x, &y, None, params(max_depth, 1, 2, Splitter::Best))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), n_nodes, "max_depth: {max_depth:?}");
+            assert_eq!(tree.depth, depth, "max_depth: {max_depth:?}");
+        }
+
+        // With max_depth = 2 the root split separates the two halves.
+        let tree: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(Some(2), 1, 2, Splitter::Best))
+                .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value, Some(4.5));
+        let y_hat = tree.predict(&x).expect("Predict should work");
+        assert_eq!(y_hat, vec![5.5, 5.5, 5.5, 5.5, 105.5, 105.5, 105.5, 105.5]);
+
+        // No limit is the same as the largest limit, and the leaves memorize y.
+        let tree_none: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, Splitter::Best))
+                .expect("Fit should work");
+        let tree_max: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            params(Some(u16::MAX), 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_same_tree(&tree_none, &tree_max);
+        assert_eq!(tree_none.predict(&x).expect("Predict should work"), y);
+
+        for max_depth in 1..=4 {
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                None,
+                params(Some(max_depth), 1, 2, Splitter::Random),
+            )
+            .expect("Fit should work");
+            assert!(tree.depth <= max_depth, "max_depth: {max_depth}");
+        }
+    }
+
+    #[test]
+    fn min_samples_split_one_child_only() {
+        // The root split gives a true child with 3 samples and a false child with 2 samples.
+        // With min_samples_split = 3, only the true child can split.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![2.0],
+            vec![3.0],
+            vec![4.0],
+            vec![5.0],
+        ])
+        .unwrap();
+        let y = vec![0.0f64, 1.0, 2.0, 100.0, 101.0];
+
+        let tree: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 3, Splitter::Best))
+                .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value, Some(3.5));
+        let true_child = tree.nodes()[0].true_child.unwrap();
+        let false_child = tree.nodes()[0].false_child.unwrap();
+        assert!(tree.nodes()[true_child].true_child.is_some());
+        assert!(tree.nodes()[false_child].true_child.is_none());
+        assert_eq!(tree.nodes().len(), 5);
+        assert_eq!(tree.depth, 3);
+
+        // If min_samples_split is larger than the number of samples, the root is a leaf.
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 6, splitter))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+        }
+    }
+
+    #[test]
+    fn min_samples_leaf_boundary() {
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0], vec![4.0]])
+            .unwrap();
+        let y = vec![0.0f64, 0.0, 0.0, 100.0];
+
+        // With no limit, the best split isolates the last sample.
+        let tree: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, Splitter::Best))
+                .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value, Some(3.5));
+
+        // The best split is not permitted. The split with exactly 2 samples on each side is used.
+        let tree: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 2, 2, Splitter::Best))
+                .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value, Some(2.5));
+        assert_eq!(tree.nodes().len(), 3);
+        assert_eq!(leaf_counts(&tree, &x, &[1; 4]), vec![2, 2]);
+
+        // No split can give 3 samples on each side.
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 3, 2, splitter))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+            assert_eq!(tree.nodes()[0].output, 25.0);
+        }
+    }
+
+    // Fit many different trees with many different options and check that in each case min_samples_leaf is correct.
+    #[test]
+    fn min_samples_leaf_holds_for_all_element_paths() {
+        let mut rng = get_rng_impl(Some(7));
+        let n = 40;
+        let x_rows: Vec<Vec<f64>> = (0..n)
+            .map(|_| (0..3).map(|_| rng.random_range(0..6) as f64).collect())
+            .collect();
+        let y: Vec<f64> = (0..n).map(|_| rng.random_range(-10.0..10.0)).collect();
+        let counts: Vec<usize> = (0..n).map(|_| rng.random_range(0..4usize)).collect();
+        let weights: Vec<f64> = (0..n).map(|_| rng.random_range(0.1..3.0)).collect();
+        let ones = vec![1usize; n];
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let order = order_of(&x);
+
+        // (weights, counts): UnitElement, CountedElement and WeightedElement
+        let paths = [
+            (None, &ones),
+            (None, &counts),
+            (Some(weights.as_slice()), &counts),
+        ];
+        for (sample_weights, samples) in paths {
+            for splitter in [Splitter::Best, Splitter::Random] {
+                for min_samples_leaf in [1, 3, 5] {
+                    for seed in 0..5 {
+                        let parameters = BaseTreeRegressorParameters {
+                            seed: Some(seed),
+                            ..params(None, min_samples_leaf, 2, splitter)
+                        };
+                        let tree: TestTree = BaseTreeRegressor::fit_weak_learner(
+                            &x,
+                            &y,
+                            sample_weights,
+                            samples.clone(),
+                            3,
+                            &order,
+                            parameters,
+                        )
+                        .expect("Fit should work");
+                        let message = format!(
+                            "weights: {}, splitter: {splitter:?}, leaf: {min_samples_leaf}, seed: {seed}",
+                            sample_weights.is_some()
+                        );
+                        assert!(tree.nodes().len() > 1, "{message}"); // make sure the tree has a split
+                        let leaves = leaf_counts(&tree, &x, samples);
+                        assert!(
+                            leaves.iter().all(|&c| c >= min_samples_leaf),
+                            "{message}, leaves: {leaves:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn constant_features_do_not_split() {
+        // all features are constant, so no split is possible
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64, 7.0],
+            vec![1.0, 7.0],
+            vec![1.0, 7.0],
+            vec![1.0, 7.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 3.0, 6.0];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, splitter))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+            assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
+            let y_hat = tree.predict(&x).expect("Predict should work");
+            assert_eq!(y_hat, vec![3.0; 4], "splitter: {splitter:?}");
+        }
+    }
+
+    #[test]
+    fn constant_column_is_skipped() {
+        // Column 0 is constant, so only column 1 can give a split.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![7.0_f64, 1.0],
+            vec![7.0, 2.0],
+            vec![7.0, 3.0],
+            vec![7.0, 4.0],
+        ])
+        .unwrap();
+        let y = vec![0.0f64, 0.0, 10.0, 10.0];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, splitter))
+                    .expect("Fit should work");
+            assert!(tree.nodes().len() > 1, "splitter: {splitter:?}");
+            assert!(
+                tree.nodes()
+                    .iter()
+                    .filter(|node| node.true_child.is_some())
+                    .all(|node| node.split_feature == 1),
+                "splitter: {splitter:?}"
+            );
+        }
+
+        let tree: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, Splitter::Best))
+                .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value, Some(2.5));
+    }
+
+    #[test]
+    fn duplicate_columns_pick_first() {
+        // Both columns are identical. Their gains are equal, and the first column is kept.
+        // Note: this is the current behaviour. The behaviour of sklearn is different.
+        let values = [1.0_f64, 2.0, 2.0, 3.0, 5.0, 6.0];
+        let y = vec![1.0f64, 4.0, 2.0, 9.0, 3.0, 8.0];
+        let x_single =
+            DenseMatrix::from_2d_vec(&values.iter().map(|&v| vec![v]).collect::<Vec<_>>()).unwrap();
+        let x_double =
+            DenseMatrix::from_2d_vec(&values.iter().map(|&v| vec![v, v]).collect::<Vec<_>>())
+                .unwrap();
+
+        let parameters = params(None, 1, 2, Splitter::Best);
+        let tree_single: TestTree =
+            BaseTreeRegressor::fit_inner(&x_single, &y, None, parameters.clone())
+                .expect("Fit should work");
+        let tree_double: TestTree =
+            BaseTreeRegressor::fit_inner(&x_double, &y, None, parameters).expect("Fit should work");
+
+        assert!(tree_double.nodes().len() > 1);
+        assert_same_tree(&tree_single, &tree_double);
+    }
+
+    #[test]
+    fn counted_and_unit_elements_match_repeated_rows() {
+        // Checks that repeating rows and giving them a count > 0 yields the same trees.
+        // Do not pose constraints on min_samples_leaf and min_samples_split. At the moment
+        // this should make no difference but it may do in the future.
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let order = order_of(&x);
+        let n = y.len();
+
+        // Counts 0 or 1 use UnitElement. Counts larger than 1 use CountedElement.
+        // Rows with count 0 must have no effect.
+        let all_counts = [vec![1, 0, 1, 1, 0, 1, 1, 0], vec![2, 0, 1, 3, 1, 0, 2, 1]];
+        for counts in all_counts {
+            let (x_rep, y_rep, _) = repeat_rows(&x_rows, &y, &vec![1.0; n], &counts);
+            for splitter in [Splitter::Best, Splitter::Random] {
+                for max_depth in [Some(2), None] {
+                    let parameters = params(max_depth, 1, 2, splitter);
+                    let tree: TestTree = BaseTreeRegressor::fit_weak_learner(
+                        &x,
+                        &y,
+                        None,
+                        counts.clone(),
+                        2,
+                        &order,
+                        parameters.clone(),
+                    )
+                    .expect("Fit should work");
+                    let tree_rep: TestTree =
+                        BaseTreeRegressor::fit_inner(&x_rep, &y_rep, None, parameters)
+                            .expect("Fit should work");
+
+                    assert!(tree.nodes().len() > 1);
+                    assert_same_tree(&tree, &tree_rep);
+                    let y_hat = tree.predict(&x).expect("Predict should work");
+                    let y_hat_rep = tree_rep.predict(&x).expect("Predict should work");
+                    assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn weighted_element_with_counts_matches_repeated_rows() {
+        // The mass of a row is count * weight.  Weights are chosen to be perfectly representable (power of two in the fraction denominator).
+        // This keeps all sums exact.
+        // Checks that WeightedElement handles counts different from one correctly.
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let order = order_of(&x);
+        let weights = vec![0.5, 1.5, 2.0, 0.25, 1.0, 3.0, 0.75, 1.25];
+        let counts = vec![2, 0, 1, 3, 1, 0, 2, 1];
+        let (x_rep, y_rep, w_rep) = repeat_rows(&x_rows, &y, &weights, &counts);
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(2), None] {
+                let parameters = params(max_depth, 1, 2, splitter);
+                let tree: TestTree = BaseTreeRegressor::fit_weak_learner(
+                    &x,
+                    &y,
+                    Some(&weights),
+                    counts.clone(),
+                    2,
+                    &order,
+                    parameters.clone(),
+                )
+                .expect("Fit should work");
+                // in this tree, there are no counts but the rows are repeated physically
+                let tree_rep: TestTree =
+                    BaseTreeRegressor::fit_inner(&x_rep, &y_rep, Some(&w_rep), parameters)
+                        .expect("Fit should work");
+
+                assert!(tree.nodes().len() > 1);
+                assert_same_tree(&tree, &tree_rep);
+                let y_hat = tree.predict(&x).expect("Predict should work");
+                let y_hat_rep = tree_rep.predict(&x).expect("Predict should work");
+                assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
+            }
+        }
+    }
 }
