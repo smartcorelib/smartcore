@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The error text for an unfitted `MultiClassSVC::predict` changed from "MultiClassSVC is not fitted" to the common "'fit' should be called before calling 'predict'". Code that matched the old string must be updated.
 - The error text for an invalid `k` in `KNNClassifier::fit` changed from "k should be > 1" to "k should be > 0", the same text `KNNRegressor` uses. Code that matched the old string must be updated.
 - `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) runs faster: less allocation, less sorting, node rows stored as `(start, end)` spans, and no partition step for child nodes that cannot split (#481). Split values no longer fall between adjacent floating-point numbers, so fitted values can differ slightly from earlier versions. New tests check parity of `RandomForestRegressor` with scikit-learn.
-- CI: the coverage job runs cargo-tarpaulin with the LLVM engine instead of the default engine (#485, fixes #484).
+- `linear`: the `test_logit` fixture now uses a 10000 x 94 random matrix instead of 52181 x 94. The class ratio stays the same (418 of 10000 rows are positive). The test checks the same property and runs much faster, so it stays inside the CI coverage time budget.
+- CI: the coverage job runs cargo-tarpaulin with the LLVM engine, in release mode and with a 600 s timeout, instead of the default engine (#485, fixes #484).
 
 ## [0.6.15]
 ### Fixed
