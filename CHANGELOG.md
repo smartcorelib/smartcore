@@ -5,17 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Fixed
-- The ndarray implementation of `Array2::from_iterator` now preserves column-major input order, including for rectangular matrices that previously caused a panic. Column-major input produces a column-major array (#482).
 
 ## [0.6.16]
 ### Fixed
 - `predict`, `predict_proba`, `predict_oob`, `predict_matrix` and `decision_function` now return `Err(Failed)` instead of panicking when `fit` has not run (#469, #470). Models return the same unfitted error even after deserialization, when the state fields are `None`. The guarded methods cover the decision trees, the random forests, the extra-trees regressor, the KNN classifier and regressor, `SVC`, `MultiClassSVC`, `SVR`, the linear models, the naive Bayes classifiers and `XGRegressor`.
 - `KNNClassifier::fit` now accepts `k = 1`, as `KNNRegressor` already did (#476). `k = 0` is still rejected.
+- The ndarray implementation of `Array2::from_iterator` now preserves column-major input order, including for rectangular matrices that previously caused a panic. Column-major input produces a column-major array (#482).
+- `ensemble`: `RandomForestRegressor` and `RandomForestClassifier` now give each tree its own seed (`seed + tree index`). Before this change, all trees of a forest used the same seed, so all trees picked the same feature samples (#475). A forest fitted with a fixed `seed` now returns different predictions, because the trees no longer share one feature sample. Fits with the same seed stay reproducible.
+- `ensemble`: sample weights now follow the scikit-learn rules. With `bootstrap = true`, the weights are used in the bootstrap phase only. With `bootstrap = false`, the weights go to each tree (#478). New tests compare `RandomForestRegressor` and `ExtraTreesRegressor` predictions (train, probe and OOB) with reference values from scikit-learn 1.9.1.
 
 ### Changed
 - The error text for an unfitted `MultiClassSVC::predict` changed from "MultiClassSVC is not fitted" to the common "'fit' should be called before calling 'predict'". Code that matched the old string must be updated.
 - The error text for an invalid `k` in `KNNClassifier::fit` changed from "k should be > 1" to "k should be > 0", the same text `KNNRegressor` uses. Code that matched the old string must be updated.
+- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) runs faster: less allocation, less sorting, node rows stored as `(start, end)` spans, and no partition step for child nodes that cannot split (#481). Split values no longer fall between adjacent floating-point numbers, so fitted values can differ slightly from earlier versions. New tests check parity of `RandomForestRegressor` with scikit-learn.
+- `linear`: the `test_logit` fixture now uses a 10000 x 94 random matrix instead of 52181 x 94. The class ratio stays the same (418 of 10000 rows are positive). The test checks the same property and runs much faster, so it stays inside the CI coverage time budget.
+- CI: the coverage job runs cargo-tarpaulin with the LLVM engine, in release mode and with a 600 s timeout, instead of the default engine (#485, fixes #484).
 
 ## [0.6.15]
 ### Fixed
