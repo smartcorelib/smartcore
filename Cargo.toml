@@ -24,7 +24,7 @@ exclude = [
 [dependencies]
 approx = "0.5.1"
 cfg-if = "1.0.0"
-ndarray = { version = "0.17", optional = true }
+ndarray = { version = "0.17", optional = true, default-features = false }
 num-traits = "0.2.12"
 num = "0.4"
 rand = { version = "0.10.1", default-features = false, features = ["alloc"] }
@@ -35,9 +35,17 @@ ordered-float = "5.1.0"
 typetag = { version = "0.2", optional = true }
 
 [features]
-# No features enabled by default; keeps the build WASM-compatible
-# and avoids pulling in serde/rand unless explicitly requested.
-default = []
+# `std` stays on by default so ordinary builds keep ndarray's standard-library
+# support when `ndarray-bindings` is enabled. Weak forwarding (`ndarray?/std`)
+# does not activate the optional ndarray dependency by itself. `std` only
+# controls ndarray's standard-library support; smartcore itself is not
+# `no_std`. serde and rand stay opt-in, which keeps the default dependency set
+# WASM-compatible.
+default = ["std"]
+
+# Enable ndarray's `std` feature when ndarray is already enabled.
+# The `?` keeps `--features std` from pulling ndarray in on its own.
+std = ["ndarray?/std"]
 
 # Enable serde Serialize/Deserialize for models and related types.
 # Also enables typetag on non-wasm targets for trait object serialization.
