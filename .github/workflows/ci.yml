@@ -57,6 +57,8 @@ jobs:
           - "--features serde"
           - "--features datasets"
           - "--features ndarray-bindings"
+          - "--features lazy-normalization"
+          - "--features lazy-normalization,ndarray-bindings"
           - ""
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +75,7 @@ jobs:
       - name: Stable Build
         run: cargo build --no-default-features ${{ matrix.features }}
       - name: Tests
-        if: matrix.features == '--features ndarray-bindings'
+        if: matrix.features == '--features ndarray-bindings' || contains(matrix.features, 'lazy-normalization')
         run: cargo test --no-default-features ${{ matrix.features }}
 
   msrv:
