@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
+
 ### Fixed
 - The ndarray implementation of `Array2::from_iterator` now preserves column-major input order, including for rectangular matrices that previously caused a panic. Column-major input produces a column-major array (#482).
 
