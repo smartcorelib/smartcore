@@ -486,7 +486,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y>> = Vec::new();
 
-        if n >= base_tree.parameters().min_samples_split
+        if base_tree.parameters().max_depth.unwrap_or(u16::MAX) > 1
+            && n >= base_tree.parameters().min_samples_split
             && base_tree.find_best_cutoff(&mut visitor, mtry, &mut rng, &mut workspace, n)
         {
             visitor_stack.push(visitor);
@@ -1756,6 +1757,180 @@ mod tests {
                 let y_hat = tree.predict(&x).expect("Predict should work");
                 let y_hat_rep = tree_rep.predict(&x).expect("Predict should work");
                 assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
+            }
+        }
+    }
+
+    /// Data for the split_score tests: 2 features with ties, weights, and bootstrap counts.
+    struct SplitScoreFixture {
+        x: DenseMatrix<f64>,
+        y: Vec<f64>,
+        weights: Vec<f64>,
+        counts: Vec<usize>,
+        order: Vec<Vec<usize>>,
+    }
+
+    fn split_score_fixture() -> SplitScoreFixture {
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64, 7.0],
+            vec![2.0, 3.0],
+            vec![2.0, 5.0],
+            vec![3.0, 1.0],
+            vec![4.0, 8.0],
+            vec![5.0, 2.0],
+            vec![6.0, 6.0],
+            vec![6.0, 4.0],
+            vec![7.0, 9.0],
+            vec![8.0, 0.0],
+        ])
+        .unwrap();
+        let order: Vec<Vec<usize>> = (0..2)
+            .map(|j| {
+                let mut col: Vec<f64> = x.get_col(j).iterator(0).copied().collect();
+                col.argsort_mut()
+            })
+            .collect();
+        SplitScoreFixture {
+            x,
+            y: vec![1.0, 3.0, 2.0, 8.0, 5.0, 9.0, 4.0, 7.0, 6.0, 10.0],
+            weights: vec![1.0, 2.0, 0.5, 1.0, 3.0, 1.0, 1.0, 0.25, 2.0, 1.0],
+            counts: vec![1, 2, 0, 1, 3, 1, 0, 2, 1, 1],
+            order,
+        }
+    }
+
+    /// Fit one tree for each element type. Each tree comes with the mass of each row.
+    fn split_score_trees(
+        f: &SplitScoreFixture,
+        parameters: BaseTreeRegressorParameters,
+    ) -> Vec<(&'static str, TestTree, Vec<f64>)> {
+        let n = f.y.len();
+        vec![
+            (
+                "unit",
+                BaseTreeRegressor::fit_inner(&f.x, &f.y, None, parameters.clone()).unwrap(),
+                vec![1.0; n],
+            ),
+            (
+                "weighted",
+                BaseTreeRegressor::fit_inner(&f.x, &f.y, Some(&f.weights), parameters.clone())
+                    .unwrap(),
+                f.weights.clone(),
+            ),
+            (
+                "counted",
+                BaseTreeRegressor::fit_weak_learner(
+                    &f.x,
+                    &f.y,
+                    None,
+                    f.counts.clone(),
+                    2,
+                    &f.order,
+                    parameters,
+                )
+                .unwrap(),
+                f.counts.iter().map(|&c| c as f64).collect(),
+            ),
+        ]
+    }
+
+    #[test]
+    fn split_score_is_some_only_for_internal_nodes() {
+        // A leaf has no split, so its split_score must be None.
+        // An internal node has a split, so its split_score must be Some.
+        let f = split_score_fixture();
+
+        for max_depth in [Some(0), Some(1), Some(2), Some(3), None] {
+            for min_samples_leaf in [1, 2, 3] {
+                for splitter in [Splitter::Best, Splitter::Random] {
+                    let parameters = params(max_depth, min_samples_leaf, 2, splitter);
+                    for (kind, tree, _) in split_score_trees(&f, parameters) {
+                        for (i, node) in tree.nodes().iter().enumerate() {
+                            let case = format!(
+                                "{kind}, max_depth: {max_depth:?}, min_samples_leaf: {min_samples_leaf}, \
+                                 splitter: {splitter:?}, node: {i}"
+                            );
+                            assert_eq!(
+                                node.true_child.is_some(),
+                                node.false_child.is_some(),
+                                "{case}"
+                            );
+                            if node.true_child.is_some() {
+                                assert!(node.split_score.is_some(), "internal node, {case}");
+                            } else {
+                                assert!(node.split_score.is_none(), "leaf, {case}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn split_scores_add_up_to_total_impurity_decrease() {
+        // Each split_score must be the real impurity improvement, not the proxy.
+        // The improvements of all splits then add up to
+        // weighted SSE(root) - sum of weighted SSE(leaves).
+        // The depths 0 and 1 are covered by split_score_is_some_only_for_internal_nodes.
+
+        // Index of the leaf that contains `row`
+        fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
+            let mut node_id = 0;
+            while let Some(true_child) = tree.nodes()[node_id].true_child {
+                let node = &tree.nodes()[node_id];
+                node_id = if *x.get((row, node.split_feature)) <= node.split_value.unwrap() {
+                    true_child
+                } else {
+                    node.false_child.unwrap()
+                };
+            }
+            node_id
+        }
+
+        // Weighted sum of squared errors around the weighted mean
+        fn weighted_sse(samples: &[(f64, f64)]) -> f64 {
+            let mass: f64 = samples.iter().map(|&(_, m)| m).sum();
+            if mass == 0.0 {
+                return 0.0;
+            }
+            let mean = samples.iter().map(|&(y, m)| m * y).sum::<f64>() / mass;
+            samples
+                .iter()
+                .map(|&(y, m)| m * (y - mean) * (y - mean))
+                .sum()
+        }
+
+        let f = split_score_fixture();
+
+        for max_depth in [Some(2), Some(3), None] {
+            for min_samples_leaf in [1, 2, 3] {
+                for splitter in [Splitter::Best, Splitter::Random] {
+                    let parameters = params(max_depth, min_samples_leaf, 2, splitter);
+                    for (kind, tree, mass) in split_score_trees(&f, parameters) {
+                        let case = format!(
+                            "{kind}, max_depth: {max_depth:?}, min_samples_leaf: {min_samples_leaf}, \
+                             splitter: {splitter:?}"
+                        );
+
+                        let samples: Vec<(f64, f64)> =
+                            f.y.iter().copied().zip(mass.iter().copied()).collect();
+                        let mut leaves: Vec<Vec<(f64, f64)>> = vec![Vec::new(); tree.nodes().len()];
+                        for (row, &sample) in samples.iter().enumerate() {
+                            leaves[leaf_of(&tree, &f.x, row)].push(sample);
+                        }
+                        let expected = weighted_sse(&samples)
+                            - leaves.iter().map(|leaf| weighted_sse(leaf)).sum::<f64>();
+
+                        let total: f64 = tree.nodes().iter().filter_map(|n| n.split_score).sum();
+
+                        assert!(tree.nodes().len() > 1, "tree has no split, {case}");
+                        assert!(
+                            (total - expected).abs() <= 1e-9 * weighted_sse(&samples),
+                            "sum of split_score: {total}, expected: {expected}, {case}"
+                        );
+                    }
+                }
             }
         }
     }
