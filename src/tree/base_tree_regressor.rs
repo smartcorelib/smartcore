@@ -1874,20 +1874,6 @@ mod tests {
         // weighted SSE(root) - sum of weighted SSE(leaves).
         // The depths 0 and 1 are covered by split_score_is_some_only_for_internal_nodes.
 
-        // Index of the leaf that contains `row`
-        fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
-            let mut node_id = 0;
-            while let Some(true_child) = tree.nodes()[node_id].true_child {
-                let node = &tree.nodes()[node_id];
-                node_id = if *x.get((row, node.split_feature)) <= node.split_value.unwrap() {
-                    true_child
-                } else {
-                    node.false_child.unwrap()
-                };
-            }
-            node_id
-        }
-
         // Weighted sum of squared errors around the weighted mean
         fn weighted_sse(samples: &[(f64, f64)]) -> f64 {
             let mass: f64 = samples.iter().map(|&(_, m)| m).sum();
@@ -1933,5 +1919,54 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn zero_mass_leaf_with_fractional_weights() {
+        // The root adds the weights in row order, but split() adds them in the order of x.
+        // With fractional weights, the two sums can differ by one ulp. Then `parent - true`
+        // gives a tiny residue mass for a side that only has zero-weight rows.
+        // A leaf with no mass must get the value 0.0, and not residue_sum / residue_mass.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![3.0_f64], vec![1.0], vec![2.0], vec![4.0]])
+            .unwrap();
+        let y = vec![1.0f64, 2.0, 3.0, 10.0];
+        let weights = vec![0.1f64, 0.2, 0.3, 0.0];
+
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            Some(&weights),
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+
+        let n_nodes = tree.nodes().len();
+        let mut leaf_mass = vec![0f64; n_nodes];
+        let mut leaf_sum = vec![0f64; n_nodes];
+        for row in 0..y.len() {
+            let leaf = leaf_of(&tree, &x, row);
+            leaf_mass[leaf] += weights[row];
+            leaf_sum[leaf] += weights[row] * y[row];
+        }
+
+        let mut n_zero_mass_leaves = 0;
+        for (i, node) in tree.nodes().iter().enumerate() {
+            if node.true_child.is_some() {
+                continue;
+            }
+            if leaf_mass[i] == 0.0 {
+                n_zero_mass_leaves += 1;
+                assert_eq!(node.output, 0.0, "leaf {i} has no mass");
+            } else {
+                let mean = leaf_sum[i] / leaf_mass[i];
+                assert!(
+                    (node.output - mean).abs() <= 1e-9 * mean.abs(),
+                    "leaf {i}: output {}, weighted mean {mean}",
+                    node.output
+                );
+            }
+        }
+        // The test must contain the case that it checks
+        assert_eq!(n_zero_mass_leaves, 1);
     }
 }

@@ -26,6 +26,7 @@ pub(crate) trait Criterion {
     fn add(&self, stats: &mut Self::Stats, target: Self::Target, mass: f64);
 
     /// Set `out = parent - part`. `part` must be a subset of `parent`.
+    /// If the mass of `out` is only a rounding residue, `out` is set to the empty set.
     fn difference(&self, parent: &Self::Stats, part: &Self::Stats, out: &mut Self::Stats);
 
     /// Larger is better. Only comparable between splits of the same parent (proxy, as in sklearn).
@@ -44,6 +45,9 @@ pub(crate) trait Criterion {
     /// Value of a leaf that contains the samples of `stats`.
     fn leaf_value(&self, stats: &Self::Stats) -> Self::Output;
 }
+
+/// Relative mass below which `difference` gives the empty set.
+const MASS_EPS: f64 = 1e-12;
 
 /// Statistics for the weighted mean of the targets.
 #[derive(Clone, Copy, Debug, Default)]
@@ -93,6 +97,11 @@ impl Criterion for MSECriterion {
     fn difference(&self, parent: &Self::Stats, part: &Self::Stats, out: &mut Self::Stats) {
         out.mass = parent.mass - part.mass;
         out.sum = parent.sum - part.sum;
+        // Remove a rounding residue, see MASS_EPS. This also catches a negative residue.
+        if out.mass <= MASS_EPS * parent.mass {
+            out.mass = 0.0;
+            out.sum = 0.0;
+        }
     }
 
     #[inline(always)]
@@ -178,6 +187,39 @@ mod tests {
         criterion.difference(&parent, &part, &mut out);
         assert!((out.sum - expected.sum).abs() < EPS);
         assert!((out.mass - expected.mass).abs() < EPS);
+    }
+
+    #[test]
+    fn mse_difference_removes_rounding_residue() {
+        let criterion = MSECriterion;
+        // The same samples, added in a different order: the sums differ by one ulp.
+        let parent = mse_stats(&[(1.0, 0.1), (2.0, 0.2), (3.0, 0.3)]);
+        let part = mse_stats(&[(2.0, 0.2), (3.0, 0.3), (1.0, 0.1)]);
+        assert_ne!(parent.mass, part.mass, "the test needs a residue");
+
+        let mut out = criterion.empty_stats();
+        criterion.difference(&parent, &part, &mut out);
+        assert_eq!(out.mass, 0.0);
+        assert_eq!(out.sum, 0.0);
+        assert_eq!(criterion.leaf_value(&out), 0.0);
+
+        // Also when part is the larger sum (negative residue)
+        criterion.difference(&part, &parent, &mut out);
+        assert_eq!(out.mass, 0.0);
+        assert_eq!(out.sum, 0.0);
+    }
+
+    #[test]
+    fn mse_difference_keeps_small_real_mass() {
+        // A real side with a small, but not tiny, mass must not be removed.
+        let criterion = MSECriterion;
+        let parent = mse_stats(&[(1.0, 1.0), (5.0, 1e-6)]);
+        let part = mse_stats(&[(1.0, 1.0)]);
+
+        let mut out = criterion.empty_stats();
+        criterion.difference(&parent, &part, &mut out);
+        assert!(out.mass > 0.0);
+        assert!((criterion.leaf_value(&out) - 5.0).abs() < 1e-6);
     }
 
     #[test]
