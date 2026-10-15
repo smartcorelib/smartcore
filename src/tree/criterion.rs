@@ -7,8 +7,6 @@
 //! * ["Classification and regression trees", Breiman L, Friedman J H, Olshen R A, and Stone C J, 1984](https://www.taylorfrancis.com/books/mono/10.1201/9781315139470/classification-regression-trees-leo-breiman)
 //! * scikit-learn, `sklearn/tree/_criterion.pyx` (proxy improvement)
 
-use crate::linalg::basic::arrays::ArrayView1;
-
 /// Impurity measure that a tree uses to select splits.
 pub(crate) trait Criterion {
     /// Sufficient statistics for a set of samples.
@@ -120,101 +118,6 @@ impl Criterion for MSECriterion {
     }
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "not yet used by the classifier")
-)]
-/// Gini impurity criterion for classification. The leaf value is the class with the largest mass.
-pub(crate) struct GiniCriterion {
-    num_classes: usize,
-}
-
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "not yet used by the classifier")
-)]
-#[derive(Clone, Debug, Default)]
-/// Weighted count for each class.
-pub(crate) struct GiniStats {
-    class_counts: Vec<f64>,
-    mass: f64,
-}
-
-impl GiniCriterion {
-    // One term of the proxy improvement: sum_k count_k^2 / mass
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "not yet used by the classifier")
-    )]
-    fn term(stats: &GiniStats) -> f64 {
-        if stats.mass > 0.0 {
-            stats.class_counts.iter().map(|c| c * c).sum::<f64>() / stats.mass
-        } else {
-            0.0
-        }
-    }
-}
-
-impl Criterion for GiniCriterion {
-    type Stats = GiniStats;
-    type Target = usize;
-    type Output = usize;
-
-    fn empty_stats(&self) -> Self::Stats {
-        GiniStats {
-            class_counts: vec![0.0; self.num_classes],
-            mass: 0.0,
-        }
-    }
-
-    fn reset(&self, stats: &mut Self::Stats) {
-        stats.class_counts.fill(0.0);
-        stats.mass = 0.0;
-    }
-
-    #[inline(always)]
-    fn add(&self, stats: &mut Self::Stats, target: Self::Target, mass: f64) {
-        debug_assert!(target < self.num_classes);
-        stats.class_counts[target] += mass;
-        stats.mass += mass;
-    }
-
-    #[inline(always)]
-    fn difference(&self, parent: &Self::Stats, part: &Self::Stats, out: &mut Self::Stats) {
-        debug_assert_eq!(parent.class_counts.len(), part.class_counts.len());
-        debug_assert_eq!(parent.class_counts.len(), out.class_counts.len());
-        for ((diff, p), c) in out
-            .class_counts
-            .iter_mut()
-            .zip(parent.class_counts.iter())
-            .zip(part.class_counts.iter())
-        {
-            *diff = p - c;
-        }
-        out.mass = parent.mass - part.mass;
-    }
-
-    #[inline(always)]
-    fn proxy_improvement(&self, true_side: &Self::Stats, false_side: &Self::Stats) -> f64 {
-        Self::term(true_side) + Self::term(false_side)
-    }
-
-    fn impurity_improvement(
-        &self,
-        parent: &Self::Stats,
-        true_side: &Self::Stats,
-        false_side: &Self::Stats,
-    ) -> f64 {
-        self.proxy_improvement(true_side, false_side) - Self::term(parent)
-    }
-
-    fn leaf_value(&self, stats: &Self::Stats) -> Self::Output {
-        stats.class_counts.argmax()
-    }
-}
-
-// TODO: add the entropy and classification-error criteria.
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,31 +131,6 @@ mod tests {
             criterion.add(&mut stats, y, w);
         }
         stats
-    }
-
-    fn gini_stats(num_classes: usize, samples: &[(usize, f64)]) -> GiniStats {
-        let criterion = GiniCriterion { num_classes };
-        let mut stats = criterion.empty_stats();
-        for &(class, w) in samples {
-            criterion.add(&mut stats, class, w);
-        }
-        stats
-    }
-
-    // Weighted Gini impurity: \sum_c n_c * (1 - \sum_k p_k^2)
-    fn weighted_gini(sides: &[&GiniStats]) -> f64 {
-        sides
-            .iter()
-            .filter(|s| s.mass > 0.0)
-            .map(|s| {
-                let sum_p2: f64 = s
-                    .class_counts
-                    .iter()
-                    .map(|c| (c / s.mass) * (c / s.mass))
-                    .sum();
-                s.mass * (1.0 - sum_p2)
-            })
-            .sum()
     }
 
     // Sum of squared errors around the mean
@@ -332,93 +210,6 @@ mod tests {
             &mse_stats(&[(2.0, 1.0), (10.0, 1.0), (11.0, 1.0)]),
         );
         assert!(good > bad);
-    }
-
-    #[test]
-    fn gini_empty_stats() {
-        let criterion = GiniCriterion { num_classes: 3 };
-        let empty = criterion.empty_stats();
-        assert_eq!(empty.class_counts, vec![0.0; 3]);
-        assert_eq!(empty.mass, 0.0);
-        assert_eq!(criterion.leaf_value(&empty), 0);
-        assert_eq!(criterion.proxy_improvement(&empty, &empty), 0.0);
-    }
-
-    #[test]
-    fn gini_add_with_weights() {
-        let stats = gini_stats(3, &[(2, 2.5), (0, 1.0)]);
-        assert_eq!(stats.class_counts, vec![1.0, 0.0, 2.5]);
-        assert_eq!(stats.mass, 3.5);
-    }
-
-    #[test]
-    fn gini_term_known_answer() {
-        let criterion = GiniCriterion { num_classes: 2 };
-        let stats = gini_stats(2, &[(0, 7.0), (1, 3.0)]);
-        let empty = criterion.empty_stats();
-        // (7^2 + 3^2) / 10
-        assert!((criterion.proxy_improvement(&stats, &empty) - 5.8).abs() < EPS);
-        assert!((criterion.proxy_improvement(&empty, &stats) - 5.8).abs() < EPS);
-    }
-
-    #[test]
-    fn gini_proxy_equals_n_minus_weighted_gini() {
-        let criterion = GiniCriterion { num_classes: 2 };
-        let left = gini_stats(2, &[(0, 3.0), (1, 1.0)]);
-        let right = gini_stats(2, &[(0, 1.0), (1, 3.0)]);
-        let n = left.mass + right.mass;
-
-        let impurity = weighted_gini(&[&left, &right]);
-        assert!((impurity - 3.0).abs() < EPS);
-
-        let proxy = criterion.proxy_improvement(&left, &right);
-        assert!((proxy - (n - impurity)).abs() < EPS);
-        assert!((proxy - 5.0).abs() < EPS);
-    }
-
-    #[test]
-    fn gini_difference_gives_complement() {
-        let criterion = GiniCriterion { num_classes: 2 };
-        let parent = gini_stats(2, &[(0, 4.0), (1, 4.0)]);
-        let part = gini_stats(2, &[(0, 3.0), (1, 1.0)]);
-
-        let mut out = criterion.empty_stats();
-        criterion.difference(&parent, &part, &mut out);
-        assert_eq!(out.class_counts, vec![1.0, 3.0]);
-        assert_eq!(out.mass, 4.0);
-    }
-
-    #[test]
-    fn gini_reset_clears_stats() {
-        let criterion = GiniCriterion { num_classes: 3 };
-        let mut stats = gini_stats(3, &[(0, 1.0), (2, 2.0)]);
-        criterion.reset(&mut stats);
-        assert_eq!(stats.class_counts, vec![0.0; 3]);
-        assert_eq!(stats.mass, 0.0);
-    }
-
-    #[test]
-    fn gini_pure_split_beats_mixed() {
-        let criterion = GiniCriterion { num_classes: 2 };
-        let pure =
-            criterion.proxy_improvement(&gini_stats(2, &[(0, 4.0)]), &gini_stats(2, &[(1, 4.0)]));
-        let mixed = criterion.proxy_improvement(
-            &gini_stats(2, &[(0, 3.0), (1, 1.0)]),
-            &gini_stats(2, &[(0, 1.0), (1, 3.0)]),
-        );
-        assert!((pure - 8.0).abs() < EPS);
-        assert!(pure > mixed);
-    }
-
-    #[test]
-    fn gini_leaf_value() {
-        let criterion = GiniCriterion { num_classes: 3 };
-        let stats = gini_stats(3, &[(0, 1.0), (1, 5.0), (2, 2.0)]);
-        assert_eq!(criterion.leaf_value(&stats), 1);
-
-        // A tie gives the first class, same as `which_max`
-        let tie = gini_stats(3, &[(0, 3.0), (1, 3.0)]);
-        assert_eq!(criterion.leaf_value(&tie), 0);
     }
 
     // Weighted sum of squared errors around the weighted mean
@@ -557,104 +348,6 @@ mod tests {
         let mut offsets = Vec::new();
         for k in 0..=samples.len() {
             let left = mse_stats(&samples[..k]);
-            criterion.difference(&parent, &left, &mut right);
-            let improvement = criterion.impurity_improvement(&parent, &left, &right);
-            assert!(improvement > -1e-9, "split {k}: {improvement}");
-            offsets.push(criterion.proxy_improvement(&left, &right) - improvement);
-        }
-        for offset in &offsets {
-            assert!((offset - offsets[0]).abs() < 1e-9);
-        }
-    }
-
-    #[test]
-    fn gini_improvement_known_answer() {
-        let criterion = GiniCriterion { num_classes: 2 };
-        let parent = gini_stats(2, &[(0, 4.0), (1, 4.0)]);
-        let left = gini_stats(2, &[(0, 3.0), (1, 1.0)]);
-        let right = gini_stats(2, &[(0, 1.0), (1, 3.0)]);
-
-        // 8 * gini(parent) = 4, weighted gini of children = 3
-        let improvement = criterion.impurity_improvement(&parent, &left, &right);
-        assert!((improvement - 1.0).abs() < EPS);
-    }
-
-    #[test]
-    fn gini_improvement_matches_weighted_gini_reduction() {
-        let criterion = GiniCriterion { num_classes: 3 };
-        let left_samples = [(0, 1.5), (1, 0.25), (2, 2.0), (0, 0.75)];
-        let right_samples = [(1, 3.0), (2, 0.5), (0, 1.0)];
-        let all_samples: Vec<(usize, f64)> = left_samples
-            .iter()
-            .chain(right_samples.iter())
-            .copied()
-            .collect();
-
-        let parent = gini_stats(3, &all_samples);
-        let left = gini_stats(3, &left_samples);
-        let right = gini_stats(3, &right_samples);
-
-        let improvement = criterion.impurity_improvement(&parent, &left, &right);
-        let expected = weighted_gini(&[&parent]) - weighted_gini(&[&left, &right]);
-        assert!((improvement - expected).abs() < EPS);
-    }
-
-    #[test]
-    fn gini_improvement_pure_children_removes_all_impurity() {
-        let criterion = GiniCriterion { num_classes: 3 };
-        let parent = gini_stats(3, &[(0, 2.0), (1, 1.0), (2, 3.0)]);
-        let left = gini_stats(3, &[(0, 2.0), (1, 1.0)]);
-        let right = gini_stats(3, &[(2, 3.0)]);
-
-        let improvement = criterion.impurity_improvement(&parent, &left, &right);
-        let expected = weighted_gini(&[&parent]) - weighted_gini(&[&left]);
-        assert!((improvement - expected).abs() < EPS);
-
-        // A split into two pure children removes all impurity of the parent
-        let parent = gini_stats(2, &[(0, 4.0), (1, 4.0)]);
-        let improvement = criterion.impurity_improvement(
-            &parent,
-            &gini_stats(2, &[(0, 4.0)]),
-            &gini_stats(2, &[(1, 4.0)]),
-        );
-        assert!((improvement - 4.0).abs() < EPS);
-    }
-
-    #[test]
-    fn gini_improvement_is_zero_without_information() {
-        let criterion = GiniCriterion { num_classes: 2 };
-        // Both children have the same class proportions as the parent
-        let parent = gini_stats(2, &[(0, 6.0), (1, 3.0)]);
-        let left = gini_stats(2, &[(0, 2.0), (1, 1.0)]);
-        let right = gini_stats(2, &[(0, 4.0), (1, 2.0)]);
-        assert!(criterion.impurity_improvement(&parent, &left, &right).abs() < EPS);
-
-        // An empty side does not change the impurity
-        let empty = criterion.empty_stats();
-        assert!(
-            criterion
-                .impurity_improvement(&parent, &parent, &empty)
-                .abs()
-                < EPS
-        );
-        assert!(
-            criterion
-                .impurity_improvement(&parent, &empty, &parent)
-                .abs()
-                < EPS
-        );
-    }
-
-    #[test]
-    fn gini_improvement_differs_from_proxy_by_a_constant() {
-        // For all splits of one parent, the ranking must be the same as for the proxy
-        let criterion = GiniCriterion { num_classes: 3 };
-        let samples = [(0, 1.0), (2, 2.0), (1, 0.5), (0, 1.0), (2, 1.5), (1, 3.0)];
-        let parent = gini_stats(3, &samples);
-        let mut right = criterion.empty_stats();
-        let mut offsets = Vec::new();
-        for k in 0..=samples.len() {
-            let left = gini_stats(3, &samples[..k]);
             criterion.difference(&parent, &left, &mut right);
             let improvement = criterion.impurity_improvement(&parent, &left, &right);
             assert!(improvement > -1e-9, "split {k}: {improvement}");
