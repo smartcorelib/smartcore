@@ -533,8 +533,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         rng: &mut impl rand::Rng,
         workspace: &mut SplitWorkspace<E>,
     ) -> bool {
-        let (_, n_attr) = visitor.x.shape();
-
         let n: usize = workspace.sorted_by_feature[0][visitor.start_idx..visitor.end_idx]
             .iter()
             .map(|elem| elem.count())
@@ -546,10 +544,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let sum = self.nodes[visitor.node].output * mass;
 
-        // Note: in sklearn, the attributes are always considered in a random order
-        if mtry < n_attr {
-            workspace.variables.shuffle(rng);
-        }
+        workspace.variables.shuffle(rng);
 
         let parent_gain = mass * self.nodes[visitor.node].output * self.nodes[visitor.node].output;
 
@@ -1673,9 +1668,10 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_columns_pick_first() {
-        // Both columns are identical. Their gains are equal, and the first column is kept.
-        // Note: this is the current behaviour. The behaviour of sklearn is different.
+    fn duplicate_columns_pick_random_column() {
+        // Both columns are identical. Their gains are equal. As in sklearn, the attributes
+        // are considered in a random order, thus the column of each split is random.
+        // Apart from the column, the tree is the same as the tree for one column.
         let values = [1.0_f64, 2.0, 2.0, 3.0, 5.0, 6.0];
         let y = vec![1.0f64, 4.0, 2.0, 9.0, 3.0, 8.0];
         let x_single =
@@ -1684,15 +1680,33 @@ mod tests {
             DenseMatrix::from_2d_vec(&values.iter().map(|&v| vec![v, v]).collect::<Vec<_>>())
                 .unwrap();
 
-        let parameters = params(None, 1, 2, Splitter::Best);
-        let tree_single: TestTree =
-            BaseTreeRegressor::fit_inner(&x_single, &y, None, parameters.clone())
-                .expect("Fit should work");
-        let tree_double: TestTree =
-            BaseTreeRegressor::fit_inner(&x_double, &y, None, parameters).expect("Fit should work");
+        let mut used_columns = [false; 2];
+        for seed in 0..10 {
+            let parameters = BaseTreeRegressorParameters {
+                seed: Some(seed),
+                ..params(None, 1, 2, Splitter::Best)
+            };
+            let tree_single: TestTree =
+                BaseTreeRegressor::fit_inner(&x_single, &y, None, parameters.clone())
+                    .expect("Fit should work");
+            let tree_double: TestTree =
+                BaseTreeRegressor::fit_inner(&x_double, &y, None, parameters)
+                    .expect("Fit should work");
 
-        assert!(tree_double.nodes().len() > 1);
-        assert_same_tree(&tree_single, &tree_double);
+            assert!(tree_double.nodes().len() > 1);
+            assert_eq!(tree_single.nodes().len(), tree_double.nodes().len());
+            assert_eq!(tree_single.depth, tree_double.depth);
+            for (a, b) in tree_single.nodes().iter().zip(tree_double.nodes().iter()) {
+                assert_eq!(a.split_value, b.split_value);
+                assert_eq!(a.true_child, b.true_child);
+                assert_eq!(a.false_child, b.false_child);
+                assert!((a.output - b.output).abs() < 1e-9);
+                if b.true_child.is_some() {
+                    used_columns[b.split_feature] = true;
+                }
+            }
+        }
+        assert_eq!(used_columns, [true, true], "both columns must be used");
     }
 
     #[test]
