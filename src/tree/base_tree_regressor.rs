@@ -326,6 +326,7 @@ struct SplitWorkspace<E> {
     variables: Vec<usize>, // feature indices which will be shuffled when mtry < n_features
     true_stats: MeanStats, // scratch stats for split functions to use
     false_stats: MeanStats,
+    parent_stats: MeanStats,
 }
 
 impl<E> SplitWorkspace<E> {
@@ -342,6 +343,7 @@ impl<E> SplitWorkspace<E> {
             variables: (0..n_features).collect::<Vec<_>>(),
             true_stats: MSECriterion.empty_stats(),
             false_stats: MSECriterion.empty_stats(),
+            parent_stats: MSECriterion.empty_stats(),
         }
     }
 }
@@ -432,21 +434,25 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut n = 0usize;
         let mut root_stats = MSECriterion.empty_stats();
 
+        // A row with mass 0 (bootstrap count 0 or sample weight 0) has no effect on
+        // the statistics. Leave it out, so that every side of a split with elements
+        // has a positive mass. Rows with mass zero are not counted towards min_samples_leaf etc.
+        let masses: Vec<f64> = (0..n_rows)
+            .map(|i| mass_of(i, &samples, sample_weights))
+            .collect();
+
         for i in 0..n_rows {
-            MSECriterion.add(
-                &mut root_stats,
-                y.get(i).to_f64().unwrap(),
-                mass_of(i, &samples, sample_weights),
-            );
-            n += samples[i];
+            if masses[i] > 0.0 {
+                MSECriterion.add(&mut root_stats, y.get(i).to_f64().unwrap(), masses[i]);
+                n += samples[i];
+            }
         }
 
         let root = Node::new(MSECriterion.leaf_value(&root_stats));
         nodes.push(root);
 
-        let counts: Vec<u32> = samples.iter().map(|&s| s as u32).collect();
-        // number of distinct rows of x in this tree
-        let n_kept = counts.iter().filter(|&&c| c > 0).count();
+        // number of distinct rows of x in this tree with a postive mass
+        let n_kept = masses.iter().filter(|&&m| m > 0.0).count();
 
         let sorted_by_feature: Vec<Vec<E>> = order
             .iter()
@@ -454,9 +460,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
                 let mut w = 0usize; // index to write to
                 for &i in col_order {
-                    let c = counts[i];
-                    out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
-                    w += (c > 0) as usize; // update w in a branchless way
+                    out[w] = E::new(i, samples[i], masses[i]);
+                    w += (masses[i] > 0.0) as usize; // update w in a branchless way
                 }
                 out.truncate(n_kept);
                 out
@@ -487,6 +492,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y>> = Vec::new();
 
         if base_tree.parameters().max_depth.unwrap_or(u16::MAX) > 1
+            && n_kept > 0
             && n >= base_tree.parameters().min_samples_split
             && base_tree.find_best_cutoff(&mut visitor, mtry, &mut rng, &mut workspace, n)
         {
@@ -717,13 +723,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         rng: &mut impl rand::Rng,
         workspace: &mut SplitWorkspace<E>,
     ) -> bool {
-        let parent_stats = &visitor.stats;
+        let parent_stats = &mut workspace.parent_stats;
+        MSECriterion.reset(parent_stats);
         let this_node = &self.nodes[visitor.node];
 
         let mut true_count = 0usize;
         let mut false_count = 0usize;
-        let mut true_stats = MSECriterion.empty_stats();
-        let mut false_stats = MSECriterion.empty_stats();
         // for each row_index, does it belong in the true branch or not?
         let in_true_branch = &mut workspace.in_true_branch;
 
@@ -738,15 +743,27 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             in_true_branch[e.row()] = true;
             true_count += e.count();
             MSECriterion.add(
-                &mut true_stats,
+                parent_stats,
                 visitor.y.get(e.row()).to_f64().unwrap(),
                 e.mass(),
             );
             n_true += 1;
         }
+        let true_stats = parent_stats.clone();
+        let mut false_stats = MSECriterion.empty_stats();
         for e in &col[n_true..] {
             in_true_branch[e.row()] = false;
             false_count += e.count();
+            MSECriterion.add(
+                parent_stats,
+                visitor.y.get(e.row()).to_f64().unwrap(),
+                e.mass(),
+            );
+            MSECriterion.add(
+                &mut false_stats,
+                visitor.y.get(e.row()).to_f64().unwrap(),
+                e.mass(),
+            );
         }
 
         // Stop early if it is clear that there will be too few examples in the leaf
@@ -761,7 +778,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         // Store the real (mass-weighted) impurity improvement in split_score, not the proxy.
-        MSECriterion.difference(parent_stats, &true_stats, &mut false_stats);
+        // false_stats is a direct sum, not parent - true: no cancellation for a small false side
         self.nodes[visitor.node].split_score =
             Some(MSECriterion.impurity_improvement(parent_stats, &true_stats, &false_stats));
 
@@ -1936,51 +1953,78 @@ mod tests {
     }
 
     #[test]
-    fn zero_mass_leaf_with_fractional_weights() {
-        // The root adds the weights in row order, but split() adds them in the order of x.
-        // With fractional weights, the two sums can differ by one ulp. Then `parent - true`
-        // gives a tiny residue mass for a side that only has zero-weight rows.
-        // A leaf with no mass must get the value 0.0, and not residue_sum / residue_mass.
-        let x = DenseMatrix::from_2d_vec(&vec![vec![3.0_f64], vec![1.0], vec![2.0], vec![4.0]])
-            .unwrap();
-        let y = vec![1.0f64, 2.0, 3.0, 10.0];
-        let weights = vec![0.1f64, 0.2, 0.3, 0.0];
+    fn zero_weight_rows_do_not_change_the_tree() {
+        // A row with weight 0 has mass 0, so grow() leaves it out. The tree must be the
+        // same as a tree fitted without that row: no zero-mass leaf, and the x value of
+        // the row (2.5, between the other values) must not move a split threshold.
+        // The fractional weights make the sums depend on the order of the additions.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![3.0_f64],
+            vec![1.0],
+            vec![2.5],
+            vec![2.0],
+            vec![4.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 10.0, 3.0, 7.0];
+        let weights = vec![0.1f64, 0.2, 0.0, 0.3, 0.4];
 
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
-            &x,
-            &y,
-            Some(&weights),
-            params(None, 1, 2, Splitter::Best),
+        let x_kept =
+            DenseMatrix::from_2d_vec(&vec![vec![3.0_f64], vec![1.0], vec![2.0], vec![4.0]])
+                .unwrap();
+        let y_kept = vec![1.0f64, 2.0, 3.0, 7.0];
+        let weights_kept = vec![0.1f64, 0.2, 0.3, 0.4];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let parameters = params(None, 1, 2, splitter);
+            let tree: TestTree =
+                BaseTreeRegressor::fit_inner(&x, &y, Some(&weights), parameters.clone())
+                    .expect("Fit should work");
+            let tree_kept: TestTree =
+                BaseTreeRegressor::fit_inner(&x_kept, &y_kept, Some(&weights_kept), parameters)
+                    .expect("Fit should work");
+
+            assert!(
+                tree == tree_kept,
+                "{splitter:?}: zero-weight row changed the tree"
+            );
+        }
+    }
+
+    #[test]
+    fn split_is_invariant_to_target_offset() {
+        // Adding a constant to y must not change the splits. With a fixed seed, both fits
+        // see the same candidate thresholds, so only the ranking of the candidates can differ.
+        let n = 40;
+        let x = DenseMatrix::from_2d_vec(
+            &(0..n)
+                .map(|i| vec![i as f64, ((i * 7) % n) as f64, ((i * 13) % n) as f64])
+                .collect::<Vec<_>>(),
         )
-        .expect("Fit should work");
+        .unwrap();
+        let pattern: Vec<f64> = (0..n)
+            .map(|i| (i / 10) as f64 + 0.1 * (i % 3) as f64)
+            .collect();
 
-        let n_nodes = tree.nodes().len();
-        let mut leaf_mass = vec![0f64; n_nodes];
-        let mut leaf_sum = vec![0f64; n_nodes];
-        for row in 0..y.len() {
-            let leaf = leaf_of(&tree, &x, row);
-            leaf_mass[leaf] += weights[row];
-            leaf_sum[leaf] += weights[row] * y[row];
-        }
-
-        let mut n_zero_mass_leaves = 0;
-        for (i, node) in tree.nodes().iter().enumerate() {
-            if node.true_child.is_some() {
-                continue;
-            }
-            if leaf_mass[i] == 0.0 {
-                n_zero_mass_leaves += 1;
-                assert_eq!(node.output, 0.0, "leaf {i} has no mass");
-            } else {
-                let mean = leaf_sum[i] / leaf_mass[i];
-                assert!(
-                    (node.output - mean).abs() <= 1e-9 * mean.abs(),
-                    "leaf {i}: output {}, weighted mean {mean}",
-                    node.output
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let fit = |offset: f64| -> TestTree {
+                let y: Vec<f64> = pattern.iter().map(|v| offset + v).collect();
+                BaseTreeRegressor::fit_inner(&x, &y, None, params(Some(4), 1, 2, splitter))
+                    .expect("Fit should work")
+            };
+            let reference = fit(0.0);
+            for offset in [1e6, 1e8, 1e9] {
+                let shifted = fit(offset);
+                assert_eq!(
+                    reference.nodes().len(),
+                    shifted.nodes().len(),
+                    "{splitter:?} {offset}"
                 );
+                for (a, b) in reference.nodes().iter().zip(shifted.nodes()) {
+                    assert_eq!(a.split_feature, b.split_feature, "{splitter:?} {offset}");
+                    assert_eq!(a.split_value, b.split_value, "{splitter:?} {offset}");
+                }
             }
         }
-        // The test must contain the case that it checks
-        assert_eq!(n_zero_mass_leaves, 1);
     }
 }

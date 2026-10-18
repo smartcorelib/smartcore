@@ -26,7 +26,6 @@ pub(crate) trait Criterion {
     fn add(&self, stats: &mut Self::Stats, target: Self::Target, mass: f64);
 
     /// Set `out = parent - part`. `part` must be a subset of `parent`.
-    /// If the mass of `out` is only a rounding residue, `out` is set to the empty set.
     fn difference(&self, parent: &Self::Stats, part: &Self::Stats, out: &mut Self::Stats);
 
     /// Larger is better. Only comparable between splits of the same parent (proxy, as in sklearn).
@@ -46,11 +45,8 @@ pub(crate) trait Criterion {
     fn leaf_value(&self, stats: &Self::Stats) -> Self::Output;
 }
 
-/// Relative mass below which `difference` gives the empty set.
-const MASS_EPS: f64 = 1e-12;
-
 /// Statistics for the weighted mean of the targets.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct MeanStats {
     sum: f64,  // \sum w_i y_i
     mass: f64, // \sum w_i
@@ -58,17 +54,6 @@ pub(crate) struct MeanStats {
 
 /// Mean squared error criterion for regression. The leaf value is the weighted mean.
 pub(crate) struct MSECriterion;
-
-impl MSECriterion {
-    // One term of the proxy improvement: sum^2 / mass
-    fn term(s: &MeanStats) -> f64 {
-        if s.mass > 0.0 {
-            s.sum * s.sum / s.mass
-        } else {
-            0.0
-        }
-    }
-}
 
 impl Criterion for MSECriterion {
     type Stats = MeanStats;
@@ -87,26 +72,25 @@ impl Criterion for MSECriterion {
         stats.mass = 0.0;
     }
 
-    #[inline(always)]
+    #[inline]
     fn add(&self, stats: &mut Self::Stats, target: Self::Target, mass: f64) {
         stats.mass += mass;
         stats.sum += target * mass;
     }
 
-    #[inline(always)]
+    #[inline]
     fn difference(&self, parent: &Self::Stats, part: &Self::Stats, out: &mut Self::Stats) {
         out.mass = parent.mass - part.mass;
         out.sum = parent.sum - part.sum;
-        // Remove a rounding residue, see MASS_EPS. This also catches a negative residue.
-        if out.mass <= MASS_EPS * parent.mass {
-            out.mass = 0.0;
-            out.sum = 0.0;
-        }
     }
 
-    #[inline(always)]
+    #[inline]
     fn proxy_improvement(&self, true_side: &Self::Stats, false_side: &Self::Stats) -> f64 {
-        Self::term(true_side) + Self::term(false_side)
+        if true_side.mass <= 0.0 || false_side.mass <= 0.0 {
+            return 0.0;
+        }
+        let d = true_side.sum * false_side.mass - false_side.sum * true_side.mass;
+        (d * d) / (true_side.mass * false_side.mass)
     }
 
     fn impurity_improvement(
@@ -115,7 +99,11 @@ impl Criterion for MSECriterion {
         true_side: &Self::Stats,
         false_side: &Self::Stats,
     ) -> f64 {
-        self.proxy_improvement(true_side, false_side) - Self::term(parent)
+        if true_side.mass <= 0.0 || false_side.mass <= 0.0 {
+            return 0.0;
+        }
+        let d = true_side.sum * false_side.mass - false_side.sum * true_side.mass;
+        (d * d) / (true_side.mass * false_side.mass * parent.mass)
     }
 
     fn leaf_value(&self, stats: &Self::Stats) -> Self::Output {
@@ -190,40 +178,7 @@ mod tests {
     }
 
     #[test]
-    fn mse_difference_removes_rounding_residue() {
-        let criterion = MSECriterion;
-        // The same samples, added in a different order: the sums differ by one ulp.
-        let parent = mse_stats(&[(1.0, 0.1), (2.0, 0.2), (3.0, 0.3)]);
-        let part = mse_stats(&[(2.0, 0.2), (3.0, 0.3), (1.0, 0.1)]);
-        assert_ne!(parent.mass, part.mass, "the test needs a residue");
-
-        let mut out = criterion.empty_stats();
-        criterion.difference(&parent, &part, &mut out);
-        assert_eq!(out.mass, 0.0);
-        assert_eq!(out.sum, 0.0);
-        assert_eq!(criterion.leaf_value(&out), 0.0);
-
-        // Also when part is the larger sum (negative residue)
-        criterion.difference(&part, &parent, &mut out);
-        assert_eq!(out.mass, 0.0);
-        assert_eq!(out.sum, 0.0);
-    }
-
-    #[test]
-    fn mse_difference_keeps_small_real_mass() {
-        // A real side with a small, but not tiny, mass must not be removed.
-        let criterion = MSECriterion;
-        let parent = mse_stats(&[(1.0, 1.0), (5.0, 1e-6)]);
-        let part = mse_stats(&[(1.0, 1.0)]);
-
-        let mut out = criterion.empty_stats();
-        criterion.difference(&parent, &part, &mut out);
-        assert!(out.mass > 0.0);
-        assert!((criterion.leaf_value(&out) - 5.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn mse_proxy_matches_sse_reduction() {
+    fn mse_proxy_is_sse_reduction_times_parent_mass() {
         let criterion = MSECriterion;
         let ys = [1.0, 2.0, 10.0, 11.0];
         let parent = mse_stats(&[(1.0, 1.0), (2.0, 1.0), (10.0, 1.0), (11.0, 1.0)]);
@@ -231,13 +186,11 @@ mod tests {
         let right = mse_stats(&[(10.0, 1.0), (11.0, 1.0)]);
 
         let proxy = criterion.proxy_improvement(&left, &right);
-        assert!((proxy - 225.0).abs() < EPS);
+        assert!((proxy - 324.0).abs() < EPS);
 
-        // proxy - S^2 / N is the reduction of the sum of squared errors
-        let reduction = proxy - parent.sum * parent.sum / parent.mass;
         let expected = sse(&ys) - sse(&ys[..2]) - sse(&ys[2..]);
-        assert!((reduction - expected).abs() < EPS);
-        assert!((reduction - 81.0).abs() < EPS);
+        assert!((proxy / parent.mass - expected).abs() < EPS);
+        assert!((proxy / parent.mass - 81.0).abs() < EPS);
     }
 
     #[test]
@@ -381,22 +334,40 @@ mod tests {
     }
 
     #[test]
-    fn mse_improvement_differs_from_proxy_by_a_constant() {
+    fn mse_proxy_is_improvement_times_parent_mass() {
         // For all splits of one parent, the ranking must be the same as for the proxy
         let criterion = MSECriterion;
         let samples = [(1.0, 1.0), (4.0, 2.0), (2.0, 0.5), (8.0, 1.0), (3.0, 1.5)];
         let parent = mse_stats(&samples);
         let mut right = criterion.empty_stats();
-        let mut offsets = Vec::new();
         for k in 0..=samples.len() {
             let left = mse_stats(&samples[..k]);
             criterion.difference(&parent, &left, &mut right);
             let improvement = criterion.impurity_improvement(&parent, &left, &right);
-            assert!(improvement > -1e-9, "split {k}: {improvement}");
-            offsets.push(criterion.proxy_improvement(&left, &right) - improvement);
+            let proxy = criterion.proxy_improvement(&left, &right);
+            assert!(improvement >= 0.0, "split {k}: {improvement}");
+            assert!(
+                (proxy - improvement * parent.mass).abs() < 1e-9,
+                "split {k}: {improvement} {proxy}"
+            );
         }
-        for offset in &offsets {
-            assert!((offset - offsets[0]).abs() < 1e-9);
+    }
+
+    #[test]
+    fn mse_improvement_is_invariant_to_target_offset() {
+        // The SSE does not change when all targets get the same offset.
+        // A large offset must not change the improvement (cancellation in sum^2 / mass).
+        let criterion = MSECriterion;
+        for offset in [0.0, 1e6, 1e8, 1e9, 1e10] {
+            let y = |v: f64| (offset + v, 1.0);
+            let parent = mse_stats(&[y(1.0), y(2.0), y(10.0), y(11.0)]);
+            let left = mse_stats(&[y(1.0), y(2.0)]);
+            let right = mse_stats(&[y(10.0), y(11.0)]);
+            let improvement = criterion.impurity_improvement(&parent, &left, &right);
+            assert!(
+                (improvement - 81.0).abs() < 1e-6,
+                "offset {offset}: improvement {improvement}, expected 81"
+            );
         }
     }
 }
