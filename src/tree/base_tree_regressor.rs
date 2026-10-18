@@ -426,8 +426,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         order: &[Vec<usize>],
         parameters: BaseTreeRegressorParameters,
     ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
-        let n_rows = y.shape();
-
         let mut nodes: Vec<Node> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
 
@@ -435,24 +433,33 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut root_stats = MSECriterion.empty_stats();
 
         // A row with mass 0 (bootstrap count 0 or sample weight 0) has no effect on
-        // the statistics. Leave it out, so that every side of a split with elements
-        // has a positive mass. Rows with mass zero are not counted towards min_samples_leaf etc.
-        let masses: Vec<f64> = (0..n_rows)
-            .map(|i| mass_of(i, &samples, sample_weights))
-            .collect();
+        // the statistics. Give it count 0, so that it is left out of the node elements and
+        // is not counted towards min_samples_leaf etc.
+        let counts: Vec<u32> = match sample_weights {
+            // Without weights, the mass is the count
+            None => samples.iter().map(|&s| s as u32).collect(),
+            Some(weights) => samples
+                .iter()
+                .zip(weights)
+                .map(|(&s, &w)| if w > 0.0 { s as u32 } else { 0 })
+                .collect(),
+        };
 
-        for i in 0..n_rows {
-            if masses[i] > 0.0 {
-                MSECriterion.add(&mut root_stats, y.get(i).to_f64().unwrap(), masses[i]);
-                n += samples[i];
-            }
+        for (i, &c) in counts.iter().enumerate() {
+            // A row with mass 0 adds 0 to the statistics: no branch is necessary
+            MSECriterion.add(
+                &mut root_stats,
+                y.get(i).to_f64().unwrap(),
+                mass_of(i, &samples, sample_weights),
+            );
+            n += c as usize;
         }
 
         let root = Node::new(MSECriterion.leaf_value(&root_stats));
         nodes.push(root);
 
-        // number of distinct rows of x in this tree with a postive mass
-        let n_kept = masses.iter().filter(|&&m| m > 0.0).count();
+        // number of distinct rows of x in this tree with a positive mass
+        let n_kept = counts.iter().filter(|&&c| c > 0).count();
 
         let sorted_by_feature: Vec<Vec<E>> = order
             .iter()
@@ -460,8 +467,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
                 let mut w = 0usize; // index to write to
                 for &i in col_order {
-                    out[w] = E::new(i, samples[i], masses[i]);
-                    w += (masses[i] > 0.0) as usize; // update w in a branchless way
+                    let c = counts[i];
+                    out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
+                    w += (c > 0) as usize; // update w in a branchless way
                 }
                 out.truncate(n_kept);
                 out
