@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - In the `...Regressor`s the features are always shuffled even when `mtry` equals the number of attributes. This changes the constructed trees. 
+- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) uses a new internal `Criterion` trait with `MSECriterion`. The MSE split improvement uses a numerically stable formula.  The selected splits do not change when a constant is added to y. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
+- `tree`: in the `...Regressor`s, rows with sample weight 0 are removed before the tree grows. They no longer count toward `min_samples_leaf` and `min_samples_split`, and they no longer move a split threshold. A tree fitted with a zero-weight row is the same as a tree fitted without that row.
 
 ## [0.6.16]
 ### Fixed
