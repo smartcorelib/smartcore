@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{self, Debug, Display};
 use std::ops::Range;
 
 use crate::linalg::basic::arrays::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
@@ -152,6 +152,12 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'_, T>
 impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecMutView<'_, T> {}
 impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for VecMutView<'_, T> {}
 
+impl<T: Debug + Display + Copy + Sized> fmt::Display for VecMutView<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.ptr)
+    }
+}
+
 impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'_, T> {
     fn get(&self, i: usize) -> &T {
         &self.ptr[i]
@@ -172,6 +178,12 @@ impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'_, T> {
 }
 
 impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'_, T> {}
+
+impl<T: Debug + Display + Copy + Sized> fmt::Display for VecView<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.ptr)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -344,5 +356,16 @@ mod tests {
         let x = vec![1., 2., 3.];
 
         vector_ops(&x);
+    }
+
+    #[test]
+    fn test_display() {
+        let mut x = vec![1, 2, 3, 4];
+
+        let view = VecView { ptr: &x[1..3] };
+        assert_eq!("[2, 3]", format!("{view}"));
+
+        let mut_view = VecMutView { ptr: &mut x[..2] };
+        assert_eq!("[1, 2]", format!("{mut_view}"));
     }
 }
