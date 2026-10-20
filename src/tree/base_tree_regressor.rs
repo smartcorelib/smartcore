@@ -50,6 +50,7 @@ pub struct BaseTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>,
     nodes: Vec<Node>,
     parameters: Option<BaseTreeRegressorParameters>,
     depth: u16,
+    root_mass: f64,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
@@ -430,6 +431,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let mut rng = get_rng_impl(parameters.seed);
 
         let mut n = 0usize;
+        let mut root_mass = 0f64;
         let mut root_stats = MSECriterion.empty_stats();
 
         // A row with mass 0 (bootstrap count 0 or sample weight 0) has no effect on
@@ -447,11 +449,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         for (i, &c) in counts.iter().enumerate() {
             // A row with mass 0 adds 0 to the statistics: no branch is necessary
-            MSECriterion.add(
-                &mut root_stats,
-                y.get(i).to_f64().unwrap(),
-                mass_of(i, &samples, sample_weights),
-            );
+            let mass = mass_of(i, &samples, sample_weights);
+            MSECriterion.add(&mut root_stats, y.get(i).to_f64().unwrap(), mass);
+            root_mass += mass;
             n += c as usize;
         }
 
@@ -489,6 +489,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             nodes,
             parameters: Some(parameters),
             depth: 0u16,
+            root_mass,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -857,6 +858,35 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         }
 
         true
+    }
+
+    /// Compute the feature importances and store the result in `importances`.
+    /// * `normalize`: when `false` feature importances are the impurity improvements, when `true` they
+    ///   are normalized to sum to one.
+    /// * `importances` must have length (at least) equal to the number of features.
+    ///   The result is stored in this slice.
+    pub fn compute_feature_importances(&self, normalize: bool, importances: &mut [f64]) {
+        importances.fill(0.0);
+        for node in self.nodes().iter() {
+            if let Some(split_score) = node.split_score {
+                importances[node.split_feature] += split_score;
+            }
+        }
+
+        if normalize {
+            let sum: f64 = importances.iter().sum();
+            if sum > 0.0 {
+                for importance in importances.iter_mut() {
+                    *importance /= sum;
+                }
+            }
+        } else {
+            if self.root_mass > 0.0 {
+                for importance in importances.iter_mut() {
+                    *importance /= self.root_mass;
+                }
+            }
+        }
     }
 }
 
@@ -2031,6 +2061,111 @@ mod tests {
                 for (a, b) in reference.nodes().iter().zip(shifted.nodes()) {
                     assert_eq!(a.split_feature, b.split_feature, "{splitter:?} {offset}");
                     assert_eq!(a.split_value, b.split_value, "{splitter:?} {offset}");
+                }
+            }
+        }
+    }
+
+    /// Weighted variance of `y`: sum w_i (y_i - mean)^2 / sum w_i.
+    fn weighted_variance(y: &[f64], w: &[f64]) -> f64 {
+        let mass: f64 = w.iter().sum();
+        let mean = y.iter().zip(w).map(|(yi, wi)| yi * wi).sum::<f64>() / mass;
+        y.iter()
+            .zip(w)
+            .map(|(yi, wi)| wi * (yi - mean).powi(2))
+            .sum::<f64>()
+            / mass
+    }
+
+    #[test]
+    fn feature_importances_single_split_known_answer() {
+        // Column 1 is constant, so only column 0 can be used for a split.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![0.0_f64, 7.0],
+            vec![1.0, 7.0],
+            vec![2.0, 7.0],
+            vec![3.0, 7.0],
+        ])
+        .unwrap();
+        let y = vec![1.0, 2.0, 5.0, 6.0];
+        let tree: TestTree =
+            BaseTreeRegressor::fit_inner(&x, &y, None, params(Some(2), 1, 2, Splitter::Best))
+                .expect("Fit should work");
+        assert_eq!(tree.nodes().len(), 3);
+
+        // Split at 1.5: SSE(root) = 17, SSE(true) = SSE(false) = 0.5, root mass = 4.
+        // Importance = (17 - 0.5 - 0.5) / 4 = 4.
+        let mut importances = vec![0.0; 2];
+        tree.compute_feature_importances(false, &mut importances);
+        assert_eq!(importances.len(), 2);
+        assert!((importances[0] - 4.0).abs() < 1e-12);
+        assert_eq!(importances[1], 0.0);
+
+        let mut normalized = vec![0.0; 2];
+        tree.compute_feature_importances(true, &mut normalized);
+        assert!((normalized[0] - 1.0).abs() < 1e-12);
+        assert_eq!(normalized[1], 0.0);
+    }
+
+    #[test]
+    fn feature_importances_full_depth_sum_to_weighted_variance() {
+        // All rows are different, so at full depth every leaf is pure. The sum of the
+        // unnormalized importances is then the weighted MSE of the root (the weighted variance of y).
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let weights = vec![0.5, 1.5, 2.0, 0.25, 1.0, 3.0, 0.75, 1.25];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for sample_weights in [None, Some(weights.as_slice())] {
+                let tree: TestTree = BaseTreeRegressor::fit_inner(
+                    &x,
+                    &y,
+                    sample_weights,
+                    params(None, 1, 2, splitter),
+                )
+                .expect("Fit should work");
+                let w = sample_weights.map_or(vec![1.0; y.len()], |w| w.to_vec());
+
+                let mut importances = vec![0.0f64; 2];
+                tree.compute_feature_importances(false, &mut importances);
+                assert!(importances.iter().all(|&v| v >= 0.0));
+                let sum: f64 = importances.iter().sum();
+                assert!((sum - weighted_variance(&y, &w)).abs() < 1e-9);
+
+                let mut normalized = vec![0.0f64; 2];
+                tree.compute_feature_importances(true, &mut normalized);
+                assert!((normalized.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn feature_importances_do_not_depend_on_weight_scale() {
+        // Multiply all weights by 4 (exact in f64). The tree and the importances must not change.
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let weights = vec![0.5, 1.5, 2.0, 0.25, 1.0, 3.0, 0.75, 1.25];
+        let scaled: Vec<f64> = weights.iter().map(|w| 4.0 * w).collect();
+        let mut fi_tree = vec![0f64; x.shape().1];
+        let mut fi_scaled_tree = vec![0f64; x.shape().1];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(2), None] {
+                let parameters = params(max_depth, 1, 2, splitter);
+                let tree: TestTree =
+                    BaseTreeRegressor::fit_inner(&x, &y, Some(&weights), parameters.clone())
+                        .expect("Fit should work");
+                let tree_scaled: TestTree =
+                    BaseTreeRegressor::fit_inner(&x, &y, Some(&scaled), parameters)
+                        .expect("Fit should work");
+                assert_same_tree(&tree, &tree_scaled);
+
+                for normalize in [false, true] {
+                    tree.compute_feature_importances(normalize, &mut fi_tree);
+                    tree_scaled.compute_feature_importances(normalize, &mut fi_scaled_tree);
+                    for (ai, bi) in fi_tree.iter().zip(fi_scaled_tree.iter()) {
+                        assert!((ai - bi).abs() < 1e-9);
+                    }
                 }
             }
         }

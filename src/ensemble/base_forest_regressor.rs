@@ -71,6 +71,7 @@ pub struct BaseForestRegressor<
     Y: Array1<TY>,
 > {
     trees: Option<Vec<BaseTreeRegressor<TX, TY, X, Y>>>,
+    num_features: Option<usize>,
     samples: Option<Vec<Vec<bool>>>,
 }
 
@@ -170,6 +171,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         Ok(BaseForestRegressor {
             trees: Some(trees),
+            num_features: Some(x.shape().1),
             samples: maybe_all_samples,
         })
     }
@@ -266,6 +268,42 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         }
 
         samples
+    }
+
+    /// Mean of the normalized tree importances, normalized again.
+    pub fn compute_feature_importances(&self) -> Result<Vec<f64>, Failed> {
+        match (&self.trees, self.num_features) {
+            (Some(trees), Some(num_features)) => {
+                let mut importances = vec![0.0f64; num_features];
+                let mut scratch = vec![0.0f64; num_features];
+
+                for tree in trees {
+                    tree.compute_feature_importances(true, &mut scratch);
+                    for (i, s) in importances.iter_mut().zip(scratch.iter()) {
+                        *i += s;
+                    }
+                }
+
+                // compute the mean of each feature importance
+                let num_trees = trees.len() as f64;
+                for i in importances.iter_mut() {
+                    *i /= num_trees;
+                }
+
+                // normalize once more
+                let sum: f64 = importances.iter().sum();
+                if sum > 0.0 {
+                    for i in importances.iter_mut() {
+                        *i /= sum;
+                    }
+                }
+
+                Ok(importances)
+            }
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'compute_feature_importances'",
+            )),
+        }
     }
 }
 
