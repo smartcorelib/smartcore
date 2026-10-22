@@ -11,7 +11,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
-use crate::tree::criterion::{Criterion, MSECriterion, MeanStats};
+use crate::tree::criterion::Criterion;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, Default)]
@@ -45,9 +45,22 @@ pub struct BaseTreeRegressorParameters {
 
 /// Regression base_tree
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "C::Output: Serialize",
+        deserialize = "C::Output: Deserialize<'de>"
+    ))
+)]
 #[derive(Debug)]
-pub struct BaseTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
-    nodes: Vec<Node>,
+pub struct BaseTreeRegressor<
+    TX: Number + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    C: Criterion,
+> {
+    nodes: Vec<Node<C::Output>>,
     parameters: Option<BaseTreeRegressorParameters>,
     depth: u16,
     root_mass: f64,
@@ -57,11 +70,11 @@ pub struct BaseTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>,
     _phantom_y: PhantomData<Y>,
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
-    BaseTreeRegressor<TX, TY, X, Y>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
+    BaseTreeRegressor<TX, TY, X, Y, C>
 {
     /// Get nodes, return a shared reference
-    fn nodes(&self) -> &Vec<Node> {
+    fn nodes(&self) -> &Vec<Node<C::Output>> {
         self.nodes.as_ref()
     }
     /// Get parameters, return a shared reference
@@ -72,8 +85,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-struct Node {
-    output: f64,
+struct Node<Out> {
+    output: Out,
     split_feature: usize,
     split_value: Option<f64>,
     split_score: Option<f64>,
@@ -81,8 +94,8 @@ struct Node {
     false_child: Option<usize>,
 }
 
-impl Node {
-    fn new(output: f64) -> Self {
+impl<Out> Node<Out> {
+    fn new(output: Out) -> Self {
         Node {
             output,
             split_feature: 0,
@@ -94,9 +107,9 @@ impl Node {
     }
 }
 
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        (self.output - other.output).abs() < f64::EPSILON
+impl<Out> Node<Out> {
+    fn approximate_eq<C: Criterion<Output = Out>>(&self, other: &Self) -> bool {
+        C::output_approximate_eq(&self.output, &other.output)
             && self.split_feature == other.split_feature
             && match (self.split_value, other.split_value) {
                 (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
@@ -111,8 +124,8 @@ impl PartialEq for Node {
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
-    for BaseTreeRegressor<TX, TY, X, Y>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion> PartialEq
+    for BaseTreeRegressor<TX, TY, X, Y, C>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
@@ -121,25 +134,32 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialE
             self.nodes
                 .iter()
                 .zip(other.nodes().iter())
-                .all(|(a, b)| a == b)
+                .all(|(a, b)| a.approximate_eq::<C>(b))
         }
     }
 }
 
-struct NodeVisitor<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> {
+struct NodeVisitor<
+    'a,
+    TX: Number + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    C: Criterion,
+> {
     x: &'a X,
     y: &'a Y,
     node: usize,
     start_idx: usize, // start index for the elements in `sorted_by_feature` of SplitWorkspace
     end_idx: usize,   // end index (exclusive) in the same vector(s)
     level: u16,
-    stats: MeanStats, // statistics of the samples in this node
+    stats: C::Stats, // statistics of the samples in this node
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
 }
 
-impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
-    NodeVisitor<'a, TX, TY, X, Y>
+impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
+    NodeVisitor<'a, TX, TY, X, Y, C>
 {
     fn new(
         node_id: usize,
@@ -148,7 +168,7 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         x: &'a X,
         y: &'a Y,
         level: u16,
-        stats: MeanStats,
+        stats: C::Stats,
     ) -> Self {
         NodeVisitor {
             x,
@@ -282,7 +302,7 @@ impl NodeElement for UnitElement {
 }
 
 // Checks whether the example indicated by node_element is a "true child" for this node
-fn is_true_sample<TX, X, E>(node_element: &E, x: &X, node: &Node) -> bool
+fn is_true_sample<TX, X, E, Out>(node_element: &E, x: &X, node: &Node<Out>) -> bool
 where
     TX: Number + PartialOrd,
     X: Array2<TX>,
@@ -320,44 +340,49 @@ where
     w
 }
 
-struct SplitWorkspace<E> {
+struct SplitWorkspace<E, C: Criterion> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
     sorted_by_feature: Vec<Vec<E>>,
     variables: Vec<usize>, // feature indices which will be shuffled when mtry < n_features
-    true_stats: MeanStats, // scratch stats for split functions to use
-    false_stats: MeanStats,
-    parent_stats: MeanStats,
+    true_stats: C::Stats,  // scratch stats for split functions to use
+    false_stats: C::Stats,
+    parent_stats: C::Stats,
 }
 
-impl<E> SplitWorkspace<E> {
+impl<E, C> SplitWorkspace<E, C>
+where
+    C: Criterion,
+{
     fn new(
         in_true_branch: Vec<bool>,
         partition_buffer: Vec<E>,
         sorted_by_feature: Vec<Vec<E>>,
         n_features: usize,
+        criterion: &C,
     ) -> Self {
         Self {
             in_true_branch,
             partition_buffer,
             sorted_by_feature,
             variables: (0..n_features).collect::<Vec<_>>(),
-            true_stats: MSECriterion.empty_stats(),
-            false_stats: MSECriterion.empty_stats(),
-            parent_stats: MSECriterion.empty_stats(),
+            true_stats: criterion.empty_stats(),
+            false_stats: criterion.empty_stats(),
+            parent_stats: criterion.empty_stats(),
         }
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
-    BaseTreeRegressor<TX, TY, X, Y>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
+    BaseTreeRegressor<TX, TY, X, Y, C>
 {
     pub(crate) fn fit_inner(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
+        criterion: &C,
         parameters: BaseTreeRegressorParameters,
-    ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
+    ) -> Result<BaseTreeRegressor<TX, TY, X, Y, C>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         if x_nrows != y.shape() {
             return Err(Failed::fit("Size of x should equal size of y"));
@@ -385,6 +410,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             samples,
             num_attributes,
             &order,
+            criterion,
             parameters,
         )
     }
@@ -396,8 +422,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         samples: Vec<usize>,
         mtry: usize,
         order: &[Vec<usize>],
+        criterion: &C,
         parameters: BaseTreeRegressorParameters,
-    ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
+    ) -> Result<BaseTreeRegressor<TX, TY, X, Y, C>, Failed> {
         check_row_count(y.shape())?;
         match sample_weights {
             Some(_) => Self::grow::<WeightedElement>(
@@ -407,14 +434,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
                 samples,
                 mtry,
                 order,
+                criterion,
                 parameters,
             ),
             None if samples.iter().all(|&s| s <= 1) => {
                 // Note: if any sample has count zero, it will be filtered out, so we should
                 // use the smallest possible NodeElement
-                Self::grow::<UnitElement>(x, y, None, samples, mtry, order, parameters)
+                Self::grow::<UnitElement>(x, y, None, samples, mtry, order, criterion, parameters)
             }
-            None => Self::grow::<CountedElement>(x, y, None, samples, mtry, order, parameters),
+            None => Self::grow::<CountedElement>(
+                x, y, None, samples, mtry, order, criterion, parameters,
+            ),
         }
     }
 
@@ -425,14 +455,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         samples: Vec<usize>,
         mtry: usize,
         order: &[Vec<usize>],
+        criterion: &C,
         parameters: BaseTreeRegressorParameters,
-    ) -> Result<BaseTreeRegressor<TX, TY, X, Y>, Failed> {
-        let mut nodes: Vec<Node> = Vec::new();
+    ) -> Result<BaseTreeRegressor<TX, TY, X, Y, C>, Failed> {
+        let mut nodes: Vec<Node<C::Output>> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
 
         let mut n = 0usize;
         let mut root_mass = 0f64;
-        let mut root_stats = MSECriterion.empty_stats();
+        let mut root_stats = criterion.empty_stats();
 
         // A row with mass 0 (bootstrap count 0 or sample weight 0) has no effect on
         // the statistics. Give it count 0, so that it is left out of the node elements and
@@ -450,12 +481,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         for (i, &c) in counts.iter().enumerate() {
             // A row with mass 0 adds 0 to the statistics: no branch is necessary
             let mass = mass_of(i, &samples, sample_weights);
-            MSECriterion.add(&mut root_stats, y.get(i).to_f64().unwrap(), mass);
+            criterion.add(&mut root_stats, criterion.target(*y.get(i)), mass);
             root_mass += mass;
             n += c as usize;
         }
 
-        let root = Node::new(MSECriterion.leaf_value(&root_stats));
+        let root = Node::new(criterion.leaf_value(&root_stats));
         nodes.push(root);
 
         // number of distinct rows of x in this tree with a positive mass
@@ -483,6 +514,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             vec![E::default(); end_idx],
             sorted_by_feature,
             x.shape().1,
+            criterion,
         );
 
         let mut base_tree = BaseTreeRegressor {
@@ -496,14 +528,21 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             _phantom_y: PhantomData,
         };
 
-        let mut visitor = NodeVisitor::<TX, TY, X, Y>::new(0, 0, end_idx, x, y, 1, root_stats);
+        let mut visitor = NodeVisitor::<TX, TY, X, Y, C>::new(0, 0, end_idx, x, y, 1, root_stats);
 
-        let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y>> = Vec::new();
+        let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y, C>> = Vec::new();
 
         if base_tree.parameters().max_depth.unwrap_or(u16::MAX) > 1
             && n_kept > 0
             && n >= base_tree.parameters().min_samples_split
-            && base_tree.find_best_cutoff(&mut visitor, mtry, &mut rng, &mut workspace, n)
+            && base_tree.find_best_cutoff(
+                &mut visitor,
+                mtry,
+                &mut rng,
+                &mut workspace,
+                n,
+                criterion,
+            )
         {
             visitor_stack.push(visitor);
         }
@@ -511,33 +550,26 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
         while let Some(node) = visitor_stack.pop() {
             if node.level < max_depth {
-                base_tree.split(node, mtry, &mut visitor_stack, &mut rng, &mut workspace);
+                base_tree.split(
+                    node,
+                    mtry,
+                    &mut visitor_stack,
+                    &mut rng,
+                    &mut workspace,
+                    criterion,
+                );
             }
         }
 
         Ok(base_tree)
     }
 
-    /// Predict regression value for `x`.
-    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
-
-        let (n, _) = x.shape();
-
-        for i in 0..n {
-            result.set(i, self.predict_for_row(x, i));
-        }
-
-        Ok(result)
-    }
-
-    pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
+    pub(crate) fn leaf_output_for_row(&self, x: &X, row: usize) -> &C::Output {
         let mut node_id = 0;
         loop {
             let node = &self.nodes[node_id];
             let Some(true_child) = node.true_child else {
-                return TY::from_f64(node.output).unwrap();
+                return &node.output;
             };
             let false_child = node.false_child.unwrap();
             node_id = if x.get((row, node.split_feature)).to_f64().unwrap()
@@ -552,11 +584,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
     fn find_best_cutoff<E: NodeElement>(
         &mut self,
-        visitor: &mut NodeVisitor<'_, TX, TY, X, Y>,
+        visitor: &mut NodeVisitor<'_, TX, TY, X, Y, C>,
         mtry: usize,
         rng: &mut impl rand::Rng,
-        workspace: &mut SplitWorkspace<E>,
+        workspace: &mut SplitWorkspace<E, C>,
         n: usize,
+        criterion: &C,
     ) -> bool {
         workspace.variables.shuffle(rng);
 
@@ -566,10 +599,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             let variable = workspace.variables[k];
             match splitter {
                 Splitter::Random => {
-                    self.find_random_split(visitor, n, variable, rng, workspace);
+                    self.find_random_split(visitor, n, variable, rng, workspace, criterion);
                 }
                 Splitter::Best => {
-                    self.find_best_split(visitor, n, variable, workspace);
+                    self.find_best_split(visitor, n, variable, workspace, criterion);
                 }
             }
         }
@@ -579,11 +612,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
     fn find_random_split<E: NodeElement>(
         &mut self,
-        visitor: &NodeVisitor<'_, TX, TY, X, Y>,
+        visitor: &NodeVisitor<'_, TX, TY, X, Y, C>,
         n: usize,
         j: usize,
         rng: &mut impl rand::Rng,
-        workspace: &mut SplitWorkspace<E>,
+        workspace: &mut SplitWorkspace<E, C>,
+        criterion: &C,
     ) {
         if visitor.start_idx == visitor.end_idx {
             return;
@@ -606,13 +640,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         let mut true_count = 0;
         let true_stats = &mut workspace.true_stats;
-        MSECriterion.reset(true_stats);
+        criterion.reset(true_stats);
 
         for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
             if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
-                MSECriterion.add(
+                criterion.add(
                     true_stats,
-                    visitor.y.get(elem.row()).to_f64().unwrap(),
+                    criterion.target(*visitor.y.get(elem.row())),
                     elem.mass(),
                 );
                 true_count += elem.count();
@@ -631,8 +665,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
         // no need to reset false_stats, will be overwritten by 'difference'
         let false_stats = &mut workspace.false_stats;
-        MSECriterion.difference(&visitor.stats, true_stats, false_stats);
-        let proxy = MSECriterion.proxy_improvement(true_stats, false_stats);
+        criterion.difference(&visitor.stats, true_stats, false_stats);
+        let proxy = criterion.proxy_improvement(true_stats, false_stats);
 
         if self.nodes[visitor.node].split_score.is_none()
             || proxy > self.nodes[visitor.node].split_score.unwrap()
@@ -645,14 +679,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
     fn find_best_split<E: NodeElement>(
         &mut self,
-        visitor: &NodeVisitor<'_, TX, TY, X, Y>,
+        visitor: &NodeVisitor<'_, TX, TY, X, Y, C>,
         n: usize,
         j: usize,
-        workspace: &mut SplitWorkspace<E>,
+        workspace: &mut SplitWorkspace<E, C>,
+        criterion: &C,
     ) {
         let mut true_count = 0;
         let true_stats = &mut workspace.true_stats;
-        MSECriterion.reset(true_stats);
+        criterion.reset(true_stats);
         // no need to reset false_stats, will be overwritten by 'difference'
         let false_stats = &mut workspace.false_stats;
         // set the "previous" element equal to the first one, so we don't have to deal with Option
@@ -668,9 +703,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
             if x_ij == prevx {
                 true_count += elem.count();
-                MSECriterion.add(
+                criterion.add(
                     true_stats,
-                    visitor.y.get(elem.row()).to_f64().unwrap(),
+                    criterion.target(*visitor.y.get(elem.row())),
                     elem.mass(),
                 );
                 continue;
@@ -681,16 +716,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             if true_count < min_samples_leaf || false_count < min_samples_leaf {
                 prevx = x_ij;
                 true_count += elem.count();
-                MSECriterion.add(
+                criterion.add(
                     true_stats,
-                    visitor.y.get(elem.row()).to_f64().unwrap(),
+                    criterion.target(*visitor.y.get(elem.row())),
                     elem.mass(),
                 );
                 continue;
             }
 
-            MSECriterion.difference(&visitor.stats, true_stats, false_stats);
-            let proxy = MSECriterion.proxy_improvement(true_stats, false_stats);
+            criterion.difference(&visitor.stats, true_stats, false_stats);
+            let proxy = criterion.proxy_improvement(true_stats, false_stats);
 
             if self.nodes[visitor.node].split_score.is_none()
                 || proxy > self.nodes[visitor.node].split_score.unwrap()
@@ -710,9 +745,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 
             prevx = x_ij;
             true_count += elem.count();
-            MSECriterion.add(
+            criterion.add(
                 true_stats,
-                visitor.y.get(elem.row()).to_f64().unwrap(),
+                criterion.target(*visitor.y.get(elem.row())),
                 elem.mass(),
             );
         }
@@ -726,14 +761,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// keep the node as a leaf.
     fn split<'a, E: NodeElement>(
         &mut self,
-        visitor: NodeVisitor<'a, TX, TY, X, Y>,
+        visitor: NodeVisitor<'a, TX, TY, X, Y, C>,
         mtry: usize,
-        visitor_stack: &mut Vec<NodeVisitor<'a, TX, TY, X, Y>>,
+        visitor_stack: &mut Vec<NodeVisitor<'a, TX, TY, X, Y, C>>,
         rng: &mut impl rand::Rng,
-        workspace: &mut SplitWorkspace<E>,
+        workspace: &mut SplitWorkspace<E, C>,
+        criterion: &C,
     ) -> bool {
         let parent_stats = &mut workspace.parent_stats;
-        MSECriterion.reset(parent_stats);
+        criterion.reset(parent_stats);
         let this_node = &self.nodes[visitor.node];
 
         let mut true_count = 0usize;
@@ -751,26 +787,26 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             }
             in_true_branch[e.row()] = true;
             true_count += e.count();
-            MSECriterion.add(
+            criterion.add(
                 parent_stats,
-                visitor.y.get(e.row()).to_f64().unwrap(),
+                criterion.target(*visitor.y.get(e.row())),
                 e.mass(),
             );
             n_true += 1;
         }
         let true_stats = parent_stats.clone();
-        let mut false_stats = MSECriterion.empty_stats();
+        let mut false_stats = criterion.empty_stats();
         for e in &col[n_true..] {
             in_true_branch[e.row()] = false;
             false_count += e.count();
-            MSECriterion.add(
+            criterion.add(
                 parent_stats,
-                visitor.y.get(e.row()).to_f64().unwrap(),
+                criterion.target(*visitor.y.get(e.row())),
                 e.mass(),
             );
-            MSECriterion.add(
+            criterion.add(
                 &mut false_stats,
-                visitor.y.get(e.row()).to_f64().unwrap(),
+                criterion.target(*visitor.y.get(e.row())),
                 e.mass(),
             );
         }
@@ -789,7 +825,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         // Store the real (mass-weighted) impurity improvement in split_score, not the proxy.
         // false_stats is a direct sum, not parent - true: no cancellation for a small false side
         self.nodes[visitor.node].split_score =
-            Some(MSECriterion.impurity_improvement(parent_stats, &true_stats, &false_stats));
+            Some(criterion.impurity_improvement(parent_stats, &true_stats, &false_stats));
 
         // Add the child nodes to the tree
         let split_idx = visitor.start_idx + n_true;
@@ -797,10 +833,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let true_child_idx = self.nodes.len();
 
         self.nodes
-            .push(Node::new(MSECriterion.leaf_value(&true_stats)));
+            .push(Node::new(criterion.leaf_value(&true_stats)));
         let false_child_idx = self.nodes.len();
         self.nodes
-            .push(Node::new(MSECriterion.leaf_value(&false_stats)));
+            .push(Node::new(criterion.leaf_value(&false_stats)));
 
         self.nodes[visitor.node].true_child = Some(true_child_idx);
         self.nodes[visitor.node].false_child = Some(false_child_idx);
@@ -825,7 +861,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             );
         }
 
-        let mut true_visitor = NodeVisitor::<TX, TY, X, Y>::new(
+        let mut true_visitor = NodeVisitor::<TX, TY, X, Y, C>::new(
             true_child_idx,
             visitor.start_idx,
             split_idx,
@@ -836,12 +872,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         );
 
         if true_can_split
-            && self.find_best_cutoff(&mut true_visitor, mtry, rng, workspace, true_count)
+            && self.find_best_cutoff(
+                &mut true_visitor,
+                mtry,
+                rng,
+                workspace,
+                true_count,
+                criterion,
+            )
         {
             visitor_stack.push(true_visitor);
         }
 
-        let mut false_visitor = NodeVisitor::<TX, TY, X, Y>::new(
+        let mut false_visitor = NodeVisitor::<TX, TY, X, Y, C>::new(
             false_child_idx,
             split_idx,
             visitor.end_idx,
@@ -852,7 +895,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         );
 
         if false_can_split
-            && self.find_best_cutoff(&mut false_visitor, mtry, rng, workspace, false_count)
+            && self.find_best_cutoff(
+                &mut false_visitor,
+                mtry,
+                rng,
+                workspace,
+                false_count,
+                criterion,
+            )
         {
             visitor_stack.push(false_visitor);
         }
@@ -890,12 +940,41 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     }
 }
 
+// Regression: the leaf holds the prediction itself.
+impl<TX, TY, X, Y, C> BaseTreeRegressor<TX, TY, X, Y, C>
+where
+    TX: Number + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    C: Criterion<Output = f64>,
+{
+    pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
+        TY::from_f64(*self.leaf_output_for_row(x, row)).unwrap()
+    }
+
+    /// Predict regression value for `x`.
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
+    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let mut result = Y::zeros(x.shape().0);
+
+        let (n, _) = x.shape();
+
+        for i in 0..n {
+            result.set(i, self.predict_for_row(x, i));
+        }
+
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
+    use crate::tree::criterion::MSECriterion;
 
     #[test]
     #[cfg(target_pointer_width = "64")]
@@ -922,6 +1001,7 @@ mod tests {
             &empty,
             &y,
             None,
+            &MSECriterion,
             BaseTreeRegressorParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
@@ -946,6 +1026,7 @@ mod tests {
             &no_features,
             &y,
             None,
+            &MSECriterion,
             BaseTreeRegressorParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
@@ -972,6 +1053,7 @@ mod tests {
             &x,
             &y,
             Some(&sample_weights),
+            &MSECriterion,
             BaseTreeRegressorParameters {
                 max_depth: Some(0),
                 min_samples_leaf: 1,
@@ -1006,12 +1088,17 @@ mod tests {
         };
 
         let tree_no_weights =
-            BaseTreeRegressor::fit_inner(&x_rand, &y_rand, None, parameters.clone())
+            BaseTreeRegressor::fit_inner(&x_rand, &y_rand, None, &MSECriterion, parameters.clone())
                 .expect("Fit should work");
         let uniform_weights = vec![1.0f64; 17];
-        let tree_with_weights =
-            BaseTreeRegressor::fit_inner(&x_rand, &y_rand, Some(&uniform_weights), parameters)
-                .expect("Fit should work");
+        let tree_with_weights = BaseTreeRegressor::fit_inner(
+            &x_rand,
+            &y_rand,
+            Some(&uniform_weights),
+            &MSECriterion,
+            parameters,
+        )
+        .expect("Fit should work");
 
         let y_pred_no_weights = tree_no_weights
             .predict(&x_rand)
@@ -1057,12 +1144,22 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree_weighted =
-            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), weighted_parameters)
-                .expect("Fit should work");
-        let tree_repeated =
-            BaseTreeRegressor::fit_inner(&x_repeated, &y_repeated, None, repeated_parameters)
-                .expect("Fit should work");
+        let tree_weighted = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            weighted_parameters,
+        )
+        .expect("Fit should work");
+        let tree_repeated = BaseTreeRegressor::fit_inner(
+            &x_repeated,
+            &y_repeated,
+            None,
+            &MSECriterion,
+            repeated_parameters,
+        )
+        .expect("Fit should work");
         // Predict on the same data
         let y_pred_weighted = tree_weighted.predict(&x).expect("Predict should work");
         let y_pred_repeated = tree_repeated.predict(&x).expect("Predict should work");
@@ -1091,7 +1188,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, parameters).expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, &MSECriterion, parameters)
+            .expect("Fit should work");
         let y_expected = vec![1.0, 2.0, 6.5, 6.5, 11.50, 11.50];
         let y_hat = tree.predict(&x).expect("Predict should work");
         assert_eq!(tree.nodes().len(), 7);
@@ -1120,8 +1218,9 @@ mod tests {
         };
 
         let sample_weights = [1.0f64, 1.0, 1.0, 1.0, 10.0, 10.0];
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters)
-            .expect("Fit should work");
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+                .expect("Fit should work");
         let x_test: DenseMatrix<f64> =
             DenseMatrix::from_iterator((1..=12).map(|i| i as f64), 12, 1, 0);
         let y_expected = vec![
@@ -1147,7 +1246,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, parameters).expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, &MSECriterion, parameters)
+            .expect("Fit should work");
         assert_eq!(tree.nodes().len(), 3);
         assert_eq!(tree.depth, 2);
 
@@ -1160,7 +1260,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, parameters).expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, &MSECriterion, parameters)
+            .expect("Fit should work");
         assert_eq!(tree.nodes().len(), 1);
         assert_eq!(tree.depth, 0);
     }
@@ -1181,8 +1282,9 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters)
-            .expect("Fit should work");
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+                .expect("Fit should work");
 
         assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
         assert!(
@@ -1216,8 +1318,9 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters)
-            .expect("Fit should work");
+        let tree =
+            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+                .expect("Fit should work");
 
         assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
         assert!(
@@ -1247,8 +1350,14 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), parameters.clone())
-            .expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            parameters.clone(),
+        )
+        .expect("Fit should work");
 
         assert_eq!(tree.nodes().len(), 3);
         assert_eq!(tree.depth, 2);
@@ -1272,7 +1381,7 @@ mod tests {
         .unwrap();
         let y_repeated = vec![0.0f64, 0.0, 0.0, 10.0, 20.0, 30.0, 30.0, 30.0];
         let tree_repeated =
-            BaseTreeRegressor::fit_inner(&x_repeated, &y_repeated, None, parameters)
+            BaseTreeRegressor::fit_inner(&x_repeated, &y_repeated, None, &MSECriterion, parameters)
                 .expect("Fit should work");
         let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
         assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
@@ -1300,9 +1409,14 @@ mod tests {
             DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53 + 2], vec![TWO_POW_53 + 4]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
-                .expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Best),
+        )
+        .expect("Fit should work");
 
         let threshold = tree.nodes()[0].split_value.expect("Root should split");
         assert!((TWO_POW_53 + 2) as f64 <= threshold);
@@ -1319,9 +1433,14 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
-                .expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Best),
+        )
+        .expect("Fit should work");
 
         let y_hat = tree.predict(&x).expect("Predict should work");
         assert_eq!(y_hat, vec![5.0, 5.0]);
@@ -1333,9 +1452,14 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Random))
-                .expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Random),
+        )
+        .expect("Fit should work");
 
         let y_hat = tree.predict(&x).expect("Predict should work");
         assert_eq!(y_hat, vec![5.0, 5.0]);
@@ -1353,9 +1477,14 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![a], vec![b]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, split_value_parameters(Splitter::Best))
-                .expect("Fit should work");
+        let tree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Best),
+        )
+        .expect("Fit should work");
 
         let threshold = tree.nodes()[0].split_value.expect("Root should split");
         assert!(a <= threshold);
@@ -1372,7 +1501,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
     }
 
-    type TestTree = BaseTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>;
+    type TestTree = BaseTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>, MSECriterion>;
 
     fn params(
         max_depth: Option<u16>,
@@ -1492,29 +1621,45 @@ mod tests {
             (None, 15, 4),
         ];
         for (max_depth, n_nodes, depth) in cases {
-            let tree: TestTree =
-                BaseTreeRegressor::fit_inner(&x, &y, None, params(max_depth, 1, 2, Splitter::Best))
-                    .expect("Fit should work");
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(max_depth, 1, 2, Splitter::Best),
+            )
+            .expect("Fit should work");
             assert_eq!(tree.nodes().len(), n_nodes, "max_depth: {max_depth:?}");
             assert_eq!(tree.depth, depth, "max_depth: {max_depth:?}");
         }
 
         // With max_depth = 2 the root split separates the two halves.
-        let tree: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(Some(2), 1, 2, Splitter::Best))
-                .expect("Fit should work");
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(Some(2), 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
         assert_eq!(tree.nodes()[0].split_value, Some(4.5));
         let y_hat = tree.predict(&x).expect("Predict should work");
         assert_eq!(y_hat, vec![5.5, 5.5, 5.5, 5.5, 105.5, 105.5, 105.5, 105.5]);
 
         // No limit is the same as the largest limit, and the leaves memorize y.
-        let tree_none: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, Splitter::Best))
-                .expect("Fit should work");
+        let tree_none: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
         let tree_max: TestTree = BaseTreeRegressor::fit_inner(
             &x,
             &y,
             None,
+            &MSECriterion,
             params(Some(u16::MAX), 1, 2, Splitter::Best),
         )
         .expect("Fit should work");
@@ -1526,6 +1671,7 @@ mod tests {
                 &x,
                 &y,
                 None,
+                &MSECriterion,
                 params(Some(max_depth), 1, 2, Splitter::Random),
             )
             .expect("Fit should work");
@@ -1547,9 +1693,14 @@ mod tests {
         .unwrap();
         let y = vec![0.0f64, 1.0, 2.0, 100.0, 101.0];
 
-        let tree: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 3, Splitter::Best))
-                .expect("Fit should work");
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 3, Splitter::Best),
+        )
+        .expect("Fit should work");
         assert_eq!(tree.nodes()[0].split_value, Some(3.5));
         let true_child = tree.nodes()[0].true_child.unwrap();
         let false_child = tree.nodes()[0].false_child.unwrap();
@@ -1560,9 +1711,14 @@ mod tests {
 
         // If min_samples_split is larger than the number of samples, the root is a leaf.
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree =
-                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 6, splitter))
-                    .expect("Fit should work");
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(None, 1, 6, splitter),
+            )
+            .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
         }
     }
@@ -1574,24 +1730,39 @@ mod tests {
         let y = vec![0.0f64, 0.0, 0.0, 100.0];
 
         // With no limit, the best split isolates the last sample.
-        let tree: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, Splitter::Best))
-                .expect("Fit should work");
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
         assert_eq!(tree.nodes()[0].split_value, Some(3.5));
 
         // The best split is not permitted. The split with exactly 2 samples on each side is used.
-        let tree: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 2, 2, Splitter::Best))
-                .expect("Fit should work");
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 2, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
         assert_eq!(tree.nodes()[0].split_value, Some(2.5));
         assert_eq!(tree.nodes().len(), 3);
         assert_eq!(leaf_counts(&tree, &x, &[1; 4]), vec![2, 2]);
 
         // No split can give 3 samples on each side.
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree =
-                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 3, 2, splitter))
-                    .expect("Fit should work");
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(None, 3, 2, splitter),
+            )
+            .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
             assert_eq!(tree.nodes()[0].output, 25.0);
         }
@@ -1633,6 +1804,7 @@ mod tests {
                             samples.clone(),
                             3,
                             &order,
+                            &MSECriterion,
                             parameters,
                         )
                         .expect("Fit should work");
@@ -1665,9 +1837,14 @@ mod tests {
         let y = vec![1.0f64, 2.0, 3.0, 6.0];
 
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree =
-                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, splitter))
-                    .expect("Fit should work");
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(None, 1, 2, splitter),
+            )
+            .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
             assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
             let y_hat = tree.predict(&x).expect("Predict should work");
@@ -1688,9 +1865,14 @@ mod tests {
         let y = vec![0.0f64, 0.0, 10.0, 10.0];
 
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree =
-                BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, splitter))
-                    .expect("Fit should work");
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(None, 1, 2, splitter),
+            )
+            .expect("Fit should work");
             assert!(tree.nodes().len() > 1, "splitter: {splitter:?}");
             assert!(
                 tree.nodes()
@@ -1701,9 +1883,14 @@ mod tests {
             );
         }
 
-        let tree: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(None, 1, 2, Splitter::Best))
-                .expect("Fit should work");
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
         assert_eq!(tree.nodes()[0].split_value, Some(2.5));
     }
 
@@ -1726,11 +1913,16 @@ mod tests {
                 seed: Some(seed),
                 ..params(None, 1, 2, Splitter::Best)
             };
-            let tree_single: TestTree =
-                BaseTreeRegressor::fit_inner(&x_single, &y, None, parameters.clone())
-                    .expect("Fit should work");
+            let tree_single: TestTree = BaseTreeRegressor::fit_inner(
+                &x_single,
+                &y,
+                None,
+                &MSECriterion,
+                parameters.clone(),
+            )
+            .expect("Fit should work");
             let tree_double: TestTree =
-                BaseTreeRegressor::fit_inner(&x_double, &y, None, parameters)
+                BaseTreeRegressor::fit_inner(&x_double, &y, None, &MSECriterion, parameters)
                     .expect("Fit should work");
 
             assert!(tree_double.nodes().len() > 1);
@@ -1774,12 +1966,18 @@ mod tests {
                         counts.clone(),
                         2,
                         &order,
+                        &MSECriterion,
                         parameters.clone(),
                     )
                     .expect("Fit should work");
-                    let tree_rep: TestTree =
-                        BaseTreeRegressor::fit_inner(&x_rep, &y_rep, None, parameters)
-                            .expect("Fit should work");
+                    let tree_rep: TestTree = BaseTreeRegressor::fit_inner(
+                        &x_rep,
+                        &y_rep,
+                        None,
+                        &MSECriterion,
+                        parameters,
+                    )
+                    .expect("Fit should work");
 
                     assert!(tree.nodes().len() > 1);
                     assert_same_tree(&tree, &tree_rep);
@@ -1813,13 +2011,19 @@ mod tests {
                     counts.clone(),
                     2,
                     &order,
+                    &MSECriterion,
                     parameters.clone(),
                 )
                 .expect("Fit should work");
                 // in this tree, there are no counts but the rows are repeated physically
-                let tree_rep: TestTree =
-                    BaseTreeRegressor::fit_inner(&x_rep, &y_rep, Some(&w_rep), parameters)
-                        .expect("Fit should work");
+                let tree_rep: TestTree = BaseTreeRegressor::fit_inner(
+                    &x_rep,
+                    &y_rep,
+                    Some(&w_rep),
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work");
 
                 assert!(tree.nodes().len() > 1);
                 assert_same_tree(&tree, &tree_rep);
@@ -1877,13 +2081,20 @@ mod tests {
         vec![
             (
                 "unit",
-                BaseTreeRegressor::fit_inner(&f.x, &f.y, None, parameters.clone()).unwrap(),
+                BaseTreeRegressor::fit_inner(&f.x, &f.y, None, &MSECriterion, parameters.clone())
+                    .unwrap(),
                 vec![1.0; n],
             ),
             (
                 "weighted",
-                BaseTreeRegressor::fit_inner(&f.x, &f.y, Some(&f.weights), parameters.clone())
-                    .unwrap(),
+                BaseTreeRegressor::fit_inner(
+                    &f.x,
+                    &f.y,
+                    Some(&f.weights),
+                    &MSECriterion,
+                    parameters.clone(),
+                )
+                .unwrap(),
                 f.weights.clone(),
             ),
             (
@@ -1895,6 +2106,7 @@ mod tests {
                     f.counts.clone(),
                     2,
                     &f.order,
+                    &MSECriterion,
                     parameters,
                 )
                 .unwrap(),
@@ -2015,12 +2227,22 @@ mod tests {
 
         for splitter in [Splitter::Best, Splitter::Random] {
             let parameters = params(None, 1, 2, splitter);
-            let tree: TestTree =
-                BaseTreeRegressor::fit_inner(&x, &y, Some(&weights), parameters.clone())
-                    .expect("Fit should work");
-            let tree_kept: TestTree =
-                BaseTreeRegressor::fit_inner(&x_kept, &y_kept, Some(&weights_kept), parameters)
-                    .expect("Fit should work");
+            let tree: TestTree = BaseTreeRegressor::fit_inner(
+                &x,
+                &y,
+                Some(&weights),
+                &MSECriterion,
+                parameters.clone(),
+            )
+            .expect("Fit should work");
+            let tree_kept: TestTree = BaseTreeRegressor::fit_inner(
+                &x_kept,
+                &y_kept,
+                Some(&weights_kept),
+                &MSECriterion,
+                parameters,
+            )
+            .expect("Fit should work");
 
             assert!(
                 tree == tree_kept,
@@ -2047,8 +2269,14 @@ mod tests {
         for splitter in [Splitter::Best, Splitter::Random] {
             let fit = |offset: f64| -> TestTree {
                 let y: Vec<f64> = pattern.iter().map(|v| offset + v).collect();
-                BaseTreeRegressor::fit_inner(&x, &y, None, params(Some(4), 1, 2, splitter))
-                    .expect("Fit should work")
+                BaseTreeRegressor::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &MSECriterion,
+                    params(Some(4), 1, 2, splitter),
+                )
+                .expect("Fit should work")
             };
             let reference = fit(0.0);
             for offset in [1e6, 1e8, 1e9] {
@@ -2088,9 +2316,14 @@ mod tests {
         ])
         .unwrap();
         let y = vec![1.0, 2.0, 5.0, 6.0];
-        let tree: TestTree =
-            BaseTreeRegressor::fit_inner(&x, &y, None, params(Some(2), 1, 2, Splitter::Best))
-                .expect("Fit should work");
+        let tree: TestTree = BaseTreeRegressor::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(Some(2), 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
         assert_eq!(tree.nodes().len(), 3);
 
         // Split at 1.5: SSE(root) = 17, SSE(true) = SSE(false) = 0.5, root mass = 4.
@@ -2121,6 +2354,7 @@ mod tests {
                     &x,
                     &y,
                     sample_weights,
+                    &MSECriterion,
                     params(None, 1, 2, splitter),
                 )
                 .expect("Fit should work");
@@ -2152,11 +2386,16 @@ mod tests {
         for splitter in [Splitter::Best, Splitter::Random] {
             for max_depth in [Some(2), None] {
                 let parameters = params(max_depth, 1, 2, splitter);
-                let tree: TestTree =
-                    BaseTreeRegressor::fit_inner(&x, &y, Some(&weights), parameters.clone())
-                        .expect("Fit should work");
+                let tree: TestTree = BaseTreeRegressor::fit_inner(
+                    &x,
+                    &y,
+                    Some(&weights),
+                    &MSECriterion,
+                    parameters.clone(),
+                )
+                .expect("Fit should work");
                 let tree_scaled: TestTree =
-                    BaseTreeRegressor::fit_inner(&x, &y, Some(&scaled), parameters)
+                    BaseTreeRegressor::fit_inner(&x, &y, Some(&scaled), &MSECriterion, parameters)
                         .expect("Fit should work");
                 assert_same_tree(&tree, &tree_scaled);
 

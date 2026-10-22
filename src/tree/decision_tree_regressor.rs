@@ -69,6 +69,7 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
+use crate::tree::criterion::MSECriterion;
 
 /// Validates the sample weights
 fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
@@ -112,7 +113,7 @@ pub struct DecisionTreeRegressorParameters {
 #[derive(Debug)]
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
-    tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y>>,
+    tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y, MSECriterion>>,
     num_features: Option<usize>,
 }
 
@@ -351,7 +352,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             seed: parameters.seed,
             splitter: Splitter::Best,
         };
-        let tree = BaseTreeRegressor::fit_inner(x, y, sample_weights, tree_parameters)?;
+        let tree =
+            BaseTreeRegressor::fit_inner(x, y, sample_weights, &MSECriterion, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
             num_features: Some(x.shape().1),

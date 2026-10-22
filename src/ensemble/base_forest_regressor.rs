@@ -12,6 +12,7 @@ use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParameters, Splitter};
+use crate::tree::criterion::MSECriterion;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -70,7 +71,7 @@ pub struct BaseForestRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    trees: Option<Vec<BaseTreeRegressor<TX, TY, X, Y>>>,
+    trees: Option<Vec<BaseTreeRegressor<TX, TY, X, Y, MSECriterion>>>,
     num_features: Option<usize>,
     samples: Option<Vec<Vec<bool>>>,
 }
@@ -106,7 +107,8 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         let mut rng = get_rng_impl(Some(parameters.seed));
         let n_trees = parameters.n_trees;
-        let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
+        let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y, MSECriterion>> =
+            Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
@@ -164,6 +166,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 samples.clone(),
                 mtry,
                 &order,
+                &MSECriterion,
                 params,
             )?;
             trees.push(tree);
