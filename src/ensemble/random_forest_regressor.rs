@@ -56,6 +56,7 @@ use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::tree::base_tree::Splitter;
+use crate::tree::criterion::MSECriterion;
 
 /// Validates the sample weights
 fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
@@ -113,7 +114,7 @@ pub struct RandomForestRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y>>,
+    forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y, MSECriterion>>,
 }
 
 impl RandomForestRegressorParameters {
@@ -438,7 +439,8 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             bootstrap: true,
             splitter: Splitter::Best,
         };
-        let forest_regressor = BaseForestRegressor::fit(x, y, sample_weights, regressor_params)?;
+        let forest_regressor =
+            BaseForestRegressor::fit(x, y, sample_weights, &MSECriterion, regressor_params)?;
 
         Ok(RandomForestRegressor {
             forest_regressor: Some(forest_regressor),
