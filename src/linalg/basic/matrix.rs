@@ -74,16 +74,18 @@ where
     #[cfg(debug_assertions)]
     {
         let len = values.len();
-        let mut seen = std::collections::HashSet::new();
         for &o in &desired {
             assert!(
                 o < len,
                 "iterator_mut: offset {o} out of bounds (len={len})"
             );
-            assert!(
-                seen.insert(o),
-                "iterator_mut: aliasing detected at offset {o}"
-            );
+        }
+        // Sorted-`Vec` duplicate check instead of a `HashSet`, so that this
+        // check works with `alloc` only (no `std` hash collections).
+        let mut sorted_check = desired.clone();
+        sorted_check.sort_unstable();
+        if let Some(w) = sorted_check.windows(2).find(|w| w[0] == w[1]) {
+            panic!("iterator_mut: aliasing detected at offset {}", w[0]);
         }
     }
 
@@ -846,6 +848,23 @@ mod tests {
             .iterator_mut(0)
             .for_each(|v| *v += 2);
         assert_eq!(vec![1, 4, 3, 4, 7, 6], *x.values);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "iterator_mut: aliasing detected at offset 1")]
+    fn test_ordered_iter_mut_detects_aliasing() {
+        // stride 1 < ncols 2: offsets of row 0 and row 1 overlap.
+        let mut values = vec![0, 1, 2];
+        let _ = ordered_iter_mut(&mut values, 1, 2, 2, false, 0);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "iterator_mut: offset 3 out of bounds (len=3)")]
+    fn test_ordered_iter_mut_detects_out_of_bounds() {
+        let mut values = vec![0, 1, 2];
+        let _ = ordered_iter_mut(&mut values, 2, 2, 2, false, 0);
     }
 
     #[test]
