@@ -1,6 +1,6 @@
 //! # Custom warnings and errors
-use std::error::Error;
-use std::fmt;
+use core::error::Error;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -253,5 +253,14 @@ mod tests {
         assert!(e.source().is_none());
         // ensure it can be used as a trait object
         let _: &dyn Error = &e;
+    }
+
+    #[test]
+    fn failed_implements_core_error() {
+        // Failed must not depend on std for its Error impl (no-std, #413)
+        let e = Failed::predict("boom");
+        let err: &dyn core::error::Error = &e;
+        assert_eq!(err.to_string(), "Predict failed: boom");
+        assert!(err.source().is_none());
     }
 }
