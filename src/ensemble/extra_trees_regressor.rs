@@ -59,7 +59,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::ensemble::base_forest_regressor::{BaseForestRegressor, BaseForestRegressorParameters};
+use crate::ensemble::base_forest::{BaseForest, BaseForestParameters};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
@@ -123,7 +123,7 @@ pub struct ExtraTreesRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y, MSECriterion>>,
+    forest_regressor: Option<BaseForest<TX, TY, X, Y, MSECriterion>>,
 }
 
 impl ExtraTreesRegressorParameters {
@@ -235,7 +235,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         sample_weights: Option<&[f64]>,
         parameters: ExtraTreesRegressorParameters,
     ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
-        let regressor_params = BaseForestRegressorParameters {
+        let regressor_params = BaseForestParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
             min_samples_split: parameters.min_samples_split,
@@ -247,7 +247,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             splitter: Splitter::Random,
         };
         let forest_regressor =
-            BaseForestRegressor::fit(x, y, sample_weights, &MSECriterion, regressor_params)?;
+            BaseForest::fit(x, y, sample_weights, &MSECriterion, regressor_params)?;
 
         Ok(ExtraTreesRegressor {
             forest_regressor: Some(forest_regressor),
