@@ -87,6 +87,16 @@ pub struct BaseForest<
 impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
     BaseForest<TX, TY, X, Y, C>
 {
+    /// The trees of the forest. Call only after `fit`.
+    pub(crate) fn trees(&self) -> &[BaseTree<TX, TY, X, Y, C>] {
+        self.trees.as_ref().unwrap()
+    }
+
+    /// For each tree, the rows it used in training. `None` if `keep_samples` was false.
+    pub(crate) fn samples(&self) -> Option<&[Vec<bool>]> {
+        self.samples.as_deref()
+    }
+
     /// Build a forest of trees from the training set.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - the target class values
@@ -241,90 +251,80 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     }
 }
 
-impl<
-    TX: Number + FloatNumber + PartialOrd,
+/// Mean of the tree predictions for each row of `x`.
+pub(crate) fn predict_mean<TX, TY, X, Y, C>(
+    forest: &BaseForest<TX, TY, X, Y, C>,
+    x: &X,
+) -> Result<Y, Failed>
+where
+    TX: Number + FloatNumber,
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
     C: Criterion<Output = f64>,
-> BaseForest<TX, TY, X, Y, C>
 {
-    /// Predict values for `x`
-    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let (n, _) = x.shape();
+    let (n, _) = x.shape();
+    let mut result = Y::zeros(n);
+    let num_trees = TY::from_usize(forest.trees().len()).unwrap();
 
-        let mut result = Y::zeros(n);
-
-        for i in 0..n {
-            result.set(i, self.predict_for_row(x, i));
+    for row in 0..n {
+        let mut sum = TY::zero();
+        for tree in forest.trees() {
+            sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
         }
-
-        Ok(result)
+        result.set(row, sum / num_trees);
     }
+    Ok(result)
+}
 
-    fn predict_for_row(&self, x: &X, row: usize) -> TY {
-        let n_trees = self.trees.as_ref().unwrap().len();
+/// Mean of the out-of-bag tree predictions for each row of `x`.
+/// `x` is expected to be equal to the dataset used in training.
+pub(crate) fn predict_mean_oob<TX, TY, X, Y, C>(
+    forest: &BaseForest<TX, TY, X, Y, C>,
+    x: &X,
+) -> Result<Y, Failed>
+where
+    TX: Number + FloatNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    C: Criterion<Output = f64>,
+{
+    let (n, _) = x.shape();
 
-        let mut result = TY::zero();
-
-        for tree in self.trees.as_ref().unwrap().iter() {
-            result += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
-        }
-
-        result / TY::from_usize(n_trees).unwrap()
-    }
-
-    /// Predict OOB values for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        let (n, _) = x.shape();
-
-        let samples = match &self.samples {
-            Some(s) => s,
-            None => {
-                return Err(Failed::because(
-                    FailedError::PredictFailed,
-                    "Need samples=true for OOB predictions.",
-                ));
-            }
-        };
-
-        if samples[0].len() != n {
+    let samples = match forest.samples() {
+        Some(s) => s,
+        None => {
             return Err(Failed::because(
                 FailedError::PredictFailed,
-                "Prediction matrix must match matrix used in training for OOB predictions.",
+                "Need samples=true for OOB predictions.",
             ));
         }
+    };
 
-        let mut result = Y::zeros(n);
-
-        for i in 0..n {
-            result.set(i, self.predict_for_row_oob(x, i));
-        }
-
-        Ok(result)
+    if samples[0].len() != n {
+        return Err(Failed::because(
+            FailedError::PredictFailed,
+            "Prediction matrix must match matrix used in training for OOB predictions.",
+        ));
     }
 
-    fn predict_for_row_oob(&self, x: &X, row: usize) -> TY {
-        let mut n_trees = 0;
-        let mut result = TY::zero();
+    let mut result = Y::zeros(n);
 
-        for (tree, samples) in self
-            .trees
-            .as_ref()
-            .unwrap()
-            .iter()
-            .zip(self.samples.as_ref().unwrap())
-        {
-            if !samples[row] {
-                result += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
+    for row in 0..n {
+        let mut sum = TY::zero();
+        let mut n_trees = 0usize;
+        for (tree, in_bag) in forest.trees().iter().zip(samples) {
+            if !in_bag[row] {
+                sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
                 n_trees += 1;
             }
         }
-
         // TODO: What to do if there are no oob trees?
-        result / TY::from(n_trees).unwrap()
+        result.set(row, sum / TY::from_usize(n_trees).unwrap());
     }
+
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -437,7 +437,7 @@ mod tests {
 
         let forest = BaseForest::fit(&x, &y, None, &MSECriterion, forest_parameters.clone())
             .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
         assert!((y_hat.iter().sum::<f64>() - y.iter().sum::<f64>()).abs() < 1e-9);
 
         // Seeded RNG: the test gives the same result on each run
@@ -453,7 +453,7 @@ mod tests {
             forest_parameters.clone(),
         )
         .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         let s: f64 = sample_weights.iter().sum();
         let normalized_weights = sample_weights.iter().map(|w| *w / s).collect::<Vec<_>>();
@@ -577,7 +577,7 @@ mod tests {
             parameters.clone(),
         )
         .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
         for p in y_hat.iter() {
@@ -590,7 +590,7 @@ mod tests {
         // Without weights, the predicted value should be close to 5
         let forest =
             BaseForest::fit(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         for p in y_hat.iter() {
             assert!(
@@ -620,7 +620,7 @@ mod tests {
             parameters.clone(),
         )
         .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         // with bootstrapping the weight should be close to 9, but not extremely close
         for p in y_hat.iter() {
@@ -633,7 +633,7 @@ mod tests {
         // Without weights, the predicted value should be reasonably close to 5
         let forest =
             BaseForest::fit(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         // The bootstrapping makes that we will not be very close to 5
         for p in y_hat.iter() {
@@ -686,8 +686,8 @@ mod tests {
                     "bootstrap samples differ (splitter: {splitter:?}, weights: {weights:?})"
                 );
                 assert_eq!(
-                    forest_a.predict(&x).unwrap(),
-                    forest_b.predict(&x).unwrap(),
+                    predict_mean(&forest_a, &x).unwrap(),
+                    predict_mean(&forest_b, &x).unwrap(),
                     "predictions differ (splitter: {splitter:?}, weights: {weights:?})"
                 );
 

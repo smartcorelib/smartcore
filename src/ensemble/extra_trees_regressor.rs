@@ -59,7 +59,9 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::ensemble::base_forest::{BaseForest, BaseForestParameters};
+use crate::ensemble::base_forest::{
+    BaseForest, BaseForestParameters, predict_mean, predict_mean_oob,
+};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
@@ -254,21 +256,21 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         })
     }
 
-    /// Predict class for `x`
+    /// Predict values for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match &self.forest_regressor {
-            Some(forest) => forest.predict(x),
+            Some(forest) => predict_mean(forest, x),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
         }
     }
 
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
+    /// Predict OOB values for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         match &self.forest_regressor {
-            Some(forest) => forest.predict_oob(x),
+            Some(forest) => predict_mean_oob(forest, x),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
