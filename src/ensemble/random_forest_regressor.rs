@@ -55,7 +55,7 @@ use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::tree::base_tree_regressor::Splitter;
+use crate::tree::base_tree::Splitter;
 
 /// Validates the sample weights
 fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {

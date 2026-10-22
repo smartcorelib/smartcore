@@ -23,11 +23,11 @@ pub enum Splitter {
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-/// Parameters of Regression base_tree
+/// Parameters of base tree
 #[must_use]
-pub struct BaseTreeRegressorParameters {
+pub struct BaseTreeParameters {
     #[cfg_attr(feature = "serde", serde(default))]
-    /// The maximum depth of the base_tree.
+    /// The maximum depth of the tree
     pub max_depth: Option<u16>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// The minimum number of samples required to be at a leaf node.
@@ -43,7 +43,7 @@ pub struct BaseTreeRegressorParameters {
     pub splitter: Splitter,
 }
 
-/// Regression base_tree
+/// Base Decision Tree
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -53,15 +53,10 @@ pub struct BaseTreeRegressorParameters {
     ))
 )]
 #[derive(Debug)]
-pub struct BaseTreeRegressor<
-    TX: Number + PartialOrd,
-    TY: Number,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-    C: Criterion,
-> {
+pub struct BaseTree<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
+{
     nodes: Vec<Node<C::Output>>,
-    parameters: Option<BaseTreeRegressorParameters>,
+    parameters: Option<BaseTreeParameters>,
     depth: u16,
     root_mass: f64,
     _phantom_tx: PhantomData<TX>,
@@ -71,14 +66,14 @@ pub struct BaseTreeRegressor<
 }
 
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-    BaseTreeRegressor<TX, TY, X, Y, C>
+    BaseTree<TX, TY, X, Y, C>
 {
     /// Get nodes, return a shared reference
     fn nodes(&self) -> &Vec<Node<C::Output>> {
         self.nodes.as_ref()
     }
     /// Get parameters, return a shared reference
-    fn parameters(&self) -> &BaseTreeRegressorParameters {
+    fn parameters(&self) -> &BaseTreeParameters {
         self.parameters.as_ref().unwrap()
     }
 }
@@ -125,7 +120,7 @@ impl<Out> Node<Out> {
 }
 
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion> PartialEq
-    for BaseTreeRegressor<TX, TY, X, Y, C>
+    for BaseTree<TX, TY, X, Y, C>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
@@ -374,15 +369,15 @@ where
 }
 
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-    BaseTreeRegressor<TX, TY, X, Y, C>
+    BaseTree<TX, TY, X, Y, C>
 {
     pub(crate) fn fit_inner(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
         criterion: &C,
-        parameters: BaseTreeRegressorParameters,
-    ) -> Result<BaseTreeRegressor<TX, TY, X, Y, C>, Failed> {
+        parameters: BaseTreeParameters,
+    ) -> Result<BaseTree<TX, TY, X, Y, C>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         if x_nrows != y.shape() {
             return Err(Failed::fit("Size of x should equal size of y"));
@@ -403,7 +398,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         }
 
         let samples = vec![1; x_nrows];
-        BaseTreeRegressor::fit_weak_learner(
+        BaseTree::fit_weak_learner(
             x,
             y,
             sample_weights,
@@ -423,8 +418,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         mtry: usize,
         order: &[Vec<usize>],
         criterion: &C,
-        parameters: BaseTreeRegressorParameters,
-    ) -> Result<BaseTreeRegressor<TX, TY, X, Y, C>, Failed> {
+        parameters: BaseTreeParameters,
+    ) -> Result<BaseTree<TX, TY, X, Y, C>, Failed> {
         check_row_count(y.shape())?;
         match sample_weights {
             Some(_) => Self::grow::<WeightedElement>(
@@ -456,8 +451,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         mtry: usize,
         order: &[Vec<usize>],
         criterion: &C,
-        parameters: BaseTreeRegressorParameters,
-    ) -> Result<BaseTreeRegressor<TX, TY, X, Y, C>, Failed> {
+        parameters: BaseTreeParameters,
+    ) -> Result<BaseTree<TX, TY, X, Y, C>, Failed> {
         let mut nodes: Vec<Node<C::Output>> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
 
@@ -517,7 +512,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
             criterion,
         );
 
-        let mut base_tree = BaseTreeRegressor {
+        let mut base_tree = BaseTree {
             nodes,
             parameters: Some(parameters),
             depth: 0u16,
@@ -941,7 +936,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
 }
 
 // Regression: the leaf holds the prediction itself.
-impl<TX, TY, X, Y, C> BaseTreeRegressor<TX, TY, X, Y, C>
+impl<TX, TY, X, Y, C> BaseTree<TX, TY, X, Y, C>
 where
     TX: Number + PartialOrd,
     TY: Number,
@@ -997,12 +992,12 @@ mod tests {
         assert_eq!(empty.shape(), (0, 2));
 
         let y: Vec<f64> = vec![];
-        let result = BaseTreeRegressor::fit_inner(
+        let result = BaseTree::fit_inner(
             &empty,
             &y,
             None,
             &MSECriterion,
-            BaseTreeRegressorParameters {
+            BaseTreeParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -1022,12 +1017,12 @@ mod tests {
         assert_eq!(no_features.shape(), (2, 0));
 
         let y = vec![1.0_f64, 2.0];
-        let result = BaseTreeRegressor::fit_inner(
+        let result = BaseTree::fit_inner(
             &no_features,
             &y,
             None,
             &MSECriterion,
-            BaseTreeRegressorParameters {
+            BaseTreeParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -1049,12 +1044,12 @@ mod tests {
         let y = vec![1.0, 2.0, 3.0];
         let sample_weights = vec![5.0, 6.0, 7.0];
 
-        let result = BaseTreeRegressor::fit_inner(
+        let result = BaseTree::fit_inner(
             &x,
             &y,
             Some(&sample_weights),
             &MSECriterion,
-            BaseTreeRegressorParameters {
+            BaseTreeParameters {
                 max_depth: Some(0),
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -1079,7 +1074,7 @@ mod tests {
         // Test that using no weights is equivalent to using uniform weights
         let x_rand: DenseMatrix<f64> = DenseMatrix::<f64>::rand(17, 5);
         let y_rand: Vec<f64> = (0..17).collect::<Vec<_>>().map(|y| *y as f64);
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: Some(5),
             min_samples_leaf: 1,
             min_samples_split: 1,
@@ -1088,10 +1083,10 @@ mod tests {
         };
 
         let tree_no_weights =
-            BaseTreeRegressor::fit_inner(&x_rand, &y_rand, None, &MSECriterion, parameters.clone())
+            BaseTree::fit_inner(&x_rand, &y_rand, None, &MSECriterion, parameters.clone())
                 .expect("Fit should work");
         let uniform_weights = vec![1.0f64; 17];
-        let tree_with_weights = BaseTreeRegressor::fit_inner(
+        let tree_with_weights = BaseTree::fit_inner(
             &x_rand,
             &y_rand,
             Some(&uniform_weights),
@@ -1128,7 +1123,7 @@ mod tests {
         .unwrap();
         let y_repeated = vec![4.0, 5.0, 5.0, 6.0, 6.0, 6.0];
 
-        let weighted_parameters = BaseTreeRegressorParameters {
+        let weighted_parameters = BaseTreeParameters {
             max_depth: Some(1), // tree should not be able to fully separate all the examples
             min_samples_leaf: 1,
             min_samples_split: 1,
@@ -1136,7 +1131,7 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let repeated_parameters = BaseTreeRegressorParameters {
+        let repeated_parameters = BaseTreeParameters {
             max_depth: Some(1),
             min_samples_leaf: 1,
             min_samples_split: 1,
@@ -1144,7 +1139,7 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree_weighted = BaseTreeRegressor::fit_inner(
+        let tree_weighted = BaseTree::fit_inner(
             &x,
             &y,
             Some(&sample_weights),
@@ -1152,7 +1147,7 @@ mod tests {
             weighted_parameters,
         )
         .expect("Fit should work");
-        let tree_repeated = BaseTreeRegressor::fit_inner(
+        let tree_repeated = BaseTree::fit_inner(
             &x_repeated,
             &y_repeated,
             None,
@@ -1180,7 +1175,7 @@ mod tests {
         .unwrap();
         let y = vec![1.0f64, 2.0, 6.0, 7.0, 11., 12.];
 
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: Some(3),
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -1188,8 +1183,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, &MSECriterion, parameters)
-            .expect("Fit should work");
+        let tree =
+            BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
         let y_expected = vec![1.0, 2.0, 6.5, 6.5, 11.50, 11.50];
         let y_hat = tree.predict(&x).expect("Predict should work");
         assert_eq!(tree.nodes().len(), 7);
@@ -1209,7 +1204,7 @@ mod tests {
         ])
         .unwrap();
         let y = vec![1.0f64, 2.0, 6.0, 7.0, 11., 12.];
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: Some(3),
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -1218,9 +1213,8 @@ mod tests {
         };
 
         let sample_weights = [1.0f64, 1.0, 1.0, 1.0, 10.0, 10.0];
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
-                .expect("Fit should work");
+        let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+            .expect("Fit should work");
         let x_test: DenseMatrix<f64> =
             DenseMatrix::from_iterator((1..=12).map(|i| i as f64), 12, 1, 0);
         let y_expected = vec![
@@ -1238,7 +1232,7 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
         let y = vec![1.0f64, 2.0, 6.0];
 
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 3,
@@ -1246,13 +1240,13 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, &MSECriterion, parameters)
-            .expect("Fit should work");
+        let tree =
+            BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
         assert_eq!(tree.nodes().len(), 3);
         assert_eq!(tree.depth, 2);
 
         // A node with fewer than `min_samples_split` samples must stay a leaf.
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 4,
@@ -1260,8 +1254,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(&x, &y, None, &MSECriterion, parameters)
-            .expect("Fit should work");
+        let tree =
+            BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
         assert_eq!(tree.nodes().len(), 1);
         assert_eq!(tree.depth, 0);
     }
@@ -1274,7 +1268,7 @@ mod tests {
         let y = vec![1.0f64, 2.0, 3.0];
         let sample_weights = [0.0f64, 1.0, 1.0];
 
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: Some(2),
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -1282,9 +1276,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
-                .expect("Fit should work");
+        let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+            .expect("Fit should work");
 
         assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
         assert!(
@@ -1310,7 +1303,7 @@ mod tests {
         let y = vec![1.0f64, 2.0, 3.0];
         let sample_weights = [1.0f64, 1.0, 0.0];
 
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: Some(2),
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -1318,9 +1311,8 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree =
-            BaseTreeRegressor::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
-                .expect("Fit should work");
+        let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+            .expect("Fit should work");
 
         assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
         assert!(
@@ -1342,7 +1334,7 @@ mod tests {
         let y = vec![0.0f64, 10.0, 20.0, 30.0];
         let sample_weights = [3.0f64, 1.0, 1.0, 3.0];
 
-        let parameters = BaseTreeRegressorParameters {
+        let parameters = BaseTreeParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -1350,7 +1342,7 @@ mod tests {
             splitter: Splitter::Best,
         };
 
-        let tree = BaseTreeRegressor::fit_inner(
+        let tree = BaseTree::fit_inner(
             &x,
             &y,
             Some(&sample_weights),
@@ -1381,7 +1373,7 @@ mod tests {
         .unwrap();
         let y_repeated = vec![0.0f64, 0.0, 0.0, 10.0, 20.0, 30.0, 30.0, 30.0];
         let tree_repeated =
-            BaseTreeRegressor::fit_inner(&x_repeated, &y_repeated, None, &MSECriterion, parameters)
+            BaseTree::fit_inner(&x_repeated, &y_repeated, None, &MSECriterion, parameters)
                 .expect("Fit should work");
         let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
         assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
@@ -1391,8 +1383,8 @@ mod tests {
     // but partitioning and predict compare them as f64 against an f64 threshold.
     const TWO_POW_53: i64 = 1 << 53;
 
-    fn split_value_parameters(splitter: Splitter) -> BaseTreeRegressorParameters {
-        BaseTreeRegressorParameters {
+    fn split_value_parameters(splitter: Splitter) -> BaseTreeParameters {
+        BaseTreeParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -1409,7 +1401,7 @@ mod tests {
             DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53 + 2], vec![TWO_POW_53 + 4]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree = BaseTreeRegressor::fit_inner(
+        let tree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1433,7 +1425,7 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree = BaseTreeRegressor::fit_inner(
+        let tree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1452,7 +1444,7 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree = BaseTreeRegressor::fit_inner(
+        let tree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1477,7 +1469,7 @@ mod tests {
         let x = DenseMatrix::from_2d_vec(&vec![vec![a], vec![b]]).unwrap();
         let y = vec![0.0f64, 10.0];
 
-        let tree = BaseTreeRegressor::fit_inner(
+        let tree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1501,15 +1493,15 @@ mod tests {
         assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
     }
 
-    type TestTree = BaseTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>, MSECriterion>;
+    type TestTree = BaseTree<f64, f64, DenseMatrix<f64>, Vec<f64>, MSECriterion>;
 
     fn params(
         max_depth: Option<u16>,
         min_samples_leaf: usize,
         min_samples_split: usize,
         splitter: Splitter,
-    ) -> BaseTreeRegressorParameters {
-        BaseTreeRegressorParameters {
+    ) -> BaseTreeParameters {
+        BaseTreeParameters {
             max_depth,
             min_samples_leaf,
             min_samples_split,
@@ -1621,7 +1613,7 @@ mod tests {
             (None, 15, 4),
         ];
         for (max_depth, n_nodes, depth) in cases {
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
+            let tree: TestTree = BaseTree::fit_inner(
                 &x,
                 &y,
                 None,
@@ -1634,7 +1626,7 @@ mod tests {
         }
 
         // With max_depth = 2 the root split separates the two halves.
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
+        let tree: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1647,7 +1639,7 @@ mod tests {
         assert_eq!(y_hat, vec![5.5, 5.5, 5.5, 5.5, 105.5, 105.5, 105.5, 105.5]);
 
         // No limit is the same as the largest limit, and the leaves memorize y.
-        let tree_none: TestTree = BaseTreeRegressor::fit_inner(
+        let tree_none: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1655,7 +1647,7 @@ mod tests {
             params(None, 1, 2, Splitter::Best),
         )
         .expect("Fit should work");
-        let tree_max: TestTree = BaseTreeRegressor::fit_inner(
+        let tree_max: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1667,7 +1659,7 @@ mod tests {
         assert_eq!(tree_none.predict(&x).expect("Predict should work"), y);
 
         for max_depth in 1..=4 {
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
+            let tree: TestTree = BaseTree::fit_inner(
                 &x,
                 &y,
                 None,
@@ -1693,7 +1685,7 @@ mod tests {
         .unwrap();
         let y = vec![0.0f64, 1.0, 2.0, 100.0, 101.0];
 
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
+        let tree: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1711,14 +1703,9 @@ mod tests {
 
         // If min_samples_split is larger than the number of samples, the root is a leaf.
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
-                &x,
-                &y,
-                None,
-                &MSECriterion,
-                params(None, 1, 6, splitter),
-            )
-            .expect("Fit should work");
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 1, 6, splitter))
+                    .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
         }
     }
@@ -1730,7 +1717,7 @@ mod tests {
         let y = vec![0.0f64, 0.0, 0.0, 100.0];
 
         // With no limit, the best split isolates the last sample.
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
+        let tree: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1741,7 +1728,7 @@ mod tests {
         assert_eq!(tree.nodes()[0].split_value, Some(3.5));
 
         // The best split is not permitted. The split with exactly 2 samples on each side is used.
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
+        let tree: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1755,14 +1742,9 @@ mod tests {
 
         // No split can give 3 samples on each side.
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
-                &x,
-                &y,
-                None,
-                &MSECriterion,
-                params(None, 3, 2, splitter),
-            )
-            .expect("Fit should work");
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 3, 2, splitter))
+                    .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
             assert_eq!(tree.nodes()[0].output, 25.0);
         }
@@ -1793,11 +1775,11 @@ mod tests {
             for splitter in [Splitter::Best, Splitter::Random] {
                 for min_samples_leaf in [1, 3, 5] {
                     for seed in 0..5 {
-                        let parameters = BaseTreeRegressorParameters {
+                        let parameters = BaseTreeParameters {
                             seed: Some(seed),
                             ..params(None, min_samples_leaf, 2, splitter)
                         };
-                        let tree: TestTree = BaseTreeRegressor::fit_weak_learner(
+                        let tree: TestTree = BaseTree::fit_weak_learner(
                             &x,
                             &y,
                             sample_weights,
@@ -1837,14 +1819,9 @@ mod tests {
         let y = vec![1.0f64, 2.0, 3.0, 6.0];
 
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
-                &x,
-                &y,
-                None,
-                &MSECriterion,
-                params(None, 1, 2, splitter),
-            )
-            .expect("Fit should work");
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 1, 2, splitter))
+                    .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
             assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
             let y_hat = tree.predict(&x).expect("Predict should work");
@@ -1865,14 +1842,9 @@ mod tests {
         let y = vec![0.0f64, 0.0, 10.0, 10.0];
 
         for splitter in [Splitter::Best, Splitter::Random] {
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
-                &x,
-                &y,
-                None,
-                &MSECriterion,
-                params(None, 1, 2, splitter),
-            )
-            .expect("Fit should work");
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 1, 2, splitter))
+                    .expect("Fit should work");
             assert!(tree.nodes().len() > 1, "splitter: {splitter:?}");
             assert!(
                 tree.nodes()
@@ -1883,7 +1855,7 @@ mod tests {
             );
         }
 
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
+        let tree: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -1909,20 +1881,15 @@ mod tests {
 
         let mut used_columns = [false; 2];
         for seed in 0..10 {
-            let parameters = BaseTreeRegressorParameters {
+            let parameters = BaseTreeParameters {
                 seed: Some(seed),
                 ..params(None, 1, 2, Splitter::Best)
             };
-            let tree_single: TestTree = BaseTreeRegressor::fit_inner(
-                &x_single,
-                &y,
-                None,
-                &MSECriterion,
-                parameters.clone(),
-            )
-            .expect("Fit should work");
+            let tree_single: TestTree =
+                BaseTree::fit_inner(&x_single, &y, None, &MSECriterion, parameters.clone())
+                    .expect("Fit should work");
             let tree_double: TestTree =
-                BaseTreeRegressor::fit_inner(&x_double, &y, None, &MSECriterion, parameters)
+                BaseTree::fit_inner(&x_double, &y, None, &MSECriterion, parameters)
                     .expect("Fit should work");
 
             assert!(tree_double.nodes().len() > 1);
@@ -1959,7 +1926,7 @@ mod tests {
             for splitter in [Splitter::Best, Splitter::Random] {
                 for max_depth in [Some(2), None] {
                     let parameters = params(max_depth, 1, 2, splitter);
-                    let tree: TestTree = BaseTreeRegressor::fit_weak_learner(
+                    let tree: TestTree = BaseTree::fit_weak_learner(
                         &x,
                         &y,
                         None,
@@ -1970,14 +1937,9 @@ mod tests {
                         parameters.clone(),
                     )
                     .expect("Fit should work");
-                    let tree_rep: TestTree = BaseTreeRegressor::fit_inner(
-                        &x_rep,
-                        &y_rep,
-                        None,
-                        &MSECriterion,
-                        parameters,
-                    )
-                    .expect("Fit should work");
+                    let tree_rep: TestTree =
+                        BaseTree::fit_inner(&x_rep, &y_rep, None, &MSECriterion, parameters)
+                            .expect("Fit should work");
 
                     assert!(tree.nodes().len() > 1);
                     assert_same_tree(&tree, &tree_rep);
@@ -2004,7 +1966,7 @@ mod tests {
         for splitter in [Splitter::Best, Splitter::Random] {
             for max_depth in [Some(2), None] {
                 let parameters = params(max_depth, 1, 2, splitter);
-                let tree: TestTree = BaseTreeRegressor::fit_weak_learner(
+                let tree: TestTree = BaseTree::fit_weak_learner(
                     &x,
                     &y,
                     Some(&weights),
@@ -2016,14 +1978,9 @@ mod tests {
                 )
                 .expect("Fit should work");
                 // in this tree, there are no counts but the rows are repeated physically
-                let tree_rep: TestTree = BaseTreeRegressor::fit_inner(
-                    &x_rep,
-                    &y_rep,
-                    Some(&w_rep),
-                    &MSECriterion,
-                    parameters,
-                )
-                .expect("Fit should work");
+                let tree_rep: TestTree =
+                    BaseTree::fit_inner(&x_rep, &y_rep, Some(&w_rep), &MSECriterion, parameters)
+                        .expect("Fit should work");
 
                 assert!(tree.nodes().len() > 1);
                 assert_same_tree(&tree, &tree_rep);
@@ -2075,19 +2032,18 @@ mod tests {
     /// Fit one tree for each element type. Each tree comes with the mass of each row.
     fn split_score_trees(
         f: &SplitScoreFixture,
-        parameters: BaseTreeRegressorParameters,
+        parameters: BaseTreeParameters,
     ) -> Vec<(&'static str, TestTree, Vec<f64>)> {
         let n = f.y.len();
         vec![
             (
                 "unit",
-                BaseTreeRegressor::fit_inner(&f.x, &f.y, None, &MSECriterion, parameters.clone())
-                    .unwrap(),
+                BaseTree::fit_inner(&f.x, &f.y, None, &MSECriterion, parameters.clone()).unwrap(),
                 vec![1.0; n],
             ),
             (
                 "weighted",
-                BaseTreeRegressor::fit_inner(
+                BaseTree::fit_inner(
                     &f.x,
                     &f.y,
                     Some(&f.weights),
@@ -2099,7 +2055,7 @@ mod tests {
             ),
             (
                 "counted",
-                BaseTreeRegressor::fit_weak_learner(
+                BaseTree::fit_weak_learner(
                     &f.x,
                     &f.y,
                     None,
@@ -2227,15 +2183,10 @@ mod tests {
 
         for splitter in [Splitter::Best, Splitter::Random] {
             let parameters = params(None, 1, 2, splitter);
-            let tree: TestTree = BaseTreeRegressor::fit_inner(
-                &x,
-                &y,
-                Some(&weights),
-                &MSECriterion,
-                parameters.clone(),
-            )
-            .expect("Fit should work");
-            let tree_kept: TestTree = BaseTreeRegressor::fit_inner(
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                    .expect("Fit should work");
+            let tree_kept: TestTree = BaseTree::fit_inner(
                 &x_kept,
                 &y_kept,
                 Some(&weights_kept),
@@ -2269,14 +2220,8 @@ mod tests {
         for splitter in [Splitter::Best, Splitter::Random] {
             let fit = |offset: f64| -> TestTree {
                 let y: Vec<f64> = pattern.iter().map(|v| offset + v).collect();
-                BaseTreeRegressor::fit_inner(
-                    &x,
-                    &y,
-                    None,
-                    &MSECriterion,
-                    params(Some(4), 1, 2, splitter),
-                )
-                .expect("Fit should work")
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(Some(4), 1, 2, splitter))
+                    .expect("Fit should work")
             };
             let reference = fit(0.0);
             for offset in [1e6, 1e8, 1e9] {
@@ -2316,7 +2261,7 @@ mod tests {
         ])
         .unwrap();
         let y = vec![1.0, 2.0, 5.0, 6.0];
-        let tree: TestTree = BaseTreeRegressor::fit_inner(
+        let tree: TestTree = BaseTree::fit_inner(
             &x,
             &y,
             None,
@@ -2350,7 +2295,7 @@ mod tests {
 
         for splitter in [Splitter::Best, Splitter::Random] {
             for sample_weights in [None, Some(weights.as_slice())] {
-                let tree: TestTree = BaseTreeRegressor::fit_inner(
+                let tree: TestTree = BaseTree::fit_inner(
                     &x,
                     &y,
                     sample_weights,
@@ -2386,16 +2331,11 @@ mod tests {
         for splitter in [Splitter::Best, Splitter::Random] {
             for max_depth in [Some(2), None] {
                 let parameters = params(max_depth, 1, 2, splitter);
-                let tree: TestTree = BaseTreeRegressor::fit_inner(
-                    &x,
-                    &y,
-                    Some(&weights),
-                    &MSECriterion,
-                    parameters.clone(),
-                )
-                .expect("Fit should work");
+                let tree: TestTree =
+                    BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                        .expect("Fit should work");
                 let tree_scaled: TestTree =
-                    BaseTreeRegressor::fit_inner(&x, &y, Some(&scaled), &MSECriterion, parameters)
+                    BaseTree::fit_inner(&x, &y, Some(&scaled), &MSECriterion, parameters)
                         .expect("Fit should work");
                 assert_same_tree(&tree, &tree_scaled);
 

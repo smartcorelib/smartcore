@@ -11,7 +11,7 @@ use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
-use crate::tree::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParameters, Splitter};
+use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::tree::criterion::MSECriterion;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -71,7 +71,7 @@ pub struct BaseForestRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    trees: Option<Vec<BaseTreeRegressor<TX, TY, X, Y, MSECriterion>>>,
+    trees: Option<Vec<BaseTree<TX, TY, X, Y, MSECriterion>>>,
     num_features: Option<usize>,
     samples: Option<Vec<Vec<bool>>>,
 }
@@ -107,8 +107,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         let mut rng = get_rng_impl(Some(parameters.seed));
         let n_trees = parameters.n_trees;
-        let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y, MSECriterion>> =
-            Vec::with_capacity(n_trees);
+        let mut trees: Vec<BaseTree<TX, TY, X, Y, MSECriterion>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
@@ -146,7 +145,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 all_samples.push(samples.iter().map(|x| *x != 0).collect())
             }
 
-            let params = BaseTreeRegressorParameters {
+            let params = BaseTreeParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
@@ -159,7 +158,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             } else {
                 sample_weights
             };
-            let tree = BaseTreeRegressor::fit_weak_learner(
+            let tree = BaseTree::fit_weak_learner(
                 x,
                 y,
                 sample_weights_for_base_tree,
@@ -330,7 +329,7 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: true,
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
         let regressor = BaseForestRegressor::fit(&x, &y, None, params).unwrap();
         assert_eq!(regressor.trees.unwrap().len(), 5);
@@ -358,7 +357,7 @@ mod tests {
                 keep_samples: false,
                 seed: 0,
                 bootstrap: true,
-                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+                splitter: crate::tree::base_tree::Splitter::Best,
             },
         );
         assert!(result.is_err());
@@ -386,7 +385,7 @@ mod tests {
                 keep_samples: false,
                 seed: 0,
                 bootstrap: true,
-                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+                splitter: crate::tree::base_tree::Splitter::Best,
             },
         );
         assert!(result.is_err());
@@ -412,7 +411,7 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: false,
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
 
         let forest = BaseForestRegressor::fit(&x, &y, None, forest_parameters.clone())
@@ -466,7 +465,7 @@ mod tests {
                 keep_samples: true, // keep samples used for each tree, so we can check that they are different
                 seed: 42,
                 bootstrap: true, // Use bootstrapping
-                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+                splitter: crate::tree::base_tree::Splitter::Best,
             };
             let regressor = BaseForestRegressor::fit(&x, &y, weights, params).unwrap();
             let samples = regressor.samples.unwrap();
@@ -541,7 +540,7 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: false, // No bootstrapping
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
 
         let forest = BaseForestRegressor::fit(&x, &y, Some(&sample_weights), parameters.clone())
@@ -577,7 +576,7 @@ mod tests {
             keep_samples: true, // keep samples used for each tree, so we can check that they are different
             seed: 42,
             bootstrap: true, // Use bootstrapping
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
 
         let forest = BaseForestRegressor::fit(&x, &y, Some(&sample_weights), parameters.clone())

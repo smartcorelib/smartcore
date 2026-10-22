@@ -64,7 +64,7 @@ use std::fmt::Debug;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParameters, Splitter};
+use super::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
@@ -113,7 +113,7 @@ pub struct DecisionTreeRegressorParameters {
 #[derive(Debug)]
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
-    tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y, MSECriterion>>,
+    tree_regressor: Option<BaseTree<TX, TY, X, Y, MSECriterion>>,
     num_features: Option<usize>,
 }
 
@@ -345,15 +345,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sample_weights: Option<&[f64]>,
         parameters: DecisionTreeRegressorParameters,
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
-        let tree_parameters = BaseTreeRegressorParameters {
+        let tree_parameters = BaseTreeParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
             min_samples_split: parameters.min_samples_split,
             seed: parameters.seed,
             splitter: Splitter::Best,
         };
-        let tree =
-            BaseTreeRegressor::fit_inner(x, y, sample_weights, &MSECriterion, tree_parameters)?;
+        let tree = BaseTree::fit_inner(x, y, sample_weights, &MSECriterion, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
             num_features: Some(x.shape().1),
