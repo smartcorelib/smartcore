@@ -1,9 +1,14 @@
 //! # Dataset Generators
 //!
+//! The generators get their RNG from `get_rng_impl(None)`. With the `std_rand`
+//! feature the RNG takes its seed from OS entropy. Without `std_rand` the RNG
+//! uses a fixed seed (or `getrandom` with the `js` feature), thus the
+//! `datasets` feature does not need `rand/std`.
 use rand::distr::Distribution;
 use rand::distr::Uniform;
 
 use crate::dataset::Dataset;
+use crate::rand_custom::get_rng_impl;
 
 /// Sample from N(mean, std) via Box-Muller transform using only rand 0.10
 #[inline]
@@ -24,7 +29,7 @@ pub fn make_blobs(
 ) -> Dataset<f32, f32> {
     let center_box = Uniform::new(-10.0f32, 10.0f32).expect("Invalid uniform range");
     let cluster_std = 1.0f32;
-    let mut rng = rand::rng();
+    let mut rng = get_rng_impl(None);
 
     // Pre-compute cluster centers (one mean per feature per cluster)
     let centers: Vec<Vec<f32>> = (0..num_centers)
@@ -70,7 +75,7 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
     let linspace_out = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_out);
     let linspace_in = linspace(0.0, 2.0 * std::f32::consts::PI, num_samples_in);
 
-    let mut rng = rand::rng();
+    let mut rng = get_rng_impl(None);
 
     let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
@@ -107,7 +112,7 @@ pub fn make_moons(num_samples: usize, noise: f32) -> Dataset<f32, u32> {
     let linspace_out = linspace(0.0, std::f32::consts::PI, num_samples_out);
     let linspace_in = linspace(0.0, std::f32::consts::PI, num_samples_in);
 
-    let mut rng = rand::rng();
+    let mut rng = get_rng_impl(None);
 
     let mut x: Vec<f32> = Vec::with_capacity(num_samples * 2);
     let mut y: Vec<f32> = Vec::with_capacity(num_samples);
@@ -193,5 +198,21 @@ mod tests {
         assert_eq!(dataset.target.len(), dataset.num_samples);
         assert_eq!(dataset.num_features, 2);
         assert_eq!(dataset.num_samples, 10);
+    }
+
+    #[cfg(not(any(feature = "std_rand", feature = "js")))]
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn test_generators_without_std_rand_are_reproducible() {
+        // without std_rand the generators use a fixed-seed SmallRng
+        assert_eq!(make_blobs(10, 2, 3).data, make_blobs(10, 2, 3).data);
+        assert_eq!(
+            make_circles(10, 0.5, 0.05).data,
+            make_circles(10, 0.5, 0.05).data
+        );
+        assert_eq!(make_moons(10, 0.05).data, make_moons(10, 0.05).data);
     }
 }

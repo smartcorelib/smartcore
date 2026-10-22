@@ -47,8 +47,9 @@ serde = ["dep:serde", "dep:typetag"]
 ndarray-bindings = ["dep:ndarray"]
 
 # Sample datasets (iris, boston, digits, ...) and dataset generators.
-# Enables std_rand and serde because datasets ship serialized bundles.
-datasets = ["std_rand", "serde"]
+# Enables serde because datasets ship serialized bundles. Does not enable
+# std_rand: the generators use the crate RNG (SmallRng without std_rand).
+datasets = ["serde"]
 
 # Use the standard library RNG (StdRng / thread_rng) instead of SmallRng.
 # Required for non-deterministic seeding without an explicit seed.

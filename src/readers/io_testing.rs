@@ -1,13 +1,16 @@
 //! This module contains functionality to test IO. It has both functions that write
 //! to the file-system for end-to-end tests, but also abstractions to avoid this by
 //! reading from strings instead.
-use rand::distr::{Alphanumeric, SampleString};
 use std::fs;
 use std::io::Bytes;
 use std::io::Read;
 use std::io::{Chain, IoSliceMut, Take, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Writing out a temporary csv file at a random location and cleaning
+/// Counter that makes each temporary file name unique in the process.
+static TEMPORARY_FILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+/// Writing out a temporary csv file at a unique location and cleaning
 /// it up on `Drop`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TemporaryTextFile {
@@ -16,7 +19,13 @@ pub struct TemporaryTextFile {
 impl TemporaryTextFile {
     pub fn new(contents: &str) -> std::io::Result<Self> {
         let test_text_file = TemporaryTextFile {
-            random_path: Alphanumeric.sample_string(&mut rand::rng(), 16),
+            // Process id and counter give a unique name without an OS RNG,
+            // thus the tests do not need the `std_rand` feature.
+            random_path: format!(
+                "smartcore_tmp_{}_{}",
+                std::process::id(),
+                TEMPORARY_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+            ),
         };
         string_to_file(contents, &test_text_file.random_path)?;
         Ok(test_text_file)
