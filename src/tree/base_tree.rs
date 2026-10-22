@@ -935,34 +935,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
     }
 }
 
-// Regression: the leaf holds the prediction itself.
-impl<TX, TY, X, Y, C> BaseTree<TX, TY, X, Y, C>
-where
-    TX: Number + PartialOrd,
-    TY: Number,
-    X: Array2<TX>,
-    Y: Array1<TY>,
-    C: Criterion<Output = f64>,
-{
-    pub(crate) fn predict_for_row(&self, x: &X, row: usize) -> TY {
-        TY::from_f64(*self.leaf_output_for_row(x, row)).unwrap()
-    }
-
-    /// Predict regression value for `x`.
-    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
-
-        let (n, _) = x.shape();
-
-        for i in 0..n {
-            result.set(i, self.predict_for_row(x, i));
-        }
-
-        Ok(result)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1066,7 +1038,7 @@ mod tests {
             .sum::<f64>()
             / sample_weights.iter().sum::<f64>();
 
-        assert!((tree.predict_for_row(&x, 0) - expected).abs() < 1e-9);
+        assert!((*tree.leaf_output_for_row(&x, 0) - expected).abs() < 1e-9);
     }
 
     #[test]
@@ -1095,12 +1067,8 @@ mod tests {
         )
         .expect("Fit should work");
 
-        let y_pred_no_weights = tree_no_weights
-            .predict(&x_rand)
-            .expect("Predict should work");
-        let y_pred_with_weights = tree_with_weights
-            .predict(&x_rand)
-            .expect("Predict should work");
+        let y_pred_no_weights = predict(&tree_no_weights, &x_rand);
+        let y_pred_with_weights = predict(&tree_with_weights, &x_rand);
         assert!(mean_absolute_error(&y_pred_no_weights, &y_pred_with_weights) < 1e-9);
     }
 
@@ -1156,8 +1124,8 @@ mod tests {
         )
         .expect("Fit should work");
         // Predict on the same data
-        let y_pred_weighted = tree_weighted.predict(&x).expect("Predict should work");
-        let y_pred_repeated = tree_repeated.predict(&x).expect("Predict should work");
+        let y_pred_weighted = predict(&tree_weighted, &x);
+        let y_pred_repeated = predict(&tree_repeated, &x);
 
         assert!(mean_absolute_error(&y_pred_weighted, &y_pred_repeated) < 1e-9);
     }
@@ -1186,7 +1154,7 @@ mod tests {
         let tree =
             BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
         let y_expected = vec![1.0, 2.0, 6.5, 6.5, 11.50, 11.50];
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert_eq!(tree.nodes().len(), 7);
         assert_eq!(tree.depth, 3);
         assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
@@ -1220,7 +1188,7 @@ mod tests {
         let y_expected = vec![
             1.50, 1.50, 6.50, 6.50, 11.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0,
         ];
-        let y_hat = tree.predict(&x_test).expect("Predict should work");
+        let y_hat = predict(&tree, &x_test);
         assert_eq!(tree.nodes().len(), 7);
         assert_eq!(tree.depth, 3);
         assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
@@ -1286,7 +1254,7 @@ mod tests {
                 .all(|node| node.split_score.is_none_or(f64::is_finite))
         );
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert!(y_hat.iter().all(|v| v.is_finite()));
 
         // The best split separates x=3 from the other rows.
@@ -1321,7 +1289,7 @@ mod tests {
                 .all(|node| node.split_score.is_none_or(f64::is_finite))
         );
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert!(y_hat.iter().all(|v| v.is_finite()));
     }
 
@@ -1355,7 +1323,7 @@ mod tests {
         assert_eq!(tree.depth, 2);
         assert!((tree.nodes()[0].split_value.unwrap() - 1.5).abs() < 1e-9); // Split should be at 1.5
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         let y_expected = vec![2.5, 2.5, 27.5, 27.5]; // Expected values are weighted means
         assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
 
@@ -1375,7 +1343,7 @@ mod tests {
         let tree_repeated =
             BaseTree::fit_inner(&x_repeated, &y_repeated, None, &MSECriterion, parameters)
                 .expect("Fit should work");
-        let y_hat_repeated = tree_repeated.predict(&x).expect("Predict should work");
+        let y_hat_repeated = predict(&tree_repeated, &x);
         assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
     }
 
@@ -1414,7 +1382,7 @@ mod tests {
         assert!((TWO_POW_53 + 2) as f64 <= threshold);
         assert!(((TWO_POW_53 + 4) as f64) > threshold);
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![0.0, 10.0]);
     }
 
@@ -1434,7 +1402,7 @@ mod tests {
         )
         .expect("Fit should work");
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![5.0, 5.0]);
     }
 
@@ -1453,7 +1421,7 @@ mod tests {
         )
         .expect("Fit should work");
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![5.0, 5.0]);
     }
 
@@ -1482,7 +1450,7 @@ mod tests {
         assert!(a <= threshold);
         assert!(b > threshold);
 
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![0.0, 10.0]);
     }
 
@@ -1494,6 +1462,20 @@ mod tests {
     }
 
     type TestTree = BaseTree<f64, f64, DenseMatrix<f64>, Vec<f64>, MSECriterion>;
+
+    /// Leaf output of `tree` for each row of `x`.
+    fn predict<TX, TY, X, Y, C>(tree: &BaseTree<TX, TY, X, Y, C>, x: &X) -> Vec<C::Output>
+    where
+        TX: Number + PartialOrd,
+        TY: Number,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+        C: Criterion,
+    {
+        (0..x.shape().0)
+            .map(|i| tree.leaf_output_for_row(x, i).clone())
+            .collect()
+    }
 
     fn params(
         max_depth: Option<u16>,
@@ -1520,7 +1502,7 @@ mod tests {
             .collect()
     }
 
-    /// Index of the leaf that gets row `row` of `x`. Uses the same rule as `predict_for_row`.
+    /// Index of the leaf that gets row `row` of `x`. Uses the same rule as `leaf_output_for_row`.
     fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
         let mut node_id = 0;
         while let Some(true_child) = tree.nodes()[node_id].true_child {
@@ -1635,7 +1617,7 @@ mod tests {
         )
         .expect("Fit should work");
         assert_eq!(tree.nodes()[0].split_value, Some(4.5));
-        let y_hat = tree.predict(&x).expect("Predict should work");
+        let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![5.5, 5.5, 5.5, 5.5, 105.5, 105.5, 105.5, 105.5]);
 
         // No limit is the same as the largest limit, and the leaves memorize y.
@@ -1656,7 +1638,7 @@ mod tests {
         )
         .expect("Fit should work");
         assert_same_tree(&tree_none, &tree_max);
-        assert_eq!(tree_none.predict(&x).expect("Predict should work"), y);
+        assert_eq!(predict(&tree_none, &x), y);
 
         for max_depth in 1..=4 {
             let tree: TestTree = BaseTree::fit_inner(
@@ -1824,7 +1806,7 @@ mod tests {
                     .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
             assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
-            let y_hat = tree.predict(&x).expect("Predict should work");
+            let y_hat = predict(&tree, &x);
             assert_eq!(y_hat, vec![3.0; 4], "splitter: {splitter:?}");
         }
     }
@@ -1943,8 +1925,8 @@ mod tests {
 
                     assert!(tree.nodes().len() > 1);
                     assert_same_tree(&tree, &tree_rep);
-                    let y_hat = tree.predict(&x).expect("Predict should work");
-                    let y_hat_rep = tree_rep.predict(&x).expect("Predict should work");
+                    let y_hat = predict(&tree, &x);
+                    let y_hat_rep = predict(&tree_rep, &x);
                     assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
                 }
             }
@@ -1984,8 +1966,8 @@ mod tests {
 
                 assert!(tree.nodes().len() > 1);
                 assert_same_tree(&tree, &tree_rep);
-                let y_hat = tree.predict(&x).expect("Predict should work");
-                let y_hat_rep = tree_rep.predict(&x).expect("Predict should work");
+                let y_hat = predict(&tree, &x);
+                let y_hat_rep = predict(&tree_rep, &x);
                 assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
             }
         }

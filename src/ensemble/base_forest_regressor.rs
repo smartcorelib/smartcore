@@ -181,9 +181,9 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
-
         let (n, _) = x.shape();
+
+        let mut result = Y::zeros(n);
 
         for i in 0..n {
             result.set(i, self.predict_for_row(x, i));
@@ -198,7 +198,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         let mut result = TY::zero();
 
         for tree in self.trees.as_ref().unwrap().iter() {
-            result += tree.predict_for_row(x, row);
+            result += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
         }
 
         result / TY::from_usize(n_trees).unwrap()
@@ -246,7 +246,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             .zip(self.samples.as_ref().unwrap())
         {
             if !samples[row] {
-                result += tree.predict_for_row(x, row);
+                result += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
                 n_trees += 1;
             }
         }

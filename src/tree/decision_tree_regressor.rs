@@ -363,7 +363,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match &self.tree_regressor {
-            Some(tree) => tree.predict(x),
+            Some(tree) => {
+                let mut result = Y::zeros(x.shape().0);
+
+                let (n, _) = x.shape();
+
+                for i in 0..n {
+                    result.set(i, TY::from_f64(*tree.leaf_output_for_row(x, i)).unwrap());
+                }
+
+                Ok(result)
+            }
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
