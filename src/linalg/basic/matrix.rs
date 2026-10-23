@@ -99,10 +99,8 @@ where
     // Duplicate check on the sorted offsets instead of a `HashSet`, so that
     // this check works with `alloc` only (no `std` hash collections).
     #[cfg(debug_assertions)]
-    {
-        if let Some(w) = sorted.windows(2).find(|w| w[0].0 == w[1].0) {
-            panic!("iterator_mut: aliasing detected at offset {}", w[0].0);
-        }
+    if let Some(o) = first_duplicate_offset(&sorted) {
+        panic!("iterator_mut: aliasing detected at offset {o}");
     }
 
     let mut result: Vec<Option<&'b mut T>> = (0..n).map(|_| None).collect();
@@ -117,6 +115,13 @@ where
     }
 
     Box::new(result.into_iter().map(|r| r.expect("filled")))
+}
+
+/// Returns the first offset that occurs more than once in `sorted`, which
+/// must be sorted by offset.
+#[cfg(any(debug_assertions, test))]
+fn first_duplicate_offset(sorted: &[(usize, usize)]) -> Option<usize> {
+    sorted.windows(2).find(|w| w[0].0 == w[1].0).map(|w| w[0].0)
 }
 
 /// Dense matrix
@@ -849,6 +854,16 @@ mod tests {
             .iterator_mut(0)
             .for_each(|v| *v += 2);
         assert_eq!(vec![1, 4, 3, 4, 7, 6], *x.values);
+    }
+
+    #[test]
+    fn test_first_duplicate_offset() {
+        assert_eq!(first_duplicate_offset(&[]), None);
+        assert_eq!(first_duplicate_offset(&[(0, 0), (1, 1), (2, 2)]), None);
+        assert_eq!(
+            first_duplicate_offset(&[(0, 0), (1, 2), (1, 1), (3, 3)]),
+            Some(1)
+        );
     }
 
     #[cfg(debug_assertions)]
