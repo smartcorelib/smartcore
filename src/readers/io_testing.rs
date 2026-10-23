@@ -21,11 +21,15 @@ impl TemporaryTextFile {
         let test_text_file = TemporaryTextFile {
             // Process id and counter give a unique name without an OS RNG,
             // thus the tests do not need the `std_rand` feature.
-            random_path: format!(
-                "smartcore_tmp_{}_{}",
-                std::process::id(),
-                TEMPORARY_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
-            ),
+            // The file is in the OS temporary directory, not in the working directory.
+            random_path: std::env::temp_dir()
+                .join(format!(
+                    "smartcore_tmp_{}_{}",
+                    std::process::id(),
+                    TEMPORARY_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+                ))
+                .to_string_lossy()
+                .into_owned(),
         };
         string_to_file(contents, &test_text_file.random_path)?;
         Ok(test_text_file)

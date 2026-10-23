@@ -49,6 +49,8 @@ ndarray-bindings = ["dep:ndarray"]
 # Sample datasets (iris, boston, digits, ...) and dataset generators.
 # Enables serde because datasets ship serialized bundles. Does not enable
 # std_rand: the generators use the crate RNG (SmallRng without std_rand).
+# Without std_rand, make_blobs/make_circles/make_moons use a fixed seed and give
+# the same output for each call. Add std_rand for non-deterministic generators.
 datasets = ["serde"]
 
 # Use the standard library RNG (StdRng / thread_rng) instead of SmallRng.
