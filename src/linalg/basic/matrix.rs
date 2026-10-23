@@ -34,7 +34,7 @@ use crate::error::Failed;
 /// the sub-slice spans gaps). The traversal order is identical to the previous
 /// raw-pointer implementation; only the borrow-proving mechanism changes.
 ///
-/// `debug_assert!`s verify the computed offsets are in-bounds and distinct
+/// Debug-only checks verify the computed offsets are in-bounds and distinct
 /// (mirroring the old `#[cfg(debug_assertions)]` aliasing checks).
 fn ordered_iter_mut<'b, T>(
     values: &'b mut [T],
@@ -74,15 +74,10 @@ where
     #[cfg(debug_assertions)]
     {
         let len = values.len();
-        let mut seen = std::collections::HashSet::new();
         for &o in &desired {
             assert!(
                 o < len,
                 "iterator_mut: offset {o} out of bounds (len={len})"
-            );
-            assert!(
-                seen.insert(o),
-                "iterator_mut: aliasing detected at offset {o}"
             );
         }
     }
@@ -101,6 +96,10 @@ where
     let mut sorted: Vec<(usize, usize)> =
         desired.iter().enumerate().map(|(i, &o)| (o, i)).collect();
     sorted.sort_unstable_by_key(|&(o, _)| o);
+    // Duplicate check on the sorted offsets instead of a `HashSet`, so that
+    // this check works with `alloc` only (no `std` hash collections).
+    #[cfg(debug_assertions)]
+    assert_distinct_offsets(&sorted);
 
     let mut result: Vec<Option<&'b mut T>> = (0..n).map(|_| None).collect();
     let mut rest = values;
@@ -114,6 +113,15 @@ where
     }
 
     Box::new(result.into_iter().map(|r| r.expect("filled")))
+}
+
+/// Panics if an offset occurs more than once in `sorted`, which must be
+/// sorted by offset.
+#[cfg(any(debug_assertions, test))]
+fn assert_distinct_offsets(sorted: &[(usize, usize)]) {
+    if let Some(w) = sorted.windows(2).find(|w| w[0].0 == w[1].0) {
+        panic!("iterator_mut: aliasing detected at offset {}", w[0].0);
+    }
 }
 
 /// Dense matrix
@@ -846,6 +854,35 @@ mod tests {
             .iterator_mut(0)
             .for_each(|v| *v += 2);
         assert_eq!(vec![1, 4, 3, 4, 7, 6], *x.values);
+    }
+
+    #[test]
+    fn test_assert_distinct_offsets() {
+        assert_distinct_offsets(&[]);
+        assert_distinct_offsets(&[(0, 0), (1, 1), (2, 2)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "iterator_mut: aliasing detected at offset 1")]
+    fn test_assert_distinct_offsets_detects_duplicate() {
+        assert_distinct_offsets(&[(0, 0), (1, 2), (1, 1), (3, 3)]);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "iterator_mut: aliasing detected at offset 1")]
+    fn test_ordered_iter_mut_detects_aliasing() {
+        // stride 1 < ncols 2: offsets of row 0 and row 1 overlap.
+        let mut values = vec![0, 1, 2];
+        let _ = ordered_iter_mut(&mut values, 1, 2, 2, false, 0);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "iterator_mut: offset 3 out of bounds (len=3)")]
+    fn test_ordered_iter_mut_detects_out_of_bounds() {
+        let mut values = vec![0, 1, 2];
+        let _ = ordered_iter_mut(&mut values, 2, 2, 2, false, 0);
     }
 
     #[test]
