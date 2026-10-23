@@ -335,6 +335,15 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     }
 }
 
+/// Format a 1D view as a list, for example `[1.0, 2.5]`.
+/// Elements use their `Debug` format. The elements are streamed into the
+/// formatter and are not copied. Formatter flags such as `{:.2}` apply to each element.
+impl<T: Debug + Display + Copy + Sized> fmt::Display for dyn ArrayView1<T> + '_ {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iterator(0)).finish()
+    }
+}
+
 /// Trait for 2D-array
 pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)> {
     /// return max value in array
@@ -724,6 +733,15 @@ pub trait MutArrayView1<T: Debug + Display + Copy + Sized>:
             z += *v;
         });
         self.iterator_mut(0).for_each(|v| *v /= z);
+    }
+}
+
+/// Format a mutable 1D view as a list, for example `[1.0, 2.5]`.
+/// Elements use their `Debug` format. The elements are streamed into the
+/// formatter and are not copied. Formatter flags such as `{:.2}` apply to each element.
+impl<T: Debug + Display + Copy + Sized> fmt::Display for dyn MutArrayView1<T> + '_ {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iterator(0)).finish()
     }
 }
 
