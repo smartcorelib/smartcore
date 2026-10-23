@@ -47,11 +47,19 @@ pub(crate) trait Criterion {
     /// Value of a leaf that contains the samples of `stats`.
     fn leaf_value(&self, stats: &Self::Stats) -> Self::Output;
 
-    /// Are the outputs approximately equal?
-    fn output_approximate_eq(out: &Self::Output, other_out: &Self::Output) -> bool;
-
     /// Convert a target value of the training data to the target of this criterion.
     fn target<T: Number>(&self, y: T) -> Self::Target;
+}
+
+/// Value in a leaf of a tree.
+pub(crate) trait LeafOutput: Clone + Debug {
+    fn approximate_eq(&self, other: &Self) -> bool;
+}
+
+impl LeafOutput for f64 {
+    fn approximate_eq(&self, other: &f64) -> bool {
+        (self - other).abs() < f64::EPSILON
+    }
 }
 
 /// Statistics for the weighted mean of the targets.
@@ -122,10 +130,6 @@ impl Criterion for MSECriterion {
         } else {
             0.0
         }
-    }
-
-    fn output_approximate_eq(out: &Self::Output, other_out: &Self::Output) -> bool {
-        (out - other_out).abs() < f64::EPSILON
     }
 
     fn target<T: Number>(&self, y: T) -> Self::Target {
@@ -405,17 +409,14 @@ mod tests {
     }
 
     #[test]
-    fn mse_output_approximate_eq() {
-        assert!(MSECriterion::output_approximate_eq(&1.5, &1.5));
-        assert!(MSECriterion::output_approximate_eq(&0.0, &-0.0));
+    fn f64_approximate_eq() {
+        assert!(1.5.approximate_eq(&1.5));
+        assert!(0.0.approximate_eq(&-0.0));
         // Difference smaller than EPSILON
-        assert!(MSECriterion::output_approximate_eq(
-            &0.0,
-            &(f64::EPSILON / 2.0)
-        ));
+        assert!(0.0.approximate_eq(&(f64::EPSILON / 2.0)));
         // Difference of exactly EPSILON is not "approximately equal" (strict comparison)
-        assert!(!MSECriterion::output_approximate_eq(&0.0, &f64::EPSILON));
-        assert!(!MSECriterion::output_approximate_eq(&1.0, &1.1));
-        assert!(!MSECriterion::output_approximate_eq(&f64::NAN, &f64::NAN));
+        assert!(!0.0.approximate_eq(&f64::EPSILON));
+        assert!(!1.0.approximate_eq(&1.1));
+        assert!(!f64::NAN.approximate_eq(&f64::NAN));
     }
 }

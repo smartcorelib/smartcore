@@ -125,7 +125,7 @@ pub struct ExtraTreesRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    forest_regressor: Option<BaseForest<TX, TY, X, Y, MSECriterion>>,
+    forest_regressor: Option<BaseForest<TX, TY, X, Y, f64>>,
 }
 
 impl ExtraTreesRegressorParameters {

@@ -12,7 +12,7 @@ use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
-use crate::tree::criterion::Criterion;
+use crate::tree::criterion::{Criterion, LeafOutput};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -47,8 +47,13 @@ pub struct BaseForestParameters {
     pub splitter: Splitter,
 }
 
-impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-    PartialEq for BaseForest<TX, TY, X, Y, C>
+impl<
+    TX: Number + FloatNumber + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    Out: LeafOutput,
+> PartialEq for BaseForest<TX, TY, X, Y, Out>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.trees.as_ref().unwrap().len() != other.trees.as_ref().unwrap().len() {
@@ -62,14 +67,11 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     }
 }
 
-/// Base forest of decision trees. The criterion `C` selects the splits and gives the leaf values.
+/// Base forest of decision trees. Out is the type of the leaf values. The criterion is passed to fit.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "serde",
-    serde(bound(
-        serialize = "C::Output: Serialize",
-        deserialize = "C::Output: Deserialize<'de>"
-    ))
+    serde(bound(serialize = "Out: Serialize", deserialize = "Out: Deserialize<'de>"))
 )]
 #[derive(Debug)]
 pub struct BaseForest<
@@ -77,18 +79,23 @@ pub struct BaseForest<
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
-    C: Criterion,
+    Out: LeafOutput,
 > {
-    trees: Option<Vec<BaseTree<TX, TY, X, Y, C>>>,
+    trees: Option<Vec<BaseTree<TX, TY, X, Y, Out>>>,
     num_features: Option<usize>,
     samples: Option<Vec<Vec<bool>>>,
 }
 
-impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-    BaseForest<TX, TY, X, Y, C>
+impl<
+    TX: Number + FloatNumber + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    Out: LeafOutput,
+> BaseForest<TX, TY, X, Y, Out>
 {
     /// The trees of the forest. Call only after `fit`.
-    pub(crate) fn trees(&self) -> &[BaseTree<TX, TY, X, Y, C>] {
+    pub(crate) fn trees(&self) -> &[BaseTree<TX, TY, X, Y, Out>] {
         self.trees.as_ref().unwrap()
     }
 
@@ -101,13 +108,13 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - the target class values
     /// * `sample_weights`: optional sample_weights to use during fitting
-    pub fn fit(
+    pub fn fit<C: Criterion<Output = Out>>(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
         criterion: &C,
         parameters: BaseForestParameters,
-    ) -> Result<BaseForest<TX, TY, X, Y, C>, Failed> {
+    ) -> Result<BaseForest<TX, TY, X, Y, Out>, Failed> {
         let (n_rows, num_attributes) = x.shape();
 
         if n_rows != y.shape() {
@@ -126,7 +133,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         let mut rng = get_rng_impl(Some(parameters.seed));
         let n_trees = parameters.n_trees;
-        let mut trees: Vec<BaseTree<TX, TY, X, Y, C>> = Vec::with_capacity(n_trees);
+        let mut trees: Vec<BaseTree<TX, TY, X, Y, Out>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
@@ -152,7 +159,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         for tree_idx in 0..parameters.n_trees {
             if parameters.bootstrap {
-                samples = BaseForest::<TX, TY, X, Y, C>::sample_with_replacement(
+                samples = BaseForest::<TX, TY, X, Y, Out>::sample_with_replacement(
                     n_rows,
                     &mut rng,
                     dist.as_ref(),
@@ -252,8 +259,8 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 }
 
 /// Mean of the tree predictions for each row of `x`.
-pub(crate) fn predict_mean<TX, TY, X, Y, C>(
-    forest: &BaseForest<TX, TY, X, Y, C>,
+pub(crate) fn predict_mean<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, f64>,
     x: &X,
 ) -> Result<Y, Failed>
 where
@@ -261,7 +268,6 @@ where
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
-    C: Criterion<Output = f64>,
 {
     let (n, _) = x.shape();
     let mut result = Y::zeros(n);
@@ -279,8 +285,8 @@ where
 
 /// Mean of the out-of-bag tree predictions for each row of `x`.
 /// `x` is expected to be equal to the dataset used in training.
-pub(crate) fn predict_mean_oob<TX, TY, X, Y, C>(
-    forest: &BaseForest<TX, TY, X, Y, C>,
+pub(crate) fn predict_mean_oob<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, f64>,
     x: &X,
 ) -> Result<Y, Failed>
 where
@@ -288,7 +294,6 @@ where
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
-    C: Criterion<Output = f64>,
 {
     let (n, _) = x.shape();
 

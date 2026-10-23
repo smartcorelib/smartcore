@@ -113,7 +113,7 @@ pub struct DecisionTreeRegressorParameters {
 #[derive(Debug)]
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
-    tree_regressor: Option<BaseTree<TX, TY, X, Y, MSECriterion>>,
+    tree_regressor: Option<BaseTree<TX, TY, X, Y, f64>>,
     num_features: Option<usize>,
 }
 

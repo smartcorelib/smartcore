@@ -11,7 +11,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
-use crate::tree::criterion::Criterion;
+use crate::tree::criterion::{Criterion, LeafOutput};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, Default)]
@@ -47,15 +47,17 @@ pub struct BaseTreeParameters {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "serde",
-    serde(bound(
-        serialize = "C::Output: Serialize",
-        deserialize = "C::Output: Deserialize<'de>"
-    ))
+    serde(bound(serialize = "Out: Serialize", deserialize = "Out: Deserialize<'de>"))
 )]
 #[derive(Debug)]
-pub struct BaseTree<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-{
-    nodes: Vec<Node<C::Output>>,
+pub struct BaseTree<
+    TX: Number + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    Out: LeafOutput,
+> {
+    nodes: Vec<Node<Out>>,
     parameters: Option<BaseTreeParameters>,
     depth: u16,
     root_mass: f64,
@@ -65,11 +67,11 @@ pub struct BaseTree<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array
     _phantom_y: PhantomData<Y>,
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-    BaseTree<TX, TY, X, Y, C>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: LeafOutput>
+    BaseTree<TX, TY, X, Y, Out>
 {
     /// Get nodes, return a shared reference
-    fn nodes(&self) -> &Vec<Node<C::Output>> {
+    fn nodes(&self) -> &Vec<Node<Out>> {
         self.nodes.as_ref()
     }
     /// Get parameters, return a shared reference
@@ -102,9 +104,9 @@ impl<Out> Node<Out> {
     }
 }
 
-impl<Out> Node<Out> {
-    fn approximate_eq<C: Criterion<Output = Out>>(&self, other: &Self) -> bool {
-        C::output_approximate_eq(&self.output, &other.output)
+impl<Out: LeafOutput> Node<Out> {
+    fn approximate_eq(&self, other: &Self) -> bool {
+        Out::approximate_eq(&self.output, &other.output)
             && self.split_feature == other.split_feature
             && match (self.split_value, other.split_value) {
                 (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
@@ -119,8 +121,8 @@ impl<Out> Node<Out> {
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion> PartialEq
-    for BaseTree<TX, TY, X, Y, C>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: LeafOutput> PartialEq
+    for BaseTree<TX, TY, X, Y, Out>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
@@ -129,7 +131,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
             self.nodes
                 .iter()
                 .zip(other.nodes().iter())
-                .all(|(a, b)| a.approximate_eq::<C>(b))
+                .all(|(a, b)| a.approximate_eq(b))
         }
     }
 }
@@ -368,16 +370,16 @@ where
     }
 }
 
-impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
-    BaseTree<TX, TY, X, Y, C>
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: LeafOutput>
+    BaseTree<TX, TY, X, Y, Out>
 {
-    pub(crate) fn fit_inner(
+    pub(crate) fn fit_inner<C: Criterion<Output = Out>>(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
         criterion: &C,
         parameters: BaseTreeParameters,
-    ) -> Result<BaseTree<TX, TY, X, Y, C>, Failed> {
+    ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
         let (x_nrows, num_attributes) = x.shape();
         if x_nrows != y.shape() {
             return Err(Failed::fit("Size of x should equal size of y"));
@@ -410,7 +412,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         )
     }
 
-    pub(crate) fn fit_weak_learner(
+    pub(crate) fn fit_weak_learner<C: Criterion<Output = Out>>(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
@@ -419,10 +421,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         order: &[Vec<usize>],
         criterion: &C,
         parameters: BaseTreeParameters,
-    ) -> Result<BaseTree<TX, TY, X, Y, C>, Failed> {
+    ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
         check_row_count(y.shape())?;
         match sample_weights {
-            Some(_) => Self::grow::<WeightedElement>(
+            Some(_) => Self::grow::<WeightedElement, C>(
                 x,
                 y,
                 sample_weights,
@@ -435,15 +437,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
             None if samples.iter().all(|&s| s <= 1) => {
                 // Note: if any sample has count zero, it will be filtered out, so we should
                 // use the smallest possible NodeElement
-                Self::grow::<UnitElement>(x, y, None, samples, mtry, order, criterion, parameters)
+                Self::grow::<UnitElement, C>(
+                    x, y, None, samples, mtry, order, criterion, parameters,
+                )
             }
-            None => Self::grow::<CountedElement>(
+            None => Self::grow::<CountedElement, C>(
                 x, y, None, samples, mtry, order, criterion, parameters,
             ),
         }
     }
 
-    fn grow<E: NodeElement>(
+    fn grow<E: NodeElement, C: Criterion<Output = Out>>(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
@@ -452,8 +456,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         order: &[Vec<usize>],
         criterion: &C,
         parameters: BaseTreeParameters,
-    ) -> Result<BaseTree<TX, TY, X, Y, C>, Failed> {
-        let mut nodes: Vec<Node<C::Output>> = Vec::new();
+    ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
+        let mut nodes: Vec<Node<Out>> = Vec::new();
         let mut rng = get_rng_impl(parameters.seed);
 
         let mut n = 0usize;
@@ -559,7 +563,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         Ok(base_tree)
     }
 
-    pub(crate) fn leaf_output_for_row(&self, x: &X, row: usize) -> &C::Output {
+    pub(crate) fn leaf_output_for_row(&self, x: &X, row: usize) -> &Out {
         let mut node_id = 0;
         loop {
             let node = &self.nodes[node_id];
@@ -577,7 +581,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         }
     }
 
-    fn find_best_cutoff<E: NodeElement>(
+    fn find_best_cutoff<E: NodeElement, C: Criterion<Output = Out>>(
         &mut self,
         visitor: &mut NodeVisitor<'_, TX, TY, X, Y, C>,
         mtry: usize,
@@ -605,7 +609,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         self.nodes[visitor.node].split_score.is_some()
     }
 
-    fn find_random_split<E: NodeElement>(
+    fn find_random_split<E: NodeElement, C: Criterion<Output = Out>>(
         &mut self,
         visitor: &NodeVisitor<'_, TX, TY, X, Y, C>,
         n: usize,
@@ -672,7 +676,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
         }
     }
 
-    fn find_best_split<E: NodeElement>(
+    fn find_best_split<E: NodeElement, C: Criterion<Output = Out>>(
         &mut self,
         visitor: &NodeVisitor<'_, TX, TY, X, Y, C>,
         n: usize,
@@ -754,7 +758,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Crite
     /// split, push it on `visitor_stack`.
     /// If a branch has fewer than `min_samples_leaf` samples, clear the split and
     /// keep the node as a leaf.
-    fn split<'a, E: NodeElement>(
+    fn split<'a, E: NodeElement, C: Criterion<Output = Out>>(
         &mut self,
         visitor: NodeVisitor<'a, TX, TY, X, Y, C>,
         mtry: usize,
@@ -1461,16 +1465,16 @@ mod tests {
         assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
     }
 
-    type TestTree = BaseTree<f64, f64, DenseMatrix<f64>, Vec<f64>, MSECriterion>;
+    type TestTree = BaseTree<f64, f64, DenseMatrix<f64>, Vec<f64>, f64>;
 
     /// Leaf output of `tree` for each row of `x`.
-    fn predict<TX, TY, X, Y, C>(tree: &BaseTree<TX, TY, X, Y, C>, x: &X) -> Vec<C::Output>
+    fn predict<TX, TY, X, Y, Out>(tree: &BaseTree<TX, TY, X, Y, Out>, x: &X) -> Vec<Out>
     where
         TX: Number + PartialOrd,
         TY: Number,
         X: Array2<TX>,
         Y: Array1<TY>,
-        C: Criterion,
+        Out: LeafOutput,
     {
         (0..x.shape().0)
             .map(|i| tree.leaf_output_for_row(x, i).clone())
