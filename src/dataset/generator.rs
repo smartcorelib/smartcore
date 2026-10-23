@@ -85,6 +85,10 @@ pub fn make_blobs_with_seed(
 /// is random for each call. Without `std_rand` (and without `js`) the RNG uses a
 /// fixed seed, thus each call gives the same output. Use [`make_circles_with_seed`] to
 /// select the seed.
+///
+/// # Panics
+///
+/// Panics if `factor` is not in the range `0..1`.
 #[must_use]
 pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32, u32> {
     make_circles_with_seed(num_samples, factor, noise, None)
@@ -92,6 +96,10 @@ pub fn make_circles(num_samples: usize, factor: f32, noise: f32) -> Dataset<f32,
 
 /// Same as [`make_circles`], but uses `seed` for the RNG. With `Some(seed)` the output is
 /// reproducible with all features. With `None` the behaviour is the same as [`make_circles`].
+///
+/// # Panics
+///
+/// Panics if `factor` is not in the range `0..1`.
 #[must_use]
 pub fn make_circles_with_seed(
     num_samples: usize,
@@ -264,6 +272,19 @@ mod tests {
             make_circles(10, 0.5, 0.05).data
         );
         assert_eq!(make_moons(10, 0.05).data, make_moons(10, 0.05).data);
+        // a `None` seed gives the same output as the plain function
+        assert_eq!(
+            make_blobs_with_seed(10, 2, 3, None).data,
+            make_blobs(10, 2, 3).data
+        );
+        assert_eq!(
+            make_circles_with_seed(10, 0.5, 0.05, None).data,
+            make_circles(10, 0.5, 0.05).data
+        );
+        assert_eq!(
+            make_moons_with_seed(10, 0.05, None).data,
+            make_moons(10, 0.05).data
+        );
     }
 
     #[cfg(feature = "std_rand")]
