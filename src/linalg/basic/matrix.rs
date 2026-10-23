@@ -34,7 +34,7 @@ use crate::error::Failed;
 /// the sub-slice spans gaps). The traversal order is identical to the previous
 /// raw-pointer implementation; only the borrow-proving mechanism changes.
 ///
-/// `debug_assert!`s verify the computed offsets are in-bounds and distinct
+/// Debug-only checks verify the computed offsets are in-bounds and distinct
 /// (mirroring the old `#[cfg(debug_assertions)]` aliasing checks).
 fn ordered_iter_mut<'b, T>(
     values: &'b mut [T],
@@ -80,13 +80,6 @@ where
                 "iterator_mut: offset {o} out of bounds (len={len})"
             );
         }
-        // Sorted-`Vec` duplicate check instead of a `HashSet`, so that this
-        // check works with `alloc` only (no `std` hash collections).
-        let mut sorted_check = desired.clone();
-        sorted_check.sort_unstable();
-        if let Some(w) = sorted_check.windows(2).find(|w| w[0] == w[1]) {
-            panic!("iterator_mut: aliasing detected at offset {}", w[0]);
-        }
     }
 
     // Fast path: the desired order is the natural storage order, so the slice
@@ -103,6 +96,14 @@ where
     let mut sorted: Vec<(usize, usize)> =
         desired.iter().enumerate().map(|(i, &o)| (o, i)).collect();
     sorted.sort_unstable_by_key(|&(o, _)| o);
+    // Duplicate check on the sorted offsets instead of a `HashSet`, so that
+    // this check works with `alloc` only (no `std` hash collections).
+    #[cfg(debug_assertions)]
+    {
+        if let Some(w) = sorted.windows(2).find(|w| w[0].0 == w[1].0) {
+            panic!("iterator_mut: aliasing detected at offset {}", w[0].0);
+        }
+    }
 
     let mut result: Vec<Option<&'b mut T>> = (0..n).map(|_| None).collect();
     let mut rest = values;
