@@ -18,7 +18,8 @@ exclude = [
     "smartcore.iml",
     "smartcore.svg",
     "tests/",
-    "AGENTS.md"
+    "AGENTS.md",
+    "deny.toml"
 ]
 
 [dependencies]
