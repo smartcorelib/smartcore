@@ -37,7 +37,7 @@ Add to Cargo.toml:
 
 ```toml
 [dependencies]
-smartcore = "^0.6"
+smartcore = "^0.7"
 ```
 
 For the latest changes from the `main` branch:
@@ -54,6 +54,22 @@ Optional features (examples):
 - ndarray-bindings (deprecated in favor of ndarray-only support per recent changes)
 
 Check Cargo.toml for available features and compatibility notes.
+
+## Breaking changes in 0.7.0
+
+> [!WARNING]
+> The `datasets` feature no longer enables `std_rand` (#416).
+>
+> - The generators `make_blobs`, `make_circles` and `make_moons` no longer take their seed from the OS RNG.
+> - Without `std_rand` they use a fixed seed and return the same output on every call.
+> - With `std_rand` they take their seed from OS entropy, as before.
+>
+> To keep the 0.6 behaviour, enable both features:
+>
+> ```toml
+> [dependencies]
+> smartcore = { version = "^0.7", features = ["datasets", "std_rand"] }
+> ```
 
 ## Quick start
 
@@ -103,7 +119,7 @@ Recent refactors emphasize reusable components in trees/forests and expanded mul
 ## Data access and readers
 
 - CSV readers: Read matrices from CSV with configurable delimiter and header rows, with helpful error messages and testing utilities (including non-IO reader abstractions).
-- Dataset generators: make_blobs, make_circles, make_moons for quick experiments.
+- Dataset generators: make_blobs, make_circles, make_moons for quick experiments. Since 0.7.0 they use a fixed seed unless you also enable `std_rand` (see the breaking changes note above).
 - Built-in datasets (feature-gated): digits, diabetes, breast cancer, boston, with serialization utilities to persist or refresh .xy bundles.
 
 
