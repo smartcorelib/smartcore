@@ -47,7 +47,7 @@ Key features defined in `Cargo.toml`:
 
 - `ndarray-bindings` — optional `ndarray` integration.
 - `serde` — serialization support (also pulls in `typetag`).
-- `datasets` — built-in sample datasets; implies `std_rand` and `serde`.
+- `datasets` — built-in sample datasets; implies `serde` only. Since 0.7.0 it does not imply `std_rand` (breaking change, #416). Enable `std_rand` together with `datasets` to seed the generators from OS entropy.
 - `std_rand` — enables standard RNG facilities in `rand`.
 - `js` — for `wasm32-unknown-unknown` in-browser usage.
 

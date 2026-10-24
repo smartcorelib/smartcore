@@ -8,17 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
 
+## [0.7.0]
+### Added
+- `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
+- `linalg`: `Display` for `VecView` and `VecMutView` (#495).
+
+### Changed
+- In the `...Regressor`s the features are always shuffled even when `mtry` equals the number of attributes. This changes the constructed trees (#494).
+- **Breaking**: the `datasets` feature no longer enables `std_rand` (#416). The toy datasets now compile without `rand/std` and the OS RNG. The generators `make_blobs`, `make_circles` and `make_moons` now use the crate RNG. With `std_rand` the RNG takes its seed from OS entropy, as before. Without `std_rand` the RNG uses a fixed seed, thus the output is the same for each call. To keep the previous behaviour, enable `std_rand` together with `datasets`. This change must go in a minor version bump.
+- `error`: the error module uses `core::error::Error` and `core::fmt` (#498).
+
 ### Fixed
-- The ndarray implementation of `Array2::from_iterator` now preserves column-major input order, including for rectangular matrices that previously caused a panic. Column-major input produces a column-major array (#482).
+- `linalg`: scan adjacent offsets in the already-sorted vector, adding O(n) work without another allocation or sort (#500).
 
 ## [0.6.16]
 ### Fixed
 - `predict`, `predict_proba`, `predict_oob`, `predict_matrix` and `decision_function` now return `Err(Failed)` instead of panicking when `fit` has not run (#469, #470). Models return the same unfitted error even after deserialization, when the state fields are `None`. The guarded methods cover the decision trees, the random forests, the extra-trees regressor, the KNN classifier and regressor, `SVC`, `MultiClassSVC`, `SVR`, the linear models, the naive Bayes classifiers and `XGRegressor`.
 - `KNNClassifier::fit` now accepts `k = 1`, as `KNNRegressor` already did (#476). `k = 0` is still rejected.
+- The ndarray implementation of `Array2::from_iterator` now preserves column-major input order, including for rectangular matrices that previously caused a panic. Column-major input produces a column-major array (#482).
+- `ensemble`: `RandomForestRegressor` and `RandomForestClassifier` now give each tree its own seed (`seed + tree index`). Before this change, all trees of a forest used the same seed, so all trees picked the same feature samples (#475). A forest fitted with a fixed `seed` now returns different predictions, because the trees no longer share one feature sample. Fits with the same seed stay reproducible.
+- `ensemble`: sample weights now follow the scikit-learn rules. With `bootstrap = true`, the weights are used in the bootstrap phase only. With `bootstrap = false`, the weights go to each tree (#478). New tests compare `RandomForestRegressor` and `ExtraTreesRegressor` predictions (train, probe and OOB) with reference values from scikit-learn 1.9.1.
 
 ### Changed
 - The error text for an unfitted `MultiClassSVC::predict` changed from "MultiClassSVC is not fitted" to the common "'fit' should be called before calling 'predict'". Code that matched the old string must be updated.
 - The error text for an invalid `k` in `KNNClassifier::fit` changed from "k should be > 1" to "k should be > 0", the same text `KNNRegressor` uses. Code that matched the old string must be updated.
+- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) runs faster: less allocation, less sorting, node rows stored as `(start, end)` spans, and no partition step for child nodes that cannot split (#481). Split values no longer fall between adjacent floating-point numbers, so fitted values can differ slightly from earlier versions. New tests check parity of `RandomForestRegressor` with scikit-learn.
+- `linear`: the `test_logit` fixture now uses a 10000 x 94 random matrix instead of 52181 x 94. The class ratio stays the same (418 of 10000 rows are positive). The test checks the same property and runs much faster, so it stays inside the CI coverage time budget.
+- CI: the coverage job runs cargo-tarpaulin with the LLVM engine, in release mode and with a 600 s timeout, instead of the default engine (#485, fixes #484).
 
 ## [0.6.15]
 ### Fixed

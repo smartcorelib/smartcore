@@ -988,9 +988,10 @@ mod tests {
 
     #[test]
     fn test_logit() {
-        let x: &DenseMatrix<f64> = &DenseMatrix::rand(52181, 94);
-        let y1: Vec<u32> = vec![1; 2181];
-        let y2: Vec<u32> = vec![0; 50000];
+        // Class ratio matches the original 52181-row fixture (2181 positive of 52181).
+        let x: &DenseMatrix<f64> = &DenseMatrix::rand(10000, 94);
+        let y1: Vec<u32> = vec![1; 418];
+        let y2: Vec<u32> = vec![0; 9582];
         let y: &Vec<u32> = &(y1.into_iter().chain(y2).collect());
         println!("y vec height: {:?}", y.len());
         println!("x matrix shape: {:?}", x.shape());
@@ -1000,7 +1001,7 @@ mod tests {
 
         println!("y_hat shape: {:?}", y_hat.shape());
 
-        assert_eq!(y_hat.shape(), 52181);
+        assert_eq!(y_hat.shape(), 10000);
     }
 
     #[cfg_attr(
