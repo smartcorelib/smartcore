@@ -6,10 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
+
+### Added
 - Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the dense Gram workspace. Enable the feature and set `with_lazy_normalization(true)` to select this path. The default remains eager. The new parameter field is available only with the feature and defaults to false during deserialization (#479).
 
 ### Changed
 - **Breaking change:** Enabling `lazy-normalization` adds a public `lazy_normalization` field to `LassoParameters`, `LassoSearchParameters`, `ElasticNetParameters`, and `ElasticNetSearchParameters`. Struct literals without `..Default::default()` must add `lazy_normalization: false` to retain the eager path, or `true` to select the lazy path. This also applies when another dependency enables the feature through Cargo feature unification (#479).
+
+## [0.7.0]
+### Added
+- `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
+- `linalg`: `Display` for `VecView` and `VecMutView` (#495).
+
+### Changed
+- In the `...Regressor`s the features are always shuffled even when `mtry` equals the number of attributes. This changes the constructed trees (#494).
+- **Breaking**: the `datasets` feature no longer enables `std_rand` (#416). The toy datasets now compile without `rand/std` and the OS RNG. The generators `make_blobs`, `make_circles` and `make_moons` now use the crate RNG. With `std_rand` the RNG takes its seed from OS entropy, as before. Without `std_rand` the RNG uses a fixed seed, thus the output is the same for each call. To keep the previous behaviour, enable `std_rand` together with `datasets`. This change must go in a minor version bump.
+- `error`: the error module uses `core::error::Error` and `core::fmt` (#498).
+
+### Fixed
+- `linalg`: scan adjacent offsets in the already-sorted vector, adding O(n) work without another allocation or sort (#500).
 
 ## [0.6.16]
 ### Fixed

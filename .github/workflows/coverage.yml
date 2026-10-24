@@ -28,7 +28,7 @@ jobs:
       - name: Install cargo-tarpaulin
         run: cargo install --locked cargo-tarpaulin
       - name: Run cargo-tarpaulin
-        run: cargo tarpaulin --engine llvm --release --all-features --run-types Tests --run-types Doctests --out Lcov --fail-under 44 --timeout 600 -- --test-threads 1
+        run: cargo tarpaulin --release --engine llvm --all-features --run-types Tests --run-types Doctests --out Lcov --fail-under 80 -- --test-threads 1
       - name: Upload to codecov.io
         if: always()
         uses: codecov/codecov-action@v4

@@ -75,7 +75,7 @@ jobs:
       - name: Stable Build
         run: cargo build --no-default-features ${{ matrix.features }}
       - name: Tests
-        if: matrix.features == '--features ndarray-bindings' || contains(matrix.features, 'lazy-normalization')
+        if: matrix.features == '--features ndarray-bindings' || contains(matrix.features, 'lazy-normalization') || matrix.features == '--features datasets'
         run: cargo test --no-default-features ${{ matrix.features }}
 
   msrv:
