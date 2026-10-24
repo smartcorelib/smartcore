@@ -11,14 +11,15 @@ use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
-use crate::tree::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParameters, Splitter};
+use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
+use crate::tree::criterion::{Criterion, LeafOutput};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-/// Parameters of the Forest Regressor
+/// Parameters of a base forest.
 /// Some parameters here are passed directly into base estimator.
 #[must_use]
-pub struct BaseForestRegressorParameters {
+pub struct BaseForestParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub max_depth: Option<u16>,
@@ -46,8 +47,13 @@ pub struct BaseForestRegressorParameters {
     pub splitter: Splitter,
 }
 
-impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq
-    for BaseForestRegressor<TX, TY, X, Y>
+impl<
+    TX: Number + FloatNumber + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    Out: LeafOutput,
+> PartialEq for BaseForest<TX, TY, X, Y, Out>
 {
     fn eq(&self, other: &Self) -> bool {
         if self.trees.as_ref().unwrap().len() != other.trees.as_ref().unwrap().len() {
@@ -61,33 +67,54 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     }
 }
 
-/// Forest Regressor
+/// Base forest of decision trees. Out is the type of the leaf values. The criterion is passed to fit.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "Out: Serialize", deserialize = "Out: Deserialize<'de>"))
+)]
 #[derive(Debug)]
-pub struct BaseForestRegressor<
+pub struct BaseForest<
     TX: Number + FloatNumber + PartialOrd,
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
+    Out: LeafOutput,
 > {
-    trees: Option<Vec<BaseTreeRegressor<TX, TY, X, Y>>>,
+    trees: Option<Vec<BaseTree<TX, TY, X, Y, Out>>>,
     num_features: Option<usize>,
     samples: Option<Vec<Vec<bool>>>,
 }
 
-impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
-    BaseForestRegressor<TX, TY, X, Y>
+impl<
+    TX: Number + FloatNumber + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    Out: LeafOutput,
+> BaseForest<TX, TY, X, Y, Out>
 {
+    /// The trees of the forest. Call only after `fit`.
+    pub(crate) fn trees(&self) -> &[BaseTree<TX, TY, X, Y, Out>] {
+        self.trees.as_ref().unwrap()
+    }
+
+    /// For each tree, the rows it used in training. `None` if `keep_samples` was false.
+    pub(crate) fn samples(&self) -> Option<&[Vec<bool>]> {
+        self.samples.as_deref()
+    }
+
     /// Build a forest of trees from the training set.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - the target class values
     /// * `sample_weights`: optional sample_weights to use during fitting
-    pub fn fit(
+    pub fn fit<C: Criterion<Output = Out>>(
         x: &X,
         y: &Y,
         sample_weights: Option<&[f64]>,
-        parameters: BaseForestRegressorParameters,
-    ) -> Result<BaseForestRegressor<TX, TY, X, Y>, Failed> {
+        criterion: &C,
+        parameters: BaseForestParameters,
+    ) -> Result<BaseForest<TX, TY, X, Y, Out>, Failed> {
         let (n_rows, num_attributes) = x.shape();
 
         if n_rows != y.shape() {
@@ -106,7 +133,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         let mut rng = get_rng_impl(Some(parameters.seed));
         let n_trees = parameters.n_trees;
-        let mut trees: Vec<BaseTreeRegressor<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
+        let mut trees: Vec<BaseTree<TX, TY, X, Y, Out>> = Vec::with_capacity(n_trees);
 
         let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
         if parameters.keep_samples {
@@ -132,7 +159,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         for tree_idx in 0..parameters.n_trees {
             if parameters.bootstrap {
-                samples = BaseForestRegressor::<TX, TY, X, Y>::sample_with_replacement(
+                samples = BaseForest::<TX, TY, X, Y, Out>::sample_with_replacement(
                     n_rows,
                     &mut rng,
                     dist.as_ref(),
@@ -144,7 +171,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
                 all_samples.push(samples.iter().map(|x| *x != 0).collect())
             }
 
-            let params = BaseTreeRegressorParameters {
+            let params = BaseTreeParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
@@ -157,100 +184,24 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             } else {
                 sample_weights
             };
-            let tree = BaseTreeRegressor::fit_weak_learner(
+            let tree = BaseTree::fit_weak_learner(
                 x,
                 y,
                 sample_weights_for_base_tree,
                 samples.clone(),
                 mtry,
                 &order,
+                criterion,
                 params,
             )?;
             trees.push(tree);
         }
 
-        Ok(BaseForestRegressor {
+        Ok(BaseForest {
             trees: Some(trees),
             num_features: Some(x.shape().1),
             samples: maybe_all_samples,
         })
-    }
-
-    /// Predict class for `x`
-    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
-    pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
-
-        let (n, _) = x.shape();
-
-        for i in 0..n {
-            result.set(i, self.predict_for_row(x, i));
-        }
-
-        Ok(result)
-    }
-
-    fn predict_for_row(&self, x: &X, row: usize) -> TY {
-        let n_trees = self.trees.as_ref().unwrap().len();
-
-        let mut result = TY::zero();
-
-        for tree in self.trees.as_ref().unwrap().iter() {
-            result += tree.predict_for_row(x, row);
-        }
-
-        result / TY::from_usize(n_trees).unwrap()
-    }
-
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        let (n, _) = x.shape();
-
-        let samples = match &self.samples {
-            Some(s) => s,
-            None => {
-                return Err(Failed::because(
-                    FailedError::PredictFailed,
-                    "Need samples=true for OOB predictions.",
-                ));
-            }
-        };
-
-        if samples[0].len() != n {
-            return Err(Failed::because(
-                FailedError::PredictFailed,
-                "Prediction matrix must match matrix used in training for OOB predictions.",
-            ));
-        }
-
-        let mut result = Y::zeros(n);
-
-        for i in 0..n {
-            result.set(i, self.predict_for_row_oob(x, i));
-        }
-
-        Ok(result)
-    }
-
-    fn predict_for_row_oob(&self, x: &X, row: usize) -> TY {
-        let mut n_trees = 0;
-        let mut result = TY::zero();
-
-        for (tree, samples) in self
-            .trees
-            .as_ref()
-            .unwrap()
-            .iter()
-            .zip(self.samples.as_ref().unwrap())
-        {
-            if !samples[row] {
-                result += tree.predict_for_row(x, row);
-                n_trees += 1;
-            }
-        }
-
-        // TODO: What to do if there are no oob trees?
-        result / TY::from(n_trees).unwrap()
     }
 
     fn sample_with_replacement(
@@ -307,18 +258,93 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     }
 }
 
+/// Mean of the tree predictions for each row of `x`.
+pub(crate) fn predict_mean<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, f64>,
+    x: &X,
+) -> Result<Y, Failed>
+where
+    TX: Number + FloatNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+{
+    let (n, _) = x.shape();
+    let mut result = Y::zeros(n);
+    let num_trees = TY::from_usize(forest.trees().len()).unwrap();
+
+    for row in 0..n {
+        let mut sum = TY::zero();
+        for tree in forest.trees() {
+            sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
+        }
+        result.set(row, sum / num_trees);
+    }
+    Ok(result)
+}
+
+/// Mean of the out-of-bag tree predictions for each row of `x`.
+/// `x` is expected to be equal to the dataset used in training.
+pub(crate) fn predict_mean_oob<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, f64>,
+    x: &X,
+) -> Result<Y, Failed>
+where
+    TX: Number + FloatNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+{
+    let (n, _) = x.shape();
+
+    let samples = match forest.samples() {
+        Some(s) => s,
+        None => {
+            return Err(Failed::because(
+                FailedError::PredictFailed,
+                "Need samples=true for OOB predictions.",
+            ));
+        }
+    };
+
+    if samples[0].len() != n {
+        return Err(Failed::because(
+            FailedError::PredictFailed,
+            "Prediction matrix must match matrix used in training for OOB predictions.",
+        ));
+    }
+
+    let mut result = Y::zeros(n);
+
+    for row in 0..n {
+        let mut sum = TY::zero();
+        let mut n_trees = 0usize;
+        for (tree, in_bag) in forest.trees().iter().zip(samples) {
+            if !in_bag[row] {
+                sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
+                n_trees += 1;
+            }
+        }
+        // TODO: What to do if there are no oob trees?
+        result.set(row, sum / TY::from_usize(n_trees).unwrap());
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::tree::criterion::MSECriterion;
 
     #[test]
-    fn test_base_forest_regressor_keep_samples() {
+    fn test_base_forest_keep_samples() {
         let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0], &[5.0, 6.0]]).unwrap();
         let y = vec![1.0, 2.0, 3.0];
-        let params = BaseForestRegressorParameters {
+        let params = BaseForestParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -327,9 +353,9 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: true,
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
-        let regressor = BaseForestRegressor::fit(&x, &y, None, params).unwrap();
+        let regressor = BaseForest::fit(&x, &y, None, &MSECriterion, params).unwrap();
         assert_eq!(regressor.trees.unwrap().len(), 5);
         assert!(regressor.samples.is_some());
     }
@@ -342,11 +368,12 @@ mod tests {
         assert_eq!(empty.shape(), (0, 2));
 
         let y: Vec<f64> = vec![];
-        let result = BaseForestRegressor::fit(
+        let result = BaseForest::fit(
             &empty,
             &y,
             None,
-            BaseForestRegressorParameters {
+            &MSECriterion,
+            BaseForestParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -355,7 +382,7 @@ mod tests {
                 keep_samples: false,
                 seed: 0,
                 bootstrap: true,
-                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+                splitter: crate::tree::base_tree::Splitter::Best,
             },
         );
         assert!(result.is_err());
@@ -370,11 +397,12 @@ mod tests {
         assert_eq!(no_features.shape(), (2, 0));
 
         let y: Vec<f64> = vec![1.0, 2.0];
-        let result = BaseForestRegressor::fit(
+        let result = BaseForest::fit(
             &no_features,
             &y,
             None,
-            BaseForestRegressorParameters {
+            &MSECriterion,
+            BaseForestParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -383,7 +411,7 @@ mod tests {
                 keep_samples: false,
                 seed: 0,
                 bootstrap: true,
-                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+                splitter: crate::tree::base_tree::Splitter::Best,
             },
         );
         assert!(result.is_err());
@@ -400,7 +428,7 @@ mod tests {
         let model_parameters = (0..=9).map(|x| x as f64).collect::<Vec<_>>();
         let y: Vec<f64> = model_parameters.xa(true, &x);
 
-        let forest_parameters = BaseForestRegressorParameters {
+        let forest_parameters = BaseForestParameters {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -409,12 +437,12 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: false,
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
 
-        let forest = BaseForestRegressor::fit(&x, &y, None, forest_parameters.clone())
+        let forest = BaseForest::fit(&x, &y, None, &MSECriterion, forest_parameters.clone())
             .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
         assert!((y_hat.iter().sum::<f64>() - y.iter().sum::<f64>()).abs() < 1e-9);
 
         // Seeded RNG: the test gives the same result on each run
@@ -422,10 +450,15 @@ mod tests {
 
         // Positive weights in [0.5, 2.0)
         let sample_weights: Vec<f64> = (0..1000).map(|_| rng.random_range(0.5..2.0)).collect();
-        let forest =
-            BaseForestRegressor::fit(&x, &y, Some(&sample_weights), forest_parameters.clone())
-                .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let forest = BaseForest::fit(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            forest_parameters.clone(),
+        )
+        .expect("Fit should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         let s: f64 = sample_weights.iter().sum();
         let normalized_weights = sample_weights.iter().map(|w| *w / s).collect::<Vec<_>>();
@@ -454,7 +487,7 @@ mod tests {
         let sample_weights: Vec<f64> = (0..n_rows).map(|i| 1.0 + (i % 4) as f64).collect();
 
         for weights in [None, Some(sample_weights.as_slice())] {
-            let params = BaseForestRegressorParameters {
+            let params = BaseForestParameters {
                 max_depth: Some(1),
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -463,9 +496,9 @@ mod tests {
                 keep_samples: true, // keep samples used for each tree, so we can check that they are different
                 seed: 42,
                 bootstrap: true, // Use bootstrapping
-                splitter: crate::tree::base_tree_regressor::Splitter::Best,
+                splitter: crate::tree::base_tree::Splitter::Best,
             };
-            let regressor = BaseForestRegressor::fit(&x, &y, weights, params).unwrap();
+            let regressor = BaseForest::fit(&x, &y, weights, &MSECriterion, params).unwrap();
             let samples = regressor.samples.unwrap();
 
             for (t, in_bag) in samples.iter().enumerate() {
@@ -500,7 +533,7 @@ mod tests {
         let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
 
         for splitter in [Splitter::Best, Splitter::Random] {
-            let params = BaseForestRegressorParameters {
+            let params = BaseForestParameters {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
@@ -511,7 +544,7 @@ mod tests {
                 bootstrap: false,
                 splitter: splitter.clone(),
             };
-            let forest = BaseForestRegressor::fit(&x, &y, None, params).unwrap();
+            let forest = BaseForest::fit(&x, &y, None, &MSECriterion, params).unwrap();
             let trees = forest.trees.unwrap();
             assert!(
                 trees.iter().any(|tree| tree != &trees[0]),
@@ -529,7 +562,7 @@ mod tests {
         // Rows with y = 10 have weight 9, rows with y = 0 have weight 1.
         let sample_weights: Vec<f64> = (0..20).map(|i| if i < 10 { 1.0 } else { 9.0 }).collect();
 
-        let parameters = BaseForestRegressorParameters {
+        let parameters = BaseForestParameters {
             max_depth: Some(0),
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -538,12 +571,18 @@ mod tests {
             keep_samples: true,
             seed: 42,
             bootstrap: false, // No bootstrapping
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
 
-        let forest = BaseForestRegressor::fit(&x, &y, Some(&sample_weights), parameters.clone())
-            .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let forest = BaseForest::fit(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            parameters.clone(),
+        )
+        .expect("Fit should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
         for p in y_hat.iter() {
@@ -554,8 +593,9 @@ mod tests {
         }
 
         // Without weights, the predicted value should be close to 5
-        let forest = BaseForestRegressor::fit(&x, &y, None, parameters).expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let forest =
+            BaseForest::fit(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         for p in y_hat.iter() {
             assert!(
@@ -565,7 +605,7 @@ mod tests {
         }
 
         // Use bootstrapping
-        let parameters = BaseForestRegressorParameters {
+        let parameters = BaseForestParameters {
             max_depth: Some(0), // Match sibling test on RandomForestRegressor
             min_samples_leaf: 1,
             min_samples_split: 2,
@@ -574,12 +614,18 @@ mod tests {
             keep_samples: true, // keep samples used for each tree, so we can check that they are different
             seed: 42,
             bootstrap: true, // Use bootstrapping
-            splitter: crate::tree::base_tree_regressor::Splitter::Best,
+            splitter: crate::tree::base_tree::Splitter::Best,
         };
 
-        let forest = BaseForestRegressor::fit(&x, &y, Some(&sample_weights), parameters.clone())
-            .expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let forest = BaseForest::fit(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            parameters.clone(),
+        )
+        .expect("Fit should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         // with bootstrapping the weight should be close to 9, but not extremely close
         for p in y_hat.iter() {
@@ -590,8 +636,9 @@ mod tests {
         }
 
         // Without weights, the predicted value should be reasonably close to 5
-        let forest = BaseForestRegressor::fit(&x, &y, None, parameters).expect("Fit should work");
-        let y_hat = forest.predict(&x).expect("Predict should work");
+        let forest =
+            BaseForest::fit(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
+        let y_hat = predict_mean(&forest, &x).expect("Predict should work");
 
         // The bootstrapping makes that we will not be very close to 5
         for p in y_hat.iter() {
@@ -618,7 +665,7 @@ mod tests {
 
         for splitter in [Splitter::Best, Splitter::Random] {
             for weights in [None, Some(sample_weights.as_slice())] {
-                let params = BaseForestRegressorParameters {
+                let params = BaseForestParameters {
                     max_depth: None,
                     min_samples_leaf: 1,
                     min_samples_split: 2,
@@ -630,9 +677,9 @@ mod tests {
                     splitter: splitter.clone(),
                 };
 
-                let forest_a = BaseForestRegressor::fit(&x, &y, weights, params.clone())
+                let forest_a = BaseForest::fit(&x, &y, weights, &MSECriterion, params.clone())
                     .expect("Fit should work");
-                let forest_b = BaseForestRegressor::fit(&x, &y, weights, params.clone())
+                let forest_b = BaseForest::fit(&x, &y, weights, &MSECriterion, params.clone())
                     .expect("Fit should work");
 
                 assert_eq!(
@@ -644,17 +691,18 @@ mod tests {
                     "bootstrap samples differ (splitter: {splitter:?}, weights: {weights:?})"
                 );
                 assert_eq!(
-                    forest_a.predict(&x).unwrap(),
-                    forest_b.predict(&x).unwrap(),
+                    predict_mean(&forest_a, &x).unwrap(),
+                    predict_mean(&forest_b, &x).unwrap(),
                     "predictions differ (splitter: {splitter:?}, weights: {weights:?})"
                 );
 
                 // A different seed must give a different forest, else the check above is trivial
-                let forest_c = BaseForestRegressor::fit(
+                let forest_c = BaseForest::fit(
                     &x,
                     &y,
                     weights,
-                    BaseForestRegressorParameters { seed: 43, ..params },
+                    &MSECriterion,
+                    BaseForestParameters { seed: 43, ..params },
                 )
                 .expect("Fit should work");
                 assert_ne!(

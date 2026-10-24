@@ -50,12 +50,15 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::ensemble::base_forest_regressor::{BaseForestRegressor, BaseForestRegressorParameters};
+use crate::ensemble::base_forest::{
+    BaseForest, BaseForestParameters, predict_mean, predict_mean_oob,
+};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::tree::base_tree_regressor::Splitter;
+use crate::tree::base_tree::Splitter;
+use crate::tree::criterion::MSECriterion;
 
 /// Validates the sample weights
 fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
@@ -113,7 +116,7 @@ pub struct RandomForestRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y>>,
+    forest_regressor: Option<BaseForest<TX, TY, X, Y, f64>>,
 }
 
 impl RandomForestRegressorParameters {
@@ -427,7 +430,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         sample_weights: Option<&[f64]>,
         parameters: RandomForestRegressorParameters,
     ) -> Result<RandomForestRegressor<TX, TY, X, Y>, Failed> {
-        let regressor_params = BaseForestRegressorParameters {
+        let regressor_params = BaseForestParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
             min_samples_split: parameters.min_samples_split,
@@ -438,28 +441,29 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             bootstrap: true,
             splitter: Splitter::Best,
         };
-        let forest_regressor = BaseForestRegressor::fit(x, y, sample_weights, regressor_params)?;
+        let forest_regressor =
+            BaseForest::fit(x, y, sample_weights, &MSECriterion, regressor_params)?;
 
         Ok(RandomForestRegressor {
             forest_regressor: Some(forest_regressor),
         })
     }
 
-    /// Predict class for `x`
+    /// Predict value for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match &self.forest_regressor {
-            Some(forest) => forest.predict(x),
+            Some(forest) => predict_mean(forest, x),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
         }
     }
 
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
+    /// Predict OOB values for `x`. `x` is expected to be equal to the dataset used in training.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         match &self.forest_regressor {
-            Some(forest) => forest.predict_oob(x),
+            Some(forest) => predict_mean_oob(forest, x),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),

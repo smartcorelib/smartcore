@@ -7,6 +7,9 @@
 //! * ["Classification and regression trees", Breiman L, Friedman J H, Olshen R A, and Stone C J, 1984](https://www.taylorfrancis.com/books/mono/10.1201/9781315139470/classification-regression-trees-leo-breiman)
 //! * scikit-learn, `sklearn/tree/_criterion.pyx` (proxy improvement)
 
+use crate::numbers::basenum::Number;
+use std::fmt::Debug;
+
 /// Impurity measure that a tree uses to select splits.
 pub(crate) trait Criterion {
     /// Sufficient statistics for a set of samples.
@@ -14,7 +17,7 @@ pub(crate) trait Criterion {
     /// Target value of one sample.
     type Target: Copy;
     /// Value of a leaf.
-    type Output: Clone;
+    type Output: Clone + Debug;
 
     /// Statistics for an empty set. Use only this function to make new statistics.
     fn empty_stats(&self) -> Self::Stats;
@@ -43,6 +46,20 @@ pub(crate) trait Criterion {
 
     /// Value of a leaf that contains the samples of `stats`.
     fn leaf_value(&self, stats: &Self::Stats) -> Self::Output;
+
+    /// Convert a target value of the training data to the target of this criterion.
+    fn target<T: Number>(&self, y: T) -> Self::Target;
+}
+
+/// Value in a leaf of a tree.
+pub(crate) trait LeafOutput: Clone + Debug {
+    fn approximate_eq(&self, other: &Self) -> bool;
+}
+
+impl LeafOutput for f64 {
+    fn approximate_eq(&self, other: &f64) -> bool {
+        (self - other).abs() < f64::EPSILON
+    }
 }
 
 /// Statistics for the weighted mean of the targets.
@@ -53,6 +70,7 @@ pub(crate) struct MeanStats {
 }
 
 /// Mean squared error criterion for regression. The leaf value is the weighted mean.
+#[derive(Debug)]
 pub(crate) struct MSECriterion;
 
 impl Criterion for MSECriterion {
@@ -112,6 +130,10 @@ impl Criterion for MSECriterion {
         } else {
             0.0
         }
+    }
+
+    fn target<T: Number>(&self, y: T) -> Self::Target {
+        y.to_f64().unwrap()
     }
 }
 
@@ -369,5 +391,32 @@ mod tests {
                 "offset {offset}: improvement {improvement}, expected 81"
             );
         }
+    }
+
+    #[test]
+    fn mse_target_converts_numbers_to_f64() {
+        let criterion = MSECriterion;
+        assert_eq!(criterion.target(3.25_f64), 3.25);
+        assert_eq!(criterion.target(-1.5_f32), -1.5);
+        assert_eq!(criterion.target(-7_i32), -7.0);
+        assert_eq!(criterion.target(200_u8), 200.0);
+        assert_eq!(criterion.target(42_usize), 42.0);
+        // Largest integer that f64 represents exactly
+        assert_eq!(
+            criterion.target(9_007_199_254_740_992_i64),
+            9_007_199_254_740_992.0
+        );
+    }
+
+    #[test]
+    fn f64_approximate_eq() {
+        assert!(1.5.approximate_eq(&1.5));
+        assert!(0.0.approximate_eq(&-0.0));
+        // Difference smaller than EPSILON
+        assert!(0.0.approximate_eq(&(f64::EPSILON / 2.0)));
+        // Difference of exactly EPSILON is not "approximately equal" (strict comparison)
+        assert!(!0.0.approximate_eq(&f64::EPSILON));
+        assert!(!1.0.approximate_eq(&1.1));
+        assert!(!f64::NAN.approximate_eq(&f64::NAN));
     }
 }

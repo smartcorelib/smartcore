@@ -64,11 +64,12 @@ use std::fmt::Debug;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::base_tree_regressor::{BaseTreeRegressor, BaseTreeRegressorParameters, Splitter};
+use super::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
+use crate::tree::criterion::MSECriterion;
 
 /// Validates the sample weights
 fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
@@ -112,7 +113,7 @@ pub struct DecisionTreeRegressorParameters {
 #[derive(Debug)]
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
-    tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y>>,
+    tree_regressor: Option<BaseTree<TX, TY, X, Y, f64>>,
     num_features: Option<usize>,
 }
 
@@ -344,14 +345,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         sample_weights: Option<&[f64]>,
         parameters: DecisionTreeRegressorParameters,
     ) -> Result<DecisionTreeRegressor<TX, TY, X, Y>, Failed> {
-        let tree_parameters = BaseTreeRegressorParameters {
+        let tree_parameters = BaseTreeParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
             min_samples_split: parameters.min_samples_split,
             seed: parameters.seed,
             splitter: Splitter::Best,
         };
-        let tree = BaseTreeRegressor::fit_inner(x, y, sample_weights, tree_parameters)?;
+        let tree = BaseTree::fit_inner(x, y, sample_weights, &MSECriterion, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
             num_features: Some(x.shape().1),
@@ -362,7 +363,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match &self.tree_regressor {
-            Some(tree) => tree.predict(x),
+            Some(tree) => {
+                let mut result = Y::zeros(x.shape().0);
+
+                let (n, _) = x.shape();
+
+                for i in 0..n {
+                    result.set(i, TY::from_f64(*tree.leaf_output_for_row(x, i)).unwrap());
+                }
+
+                Ok(result)
+            }
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
