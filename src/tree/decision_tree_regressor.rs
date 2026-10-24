@@ -113,6 +113,7 @@ pub struct DecisionTreeRegressorParameters {
 pub struct DecisionTreeRegressor<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 {
     tree_regressor: Option<BaseTreeRegressor<TX, TY, X, Y>>,
+    num_features: Option<usize>,
 }
 
 impl DecisionTreeRegressorParameters {
@@ -292,6 +293,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     fn new() -> Self {
         Self {
             tree_regressor: None,
+            num_features: None,
         }
     }
 
@@ -352,6 +354,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
         let tree = BaseTreeRegressor::fit_inner(x, y, sample_weights, tree_parameters)?;
         Ok(Self {
             tree_regressor: Some(tree),
+            num_features: Some(x.shape().1),
         })
     }
 
@@ -362,6 +365,37 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
             Some(tree) => tree.predict(x),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
+            )),
+        }
+    }
+
+    /// Compute the feature importances for this tree.
+    /// * `normalize` - if `true` then the importances are normalized to one.
+    /// * returns: a vector where index `j` gives the feature importances for feature `j`
+    ///
+    /// ```
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    /// use smartcore::tree::decision_tree_regressor::*;
+    ///
+    /// // Column 1 is constant, so only column 0 can split the data.
+    /// let x = DenseMatrix::from_2d_array(&[&[0., 7.], &[1., 7.], &[2., 7.], &[3., 7.]]).unwrap();
+    /// let y: Vec<f64> = vec![1.0, 2.0, 5.0, 6.0];
+    /// let parameters = DecisionTreeRegressorParameters::default().with_max_depth(2);
+    /// let tree = DecisionTreeRegressor::fit(&x, &y, parameters).unwrap();
+    ///
+    /// // The split decreases the mean squared error from 4.25 to 0.25.
+    /// assert_eq!(tree.compute_feature_importances(false).unwrap(), vec![4.0, 0.0]);
+    /// assert_eq!(tree.compute_feature_importances(true).unwrap(), vec![1.0, 0.0]);
+    /// ```
+    pub fn compute_feature_importances(&self, normalize: bool) -> Result<Vec<f64>, Failed> {
+        match (&self.tree_regressor, self.num_features) {
+            (Some(tree), Some(num_features)) => {
+                let mut importances = vec![0.0f64; num_features];
+                tree.compute_feature_importances(normalize, &mut importances);
+                Ok(importances)
+            }
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'compute_feature_importances'",
             )),
         }
     }
@@ -687,6 +721,36 @@ mod tests {
         let deserialized_tree: DecisionTreeRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             postcard::from_bytes(&postcard::to_allocvec(&tree).unwrap()).unwrap();
 
+        // Compare tree structure
         assert_eq!(tree, deserialized_tree);
+
+        // Indirectly check that `root_mass` and `num_features` are correctly restored.
+        for normalize in [false, true] {
+            assert_eq!(
+                tree.compute_feature_importances(normalize).unwrap(),
+                deserialized_tree
+                    .compute_feature_importances(normalize)
+                    .unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn feature_importances_single_split() {
+        // Column 1 is constant: only column 0 can split.
+        // Split at 1.5: SSE(root) = 17, SSE(children) = 0.5 + 0.5, root mass = 4.
+        let x = DenseMatrix::from_2d_array(&[&[0., 7.], &[1., 7.], &[2., 7.], &[3., 7.]]).unwrap();
+        let y: Vec<f64> = vec![1.0, 2.0, 5.0, 6.0];
+        let parameters = DecisionTreeRegressorParameters::default().with_max_depth(2);
+        let tree = DecisionTreeRegressor::fit(&x, &y, parameters).expect("Fit should work");
+
+        assert_eq!(
+            tree.compute_feature_importances(false).unwrap(),
+            vec![4.0, 0.0]
+        );
+        assert_eq!(
+            tree.compute_feature_importances(true).unwrap(),
+            vec![1.0, 0.0]
+        );
     }
 }

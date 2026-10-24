@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking change:** Enabling `lazy-normalization` adds a public `lazy_normalization` field to `LassoParameters`, `LassoSearchParameters`, `ElasticNetParameters`, and `ElasticNetSearchParameters`. Struct literals without `..Default::default()` must add `lazy_normalization: false` to retain the eager path, or `true` to select the lazy path. This also applies when another dependency enables the feature through Cargo feature unification (#479).
 - `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) uses a new internal `Criterion` trait with `MSECriterion`. The MSE split improvement uses a numerically stable formula.  The selected splits do not change when a constant is added to y. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
 - `tree`: in the `...Regressor`s, rows with sample weight 0 are removed before the tree grows. They no longer count toward `min_samples_leaf` and `min_samples_split`, and they no longer move a split threshold. A tree fitted with a zero-weight row is the same as a tree fitted without that row.
+- `tree`, `ensemble`: `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` get a `compute_feature_importances` method. 
+- `tree`, `ensemble`: the fitted `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` store new fields that the feature importances use. Models serialized with an earlier version cannot be deserialized. Fit these models again.
 
 ## [0.7.0]
 ### Added
