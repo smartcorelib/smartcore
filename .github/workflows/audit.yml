@@ -1,0 +1,46 @@
+name: Dependency audit
+
+# `Cargo.lock` is not in the repository. Each run resolves the newest
+# compatible versions. A scheduled run finds new advisories and yanked
+# crates even when no one changes the code.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Create lockfile
+        run: cargo generate-lockfile
+      - name: Run cargo-audit
+        # Unmaintained crates give a warning only. Vulnerabilities fail the job
+        # by default. Yanked and unsound crates also fail the job.
+        run: cargo audit --deny yanked --deny unsound

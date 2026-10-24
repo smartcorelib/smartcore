@@ -491,7 +491,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             maybe_all_samples = Some(Vec::with_capacity(n_trees));
         }
 
-        for _ in 0..parameters.n_trees {
+        for tree_idx in 0..parameters.n_trees {
             let samples: Vec<usize> =
                 RandomForestClassifier::<TX, TY, X, Y>::sample_with_replacement(&yi, k, &mut rng);
             if let Some(ref mut all_samples) = maybe_all_samples {
@@ -503,7 +503,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
-                seed: Some(parameters.seed),
+                seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
             };
             let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
             trees.push(tree);
@@ -941,5 +941,56 @@ mod tests {
             postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
+    }
+
+    #[test]
+    fn each_tree_gets_different_feature_sample() {
+        // The classifier always uses bootstrapping, thus the trees are different also when
+        // they all use the same feature sample. For this reason, we look at the features
+        // directly. If all trees use the same seed, all trees split on the
+        // same feature.
+
+        // Create some data: x[i][j] = i * (j + 1)
+        let n_rows = 30;
+        let n_cols = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_cols * n_rows).map(|k| ((k / n_cols) * (k % n_cols + 1)) as f64),
+            n_rows,
+            n_cols,
+            0,
+        );
+        let y: Vec<u32> = (0..n_rows)
+            .map(|i| if i < n_rows / 2 { 0 } else { 1 })
+            .collect();
+
+        let params = RandomForestClassifierParameters {
+            criterion: SplitCriterion::Gini,
+            max_depth: Some(2),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 10,
+            m: Some(1),
+            keep_samples: false,
+            seed: 42,
+        };
+        let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
+
+        // Each tree has one split, thus one feature has a positive importance
+        let root_features: Vec<usize> = forest
+            .trees
+            .unwrap()
+            .iter()
+            .map(|tree| {
+                tree.compute_feature_importances(false)
+                    .iter()
+                    .position(|importance| *importance > 0.0)
+                    .unwrap_or(usize::MAX)
+            })
+            .collect();
+
+        assert!(
+            root_features.iter().any(|f| *f != root_features[0]),
+            "all trees split on the same feature: {root_features:?}"
+        );
     }
 }
