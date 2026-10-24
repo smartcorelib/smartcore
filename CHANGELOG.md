@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree`, `ensemble`: `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` get a `compute_feature_importances` method. 
 - `tree`, `ensemble`: the fitted `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` store new fields that the feature importances use. Models serialized with an earlier version cannot be deserialized. Fit these models again.
 
+### Added
+- `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
+
+### Changed
+- **Breaking**: the `datasets` feature no longer enables `std_rand` (#416). The toy datasets now compile without `rand/std` and the OS RNG. The generators `make_blobs`, `make_circles` and `make_moons` now use the crate RNG. With `std_rand` the RNG takes its seed from OS entropy, as before. Without `std_rand` the RNG uses a fixed seed, thus the output is the same for each call. To keep the previous behaviour, enable `std_rand` together with `datasets`. This change must go in a minor version bump.
+
 ## [0.6.16]
 ### Fixed
 - `predict`, `predict_proba`, `predict_oob`, `predict_matrix` and `decision_function` now return `Err(Failed)` instead of panicking when `fit` has not run (#469, #470). Models return the same unfitted error even after deserialization, when the state fields are `None`. The guarded methods cover the decision trees, the random forests, the extra-trees regressor, the KNN classifier and regressor, `SVC`, `MultiClassSVC`, `SVR`, the linear models, the naive Bayes classifiers and `XGRegressor`.
