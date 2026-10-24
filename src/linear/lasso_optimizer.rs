@@ -16,6 +16,9 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray, MutArra
 use crate::linear::bg_solver::BiconjugateGradientSolver;
 use crate::numbers::floatnum::FloatNumber;
 
+#[cfg(feature = "lazy-normalization")]
+use crate::linear::lazy_normalization::LazyDesign;
+
 /// Interior Point Optimizer
 pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     ata: X,
@@ -28,13 +31,44 @@ pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
 impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
     /// Initialize a new Interior Point Optimizer
     pub fn new(a: &X, n: usize) -> InteriorPointOptimizer<T, X> {
+        Self::from_gram(a.ab(true, a, false), n)
+    }
+
+    fn from_gram(ata: X, n: usize) -> Self {
         InteriorPointOptimizer {
-            ata: a.ab(true, a, false),
+            ata,
             d1: vec![T::zero(); n],
             d2: vec![T::zero(); n],
             prb: vec![T::zero(); n],
             prs: vec![T::zero(); n],
         }
+    }
+
+    #[cfg(feature = "lazy-normalization")]
+    pub(super) fn new_lazy(design: &LazyDesign<'_, T, X>) -> Self {
+        Self::from_gram(design.gram(), design.shape().1)
+    }
+
+    #[cfg(feature = "lazy-normalization")]
+    pub(super) fn optimize_lazy(
+        &mut self,
+        design: &LazyDesign<'_, T, X>,
+        y: &Vec<T>,
+        lambda: T,
+        max_iter: usize,
+        tol: T,
+        fit_intercept: bool,
+    ) -> Result<Vec<T>, Failed> {
+        self.optimize_with_products(
+            design.shape(),
+            y,
+            lambda,
+            max_iter,
+            tol,
+            fit_intercept,
+            |v| design.matvec(v),
+            |v| design.transpose_matvec(v),
+        )
     }
 
     /// Run the optimization
@@ -47,7 +81,34 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         tol: T,
         fit_intercept: bool,
     ) -> Result<Vec<T>, Failed> {
-        let (n, p) = x.shape();
+        self.optimize_with_products(
+            x.shape(),
+            y,
+            lambda,
+            max_iter,
+            tol,
+            fit_intercept,
+            |v| v.xa(true, x),
+            |v| v.xa(false, x),
+        )
+    }
+
+    fn optimize_with_products<F, G>(
+        &mut self,
+        shape: (usize, usize),
+        y: &Vec<T>,
+        lambda: T,
+        max_iter: usize,
+        tol: T,
+        fit_intercept: bool,
+        matvec: F,
+        transpose_matvec: G,
+    ) -> Result<Vec<T>, Failed>
+    where
+        F: Fn(&Vec<T>) -> Vec<T>,
+        G: Fn(&Vec<T>) -> Vec<T>,
+    {
+        let (n, p) = shape;
         let p_f64 = T::from_usize(p).unwrap();
 
         let lambda = lambda.max(T::epsilon());
@@ -96,7 +157,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         let lambda_f64 = lambda.to_f64().unwrap();
 
         for ntiter in 0..max_iter {
-            let mut z = w.xa(true, x);
+            let mut z = matvec(&w);
 
             for i in 0..n {
                 z[i] -= y[i];
@@ -104,7 +165,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
             }
 
             // CALCULATE DUALITY GAP
-            let xnu = nu.xa(false, x);
+            let xnu = transpose_matvec(&nu);
             let max_xnu = xnu.norm(f64::INFINITY);
             if max_xnu > lambda_f64 {
                 let lnu = T::from_f64(lambda_f64 / max_xnu).unwrap();
@@ -136,7 +197,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                 self.d2[i] = (q1i * q1i - q2i * q2i) / t;
             }
 
-            let mut gradphi = z.xa(false, x);
+            let mut gradphi = transpose_matvec(&z);
 
             for i in 0..p {
                 let g1 = T::two() * gradphi[i] - (q1[i] - q2[i]) / t;
@@ -157,7 +218,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                 pcgtol *= min_pcgtol;
             }
 
-            let error = self.solve_mut(x, &grad, &mut dxu, pcgtol, pcgmaxi)?;
+            let error = self.solve_mut(&self.ata, &grad, &mut dxu, pcgtol, pcgmaxi)?;
             if error > pcgtol {
                 pitr = pcgmaxi;
             }
@@ -184,7 +245,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                     .fold(T::neg_infinity(), |max, v| v.max(max))
                     < T::zero()
                 {
-                    let mut newz = neww.xa(true, x);
+                    let mut newz = matvec(&neww);
                     for i in 0..n {
                         newz[i] -= y[i];
                     }

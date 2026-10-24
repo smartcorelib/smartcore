@@ -16,7 +16,7 @@
 //!
 //! * ["An Introduction to Statistical Learning", James G., Witten D., Hastie T., Tibshirani R., 8.2 Bagging, Random Forests, Boosting](http://faculty.marshall.usc.edu/gareth-james/ISL/)
 
-mod base_forest_regressor;
+mod base_forest;
 pub mod extra_trees_regressor;
 /// Random forest classifier
 pub mod random_forest_classifier;
