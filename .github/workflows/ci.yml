@@ -94,7 +94,11 @@ jobs:
               ci/check-ndarray-features.sh std --features default,ndarray-bindings
               ;;
             *)
-              ci/check-ndarray-features.sh absent --no-default-features ${{ matrix.features }}
+              if [[ "${{ matrix.features }}" == *ndarray-bindings* ]]; then
+                ci/check-ndarray-features.sh no-std --no-default-features ${{ matrix.features }}
+              else
+                ci/check-ndarray-features.sh absent --no-default-features ${{ matrix.features }}
+              fi
               ;;
           esac
       - name: Tests
