@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
 
+### Changed
+- `Cargo.toml`: optional `ndarray` is now `default-features = false`, and the default feature set is `std` (`ndarray?/std`). Ordinary builds still enable ndarray's standard-library support when `ndarray-bindings` is on, while `std` alone does not activate ndarray. The `std` feature only controls ndarray's standard-library support; smartcore itself is not `no_std` (#421).
+  - **Migration:** builds that use `--no-default-features --features ndarray-bindings` (or `default-features = false` with `ndarray-bindings`) no longer get ndarray's `std` feature. Add `std` to the feature list to keep the previous behavior.
+
 ## [0.7.0]
 ### Added
 - `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
