@@ -116,6 +116,29 @@ smartcore organizes algorithms into clear modules with consistent traits:
 
 Recent refactors emphasize reusable components in trees/forests and expanded multiclass SVM capabilities. XGBoost-style regression and single-linkage clustering have been added. See CHANGELOG for API changes and migration notes.
 
+## Optional lazy normalization
+
+The optional `lazy-normalization` feature lets Lasso and Elastic Net borrow the
+design matrix during normalization. Elastic Net also applies its identity-block
+augmentation without storing the augmented design. Enable it with `features =
+["lazy-normalization"]`, then select it with
+`LassoParameters::default().with_lazy_normalization(true)` or
+`ElasticNetParameters::default().with_lazy_normalization(true)`. The default
+remains eager, even when the feature is enabled. The `normalize` option still
+controls whether columns are centered and scaled. Parameter searches use the
+fixed `lazy_normalization` setting. It works with `DenseMatrix` and
+`ndarray-bindings`.
+
+Lazy normalization reduces memory use by computing normalized values when the
+solver needs them. This adds repeated arithmetic and can increase fit time for
+both estimators, including Elastic Net on large inputs. The solver still stores
+a dense Gram matrix with one row and column per feature.
+
+Enabling the feature adds a public `lazy_normalization` field to both estimators'
+parameter and search parameter structs. Code that constructs these structs
+without `..Default::default()` must add the field. Missing fields default to
+`false` during deserialization.
+
 ## Data access and readers
 
 - CSV readers: Read matrices from CSV with configurable delimiter and header rows, with helpful error messages and testing utilities (including non-IO reader abstractions).

@@ -58,6 +58,8 @@ jobs:
           - "--features datasets"
           - "--features ndarray-bindings"
           - "--features std,ndarray-bindings"
+          - "--features lazy-normalization"
+          - "--features lazy-normalization,ndarray-bindings"
           - ""
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +98,7 @@ jobs:
               ;;
           esac
       - name: Tests
-        if: matrix.features == '--features ndarray-bindings' || matrix.features == '--features std,ndarray-bindings' || matrix.features == '--features datasets'
+        if: matrix.features == '--features ndarray-bindings' || matrix.features == '--features std,ndarray-bindings' || contains(matrix.features, 'lazy-normalization') || matrix.features == '--features datasets'
         run: cargo test --no-default-features ${{ matrix.features }}
       - name: Explicit std does not activate ndarray
         if: matrix.features == ''
