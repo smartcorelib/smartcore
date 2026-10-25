@@ -78,6 +78,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     fn parameters(&self) -> &BaseTreeParameters {
         self.parameters.as_ref().unwrap()
     }
+
+    /// Get depth of tree
+    pub(crate) fn depth(&self) -> u16 {
+        self.depth
+    }
+    /// Get number of nodes in the tree
+    #[cfg(test)]
+    pub(crate) fn num_nodes(&self) -> usize {
+        self.nodes.len()
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -341,7 +351,7 @@ struct SplitWorkspace<E, C: Criterion> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
     sorted_by_feature: Vec<Vec<E>>,
-    variables: Vec<usize>, // feature indices which will be shuffled when mtry < n_features
+    variables: Vec<usize>, // feature indices, shuffled at each node; the order breaks ties between equal splits.
     true_stats: C::Stats,  // scratch stats for split functions to use
     false_stats: C::Stats,
     parent_stats: C::Stats,

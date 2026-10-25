@@ -13,6 +13,7 @@ use crate::numbers::floatnum::FloatNumber;
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::tree::criterion::{Criterion, LeafOutput};
+use crate::tree::decision_tree_classifier::which_max;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -332,6 +333,81 @@ where
     Ok(result)
 }
 
+/// Mode of the tree predictions for each row of `x`.
+pub(crate) fn predict_mode<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, usize>,
+    x: &X,
+    num_classes: usize,
+) -> Result<Vec<usize>, Failed>
+where
+    TX: Number + FloatNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+{
+    let (n, _) = x.shape();
+    let mut result = vec![0; n];
+    let mut counts = vec![0usize; num_classes];
+
+    for row in 0..n {
+        counts.fill(0);
+        for tree in forest.trees() {
+            counts[*tree.leaf_output_for_row(x, row)] += 1;
+        }
+        result[row] = which_max(&counts);
+    }
+    Ok(result)
+}
+
+/// Mode of the out-of-bag tree predictions for each row of `x`.
+/// `x` is expected to be equal to the dataset used in training.
+pub(crate) fn predict_mode_oob<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, usize>,
+    x: &X,
+    num_classes: usize,
+) -> Result<Vec<usize>, Failed>
+where
+    TX: Number + FloatNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+{
+    let (n, _) = x.shape();
+
+    let samples = match forest.samples() {
+        Some(s) => s,
+        None => {
+            return Err(Failed::because(
+                FailedError::PredictFailed,
+                "Need samples=true for OOB predictions.",
+            ));
+        }
+    };
+
+    if samples[0].len() != n {
+        return Err(Failed::because(
+            FailedError::PredictFailed,
+            "Prediction matrix must match matrix used in training for OOB predictions.",
+        ));
+    }
+
+    let mut result = vec![0; n];
+    let mut counts = vec![0; num_classes];
+
+    for row in 0..n {
+        counts.fill(0);
+        for (tree, in_bag) in forest.trees().iter().zip(samples) {
+            if !in_bag[row] {
+                counts[*tree.leaf_output_for_row(x, row)] += 1;
+            }
+        }
+        // TODO: What to do if there are no oob trees?
+        result[row] = which_max(&counts);
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -542,7 +618,7 @@ mod tests {
                 keep_samples: false,
                 seed: 42,
                 bootstrap: false,
-                splitter: splitter.clone(),
+                splitter: splitter,
             };
             let forest = BaseForest::fit(&x, &y, None, &MSECriterion, params).unwrap();
             let trees = forest.trees.unwrap();
@@ -674,7 +750,7 @@ mod tests {
                     keep_samples: true,
                     seed: 42,
                     bootstrap: true,
-                    splitter: splitter.clone(),
+                    splitter: splitter,
                 };
 
                 let forest_a = BaseForest::fit(&x, &y, weights, &MSECriterion, params.clone())
