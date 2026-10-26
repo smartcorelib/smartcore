@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v0.7]
+## [0.7.0] - 2026-10-26
 ### Added
 - A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
 - Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the dense Gram workspace. Enable the feature and set `with_lazy_normalization(true)` to select this path. The default remains eager. The new parameter field is available only with the feature and defaults to false during deserialization (#479).
@@ -21,7 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree`: in the `...Regressor`s, rows with sample weight 0 are removed before the tree grows. They no longer count toward `min_samples_leaf` and `min_samples_split`, and they no longer move a split threshold. A tree fitted with a zero-weight row is the same as a tree fitted without that row.
 - `Cargo.toml`: `ndarray` requires version `0.17.2` or later.
 
-## [0.7.0]
 ### Added
 - `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
 - `linalg`: `Display` for `VecView` and `VecMutView` (#495).
