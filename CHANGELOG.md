@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree`: `DecisionTreeClassifier::compute_feature_importances` now returns `Result<Vec<f64>, Failed>` instead of `Vec<f64>`. It returns an error when `fit` has not run. Code that uses the result must be updated.
 - `tree`: the error text for an unfitted `DecisionTreeClassifier::predict_proba` changed from "'fit' should be called before calling 'predict'" to "'fit' should be called before calling 'predict_proba'". Code that matched the old string must be updated.
 - `tree`, `ensemble`: the fitted `DecisionTreeClassifier` and `RandomForestClassifier` store different fields. Models serialized with an earlier version cannot be deserialized. Fit these models again.
+- `tree`, `ensemble`: the tree nodes of all decision trees, random forests and extra-trees models have a new, smaller serde format. Models serialized with an earlier version cannot be deserialized.
 
 ## [0.6.16]
 ### Fixed

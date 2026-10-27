@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::num::NonZeroU32;
 
 use rand::RngExt;
 use rand::seq::SliceRandom;
@@ -90,44 +91,75 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     }
 }
 
+/// A tree node. Node 0 is the root.
+/// `Inner` sends a sample to `true_child` if `x[split_feature] <= split_value`, else to
+/// `true_child + 1` (the false child is always pushed directly after the true child).
+/// `true_child` is never 0 (the root), so `NonZeroU32` makes the node smaller.
+/// `Leaf` holds the prediction.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-struct Node<Out> {
-    output: Out,
-    split_feature: usize,
-    split_value: Option<f64>,
-    split_score: Option<f64>,
-    true_child: Option<usize>,
-    false_child: Option<usize>,
+enum Node<Out> {
+    Inner {
+        split_feature: u32,
+        split_value: f64,
+        split_score: f64,
+        true_child: NonZeroU32,
+    },
+    Leaf {
+        output: Out,
+    },
 }
 
-impl<Out> Node<Out> {
-    fn new(output: Out) -> Self {
-        Node {
-            output,
-            split_feature: 0,
-            split_value: Option::None,
-            split_score: Option::None,
-            true_child: Option::None,
-            false_child: Option::None,
+impl<Out: LeafOutput> Node<Out> {
+    fn new_leaf(output: Out) -> Self {
+        Node::Leaf { output }
+    }
+
+    // Create a new inner node (i.e. where the tree is split).
+    // Will panic if true_child is zero or larger than u32::MAX
+    fn new_inner(
+        split_feature: usize,
+        split_value: f64,
+        split_score: f64,
+        true_child: usize,
+    ) -> Self {
+        Node::Inner {
+            split_feature: u32::try_from(split_feature).expect("split_feature must fit in u32"),
+            split_value,
+            split_score,
+            true_child: u32::try_from(true_child)
+                .ok()
+                .and_then(NonZeroU32::new)
+                .expect("true_child must be in 1..=u32::MAX"),
         }
     }
 }
 
 impl<Out: LeafOutput> Node<Out> {
     fn approximate_eq(&self, other: &Self) -> bool {
-        Out::approximate_eq(&self.output, &other.output)
-            && self.split_feature == other.split_feature
-            && match (self.split_value, other.split_value) {
-                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
-                (None, None) => true,
-                _ => false,
+        match (self, other) {
+            (Node::Leaf { output: a }, Node::Leaf { output: b }) => a.approximate_eq(b),
+            (
+                Node::Inner {
+                    split_feature: f1,
+                    split_value: v1,
+                    split_score: s1,
+                    true_child: c1,
+                },
+                Node::Inner {
+                    split_feature: f2,
+                    split_value: v2,
+                    split_score: s2,
+                    true_child: c2,
+                },
+            ) => {
+                f1 == f2
+                    && c1 == c2
+                    && (v1 - v2).abs() < f64::EPSILON
+                    && (s1 - s2).abs() < f64::EPSILON
             }
-            && match (self.split_score, other.split_score) {
-                (Some(a), Some(b)) => (a - b).abs() < f64::EPSILON,
-                (None, None) => true,
-                _ => false,
-            }
+            _ => false, // a leaf is never equal to an inner node
+        }
     }
 }
 
@@ -160,7 +192,8 @@ struct NodeVisitor<
     start_idx: usize, // start index for the elements in `sorted_by_feature` of SplitWorkspace
     end_idx: usize,   // end index (exclusive) in the same vector(s)
     level: u16,
-    stats: C::Stats, // statistics of the samples in this node
+    stats: C::Stats,       // statistics of the samples in this node
+    best_split: BestSplit, // best split found for the node referenced by this NodeVisitor
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
 }
@@ -185,6 +218,7 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: C
             end_idx,
             level,
             stats,
+            best_split: BestSplit::new(),
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
         }
@@ -308,17 +342,25 @@ impl NodeElement for UnitElement {
     }
 }
 
-// Checks whether the example indicated by node_element is a "true child" for this node
-fn is_true_sample<TX, X, E, Out>(node_element: &E, x: &X, node: &Node<Out>) -> bool
+// Checks whether the example indicated by node_element is a "true child" for this node.
+fn is_true_sample<'a, E, TX, TY, X, Y, C>(
+    node_element: &E,
+    visitor: &NodeVisitor<'a, TX, TY, X, Y, C>,
+) -> bool
 where
+    E: NodeElement,
     TX: Number + PartialOrd,
     X: Array2<TX>,
-    E: NodeElement,
+    Y: Array1<TY>,
+    TY: Number,
+    C: Criterion,
 {
-    x.get((node_element.row(), node.split_feature))
+    visitor
+        .x
+        .get((node_element.row(), visitor.best_split.split_feature))
         .to_f64()
         .unwrap()
-        <= node.split_value.unwrap_or(f64::NAN)
+        <= visitor.best_split.split_value
 }
 
 // slice: slice that will be partitioned
@@ -347,6 +389,23 @@ where
     w
 }
 
+#[derive(Copy, Clone)]
+struct BestSplit {
+    proxy_score: f64,
+    split_feature: usize,
+    split_value: f64,
+}
+
+impl BestSplit {
+    fn new() -> Self {
+        BestSplit {
+            proxy_score: f64::NEG_INFINITY,
+            split_feature: 0,
+            split_value: f64::NEG_INFINITY,
+        }
+    }
+}
+
 struct SplitWorkspace<E, C: Criterion> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
@@ -355,6 +414,7 @@ struct SplitWorkspace<E, C: Criterion> {
     true_stats: C::Stats,  // scratch stats for split functions to use
     false_stats: C::Stats,
     parent_stats: C::Stats,
+    best_split: BestSplit, // scratch space for the search in progress
 }
 
 impl<E, C> SplitWorkspace<E, C>
@@ -376,6 +436,7 @@ where
             true_stats: criterion.empty_stats(),
             false_stats: criterion.empty_stats(),
             parent_stats: criterion.empty_stats(),
+            best_split: BestSplit::new(),
         }
     }
 }
@@ -495,7 +556,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             n += c as usize;
         }
 
-        let root = Node::new(criterion.leaf_value(&root_stats));
+        let root = Node::new_leaf(criterion.leaf_value(&root_stats));
         nodes.push(root);
 
         // number of distinct rows of x in this tree with a positive mass
@@ -585,18 +646,23 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     pub(crate) fn leaf_output_for_row(&self, x: &X, row: usize) -> &Out {
         let mut node_id = 0;
         loop {
-            let node = &self.nodes[node_id];
-            let Some(true_child) = node.true_child else {
-                return &node.output;
-            };
-            let false_child = node.false_child.unwrap();
-            node_id = if x.get((row, node.split_feature)).to_f64().unwrap()
-                <= node.split_value.unwrap_or(f64::NAN)
-            {
-                true_child
-            } else {
-                false_child
-            };
+            match &self.nodes[node_id] {
+                Node::Leaf { output } => return output,
+                Node::Inner {
+                    split_feature,
+                    split_value,
+                    true_child,
+                    ..
+                } => {
+                    let true_child = true_child.get() as usize;
+                    node_id =
+                        if x.get((row, *split_feature as usize)).to_f64().unwrap() <= *split_value {
+                            true_child
+                        } else {
+                            true_child + 1
+                        }
+                }
+            }
         }
     }
 
@@ -610,6 +676,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         criterion: &C,
     ) -> bool {
         workspace.variables.shuffle(rng);
+        workspace.best_split = BestSplit::new();
 
         let splitter = self.parameters().splitter;
 
@@ -625,7 +692,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             }
         }
 
-        self.nodes[visitor.node].split_score.is_some()
+        visitor.best_split = workspace.best_split;
+
+        // when proxy_score is still negative infinity, no split was found
+        workspace.best_split.proxy_score != f64::NEG_INFINITY
     }
 
     fn find_random_split<E: NodeElement, C: Criterion<Output = Out>>(
@@ -686,12 +756,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         criterion.difference(&visitor.stats, true_stats, false_stats);
         let proxy = criterion.proxy_improvement(true_stats, false_stats);
 
-        if self.nodes[visitor.node].split_score.is_none()
-            || proxy > self.nodes[visitor.node].split_score.unwrap()
-        {
-            self.nodes[visitor.node].split_feature = j;
-            self.nodes[visitor.node].split_value = Some(split_value);
-            self.nodes[visitor.node].split_score = Some(proxy);
+        if proxy > workspace.best_split.proxy_score {
+            workspace.best_split.proxy_score = proxy;
+            workspace.best_split.split_feature = j;
+            workspace.best_split.split_value = split_value;
         }
     }
 
@@ -703,6 +771,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         workspace: &mut SplitWorkspace<E, C>,
         criterion: &C,
     ) {
+        let mut best_split = workspace.best_split;
         let mut true_count = 0;
         let true_stats = &mut workspace.true_stats;
         criterion.reset(true_stats);
@@ -745,9 +814,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             criterion.difference(&visitor.stats, true_stats, false_stats);
             let proxy = criterion.proxy_improvement(true_stats, false_stats);
 
-            if self.nodes[visitor.node].split_score.is_none()
-                || proxy > self.nodes[visitor.node].split_score.unwrap()
-            {
+            if proxy > best_split.proxy_score {
                 // compute the midpoint in a way that does not overflow when x_ij and prevx have the same sign
                 let mid = prevx + (x_ij - prevx) / 2.0;
 
@@ -756,9 +823,9 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
                 // In this case, we set the midpoint equal to prevx, which is always smaller
                 // than x_ij.
                 let threshold = if mid < x_ij { mid } else { prevx };
-                self.nodes[visitor.node].split_feature = j;
-                self.nodes[visitor.node].split_value = Option::Some(threshold);
-                self.nodes[visitor.node].split_score = Option::Some(proxy);
+                best_split.proxy_score = proxy;
+                best_split.split_feature = j;
+                best_split.split_value = threshold;
             }
 
             prevx = x_ij;
@@ -769,14 +836,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
                 elem.mass(),
             );
         }
+        workspace.best_split = best_split;
     }
 
     /// Apply the split that was found for `visitor.node`: add its two child nodes and
     /// partition the node's range in each `sorted_by_feature` column into a true part
     /// and a false part. Then find the best cutoff for each child. If a child can be
     /// split, push it on `visitor_stack`.
-    /// If a branch has fewer than `min_samples_leaf` samples, clear the split and
-    /// keep the node as a leaf.
+    /// If a branch has fewer than `min_samples_leaf` samples, do not split and keep
+    /// the node as a leaf.
     fn split<'a, E: NodeElement, C: Criterion<Output = Out>>(
         &mut self,
         visitor: NodeVisitor<'a, TX, TY, X, Y, C>,
@@ -788,7 +856,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     ) -> bool {
         let parent_stats = &mut workspace.parent_stats;
         criterion.reset(parent_stats);
-        let this_node = &self.nodes[visitor.node];
 
         let mut true_count = 0usize;
         let mut false_count = 0usize;
@@ -798,11 +865,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let in_true_branch = &mut workspace.in_true_branch;
 
         // the column for split_feature is in order, so all the true samples should come first, all the false samples second
-        let split_feature = this_node.split_feature;
+        let split_feature = visitor.best_split.split_feature;
         let col = &workspace.sorted_by_feature[split_feature][visitor.start_idx..visitor.end_idx];
         let mut n_true = 0usize;
         for e in col {
-            if !is_true_sample(e, visitor.x, this_node) {
+            if !is_true_sample(e, &visitor) {
                 break;
             }
             in_true_branch[e.row()] = true;
@@ -848,31 +915,26 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         if true_count < self.parameters().min_samples_leaf
             || false_count < self.parameters().min_samples_leaf
         {
-            self.nodes[visitor.node].split_feature = 0;
-            self.nodes[visitor.node].split_value = Option::None;
-            self.nodes[visitor.node].split_score = Option::None;
-
             return false;
         }
 
         // Store the real (mass-weighted) impurity improvement in split_score, not the proxy.
         // false_stats is a direct sum, not parent - true: no cancellation for a small false side
-        self.nodes[visitor.node].split_score =
-            Some(criterion.impurity_improvement(parent_stats, &true_stats, &false_stats));
+        let true_child_idx = self.nodes.len();
+        self.nodes[visitor.node] = Node::new_inner(
+            visitor.best_split.split_feature,
+            visitor.best_split.split_value,
+            criterion.impurity_improvement(parent_stats, &true_stats, &false_stats),
+            true_child_idx,
+        );
 
-        // Add the child nodes to the tree
         let split_idx = visitor.start_idx + n_true;
 
-        let true_child_idx = self.nodes.len();
-
+        // Add the child nodes to the tree
         self.nodes
-            .push(Node::new(criterion.leaf_value(&true_stats)));
-        let false_child_idx = self.nodes.len();
+            .push(Node::new_leaf(criterion.leaf_value(&true_stats)));
         self.nodes
-            .push(Node::new(criterion.leaf_value(&false_stats)));
-
-        self.nodes[visitor.node].true_child = Some(true_child_idx);
-        self.nodes[visitor.node].false_child = Some(false_child_idx);
+            .push(Node::new_leaf(criterion.leaf_value(&false_stats)));
 
         let child_level = visitor.level + 1;
         self.depth = u16::max(self.depth, child_level);
@@ -918,7 +980,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         }
 
         let mut false_visitor = NodeVisitor::<TX, TY, X, Y, C>::new(
-            false_child_idx,
+            true_child_idx + 1,
             split_idx,
             visitor.end_idx,
             visitor.x,
@@ -951,8 +1013,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     pub fn compute_feature_importances(&self, normalize: bool, importances: &mut [f64]) {
         importances.fill(0.0);
         for node in self.nodes().iter() {
-            if let Some(split_score) = node.split_score {
-                importances[node.split_feature] += split_score;
+            if let Node::Inner {
+                split_feature,
+                split_score,
+                ..
+            } = node
+            {
+                importances[*split_feature as usize] += split_score;
             }
         }
 
@@ -980,6 +1047,50 @@ mod tests {
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
     use crate::tree::criterion::MSECriterion;
+
+    impl<Out: Copy> Node<Out> {
+        /// Index of the true child, or `None` for a leaf.
+        fn true_child(&self) -> Option<usize> {
+            match self {
+                Node::Inner { true_child, .. } => Some(true_child.get() as usize),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        /// Index of the false child, or `None` for a leaf.
+        /// The two children are pushed one after the other, so the false child is the true child + 1.
+        fn false_child(&self) -> Option<usize> {
+            self.true_child().map(|c| c + 1)
+        }
+
+        fn split_feature(&self) -> Option<usize> {
+            match self {
+                Node::Inner { split_feature, .. } => Some(*split_feature as usize),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        fn split_value(&self) -> Option<f64> {
+            match self {
+                Node::Inner { split_value, .. } => Some(*split_value),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        fn split_score(&self) -> Option<f64> {
+            match self {
+                Node::Inner { split_score, .. } => Some(*split_score),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        fn output(&self) -> Option<Out> {
+            match self {
+                Node::Inner { .. } => None,
+                Node::Leaf { output } => Some(*output),
+            }
+        }
+    }
 
     #[test]
     #[cfg(target_pointer_width = "64")]
@@ -1285,12 +1396,14 @@ mod tests {
         let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
             .expect("Fit should work");
 
-        assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
-        assert!(
-            tree.nodes()
-                .iter()
-                .all(|node| node.split_score.is_none_or(f64::is_finite))
-        );
+        assert!(tree.nodes().iter().all(|node| match node {
+            Node::Leaf { output } => output.is_finite(),
+            Node::Inner {
+                split_value,
+                split_score,
+                ..
+            } => split_value.is_finite() && split_score.is_finite(),
+        }));
 
         let y_hat = predict(&tree, &x);
         assert!(y_hat.iter().all(|v| v.is_finite()));
@@ -1320,12 +1433,14 @@ mod tests {
         let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
             .expect("Fit should work");
 
-        assert!(tree.nodes().iter().all(|node| node.output.is_finite()));
-        assert!(
-            tree.nodes()
-                .iter()
-                .all(|node| node.split_score.is_none_or(f64::is_finite))
-        );
+        assert!(tree.nodes().iter().all(|node| match node {
+            Node::Leaf { output } => output.is_finite(),
+            Node::Inner {
+                split_value,
+                split_score,
+                ..
+            } => split_value.is_finite() && split_score.is_finite(),
+        }));
 
         let y_hat = predict(&tree, &x);
         assert!(y_hat.iter().all(|v| v.is_finite()));
@@ -1359,7 +1474,10 @@ mod tests {
 
         assert_eq!(tree.nodes().len(), 3);
         assert_eq!(tree.depth, 2);
-        assert!((tree.nodes()[0].split_value.unwrap() - 1.5).abs() < 1e-9); // Split should be at 1.5
+        let Node::Inner { split_value, .. } = tree.nodes()[0] else {
+            panic!("Root should split");
+        };
+        assert!((split_value - 1.5).abs() < 1e-9); // Split should be at 1.5
 
         let y_hat = predict(&tree, &x);
         let y_expected = vec![2.5, 2.5, 27.5, 27.5]; // Expected values are weighted means
@@ -1416,9 +1534,11 @@ mod tests {
         )
         .expect("Fit should work");
 
-        let threshold = tree.nodes()[0].split_value.expect("Root should split");
-        assert!((TWO_POW_53 + 2) as f64 <= threshold);
-        assert!(((TWO_POW_53 + 4) as f64) > threshold);
+        let Node::Inner { split_value, .. } = tree.nodes()[0] else {
+            panic!("Root should split");
+        };
+        assert!((TWO_POW_53 + 2) as f64 <= split_value);
+        assert!(((TWO_POW_53 + 4) as f64) > split_value);
 
         let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![0.0, 10.0]);
@@ -1484,9 +1604,11 @@ mod tests {
         )
         .expect("Fit should work");
 
-        let threshold = tree.nodes()[0].split_value.expect("Root should split");
-        assert!(a <= threshold);
-        assert!(b > threshold);
+        let Node::Inner { split_value, .. } = tree.nodes()[0] else {
+            panic!("Root should split");
+        };
+        assert!(a <= split_value);
+        assert!(b > split_value);
 
         let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![0.0, 10.0]);
@@ -1543,15 +1665,24 @@ mod tests {
     /// Index of the leaf that gets row `row` of `x`. Uses the same rule as `leaf_output_for_row`.
     fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
         let mut node_id = 0;
-        while let Some(true_child) = tree.nodes()[node_id].true_child {
-            let node = &tree.nodes()[node_id];
-            node_id = if *x.get((row, node.split_feature)) <= node.split_value.unwrap() {
-                true_child
-            } else {
-                node.false_child.unwrap()
-            };
+        loop {
+            match &tree.nodes[node_id] {
+                Node::Leaf { .. } => return node_id,
+                Node::Inner {
+                    split_feature,
+                    split_value,
+                    true_child,
+                    ..
+                } => {
+                    let true_child = true_child.get() as usize;
+                    node_id = if *x.get((row, *split_feature as usize)) <= *split_value {
+                        true_child
+                    } else {
+                        true_child + 1
+                    };
+                }
+            }
         }
-        node_id
     }
 
     /// Number of training samples in each leaf of `tree`.
@@ -1564,7 +1695,7 @@ mod tests {
         tree.nodes()
             .iter()
             .zip(per_node)
-            .filter(|(node, _)| node.true_child.is_none()) // filter out the leaves
+            .filter(|(node, _)| node.true_child().is_none()) // filter out the leaves
             .map(|(_, count)| count)
             .collect()
     }
@@ -1575,11 +1706,21 @@ mod tests {
         assert_eq!(a.nodes().len(), b.nodes().len());
         assert_eq!(a.depth, b.depth);
         for (na, nb) in a.nodes().iter().zip(b.nodes().iter()) {
-            assert_eq!(na.split_feature, nb.split_feature);
-            assert_eq!(na.split_value, nb.split_value);
-            assert_eq!(na.true_child, nb.true_child);
-            assert_eq!(na.false_child, nb.false_child);
-            assert!((na.output - nb.output).abs() < 1e-9);
+            assert_eq!(na.split_feature(), nb.split_feature());
+            assert_same_split_and_output(na, nb);
+        }
+    }
+
+    /// Both nodes must have the same split value, the same children and the same output.
+    /// The split feature is not compared.
+    fn assert_same_split_and_output(a: &Node<f64>, b: &Node<f64>) {
+        assert_eq!(a.split_value(), b.split_value());
+        assert_eq!(a.true_child(), b.true_child());
+        assert_eq!(a.false_child(), b.false_child());
+        match (a.output(), b.output()) {
+            (Some(oa), Some(ob)) => assert!((oa - ob).abs() < 1e-9),
+            (None, None) => {}
+            _ => panic!("one node is a leaf, the other node is not"),
         }
     }
 
@@ -1654,7 +1795,7 @@ mod tests {
             params(Some(2), 1, 2, Splitter::Best),
         )
         .expect("Fit should work");
-        assert_eq!(tree.nodes()[0].split_value, Some(4.5));
+        assert_eq!(tree.nodes()[0].split_value(), Some(4.5));
         let y_hat = predict(&tree, &x);
         assert_eq!(y_hat, vec![5.5, 5.5, 5.5, 5.5, 105.5, 105.5, 105.5, 105.5]);
 
@@ -1713,11 +1854,11 @@ mod tests {
             params(None, 1, 3, Splitter::Best),
         )
         .expect("Fit should work");
-        assert_eq!(tree.nodes()[0].split_value, Some(3.5));
-        let true_child = tree.nodes()[0].true_child.unwrap();
-        let false_child = tree.nodes()[0].false_child.unwrap();
-        assert!(tree.nodes()[true_child].true_child.is_some());
-        assert!(tree.nodes()[false_child].true_child.is_none());
+        assert_eq!(tree.nodes()[0].split_value(), Some(3.5));
+        let true_child = tree.nodes()[0].true_child().unwrap();
+        let false_child = tree.nodes()[0].false_child().unwrap();
+        assert!(tree.nodes()[true_child].true_child().is_some());
+        assert!(tree.nodes()[false_child].true_child().is_none());
         assert_eq!(tree.nodes().len(), 5);
         assert_eq!(tree.depth, 3);
 
@@ -1745,7 +1886,7 @@ mod tests {
             params(None, 1, 2, Splitter::Best),
         )
         .expect("Fit should work");
-        assert_eq!(tree.nodes()[0].split_value, Some(3.5));
+        assert_eq!(tree.nodes()[0].split_value(), Some(3.5));
 
         // The best split is not permitted. The split with exactly 2 samples on each side is used.
         let tree: TestTree = BaseTree::fit_inner(
@@ -1756,7 +1897,7 @@ mod tests {
             params(None, 2, 2, Splitter::Best),
         )
         .expect("Fit should work");
-        assert_eq!(tree.nodes()[0].split_value, Some(2.5));
+        assert_eq!(tree.nodes()[0].split_value(), Some(2.5));
         assert_eq!(tree.nodes().len(), 3);
         assert_eq!(leaf_counts(&tree, &x, &[1; 4]), vec![2, 2]);
 
@@ -1766,7 +1907,7 @@ mod tests {
                 BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 3, 2, splitter))
                     .expect("Fit should work");
             assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
-            assert_eq!(tree.nodes()[0].output, 25.0);
+            assert_eq!(tree.nodes()[0].output(), Some(25.0));
         }
     }
 
@@ -1869,8 +2010,8 @@ mod tests {
             assert!(
                 tree.nodes()
                     .iter()
-                    .filter(|node| node.true_child.is_some())
-                    .all(|node| node.split_feature == 1),
+                    .filter(|node| node.true_child().is_some())
+                    .all(|node| node.split_feature() == Some(1)),
                 "splitter: {splitter:?}"
             );
         }
@@ -1883,7 +2024,7 @@ mod tests {
             params(None, 1, 2, Splitter::Best),
         )
         .expect("Fit should work");
-        assert_eq!(tree.nodes()[0].split_value, Some(2.5));
+        assert_eq!(tree.nodes()[0].split_value(), Some(2.5));
     }
 
     #[test]
@@ -1916,12 +2057,9 @@ mod tests {
             assert_eq!(tree_single.nodes().len(), tree_double.nodes().len());
             assert_eq!(tree_single.depth, tree_double.depth);
             for (a, b) in tree_single.nodes().iter().zip(tree_double.nodes().iter()) {
-                assert_eq!(a.split_value, b.split_value);
-                assert_eq!(a.true_child, b.true_child);
-                assert_eq!(a.false_child, b.false_child);
-                assert!((a.output - b.output).abs() < 1e-9);
-                if b.true_child.is_some() {
-                    used_columns[b.split_feature] = true;
+                assert_same_split_and_output(a, b);
+                if let Some(feature) = b.split_feature() {
+                    used_columns[feature] = true;
                 }
             }
         }
@@ -2108,14 +2246,14 @@ mod tests {
                                  splitter: {splitter:?}, node: {i}"
                             );
                             assert_eq!(
-                                node.true_child.is_some(),
-                                node.false_child.is_some(),
+                                node.true_child().is_some(),
+                                node.false_child().is_some(),
                                 "{case}"
                             );
-                            if node.true_child.is_some() {
-                                assert!(node.split_score.is_some(), "internal node, {case}");
+                            if node.true_child().is_some() {
+                                assert!(node.split_score().is_some(), "internal node, {case}");
                             } else {
-                                assert!(node.split_score.is_none(), "leaf, {case}");
+                                assert!(node.split_score().is_none(), "leaf, {case}");
                             }
                         }
                     }
@@ -2165,7 +2303,7 @@ mod tests {
                         let expected = weighted_sse(&samples)
                             - leaves.iter().map(|leaf| weighted_sse(leaf)).sum::<f64>();
 
-                        let total: f64 = tree.nodes().iter().filter_map(|n| n.split_score).sum();
+                        let total: f64 = tree.nodes().iter().filter_map(|n| n.split_score()).sum();
 
                         assert!(tree.nodes().len() > 1, "tree has no split, {case}");
                         assert!(
@@ -2252,8 +2390,12 @@ mod tests {
                     "{splitter:?} {offset}"
                 );
                 for (a, b) in reference.nodes().iter().zip(shifted.nodes()) {
-                    assert_eq!(a.split_feature, b.split_feature, "{splitter:?} {offset}");
-                    assert_eq!(a.split_value, b.split_value, "{splitter:?} {offset}");
+                    assert_eq!(
+                        a.split_feature(),
+                        b.split_feature(),
+                        "{splitter:?} {offset}"
+                    );
+                    assert_eq!(a.split_value(), b.split_value(), "{splitter:?} {offset}");
                 }
             }
         }
@@ -2400,8 +2542,8 @@ mod tests {
             for tree in &trees {
                 assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
                 assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
-                assert!(tree.nodes()[0].split_value.is_none());
-                assert!(tree.nodes()[0].split_score.is_none());
+                assert!(tree.nodes()[0].split_value().is_none());
+                assert!(tree.nodes()[0].split_score().is_none());
                 assert!(predict(tree, &x).iter().all(|&v| (v - 3.0).abs() < 1e-12));
             }
         }
@@ -2436,7 +2578,7 @@ mod tests {
             for tree in &trees {
                 assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
                 assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
-                assert!((tree.nodes()[0].output - 3.0).abs() < 1e-12);
+                assert!((tree.nodes()[0].output().unwrap() - 3.0).abs() < 1e-12);
             }
         }
     }
@@ -2457,12 +2599,12 @@ mod tests {
             params(None, 1, 2, Splitter::Best),
         )
         .expect("Fit should work");
-        assert_eq!(tree.nodes()[0].split_value, Some(4.5));
-        let true_child = tree.nodes()[0].true_child.unwrap();
-        let false_child = tree.nodes()[0].false_child.unwrap();
-        assert!(tree.nodes()[true_child].true_child.is_none());
-        assert!(tree.nodes()[true_child].split_score.is_none());
-        assert!(tree.nodes()[false_child].true_child.is_some());
+        assert_eq!(tree.nodes()[0].split_value(), Some(4.5));
+        let true_child = tree.nodes()[0].true_child().unwrap();
+        let false_child = tree.nodes()[0].false_child().unwrap();
+        assert!(tree.nodes()[true_child].true_child().is_none());
+        assert!(tree.nodes()[true_child].split_score().is_none());
+        assert!(tree.nodes()[false_child].true_child().is_some());
         // root + pure leaf + 7 nodes for the false subtree with 4 distinct targets
         assert_eq!(tree.nodes().len(), 9);
         assert_eq!(predict(&tree, &x), y);
