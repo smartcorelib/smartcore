@@ -6,11 +6,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- In the `...Regressor`s the features are always shuffled even when `mtry` equals the number of attributes. This changes the constructed trees. 
-- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) uses a new internal `Criterion` trait with `MSECriterion`. The MSE split improvement uses a numerically stable formula.  The selected splits do not change when a constant is added to y. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
-- `tree`: in the `...Regressor`s, rows with sample weight 0 are removed before the tree grows. They no longer count toward `min_samples_leaf` and `min_samples_split`, and they no longer move a split threshold. A tree fitted with a zero-weight row is the same as a tree fitted without that row.
-- `tree`, `ensemble`: `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` get a `compute_feature_importances` method. 
-- `tree`, `ensemble`: the fitted `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` store new fields that the feature importances use. Models serialized with an earlier version cannot be deserialized. Fit these models again.
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` now use `BaseTree` and `BaseForest`, the same code as the regressors. The new `GiniCriterion`, `EntropyCriterion` and `ClassificationErrorCriterion` implement the `Criterion` trait. The entropy improvement uses a numerically stable formula that is never negative. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
 - `tree`: `DecisionTreeClassifier` always shuffles the features, also when `mtry` equals the number of attributes, as the regressors do. Without a fixed `seed`, exactly tied splits can give different trees for each fit. Set `seed` to get reproducible trees.
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` accept training data with one class, as scikit-learn does. The result is a tree with one leaf that always predicts that class, and `predict_proba` returns one column. Before this change, `fit` returned an error.
@@ -18,7 +13,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree`: `DecisionTreeClassifier::compute_feature_importances` now returns `Result<Vec<f64>, Failed>` instead of `Vec<f64>`. It returns an error when `fit` has not run. Code that uses the result must be updated.
 - `tree`: the error text for an unfitted `DecisionTreeClassifier::predict_proba` changed from "'fit' should be called before calling 'predict'" to "'fit' should be called before calling 'predict_proba'". Code that matched the old string must be updated.
 - `tree`, `ensemble`: the fitted `DecisionTreeClassifier` and `RandomForestClassifier` store different fields. Models serialized with an earlier version cannot be deserialized. Fit these models again.
-- `tree`, `ensemble`: the tree nodes of all decision trees, random forests and extra-trees models have a new, smaller serde format. Models serialized with an earlier version cannot be deserialized.
+- `tree`, `ensemble`. The `Node` enum is optimised to be smaller. As a result trees and ensembles serialized with older code no longer can be deserialised.
+
+## [0.7.0] - 2026-10-26
+### Added
+- A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
+- Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the dense Gram workspace. Enable the feature and set `with_lazy_normalization(true)` to select this path. The default remains eager. The new parameter field is available only with the feature and defaults to false during deserialization (#479).
+- `tree`, `ensemble`: `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` get a `compute_feature_importances` method.
+
+### Changed
+- `Cargo.toml`: optional `ndarray` is now `default-features = false`, and the default feature set is `std` (`ndarray?/std`). Ordinary builds still enable ndarray's standard-library support when `ndarray-bindings` is on, while `std` alone does not activate ndarray. The `std` feature only controls ndarray's standard-library support; smartcore itself is not `no_std` (#421).
+  - **Migration:** builds that use `--no-default-features --features ndarray-bindings` (or `default-features = false` with `ndarray-bindings`) no longer get ndarray's `std` feature. Add `std` to the feature list to keep the previous behavior.
+- **Breaking change:** Enabling `lazy-normalization` adds a public `lazy_normalization` field to `LassoParameters`, `LassoSearchParameters`, `ElasticNetParameters`, and `ElasticNetSearchParameters`. Struct literals without `..Default::default()` must add `lazy_normalization: false` to retain the eager path, or `true` to select the lazy path. This also applies when another dependency enables the feature through Cargo feature unification (#479).
+- **Breaking change:** the fitted `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` store new fields that the feature importances use. Models serialized with an earlier version cannot be deserialized. Fit these models again.
+- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) uses a new internal `Criterion` trait with `MSECriterion`. The MSE split improvement uses a numerically stable formula.  The selected splits do not change when a constant is added to y. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
+- `tree`: in the `...Regressor`s, rows with sample weight 0 are removed before the tree grows. They no longer count toward `min_samples_leaf` and `min_samples_split`, and they no longer move a split threshold. A tree fitted with a zero-weight row is the same as a tree fitted without that row.
+- `Cargo.toml`: `ndarray` requires version `0.17.2` or later.
+
+### Added
+- `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
+- `linalg`: `Display` for `VecView` and `VecMutView` (#495).
+
+### Changed
+- In the `...Regressor`s the features are always shuffled even when `mtry` equals the number of attributes. This changes the constructed trees (#494).
+- **Breaking**: the `datasets` feature no longer enables `std_rand` (#416). The toy datasets now compile without `rand/std` and the OS RNG. The generators `make_blobs`, `make_circles` and `make_moons` now use the crate RNG. With `std_rand` the RNG takes its seed from OS entropy, as before. Without `std_rand` the RNG uses a fixed seed, thus the output is the same for each call. To keep the previous behaviour, enable `std_rand` together with `datasets`. This change must go in a minor version bump.
+- `error`: the error module uses `core::error::Error` and `core::fmt` (#498).
+
+### Fixed
+- `linalg`: scan adjacent offsets in the already-sorted vector, adding O(n) work without another allocation or sort (#500).
 
 ## [0.6.16]
 ### Fixed

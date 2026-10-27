@@ -39,6 +39,11 @@
 //! ```
 //! Check `smartcore`'s `Cargo.toml` for available features.
 //!
+//! **Breaking change in 0.7**: the `datasets` feature no longer enables `std_rand`. The
+//! generators `make_blobs`, `make_circles` and `make_moons` then use a fixed seed and
+//! return the same output on each call. Enable `std_rand` together with `datasets` to
+//! seed the generators from OS entropy, as in 0.6.
+//!
 //! ## Using Jupyter
 //! For quick introduction, Jupyter Notebooks are available [here](https://github.com/smartcorelib/smartcore-jupyter/tree/main/notebooks).
 //! You can set up a local environment to run Rust notebooks using [EVCXR](https://github.com/google/evcxr)
