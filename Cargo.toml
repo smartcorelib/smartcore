@@ -2,7 +2,7 @@
 name = "smartcore"
 description = "Machine Learning in Rust."
 homepage = "https://smartcorelib.github.io/"
-version = "0.6.16"
+version = "0.7.0"
 authors = ["smartcore Developers"]
 edition = "2024"
 rust-version = "1.85"
@@ -18,16 +18,18 @@ exclude = [
     "smartcore.iml",
     "smartcore.svg",
     "tests/",
-    "AGENTS.md"
+    "AGENTS.md",
+    "deny.toml"
 ]
 
 [dependencies]
 approx = "0.5.1"
 cfg-if = "1.0.0"
-ndarray = { version = "0.17", optional = true }
+lazymatrix = { version = "0.7.0", optional = true, default-features = false }
+ndarray = { version = "0.17.2", optional = true, default-features = false }
 num-traits = "0.2.12"
 num = "0.4"
-rand = { version = "0.10.1", default-features = false, features = ["alloc"] }
+rand = { version = "0.10.2", default-features = false, features = ["alloc"] }
 serde = { version = "1", features = ["derive"], optional = true }
 ordered-float = "5.1.0"
 
@@ -35,9 +37,17 @@ ordered-float = "5.1.0"
 typetag = { version = "0.2", optional = true }
 
 [features]
-# No features enabled by default; keeps the build WASM-compatible
-# and avoids pulling in serde/rand unless explicitly requested.
-default = []
+# `std` stays on by default so ordinary builds keep ndarray's standard-library
+# support when `ndarray-bindings` is enabled. Weak forwarding (`ndarray?/std`)
+# does not activate the optional ndarray dependency by itself. `std` only
+# controls ndarray's standard-library support; smartcore itself is not
+# `no_std`. serde and rand stay opt-in, which keeps the default dependency set
+# WASM-compatible.
+default = ["std"]
+
+# Enable ndarray's `std` feature when ndarray is already enabled.
+# The `?` keeps `--features std` from pulling ndarray in on its own.
+std = ["ndarray?/std"]
 
 # Enable serde Serialize/Deserialize for models and related types.
 # Also enables typetag on non-wasm targets for trait object serialization.
@@ -46,9 +56,15 @@ serde = ["dep:serde", "dep:typetag"]
 # Optional bindings for the ndarray crate (DenseMatrix <-> ndarray).
 ndarray-bindings = ["dep:ndarray"]
 
+# Apply Lasso and Elastic Net normalization without copying the design matrix.
+lazy-normalization = ["dep:lazymatrix"]
+
 # Sample datasets (iris, boston, digits, ...) and dataset generators.
-# Enables std_rand and serde because datasets ship serialized bundles.
-datasets = ["std_rand", "serde"]
+# Enables serde because datasets ship serialized bundles. Does not enable
+# std_rand: the generators use the crate RNG (SmallRng without std_rand).
+# Without std_rand, make_blobs/make_circles/make_moons use a fixed seed and give
+# the same output for each call. Add std_rand for non-deterministic generators.
+datasets = ["serde"]
 
 # Use the standard library RNG (StdRng / thread_rng) instead of SmallRng.
 # Required for non-deterministic seeding without an explicit seed.

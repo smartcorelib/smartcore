@@ -24,6 +24,8 @@ pub mod bg_solver;
 pub mod elastic_net;
 pub mod lasso;
 pub mod lasso_optimizer;
+#[cfg(feature = "lazy-normalization")]
+mod lazy_normalization;
 pub mod linear_regression;
 pub mod logistic_regression;
 pub mod ridge_regression;
