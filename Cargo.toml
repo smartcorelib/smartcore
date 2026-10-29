@@ -25,7 +25,7 @@ exclude = [
 [dependencies]
 approx = "0.5.1"
 cfg-if = "1.0.0"
-lazymatrix = { version = "0.7.0", optional = true, default-features = false }
+lazymatrix = { version = "0.8.1", optional = true, default-features = false }
 ndarray = { version = "0.17.2", optional = true, default-features = false }
 num-traits = "0.2.12"
 num = "0.4"
