@@ -45,24 +45,26 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-use rand::RngExt;
 
 use std::default::Default;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::error::{Failed, FailedError};
+use crate::ensemble::base_forest::{
+    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob,
+};
+use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
-use crate::rand_custom::get_rng_impl;
-use crate::tree::decision_tree_classifier::{
-    DecisionTreeClassifier, DecisionTreeClassifierParameters, SplitCriterion, which_max,
-};
+use crate::tree::base_tree::Splitter;
+use crate::tree::criterion::{ClassificationErrorCriterion, EntropyCriterion, GiniCriterion};
+use crate::tree::decision_tree_classifier::SplitCriterion;
 
 /// Parameters of the Random Forest algorithm.
 /// Some parameters here are passed directly into base estimator.
@@ -105,9 +107,9 @@ pub struct RandomForestClassifier<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    trees: Option<Vec<DecisionTreeClassifier<TX, TY, X, Y>>>,
+    forest_classifier: Option<BaseForest<TX, usize, X, Vec<usize>, usize>>,
     classes: Option<Vec<TY>>,
-    samples: Option<Vec<Vec<bool>>>,
+    _phantom: PhantomData<Y>,
 }
 
 impl RandomForestClassifierParameters {
@@ -159,21 +161,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
     PartialEq for RandomForestClassifier<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.classes.as_ref().unwrap().len() != other.classes.as_ref().unwrap().len()
-            || self.trees.as_ref().unwrap().len() != other.trees.as_ref().unwrap().len()
-        {
-            false
-        } else {
-            self.classes
-                .iter()
-                .zip(other.classes.iter())
-                .all(|(a, b)| a == b)
-                && self
-                    .trees
-                    .iter()
-                    .zip(other.trees.iter())
-                    .all(|(a, b)| a == b)
-        }
+        self.forest_classifier == other.forest_classifier && self.classes == other.classes
     }
 }
 
@@ -198,9 +186,9 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
 {
     fn new() -> Self {
         Self {
-            trees: Option::None,
-            classes: Option::None,
-            samples: Option::None,
+            forest_classifier: None,
+            classes: None,
+            _phantom: PhantomData,
         }
     }
     fn fit(x: &X, y: &Y, parameters: RandomForestClassifierParameters) -> Result<Self, Failed> {
@@ -456,126 +444,77 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         y: &Y,
         parameters: RandomForestClassifierParameters,
     ) -> Result<RandomForestClassifier<TX, TY, X, Y>, Failed> {
-        let (x_nrows, num_attributes) = x.shape();
-        let y_ncols = y.shape();
-        if x_nrows != y_ncols {
-            return Err(Failed::fit("Number of rows in X should = len(y)"));
-        }
-        if x_nrows == 0 || num_attributes == 0 {
-            return Err(Failed::because(
-                FailedError::ParametersError,
-                "Training data must contain at least one sample and one feature.",
-            ));
-        }
+        Self::fit_inner(x, y, None, parameters)
+    }
 
-        let mut yi: Vec<usize> = vec![0; y_ncols];
+    fn fit_inner(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        parameters: RandomForestClassifierParameters,
+    ) -> Result<RandomForestClassifier<TX, TY, X, Y>, Failed> {
+        let classifier_params = BaseForestParameters {
+            max_depth: parameters.max_depth,
+            min_samples_leaf: parameters.min_samples_leaf,
+            min_samples_split: parameters.min_samples_split,
+            n_trees: parameters.n_trees as usize,
+            m: parameters.m,
+            keep_samples: parameters.keep_samples,
+            seed: parameters.seed,
+            bootstrap: true,
+            splitter: Splitter::Best,
+        };
+
         let classes = y.unique();
+        let mut yi: Vec<usize> = vec![0; y.shape()];
 
-        for (i, yi_i) in yi.iter_mut().enumerate().take(y_ncols) {
+        for (i, yi_i) in yi.iter_mut().enumerate().take(y.shape()) {
             let yc = y.get(i);
             *yi_i = classes.iter().position(|c| yc == c).unwrap();
         }
 
-        let mtry = parameters
-            .m
-            .unwrap_or_else(|| ((num_attributes as f64).sqrt().floor()) as usize);
-
-        let mut rng = get_rng_impl(Some(parameters.seed));
-        let classes = y.unique();
         let k = classes.len();
-        let n_trees = parameters.n_trees as usize;
-        let mut trees: Vec<DecisionTreeClassifier<TX, TY, X, Y>> = Vec::with_capacity(n_trees);
-
-        let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
-        if parameters.keep_samples {
-            maybe_all_samples = Some(Vec::with_capacity(n_trees));
-        }
-
-        for tree_idx in 0..parameters.n_trees {
-            let samples: Vec<usize> =
-                RandomForestClassifier::<TX, TY, X, Y>::sample_with_replacement(&yi, k, &mut rng);
-            if let Some(ref mut all_samples) = maybe_all_samples {
-                all_samples.push(samples.iter().map(|x| *x != 0).collect())
-            }
-
-            let params = DecisionTreeClassifierParameters {
-                criterion: parameters.criterion.clone(),
-                max_depth: parameters.max_depth,
-                min_samples_leaf: parameters.min_samples_leaf,
-                min_samples_split: parameters.min_samples_split,
-                seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
-            };
-            let tree = DecisionTreeClassifier::fit_weak_learner(x, y, samples, mtry, params)?;
-            trees.push(tree);
-        }
+        let forest_classifier = match parameters.criterion {
+            SplitCriterion::Gini => BaseForest::fit(
+                x,
+                &yi,
+                sample_weights,
+                &GiniCriterion::new(k),
+                classifier_params,
+            ),
+            SplitCriterion::Entropy => BaseForest::fit(
+                x,
+                &yi,
+                sample_weights,
+                &EntropyCriterion::new(k),
+                classifier_params,
+            ),
+            SplitCriterion::ClassificationError => BaseForest::fit(
+                x,
+                &yi,
+                sample_weights,
+                &ClassificationErrorCriterion::new(k),
+                classifier_params,
+            ),
+        }?;
 
         Ok(RandomForestClassifier {
-            trees: Some(trees),
+            forest_classifier: Some(forest_classifier),
             classes: Some(classes),
-            samples: maybe_all_samples,
+            _phantom: PhantomData,
         })
     }
 
     /// Predict class for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        match &self.classes {
-            Some(classes) => {
+        match (&self.forest_classifier, &self.classes) {
+            (Some(forest), Some(classes)) => {
+                let preds_as_usize = predict_mode(forest, x, classes.len())?;
                 let mut result = Y::zeros(x.shape().0);
-
-                let (n, _) = x.shape();
-
-                for i in 0..n {
-                    result.set(i, classes[self.predict_for_row(x, i)]);
+                for (i, class_index) in preds_as_usize.iter().enumerate() {
+                    result.set(i, classes[*class_index]);
                 }
-
-                Ok(result)
-            }
-            None => Err(Failed::predict(
-                "'fit' should be called before calling 'predict'",
-            )),
-        }
-    }
-
-    fn predict_for_row(&self, x: &X, row: usize) -> usize {
-        let mut result = vec![0; self.classes.as_ref().unwrap().len()];
-
-        for tree in self.trees.as_ref().unwrap().iter() {
-            result[tree.predict_for_row(x, row)] += 1;
-        }
-
-        which_max(&result)
-    }
-
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        match (&self.trees, &self.classes) {
-            (Some(_), Some(classes)) => {
-                let (n, _) = x.shape();
-
-                let samples = match &self.samples {
-                    Some(s) => s,
-                    None => {
-                        return Err(Failed::because(
-                            FailedError::PredictFailed,
-                            "Need samples=true for OOB predictions.",
-                        ));
-                    }
-                };
-
-                if samples[0].len() != n {
-                    return Err(Failed::because(
-                        FailedError::PredictFailed,
-                        "Prediction matrix must match matrix used in training for OOB predictions.",
-                    ));
-                }
-
-                let mut result = Y::zeros(n);
-
-                for i in 0..n {
-                    result.set(i, classes[self.predict_for_row_oob(x, i)]);
-                }
-
                 Ok(result)
             }
             _ => Err(Failed::predict(
@@ -584,55 +523,28 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
     }
 
-    fn predict_for_row_oob(&self, x: &X, row: usize) -> usize {
-        let mut result = vec![0; self.classes.as_ref().unwrap().len()];
-
-        for (tree, samples) in self
-            .trees
-            .as_ref()
-            .unwrap()
-            .iter()
-            .zip(self.samples.as_ref().unwrap())
-        {
-            if !samples[row] {
-                result[tree.predict_for_row(x, row)] += 1;
-            }
-        }
-
-        which_max(&result)
-    }
-
-    fn sample_with_replacement(
-        y: &[usize],
-        num_classes: usize,
-        rng: &mut impl rand::Rng,
-    ) -> Vec<usize> {
-        let class_weight = vec![1.; num_classes];
-        let nrows = y.len();
-        let mut samples = vec![0; nrows];
-        for (l, class_weight_l) in class_weight.iter().enumerate().take(num_classes) {
-            let mut n_samples = 0;
-            let mut index: Vec<usize> = Vec::new();
-            for (i, y_i) in y.iter().enumerate().take(nrows) {
-                if *y_i == l {
-                    index.push(i);
-                    n_samples += 1;
+    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
+    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+        match (&self.forest_classifier, &self.classes) {
+            (Some(forest), Some(classes)) => {
+                let preds_as_usize = predict_mode_oob(forest, x, classes.len())?;
+                let mut result = Y::zeros(x.shape().0);
+                for (i, class_index) in preds_as_usize.iter().enumerate() {
+                    result.set(i, classes[*class_index]);
                 }
+                Ok(result)
             }
-
-            let size = ((n_samples as f64) / *class_weight_l) as usize;
-            for _ in 0..size {
-                let xi: usize = rng.random_range(0..n_samples);
-                samples[index[xi]] += 1;
-            }
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-        samples
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::FailedError;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::*;
@@ -976,12 +888,16 @@ mod tests {
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
 
         // Each tree has one split, thus one feature has a positive importance
+        let mut importances = vec![0.0; n_cols];
         let root_features: Vec<usize> = forest
-            .trees
+            .forest_classifier
             .unwrap()
+            .trees()
             .iter()
             .map(|tree| {
-                tree.compute_feature_importances(false)
+                tree.compute_feature_importances(false, &mut importances);
+
+                importances
                     .iter()
                     .position(|importance| *importance > 0.0)
                     .unwrap_or(usize::MAX)
@@ -992,5 +908,79 @@ mod tests {
             root_features.iter().any(|f| *f != root_features[0]),
             "all trees split on the same feature: {root_features:?}"
         );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_predict_labels_outside_class_index_range() {
+        // The labels are not 0..k-1: one is negative, one is equal to k = 3 and one is large.
+        // The forest must use the position of the label in `classes`, not the label itself.
+        let x = DenseMatrix::from_2d_array(&[
+            &[0.0],
+            &[1.0],
+            &[2.0],
+            &[10.0],
+            &[11.0],
+            &[12.0],
+            &[20.0],
+            &[21.0],
+            &[22.0],
+        ])
+        .unwrap();
+        let y: Vec<i32> = vec![-7, -7, -7, 3, 3, 3, 100, 100, 100];
+
+        let params = RandomForestClassifierParameters {
+            n_trees: 20,
+            keep_samples: true,
+            seed: 42,
+            ..Default::default()
+        };
+        let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
+        assert_eq!(forest.predict(&x).unwrap(), y);
+
+        // Each OOB prediction must be one of the original labels
+        let oob = forest.predict_oob(&x).unwrap();
+        assert!(oob.iter().all(|label| [-7, 3, 100].contains(label)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_with_single_class_gives_trivial_classifier() {
+        // As in scikit-learn, one class is not an error: each tree is one leaf.
+        let x = DenseMatrix::from_2d_array(&[
+            &[0.0, 5.0],
+            &[1.0, 4.0],
+            &[2.0, 3.0],
+            &[3.0, 2.0],
+            &[4.0, 1.0],
+            &[5.0, 0.0],
+        ])
+        .unwrap();
+        let y: Vec<i32> = vec![5; 6];
+
+        let params = RandomForestClassifierParameters {
+            n_trees: 10,
+            keep_samples: true,
+            seed: 42,
+            ..Default::default()
+        };
+        let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
+
+        let trees = forest.forest_classifier.as_ref().unwrap().trees();
+        assert_eq!(trees.len(), 10);
+        assert!(trees.iter().all(|tree| tree.depth() == 0));
+
+        // The forest predicts the single class, also for data that is not in the training set
+        let x_new =
+            DenseMatrix::from_2d_array(&[&[-10.0, 10.0], &[2.5, 2.5], &[100.0, -1.0]]).unwrap();
+        assert_eq!(forest.predict(&x).unwrap(), y);
+        assert_eq!(forest.predict(&x_new).unwrap(), vec![5; 3]);
+        assert_eq!(forest.predict_oob(&x).unwrap(), y);
     }
 }
