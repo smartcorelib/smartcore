@@ -4,15 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - Unreleased
 
+### Changed
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` now use `BaseTree` and `BaseForest`, the same code as the regressors. The new `GiniCriterion`, `EntropyCriterion` and `ClassificationErrorCriterion` implement the `Criterion` trait. The entropy improvement uses a numerically stable formula that is never negative. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
 - `tree`: `DecisionTreeClassifier` always shuffles the features, also when `mtry` equals the number of attributes, as the regressors do. Without a fixed `seed`, exactly tied splits can give different trees for each fit. Set `seed` to get reproducible trees.
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` accept training data with one class, as scikit-learn does. The result is a tree with one leaf that always predicts that class, and `predict_proba` returns one column. Before this change, `fit` returned an error.
 - `ensemble`: `RandomForestClassifier` uses a plain bootstrap sample, as scikit-learn does. Before this change, the bootstrap sample was stratified by class. A forest fitted with a fixed `seed` now returns different predictions. A bootstrap sample can now miss a class; the trees still use the full set of classes.
 - `tree`: `DecisionTreeClassifier::compute_feature_importances` now returns `Result<Vec<f64>, Failed>` instead of `Vec<f64>`. It returns an error when `fit` has not run. Code that uses the result must be updated.
 - `tree`: the error text for an unfitted `DecisionTreeClassifier::predict_proba` changed from "'fit' should be called before calling 'predict'" to "'fit' should be called before calling 'predict_proba'". Code that matched the old string must be updated.
-- `tree`, `ensemble`: the fitted `DecisionTreeClassifier` and `RandomForestClassifier` store different fields. Models serialized with an earlier version cannot be deserialized. Fit these models again.
+- **Breaking change:** `tree`, `ensemble`: the fitted `DecisionTreeClassifier` and `RandomForestClassifier` store different fields. Models serialized with an earlier version cannot be deserialized. Fit these models again.
+
 ## [0.7.0] - 2026-10-26
 ### Added
 - A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.

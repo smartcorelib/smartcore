@@ -5,15 +5,14 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::MutArrayView1;
 use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::linalg::basic::arrays::{ArrayView1, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::tree::criterion::{Criterion, LeafOutput};
-use crate::tree::decision_tree_classifier::which_max;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -354,7 +353,7 @@ where
         for tree in forest.trees() {
             counts[*tree.leaf_output_for_row(x, row)] += 1;
         }
-        result[row] = which_max(&counts);
+        result[row] = counts.argmax();
     }
     Ok(result)
 }
@@ -402,7 +401,7 @@ where
             }
         }
         // TODO: What to do if there are no oob trees?
-        result[row] = which_max(&counts);
+        result[row] = counts.argmax();
     }
 
     Ok(result)
@@ -618,7 +617,7 @@ mod tests {
                 keep_samples: false,
                 seed: 42,
                 bootstrap: false,
-                splitter: splitter,
+                splitter,
             };
             let forest = BaseForest::fit(&x, &y, None, &MSECriterion, params).unwrap();
             let trees = forest.trees.unwrap();
@@ -750,7 +749,7 @@ mod tests {
                     keep_samples: true,
                     seed: 42,
                     bootstrap: true,
-                    splitter: splitter,
+                    splitter,
                 };
 
                 let forest_a = BaseForest::fit(&x, &y, weights, &MSECriterion, params.clone())
