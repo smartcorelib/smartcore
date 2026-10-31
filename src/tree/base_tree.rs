@@ -78,6 +78,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     fn parameters(&self) -> &BaseTreeParameters {
         self.parameters.as_ref().unwrap()
     }
+
+    /// Get depth of tree
+    pub(crate) fn depth(&self) -> u16 {
+        self.depth
+    }
+    /// Get number of nodes in the tree
+    #[cfg(test)]
+    pub(crate) fn num_nodes(&self) -> usize {
+        self.nodes.len()
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -341,7 +351,7 @@ struct SplitWorkspace<E, C: Criterion> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
     sorted_by_feature: Vec<Vec<E>>,
-    variables: Vec<usize>, // feature indices which will be shuffled when mtry < n_features
+    variables: Vec<usize>, // feature indices, shuffled at each node; the order breaks ties between equal splits.
     true_stats: C::Stats,  // scratch stats for split functions to use
     false_stats: C::Stats,
     parent_stats: C::Stats,
@@ -506,6 +516,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             })
             .collect();
 
+        let is_root_pure = match sorted_by_feature[0].split_first() {
+            None => true,
+            Some((first, rest)) => {
+                let t0 = criterion.target(*y.get(first.row()));
+                rest.iter().all(|e| criterion.target(*y.get(e.row())) == t0)
+            }
+        };
+
         let end_idx = sorted_by_feature[0].len();
 
         let mut workspace = SplitWorkspace::new(
@@ -533,6 +551,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
 
         if base_tree.parameters().max_depth.unwrap_or(u16::MAX) > 1
             && n_kept > 0
+            && !is_root_pure
             && n >= base_tree.parameters().min_samples_split
             && base_tree.find_best_cutoff(
                 &mut visitor,
@@ -773,6 +792,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
 
         let mut true_count = 0usize;
         let mut false_count = 0usize;
+        let mut true_first_target = None; // first target of true branch
+        let mut is_true_pure = true;
         // for each row_index, does it belong in the true branch or not?
         let in_true_branch = &mut workspace.in_true_branch;
 
@@ -792,9 +813,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
                 e.mass(),
             );
             n_true += 1;
+            let t = criterion.target(*visitor.y.get(e.row()));
+            match true_first_target {
+                None => true_first_target = Some(t),
+                Some(first) => is_true_pure &= first == t,
+            }
         }
         let true_stats = parent_stats.clone();
         let mut false_stats = criterion.empty_stats();
+        let mut false_first_target = None;
+        let mut is_false_pure = true;
+
         for e in &col[n_true..] {
             in_true_branch[e.row()] = false;
             false_count += e.count();
@@ -808,6 +837,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
                 criterion.target(*visitor.y.get(e.row())),
                 e.mass(),
             );
+            let t = criterion.target(*visitor.y.get(e.row()));
+            match false_first_target {
+                None => false_first_target = Some(t),
+                Some(first) => is_false_pure &= first == t,
+            }
         }
 
         // Stop early if it is clear that there will be too few examples in the leaf
@@ -846,8 +880,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         // If the child nodes can not be split any further, there is no point in partitioning the ranges
         let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
         let min_split = self.parameters().min_samples_split;
-        let true_can_split = child_level < max_depth && true_count >= min_split;
-        let false_can_split = child_level < max_depth && false_count >= min_split;
+        let true_can_split = child_level < max_depth && true_count >= min_split && !is_true_pure;
+        let false_can_split = child_level < max_depth && false_count >= min_split && !is_false_pure;
         if !true_can_split && !false_can_split {
             return true; // both children are leaves: no partition
         }
@@ -2334,5 +2368,103 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn pure_root_is_not_split() {
+        // All targets are equal: the root is pure and must stay a leaf.
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![3.0f64; 8];
+        let weights = vec![0.5, 2.0, 1.0, 3.0, 0.25, 1.5, 1.0, 2.0];
+        let samples = vec![2, 1, 3, 1, 1, 2, 1, 1];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let parameters = params(None, 1, 2, splitter);
+            let trees: Vec<TestTree> = vec![
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters.clone())
+                    .expect("Fit should work"),
+                BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                    .expect("Fit should work"),
+                BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    None,
+                    samples.clone(),
+                    1,
+                    &order_of(&x),
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work"),
+            ];
+            for tree in &trees {
+                assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+                assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
+                assert!(tree.nodes()[0].split_value.is_none());
+                assert!(tree.nodes()[0].split_score.is_none());
+                assert!(predict(tree, &x).iter().all(|&v| (v - 3.0).abs() < 1e-12));
+            }
+        }
+    }
+
+    #[test]
+    fn pure_root_ignores_rows_with_zero_mass() {
+        // Rows 1 and 5 have a different target, but bootstrap count 0 or weight 0.
+        // The rows that are kept all have target 3.0, so the root is pure.
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![3.0f64, 100.0, 3.0, 3.0, 3.0, -50.0, 3.0, 3.0];
+        let weights = vec![1.0, 0.0, 2.0, 1.0, 0.5, 0.0, 1.0, 3.0];
+        let samples = vec![1, 0, 2, 1, 3, 0, 1, 2];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let parameters = params(None, 1, 2, splitter);
+            let trees: Vec<TestTree> = vec![
+                BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                    .expect("Fit should work"),
+                BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    None,
+                    samples.clone(),
+                    1,
+                    &order_of(&x),
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work"),
+            ];
+            for tree in &trees {
+                assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+                assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
+                assert!((tree.nodes()[0].output - 3.0).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn pure_child_is_not_split() {
+        // The root split at 4.5 gives a pure true child {5, 5, 5, 5} (SSE 0 + 5,
+        // better than 3.5: 0 + 10 and 5.5: 12.8 + 2). The true child must stay a leaf,
+        // the false child {1, 2, 3, 4} is split until its leaves are pure.
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![5.0f64, 5.0, 5.0, 5.0, 1.0, 2.0, 3.0, 4.0];
+
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value, Some(4.5));
+        let true_child = tree.nodes()[0].true_child.unwrap();
+        let false_child = tree.nodes()[0].false_child.unwrap();
+        assert!(tree.nodes()[true_child].true_child.is_none());
+        assert!(tree.nodes()[true_child].split_score.is_none());
+        assert!(tree.nodes()[false_child].true_child.is_some());
+        // root + pure leaf + 7 nodes for the false subtree with 4 distinct targets
+        assert_eq!(tree.nodes().len(), 9);
+        assert_eq!(predict(&tree, &x), y);
     }
 }
