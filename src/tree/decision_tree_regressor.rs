@@ -72,7 +72,7 @@ use crate::numbers::basenum::Number;
 use crate::tree::criterion::MSECriterion;
 
 /// Validates the sample weights
-fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
+pub(crate) fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
     if sample_weights.len() != n_rows {
         return Err(Failed::fit(
             "Number of sample weights must equal number of rows in x",

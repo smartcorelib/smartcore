@@ -65,6 +65,7 @@ use crate::numbers::floatnum::FloatNumber;
 use crate::tree::base_tree::Splitter;
 use crate::tree::criterion::{ClassificationErrorCriterion, EntropyCriterion, GiniCriterion};
 use crate::tree::decision_tree_classifier::SplitCriterion;
+use crate::tree::decision_tree_regressor::validate_sample_weights;
 
 /// Parameters of the Random Forest algorithm.
 /// Some parameters here are passed directly into base estimator.
@@ -447,6 +448,20 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         Self::fit_inner(x, y, None, parameters)
     }
 
+    /// Build a forest of trees from the training set.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target class values
+    /// * `sample_weights`: sample_weights to use during fitting
+    pub fn fit_with_weights(
+        x: &X,
+        y: &Y,
+        sample_weights: &[f64],
+        parameters: RandomForestClassifierParameters,
+    ) -> Result<RandomForestClassifier<TX, TY, X, Y>, Failed> {
+        validate_sample_weights(sample_weights, x.shape().0)?;
+        Self::fit_inner(x, y, Some(sample_weights), parameters)
+    }
+
     fn fit_inner(
         x: &X,
         y: &Y,
@@ -536,6 +551,18 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             }
             _ => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
+            )),
+        }
+    }
+
+    /// Compute the feature importances for this forest.
+    /// * returns: a vector where index `j` gives the feature importances for feature `j`.
+    ///   The importances are normalized: they add up to 1.
+    pub fn compute_feature_importances(&self) -> Result<Vec<f64>, Failed> {
+        match &self.forest_classifier {
+            Some(forest) => forest.compute_feature_importances(),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'compute_feature_importances'",
             )),
         }
     }
@@ -982,5 +1009,56 @@ mod tests {
         assert_eq!(forest.predict(&x).unwrap(), y);
         assert_eq!(forest.predict(&x_new).unwrap(), vec![5; 3]);
         assert_eq!(forest.predict_oob(&x).unwrap(), y);
+    }
+
+    #[test]
+    fn fit_with_weights() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<u32> = (0..20).map(|i| if i < 15 { 0 } else { 1 }).collect();
+        // Rows with y = 1 have weight 9, so they hold 75% of the total weight.
+        let sample_weights: Vec<f64> = (0..20).map(|i| if i < 15 { 1.0 } else { 9.0 }).collect();
+        let parameters = RandomForestClassifierParameters::default()
+            .with_max_depth(0)
+            .with_n_trees(50)
+            .with_seed(42);
+
+        let forest = RandomForestClassifier::fit(&x, &y, parameters.clone()).unwrap();
+        assert_eq!(forest.predict(&x).unwrap(), vec![0; 20]);
+        let forest =
+            RandomForestClassifier::fit_with_weights(&x, &y, &sample_weights, parameters.clone())
+                .unwrap();
+        assert_eq!(forest.predict(&x).unwrap(), vec![1; 20]);
+
+        let result = RandomForestClassifier::fit_with_weights(&x, &y, &[1.0; 3], parameters);
+        let msg = "Number of sample weights must equal number of rows in x";
+        assert_eq!(result.err(), Some(Failed::fit(msg)));
+    }
+
+    #[test]
+    fn compute_feature_importances() {
+        let forest: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            RandomForestClassifier::new();
+        let msg = "'fit' should be called before calling 'compute_feature_importances'";
+        assert_eq!(
+            forest.compute_feature_importances().err(),
+            Some(Failed::predict(msg))
+        );
+
+        // Column 0 sets the class. Column 1 is a permutation of the row index, so it is noise.
+        let n = 50;
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| vec![i as f64, ((i * 37) % n) as f64])
+            .collect();
+        let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+        let y: Vec<u32> = (0..n).map(|i| if i < n / 2 { 0 } else { 1 }).collect();
+        let parameters = RandomForestClassifierParameters::default()
+            .with_n_trees(20)
+            .with_m(2)
+            .with_seed(42);
+        let forest = RandomForestClassifier::fit(&x, &y, parameters).unwrap();
+
+        let importances = forest.compute_feature_importances().unwrap();
+        assert!((importances.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        assert!(importances[0] > importances[1]);
     }
 }
