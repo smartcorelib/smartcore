@@ -62,10 +62,9 @@ use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
-use crate::tree::base_tree::Splitter;
+use crate::tree::base_tree::{Splitter, validate_sample_weights};
 use crate::tree::criterion::{ClassificationErrorCriterion, EntropyCriterion, GiniCriterion};
 use crate::tree::decision_tree_classifier::SplitCriterion;
-use crate::tree::decision_tree_regressor::validate_sample_weights;
 
 /// Parameters of the Random Forest algorithm.
 /// Some parameters here are passed directly into base estimator.
@@ -452,6 +451,32 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - the target class values
     /// * `sample_weights`: sample_weights to use during fitting
+    ///
+    /// The weights must have one value for each row of `x`, be finite and non-negative,
+    /// and have a positive sum. Otherwise this function returns a `Failed::fit` error.
+    /// A row with weight 0 has no effect on the fit.
+    ///
+    /// Each tree gets a bootstrap sample where the rows are drawn with a probability
+    /// proportional to their weights. The trees are then fitted on that sample without
+    /// weights, so the weights are not applied twice. `RandomForestRegressor` does the same.
+    ///
+    /// ```
+    /// use smartcore::ensemble::random_forest_classifier::*;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// let rows: Vec<Vec<f64>> = (0..20).map(|i| vec![i as f64]).collect();
+    /// let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+    /// let y: Vec<u32> = (0..20).map(|i| if i < 15 { 0 } else { 1 }).collect();
+    /// // The rows of class 1 hold 75% of the total weight.
+    /// let sample_weights: Vec<f64> = (0..20).map(|i| if i < 15 { 1.0 } else { 9.0 }).collect();
+    /// let parameters = RandomForestClassifierParameters::default()
+    ///     .with_max_depth(0)
+    ///     .with_n_trees(50)
+    ///     .with_seed(42);
+    /// let forest =
+    ///     RandomForestClassifier::fit_with_weights(&x, &y, &sample_weights, parameters).unwrap();
+    /// assert_eq!(forest.predict(&x).unwrap(), vec![1; 20]);
+    /// ```
     pub fn fit_with_weights(
         x: &X,
         y: &Y,
@@ -555,9 +580,36 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
     }
 
-    /// Compute the feature importances for this forest.
-    /// * returns: a vector where index `j` gives the feature importances for feature `j`.
+    /// Compute the impurity-based feature importances for this forest.
+    /// * returns: a vector where index `j` gives the importance of feature `j`.
     ///   The importances are normalized: they add up to 1.
+    ///
+    /// The importance of a feature is the total impurity decrease of the splits on that feature.
+    /// It is normalized for each tree, averaged over the trees and normalized again.
+    /// If the model is not fitted, this function returns a `Failed::predict` error,
+    /// as `RandomForestRegressor` does.
+    ///
+    /// ```
+    /// use smartcore::ensemble::random_forest_classifier::*;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// // Column 0 sets the class. Column 1 is a permutation of the row index, so it is noise.
+    /// let n = 50;
+    /// let rows: Vec<Vec<f64>> = (0..n)
+    ///     .map(|i| vec![i as f64, ((i * 37) % n) as f64])
+    ///     .collect();
+    /// let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+    /// let y: Vec<u32> = (0..n).map(|i| if i < n / 2 { 0 } else { 1 }).collect();
+    /// let parameters = RandomForestClassifierParameters::default()
+    ///     .with_n_trees(20)
+    ///     .with_m(2)
+    ///     .with_seed(42);
+    /// let forest = RandomForestClassifier::fit(&x, &y, parameters).unwrap();
+    ///
+    /// let importances = forest.compute_feature_importances().unwrap();
+    /// assert!((importances.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+    /// assert!(importances[0] > importances[1]);
+    /// ```
     pub fn compute_feature_importances(&self) -> Result<Vec<f64>, Failed> {
         match &self.forest_classifier {
             Some(forest) => forest.compute_feature_importances(),
@@ -1029,9 +1081,70 @@ mod tests {
                 .unwrap();
         assert_eq!(forest.predict(&x).unwrap(), vec![1; 20]);
 
-        let result = RandomForestClassifier::fit_with_weights(&x, &y, &[1.0; 3], parameters);
-        let msg = "Number of sample weights must equal number of rows in x";
-        assert_eq!(result.err(), Some(Failed::fit(msg)));
+        let wrong_length = "Number of sample weights must equal number of rows in x";
+        let not_finite_or_negative = "Sample weights must be finite and non-negative";
+        let mut negative = sample_weights.clone();
+        negative[3] = -1.0;
+        let mut nan = sample_weights.clone();
+        nan[3] = f64::NAN;
+        let mut inf = sample_weights.clone();
+        inf[3] = f64::INFINITY;
+        let cases: Vec<(Vec<f64>, &str)> = vec![
+            (vec![1.0; 3], wrong_length),
+            (negative, not_finite_or_negative),
+            (nan, not_finite_or_negative),
+            (inf, not_finite_or_negative),
+            (vec![0.0; 20], "Sum of sample weights must be positive"),
+        ];
+        for (weights, msg) in cases {
+            let result =
+                RandomForestClassifier::fit_with_weights(&x, &y, &weights, parameters.clone());
+            assert_eq!(result.err(), Some(Failed::fit(msg)), "weights: {weights:?}");
+        }
+    }
+
+    #[test]
+    fn fit_with_zero_weights_ignores_rows() {
+        // The bootstrap sample is drawn proportionally to the weights,
+        // so no tree uses a row with weight 0.
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<u32> = (0..20).map(|i| (i % 3) as u32).collect();
+        let sample_weights: Vec<f64> = (0..20)
+            .map(|i| if i % 3 == 2 { 0.0 } else { 1.0 })
+            .collect();
+        for criterion in [
+            SplitCriterion::Gini,
+            SplitCriterion::Entropy,
+            SplitCriterion::ClassificationError,
+        ] {
+            let parameters = RandomForestClassifierParameters::default()
+                .with_criterion(criterion.clone())
+                .with_n_trees(20)
+                .with_keep_samples(true)
+                .with_seed(42);
+            let forest =
+                RandomForestClassifier::fit_with_weights(&x, &y, &sample_weights, parameters)
+                    .unwrap();
+            let samples = forest
+                .forest_classifier
+                .as_ref()
+                .unwrap()
+                .samples()
+                .unwrap();
+            for tree_samples in samples {
+                for (i, used) in tree_samples.iter().enumerate() {
+                    assert!(
+                        !used || sample_weights[i] > 0.0,
+                        "row {i} has weight 0 but is used (criterion: {criterion:?})"
+                    );
+                }
+            }
+            // Class 2 has weight 0, so it is never predicted.
+            assert!(
+                forest.predict(&x).unwrap().iter().all(|&c| c != 2),
+                "criterion: {criterion:?}"
+            );
+        }
     }
 
     #[test]
