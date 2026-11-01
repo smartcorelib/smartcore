@@ -582,7 +582,8 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
 
     /// Compute the impurity-based feature importances for this forest.
     /// * returns: a vector where index `j` gives the importance of feature `j`.
-    ///   The importances are normalized: they add up to 1.
+    ///   The importances are normalized: they add up to 1 when the trees contain at least one split.
+    ///   If no tree contains a split (for example, with `max_depth = 0`), all the importances are 0.
     ///
     /// The importance of a feature is the total impurity decrease of the splits on that feature.
     /// It is normalized for each tree, averaged over the trees and normalized again.
