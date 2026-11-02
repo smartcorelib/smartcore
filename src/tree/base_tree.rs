@@ -191,6 +191,24 @@ impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: C
     }
 }
 
+/// Validates the sample weights
+pub(crate) fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
+    if sample_weights.len() != n_rows {
+        return Err(Failed::fit(
+            "Number of sample weights must equal number of rows in x",
+        ));
+    }
+    if sample_weights.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        return Err(Failed::fit(
+            "Sample weights must be finite and non-negative",
+        ));
+    }
+    if sample_weights.iter().sum::<f64>() <= 0.0 {
+        return Err(Failed::fit("Sum of sample weights must be positive"));
+    }
+    Ok(())
+}
+
 /// Weighted count of sample `i`. The weight is 1.0 if no weights are given.
 fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
     match sample_weights {
