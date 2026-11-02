@@ -94,8 +94,8 @@ pub struct RandomForestClassifierParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Option<u64>,
 }
 
 /// Random Forest Classifier
@@ -152,7 +152,7 @@ impl RandomForestClassifierParameters {
 
     /// Seed used for bootstrap sampling and feature selection for each tree.
     pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+        self.seed = Some(seed);
         self
     }
 }
@@ -175,7 +175,7 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            seed: Option::None,
         }
     }
 }
@@ -231,8 +231,8 @@ pub struct RandomForestClassifierSearchParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: Vec<bool>,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: Vec<u64>,
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Vec<Option<u64>>,
 }
 
 /// RandomForestClassifier grid search iterator
@@ -694,7 +694,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
         )
         .unwrap();
@@ -751,7 +751,7 @@ mod tests {
                 n_trees: 10,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
             &KFold::default().with_n_splits(5),
             &precision,
@@ -779,7 +779,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
         );
 
@@ -805,7 +805,7 @@ mod tests {
                 n_trees: 10,
                 m: None,
                 keep_samples: false,
-                seed: 0,
+                seed: Some(0),
             },
         );
         assert!(result.is_err());
@@ -854,7 +854,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: true,
-                seed: 87,
+                seed: Some(87),
             },
         )
         .unwrap();
@@ -963,7 +963,7 @@ mod tests {
             n_trees: 10,
             m: Some(1),
             keep_samples: false,
-            seed: 42,
+            seed: Some(42),
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
 
@@ -1015,7 +1015,7 @@ mod tests {
         let params = RandomForestClassifierParameters {
             n_trees: 20,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             ..Default::default()
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
@@ -1047,7 +1047,7 @@ mod tests {
         let params = RandomForestClassifierParameters {
             n_trees: 10,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             ..Default::default()
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();

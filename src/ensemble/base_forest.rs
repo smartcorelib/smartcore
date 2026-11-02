@@ -13,6 +13,7 @@ use crate::numbers::floatnum::FloatNumber;
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::tree::criterion::{Criterion, LeafOutput};
+use rand::Rng;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -40,7 +41,7 @@ pub struct BaseForestParameters {
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    pub seed: Option<u64>,
     #[cfg_attr(feature = "serde", serde(default))]
     pub bootstrap: bool,
     #[cfg_attr(feature = "serde", serde(default))]
@@ -131,7 +132,7 @@ impl<
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        let mut rng = get_rng_impl(Some(parameters.seed));
+        let mut rng = get_rng_impl(parameters.seed);
         let n_trees = parameters.n_trees;
         let mut trees: Vec<BaseTree<TX, TY, X, Y, Out>> = Vec::with_capacity(n_trees);
 
@@ -157,7 +158,9 @@ impl<
             order.push(col_i.argsort_mut());
         }
 
-        for tree_idx in 0..parameters.n_trees {
+        for _ in 0..parameters.n_trees {
+            // draw seed for the next tree. Do this before any bootstrapping.
+            let seed_for_tree = rng.next_u64();
             if parameters.bootstrap {
                 samples = BaseForest::<TX, TY, X, Y, Out>::sample_with_replacement(
                     n_rows,
@@ -175,7 +178,7 @@ impl<
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
-                seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
+                seed: Some(seed_for_tree), // each tree gets its own seed from the forest RNG
                 splitter: parameters.splitter,
             };
             // Only use sample weights on base tree if not already applied during bootstrapping
@@ -426,7 +429,7 @@ mod tests {
             n_trees: 5,
             m: None,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             bootstrap: true,
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -455,7 +458,7 @@ mod tests {
                 n_trees: 5,
                 m: None,
                 keep_samples: false,
-                seed: 0,
+                seed: Some(0),
                 bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
             },
@@ -484,7 +487,7 @@ mod tests {
                 n_trees: 5,
                 m: None,
                 keep_samples: false,
-                seed: 0,
+                seed: Some(0),
                 bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
             },
@@ -510,7 +513,7 @@ mod tests {
             n_trees: 5,
             m: None,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             bootstrap: false,
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -569,7 +572,7 @@ mod tests {
                 n_trees: 10,
                 m: None,
                 keep_samples: true, // keep samples used for each tree, so we can check that they are different
-                seed: 42,
+                seed: Some(42),
                 bootstrap: true, // Use bootstrapping
                 splitter: crate::tree::base_tree::Splitter::Best,
             };
@@ -615,7 +618,7 @@ mod tests {
                 n_trees: 10,
                 m: Some(1),
                 keep_samples: false,
-                seed: 42,
+                seed: Some(42),
                 bootstrap: false,
                 splitter,
             };
@@ -644,7 +647,7 @@ mod tests {
             n_trees: 10,
             m: None,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             bootstrap: false, // No bootstrapping
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -687,7 +690,7 @@ mod tests {
             n_trees: 500, // Use more trees than before to smooth out randomness
             m: None,
             keep_samples: true, // keep samples used for each tree, so we can check that they are different
-            seed: 42,
+            seed: Some(42),
             bootstrap: true, // Use bootstrapping
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -747,7 +750,7 @@ mod tests {
                     n_trees: 10,
                     m: Some(1),
                     keep_samples: true,
-                    seed: 42,
+                    seed: Some(42),
                     bootstrap: true,
                     splitter,
                 };
@@ -777,7 +780,10 @@ mod tests {
                     &y,
                     weights,
                     &MSECriterion,
-                    BaseForestParameters { seed: 43, ..params },
+                    BaseForestParameters {
+                        seed: Some(43),
+                        ..params
+                    },
                 )
                 .expect("Fit should work");
                 assert_ne!(

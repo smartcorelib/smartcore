@@ -94,8 +94,8 @@ pub struct ExtraTreesRegressorParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Option<u64>,
 }
 
 /// Extra Trees Regressor
@@ -143,9 +143,9 @@ impl ExtraTreesRegressorParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+        self.seed = Some(seed);
         self
     }
 }
@@ -158,7 +158,7 @@ impl Default for ExtraTreesRegressorParameters {
             n_trees: 10,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            seed: Option::None,
         }
     }
 }

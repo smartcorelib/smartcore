@@ -115,6 +115,12 @@ impl DecisionTreeRegressorParameters {
         self.min_samples_split = min_samples_split;
         self
     }
+
+    /// Seed used for feature selection in the tree.
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = Some(seed);
+        self
+    }
 }
 
 impl Default for DecisionTreeRegressorParameters {
