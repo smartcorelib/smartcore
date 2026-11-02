@@ -77,7 +77,7 @@ use crate::linalg::basic::arrays::MutArray;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::linalg::basic::matrix::DenseMatrix;
 use crate::numbers::basenum::Number;
-use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
+use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter, validate_sample_weights};
 use crate::tree::criterion::{ClassificationErrorCriterion, EntropyCriterion, GiniCriterion};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -398,6 +398,38 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
         parameters: DecisionTreeClassifierParameters,
     ) -> Result<DecisionTreeClassifier<TX, TY, X, Y>, Failed> {
         Self::fit_inner(x, y, None, parameters)
+    }
+
+    /// Build a decision tree classifier from the training data.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target class values
+    /// * `sample_weights` - weights to use during fitting
+    ///
+    /// The weights must have one value for each row of `x`, be finite and non-negative,
+    /// and have a positive sum. Otherwise this function returns a `Failed::fit` error.
+    /// A row with weight 0 has no effect on the fit.
+    ///
+    /// ```
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    /// use smartcore::tree::decision_tree_classifier::*;
+    ///
+    /// let x = DenseMatrix::from_2d_array(&[&[0.0], &[1.0], &[2.0], &[3.0]]).unwrap();
+    /// let y: Vec<u32> = vec![0, 0, 0, 1];
+    /// // A stump predicts the class with the most weight.
+    /// let parameters = DecisionTreeClassifierParameters::default().with_max_depth(0);
+    /// let tree =
+    ///     DecisionTreeClassifier::fit_with_weights(&x, &y, &[1.0, 1.0, 1.0, 9.0], parameters)
+    ///         .unwrap();
+    /// assert_eq!(tree.predict(&x).unwrap(), vec![1; 4]);
+    /// ```
+    pub fn fit_with_weights(
+        x: &X,
+        y: &Y,
+        sample_weights: &[f64],
+        parameters: DecisionTreeClassifierParameters,
+    ) -> Result<DecisionTreeClassifier<TX, TY, X, Y>, Failed> {
+        validate_sample_weights(sample_weights, x.shape().0)?;
+        Self::fit_inner(x, y, Some(sample_weights), parameters)
     }
 
     fn fit_inner(
@@ -1002,5 +1034,154 @@ mod tests {
             tree.compute_feature_importances(true).unwrap(),
             vec![0.0; 2]
         );
+    }
+
+    #[test]
+    fn fit_with_weights() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..4).map(|i| i as f64), 4, 1, 0);
+        let y: Vec<u32> = vec![0, 0, 0, 1];
+        let parameters = DecisionTreeClassifierParameters::default().with_max_depth(0);
+
+        // A stump predicts the majority class. The weights make class 1 the majority.
+        let tree = DecisionTreeClassifier::fit(&x, &y, parameters.clone()).unwrap();
+        assert_eq!(tree.predict(&x).unwrap(), vec![0; 4]);
+        let tree =
+            DecisionTreeClassifier::fit_with_weights(&x, &y, &[1.0, 1.0, 1.0, 9.0], parameters)
+                .unwrap();
+        assert_eq!(tree.predict(&x).unwrap(), vec![1; 4]);
+    }
+
+    #[test]
+    fn fit_with_weights_validates_weights() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..6).map(|i| i as f64), 3, 2, 0);
+        let y: Vec<u32> = vec![0, 1, 1];
+        let parameters = DecisionTreeClassifierParameters::default();
+
+        let cases: Vec<(Vec<f64>, &str)> = vec![
+            (
+                vec![1.0, 2.0],
+                "Number of sample weights must equal number of rows in x",
+            ),
+            (
+                vec![1.0, -1.0, 3.0],
+                "Sample weights must be finite and non-negative",
+            ),
+            (
+                vec![1.0, f64::NAN, 3.0],
+                "Sample weights must be finite and non-negative",
+            ),
+            (
+                vec![1.0, f64::INFINITY, 3.0],
+                "Sample weights must be finite and non-negative",
+            ),
+            (
+                vec![0.0, 0.0, 0.0],
+                "Sum of sample weights must be positive",
+            ),
+        ];
+        for (weights, msg) in cases {
+            let result =
+                DecisionTreeClassifier::fit_with_weights(&x, &y, &weights, parameters.clone());
+            assert_eq!(result.err(), Some(Failed::fit(msg)), "weights: {weights:?}");
+        }
+    }
+
+    const CRITERIA: [SplitCriterion; 3] = [
+        SplitCriterion::Gini,
+        SplitCriterion::Entropy,
+        SplitCriterion::ClassificationError,
+    ];
+
+    /// 20 rows, 2 features and 3 classes that overlap, so that a full tree has many splits.
+    fn weighted_data() -> (DenseMatrix<f64>, Vec<u32>) {
+        let rows: Vec<Vec<f64>> = (0..20)
+            .map(|i| vec![((i * 7) % 20) as f64, ((i * 11) % 13) as f64])
+            .collect();
+        let y: Vec<u32> = (0..20).map(|i| ((i * 5 + i / 3) % 3) as u32).collect();
+        (DenseMatrix::from_2d_vec(&rows).unwrap(), y)
+    }
+
+    #[test]
+    fn fit_with_uniform_weights_matches_fit() {
+        let (x, y) = weighted_data();
+        for criterion in CRITERIA {
+            let parameters = DecisionTreeClassifierParameters {
+                seed: Some(42),
+                ..Default::default()
+            }
+            .with_criterion(criterion.clone());
+            let tree = DecisionTreeClassifier::fit(&x, &y, parameters.clone()).unwrap();
+            let weighted_tree =
+                DecisionTreeClassifier::fit_with_weights(&x, &y, &[1.0; 20], parameters).unwrap();
+            assert_eq!(
+                tree.predict(&x).unwrap(),
+                weighted_tree.predict(&x).unwrap(),
+                "criterion: {criterion:?}"
+            );
+            assert_eq!(
+                tree.predict_proba(&x).unwrap(),
+                weighted_tree.predict_proba(&x).unwrap(),
+                "criterion: {criterion:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn fit_with_zero_weights_ignores_rows() {
+        let (x, y) = weighted_data();
+        let kept: Vec<usize> = (0..20).filter(|i| i % 4 != 1).collect();
+        let sample_weights: Vec<f64> = (0..20)
+            .map(|i| if i % 4 == 1 { 0.0 } else { 1.0 })
+            .collect();
+        let rows: Vec<Vec<f64>> = kept
+            .iter()
+            .map(|&i| x.get_row(i).iterator(0).copied().collect())
+            .collect();
+        let x_kept = DenseMatrix::from_2d_vec(&rows).unwrap();
+        let y_kept: Vec<u32> = kept.iter().map(|&i| y[i]).collect();
+
+        for criterion in CRITERIA {
+            let parameters = DecisionTreeClassifierParameters {
+                seed: Some(42),
+                ..Default::default()
+            }
+            .with_criterion(criterion.clone());
+            let tree = DecisionTreeClassifier::fit(&x_kept, &y_kept, parameters.clone()).unwrap();
+            let weighted_tree =
+                DecisionTreeClassifier::fit_with_weights(&x, &y, &sample_weights, parameters)
+                    .unwrap();
+            assert_eq!(
+                tree.predict(&x_kept).unwrap(),
+                weighted_tree.predict(&x_kept).unwrap(),
+                "criterion: {criterion:?}"
+            );
+            assert_eq!(
+                tree.compute_feature_importances(true).unwrap(),
+                weighted_tree.compute_feature_importances(true).unwrap(),
+                "criterion: {criterion:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn fit_with_weights_for_each_criterion() {
+        // Row 1 is the only row of class 1. Its large weight makes class 1 the majority, and
+        // the best single split puts rows 0 and 1 on one side: they get class 1.
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..4).map(|i| i as f64), 4, 1, 0);
+        let y: Vec<u32> = vec![0, 1, 0, 0];
+        let sample_weights = [1.0, 10.0, 1.0, 1.0];
+        for criterion in CRITERIA {
+            let parameters = DecisionTreeClassifierParameters::default()
+                .with_criterion(criterion.clone())
+                .with_max_depth(2);
+            let tree =
+                DecisionTreeClassifier::fit_with_weights(&x, &y, &sample_weights, parameters)
+                    .unwrap();
+            assert_eq!(
+                tree.predict(&x).unwrap(),
+                vec![1, 1, 0, 0],
+                "criterion: {criterion:?}"
+            );
+        }
     }
 }

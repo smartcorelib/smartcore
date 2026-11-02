@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.0] - Unreleased
 
+### Added
+- `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` get a `fit_with_weights` method. `RandomForestClassifier` gets a `compute_feature_importances` method.
+
 ### Changed
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` now use `BaseTree` and `BaseForest`, the same code as the regressors. The new `GiniCriterion`, `EntropyCriterion` and `ClassificationErrorCriterion` implement the `Criterion` trait. The entropy improvement uses a numerically stable formula that is never negative. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
 - `tree`: `DecisionTreeClassifier` always shuffles the features, also when `mtry` equals the number of attributes, as the regressors do. Without a fixed `seed`, exactly tied splits can give different trees for each fit. Set `seed` to get reproducible trees.
