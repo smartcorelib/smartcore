@@ -793,4 +793,159 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn nearby_seeds_do_not_share_tree_seeds() {
+        // With bootstrap, the samples also differ between the forests. The test then
+        // checks that the bootstrap path does not share trees either.
+        //
+        // The Random splitter and m = 1 make each tree depend strongly on its seed.
+        let n_rows = 30;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            4,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
+
+        for bootstrap in [false, true] {
+            let params = BaseForestParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 10,
+                m: Some(1),
+                keep_samples: false,
+                seed: Some(42),
+                bootstrap,
+                splitter: Splitter::Random,
+            };
+            let fit = |seed: u64| {
+                BaseForest::fit(
+                    &x,
+                    &y,
+                    None,
+                    &MSECriterion,
+                    BaseForestParameters {
+                        seed: Some(seed),
+                        ..params.clone()
+                    },
+                )
+                .expect("Fit should work")
+            };
+
+            // The same Some(seed) gives the same forest and the same predictions.
+            let forest_42 = fit(42);
+            let forest_42_again = fit(42);
+            assert_eq!(forest_42, forest_42_again, "bootstrap: {bootstrap}");
+            assert_eq!(
+                predict_mean(&forest_42, &x).unwrap(),
+                predict_mean(&forest_42_again, &x).unwrap(),
+                "bootstrap: {bootstrap}"
+            );
+
+            // Seeds 42 and 43 must not give any tree in common.
+            let forest_43 = fit(43);
+            for (i, tree_42) in forest_42.trees().iter().enumerate() {
+                for (j, tree_43) in forest_43.trees().iter().enumerate() {
+                    assert!(
+                        tree_42 != tree_43,
+                        "tree {i} (seed 42) is equal to tree {j} (seed 43), bootstrap: {bootstrap}"
+                    );
+                }
+            }
+
+            // Inside one forest, all trees are different too.
+            let trees = forest_42.trees();
+            for i in 0..trees.len() {
+                for j in (i + 1)..trees.len() {
+                    assert!(
+                        trees[i] != trees[j],
+                        "trees {i} and {j} are equal, bootstrap: {bootstrap}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Data for the tests of `seed: None`.
+    fn seed_none_data() -> (DenseMatrix<f64>, Vec<f64>) {
+        let n_rows = 30;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            4,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
+        (x, y)
+    }
+
+    /// Fits a forest with the given seed. The Random splitter, m = 1 and bootstrap
+    /// make the forest depend on every random draw.
+    fn fit_with_seed(
+        x: &DenseMatrix<f64>,
+        y: &Vec<f64>,
+        seed: Option<u64>,
+    ) -> BaseForest<f64, f64, DenseMatrix<f64>, Vec<f64>, f64> {
+        let params = BaseForestParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 10,
+            m: Some(1),
+            keep_samples: false,
+            seed,
+            bootstrap: true,
+            splitter: Splitter::Random,
+        };
+        BaseForest::fit(x, y, None, &MSECriterion, params).expect("Fit should work")
+    }
+
+    /// Without std_rand (and without js), `None` uses the fixed fallback seed of
+    /// `get_rng_impl`. Two fits must give the same forest, equal to the forest for `Some(0)`.
+    #[test]
+    #[cfg(not(any(feature = "std_rand", feature = "js")))]
+    fn seed_none_is_deterministic_without_std_rand() {
+        let (x, y) = seed_none_data();
+
+        let first = fit_with_seed(&x, &y, None);
+        let second = fit_with_seed(&x, &y, None);
+        assert_eq!(first, second);
+        assert_eq!(
+            predict_mean(&first, &x).unwrap(),
+            predict_mean(&second, &x).unwrap()
+        );
+
+        // get_rng_impl(None) is seed_from_u64(0) in this configuration.
+        let with_seed_0 = fit_with_seed(&x, &y, Some(0));
+        assert_eq!(first, with_seed_0);
+    }
+
+    /// With std_rand, `None` takes a new seed from OS entropy at each fit,
+    /// so two fits must give different forests.
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "std_rand")]
+    fn seed_none_differs_between_fits_with_std_rand() {
+        let (x, y) = seed_none_data();
+
+        let first = fit_with_seed(&x, &y, None);
+        let second = fit_with_seed(&x, &y, None);
+        // Two random 64-bit seeds are equal with probability 2^-64, and two
+        // different seeds give different forests (see nearby_seeds_do_not_share_tree_seeds).
+        assert!(
+            first != second,
+            "two fits with seed None give the same forest"
+        );
+        assert_ne!(
+            predict_mean(&first, &x).unwrap(),
+            predict_mean(&second, &x).unwrap(),
+            "two fits with seed None give the same predictions"
+        );
+    }
 }

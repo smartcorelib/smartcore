@@ -134,7 +134,7 @@ impl RandomForestRegressorParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self

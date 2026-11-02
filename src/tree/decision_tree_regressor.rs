@@ -752,4 +752,11 @@ mod tests {
             vec![1.0, 0.0]
         );
     }
+
+    #[test]
+    fn with_seed_sets_seed() {
+        assert_eq!(DecisionTreeRegressorParameters::default().seed, None);
+        let params = DecisionTreeRegressorParameters::default().with_seed(42);
+        assert_eq!(params.seed, Some(42));
+    }
 }

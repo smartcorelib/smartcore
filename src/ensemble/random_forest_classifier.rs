@@ -150,7 +150,7 @@ impl RandomForestClassifierParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
@@ -933,6 +933,64 @@ mod tests {
             postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_seed_parameter() {
+        // Round trip with serde_json and postcard, for Some and None.
+        for seed in [Some(42u64), None] {
+            let params = RandomForestClassifierParameters {
+                seed,
+                ..Default::default()
+            };
+
+            let json = serde_json::to_string(&params).unwrap();
+            let from_json: RandomForestClassifierParameters = serde_json::from_str(&json).unwrap();
+            assert_eq!(from_json.seed, seed);
+
+            let bytes = postcard::to_allocvec(&params).unwrap();
+            let from_postcard: RandomForestClassifierParameters =
+                postcard::from_bytes(&bytes).unwrap();
+            assert_eq!(from_postcard.seed, seed);
+        }
+
+        // JSON written before the change (seed was a plain u64) must still load.
+        let old: RandomForestClassifierParameters =
+            serde_json::from_str(r#"{"seed": 42}"#).unwrap();
+        assert_eq!(old.seed, Some(42));
+
+        // An explicit null gives None.
+        let null: RandomForestClassifierParameters =
+            serde_json::from_str(r#"{"seed": null}"#).unwrap();
+        assert_eq!(null.seed, None);
+
+        // A missing field takes the default value (serde(default)).
+        let missing: RandomForestClassifierParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(
+            missing.seed,
+            RandomForestClassifierParameters::default().seed
+        );
+        assert_eq!(missing.seed, None);
+
+        // Search parameters: the list of seeds must survive a round trip.
+        let search = RandomForestClassifierSearchParameters {
+            seed: vec![None, Some(42)],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&search).unwrap();
+        let from_json: RandomForestClassifierSearchParameters =
+            serde_json::from_str(&json).unwrap();
+        assert_eq!(from_json.seed, vec![None, Some(42)]);
+
+        // Old search-parameter JSON (Vec<u64>) must still load.
+        let old_search: RandomForestClassifierSearchParameters =
+            serde_json::from_str(r#"{"seed": [1, 2]}"#).unwrap();
+        assert_eq!(old_search.seed, vec![Some(1), Some(2)]);
     }
 
     #[test]

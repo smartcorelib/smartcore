@@ -143,7 +143,7 @@ impl ExtraTreesRegressorParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
@@ -854,5 +854,44 @@ mod tests {
         )
         .unwrap();
         assert_eq!(et.compute_feature_importances().unwrap(), vec![0.0; 3]);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_seed_parameter() {
+        // Round trip with serde_json and postcard, for Some and None.
+        for seed in [Some(42u64), None] {
+            let params = ExtraTreesRegressorParameters {
+                seed,
+                ..Default::default()
+            };
+
+            let json = serde_json::to_string(&params).unwrap();
+            let from_json: ExtraTreesRegressorParameters = serde_json::from_str(&json).unwrap();
+            assert_eq!(from_json.seed, seed);
+
+            let bytes = postcard::to_allocvec(&params).unwrap();
+            let from_postcard: ExtraTreesRegressorParameters =
+                postcard::from_bytes(&bytes).unwrap();
+            assert_eq!(from_postcard.seed, seed);
+        }
+
+        // JSON written before the change (seed was a plain u64) must still load.
+        let old: ExtraTreesRegressorParameters = serde_json::from_str(r#"{"seed": 42}"#).unwrap();
+        assert_eq!(old.seed, Some(42));
+
+        // An explicit null gives None.
+        let null: ExtraTreesRegressorParameters =
+            serde_json::from_str(r#"{"seed": null}"#).unwrap();
+        assert_eq!(null.seed, None);
+
+        // A missing field takes the default value (serde(default)).
+        let missing: ExtraTreesRegressorParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.seed, ExtraTreesRegressorParameters::default().seed);
+        assert_eq!(missing.seed, None);
     }
 }

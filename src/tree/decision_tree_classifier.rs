@@ -1190,4 +1190,11 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn with_seed_sets_seed() {
+        assert_eq!(DecisionTreeClassifierParameters::default().seed, None);
+        let params = DecisionTreeClassifierParameters::default().with_seed(42);
+        assert_eq!(params.seed, Some(42));
+    }
 }
