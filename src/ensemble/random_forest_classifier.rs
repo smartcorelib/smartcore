@@ -652,6 +652,29 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
+    #[test]
+    fn search_parameters_with_seed() {
+        let parameters = RandomForestClassifierSearchParameters {
+            n_trees: vec![10, 100],
+            seed: vec![None, Some(42)],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.seed, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.seed, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.seed, Some(42));
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.seed, Some(42));
+        assert!(iter.next().is_none());
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
@@ -927,7 +950,12 @@ mod tests {
         .unwrap();
         let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
-        let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
+        let forest = RandomForestClassifier::fit(
+            &x,
+            &y,
+            RandomForestClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
 
         let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
             postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
@@ -942,7 +970,6 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn serde_seed_parameter() {
-        // Round trip with serde_json and postcard, for Some and None.
         for seed in [Some(42u64), None] {
             let params = RandomForestClassifierParameters {
                 seed,
@@ -959,17 +986,14 @@ mod tests {
             assert_eq!(from_postcard.seed, seed);
         }
 
-        // JSON written before the change (seed was a plain u64) must still load.
         let old: RandomForestClassifierParameters =
             serde_json::from_str(r#"{"seed": 42}"#).unwrap();
         assert_eq!(old.seed, Some(42));
 
-        // An explicit null gives None.
         let null: RandomForestClassifierParameters =
             serde_json::from_str(r#"{"seed": null}"#).unwrap();
         assert_eq!(null.seed, None);
 
-        // A missing field takes the default value (serde(default)).
         let missing: RandomForestClassifierParameters = serde_json::from_str("{}").unwrap();
         assert_eq!(
             missing.seed,
@@ -977,7 +1001,6 @@ mod tests {
         );
         assert_eq!(missing.seed, None);
 
-        // Search parameters: the list of seeds must survive a round trip.
         let search = RandomForestClassifierSearchParameters {
             seed: vec![None, Some(42)],
             ..Default::default()
@@ -987,7 +1010,6 @@ mod tests {
             serde_json::from_str(&json).unwrap();
         assert_eq!(from_json.seed, vec![None, Some(42)]);
 
-        // Old search-parameter JSON (Vec<u64>) must still load.
         let old_search: RandomForestClassifierSearchParameters =
             serde_json::from_str(r#"{"seed": [1, 2]}"#).unwrap();
         assert_eq!(old_search.seed, vec![Some(1), Some(2)]);

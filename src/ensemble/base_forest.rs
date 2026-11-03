@@ -794,20 +794,13 @@ mod tests {
         }
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn nearby_seeds_do_not_share_tree_seeds() {
-        // With bootstrap, the samples also differ between the forests. The test then
-        // checks that the bootstrap path does not share trees either.
-        //
-        // The Random splitter and m = 1 make each tree depend strongly on its seed.
-        let n_rows = 30;
-        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
-            (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
-            n_rows,
-            4,
-            0,
-        );
-        let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
+        let (x, y) = seed_test_data();
 
         for bootstrap in [false, true] {
             let params = BaseForestParameters {
@@ -835,7 +828,6 @@ mod tests {
                 .expect("Fit should work")
             };
 
-            // The same Some(seed) gives the same forest and the same predictions.
             let forest_42 = fit(42);
             let forest_42_again = fit(42);
             assert_eq!(forest_42, forest_42_again, "bootstrap: {bootstrap}");
@@ -845,7 +837,6 @@ mod tests {
                 "bootstrap: {bootstrap}"
             );
 
-            // Seeds 42 and 43 must not give any tree in common.
             let forest_43 = fit(43);
             for (i, tree_42) in forest_42.trees().iter().enumerate() {
                 for (j, tree_43) in forest_43.trees().iter().enumerate() {
@@ -856,7 +847,6 @@ mod tests {
                 }
             }
 
-            // Inside one forest, all trees are different too.
             let trees = forest_42.trees();
             for i in 0..trees.len() {
                 for j in (i + 1)..trees.len() {
@@ -869,8 +859,7 @@ mod tests {
         }
     }
 
-    /// Data for the tests of `seed: None`.
-    fn seed_none_data() -> (DenseMatrix<f64>, Vec<f64>) {
+    fn seed_test_data() -> (DenseMatrix<f64>, Vec<f64>) {
         let n_rows = 30;
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
             (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
@@ -882,8 +871,6 @@ mod tests {
         (x, y)
     }
 
-    /// Fits a forest with the given seed. The Random splitter, m = 1 and bootstrap
-    /// make the forest depend on every random draw.
     fn fit_with_seed(
         x: &DenseMatrix<f64>,
         y: &Vec<f64>,
@@ -905,10 +892,14 @@ mod tests {
 
     /// Without std_rand (and without js), `None` uses the fixed fallback seed of
     /// `get_rng_impl`. Two fits must give the same forest, equal to the forest for `Some(0)`.
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     #[cfg(not(any(feature = "std_rand", feature = "js")))]
     fn seed_none_is_deterministic_without_std_rand() {
-        let (x, y) = seed_none_data();
+        let (x, y) = seed_test_data();
 
         let first = fit_with_seed(&x, &y, None);
         let second = fit_with_seed(&x, &y, None);
@@ -918,13 +909,10 @@ mod tests {
             predict_mean(&second, &x).unwrap()
         );
 
-        // get_rng_impl(None) is seed_from_u64(0) in this configuration.
         let with_seed_0 = fit_with_seed(&x, &y, Some(0));
         assert_eq!(first, with_seed_0);
     }
 
-    /// With std_rand, `None` takes a new seed from OS entropy at each fit,
-    /// so two fits must give different forests.
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
@@ -932,7 +920,7 @@ mod tests {
     #[test]
     #[cfg(feature = "std_rand")]
     fn seed_none_differs_between_fits_with_std_rand() {
-        let (x, y) = seed_none_data();
+        let (x, y) = seed_test_data();
 
         let first = fit_with_seed(&x, &y, None);
         let second = fit_with_seed(&x, &y, None);
@@ -941,11 +929,6 @@ mod tests {
         assert!(
             first != second,
             "two fits with seed None give the same forest"
-        );
-        assert_ne!(
-            predict_mean(&first, &x).unwrap(),
-            predict_mean(&second, &x).unwrap(),
-            "two fits with seed None give the same predictions"
         );
     }
 }

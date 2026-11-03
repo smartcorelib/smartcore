@@ -52,7 +52,8 @@ fn random_forest_classifier_inline_workflow() {
 
     let params = RandomForestClassifierParameters::default()
         .with_n_trees(10)
-        .with_max_depth(3);
+        .with_max_depth(3)
+        .with_seed(0);
     let model = RandomForestClassifier::fit(&x, &y, params).expect("RandomForestClassifier::fit");
     let preds = model.predict(&x).expect("predict");
 
@@ -89,7 +90,8 @@ fn random_forest_regressor_inline_workflow() {
 
     let params = RandomForestRegressorParameters::default()
         .with_n_trees(10)
-        .with_max_depth(4);
+        .with_max_depth(4)
+        .with_seed(0);
     let model = RandomForestRegressor::fit(&x, &y, params).expect("RandomForestRegressor::fit");
     let preds = model.predict(&x).expect("predict");
 
@@ -125,7 +127,8 @@ fn random_forest_classifier_iris_workflow() {
 
     let params = RandomForestClassifierParameters::default()
         .with_n_trees(20)
-        .with_max_depth(5);
+        .with_max_depth(5)
+        .with_seed(0);
     let model = RandomForestClassifier::fit(&x, &y, params).expect("fit on iris");
     let preds = model.predict(&x).expect("predict");
 

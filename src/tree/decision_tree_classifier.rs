@@ -614,7 +614,12 @@ mod tests {
         .unwrap();
         let y: Vec<usize> = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
 
-        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        let tree = DecisionTreeClassifier::fit(
+            &x,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
         let probabilities = tree.predict_proba(&x).unwrap();
 
         assert_eq!(probabilities.shape(), (10, 2));
@@ -678,7 +683,7 @@ mod tests {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 3,
-            seed: None,
+            seed: Some(42),
             criterion: SplitCriterion::Gini,
         };
 
@@ -691,7 +696,7 @@ mod tests {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 4,
-            seed: None,
+            seed: Some(42),
             criterion: SplitCriterion::Gini,
         };
 
@@ -734,14 +739,17 @@ mod tests {
 
         assert_eq!(
             y,
-            DecisionTreeClassifier::fit(&x, &y, Default::default())
-                .and_then(|t| t.predict(&x))
-                .unwrap()
+            DecisionTreeClassifier::fit(
+                &x,
+                &y,
+                DecisionTreeClassifierParameters::default().with_seed(42)
+            )
+            .and_then(|t| t.predict(&x))
+            .unwrap()
         );
 
         println!(
             "{:?}",
-            //3,
             DecisionTreeClassifier::fit(
                 &x,
                 &y,
@@ -750,7 +758,7 @@ mod tests {
                     max_depth: Some(3),
                     min_samples_leaf: 1,
                     min_samples_split: 2,
-                    seed: Option::None
+                    seed: Some(42)
                 }
             )
             .unwrap()
@@ -764,7 +772,11 @@ mod tests {
 
         let y: Vec<u32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
-        let fail = DecisionTreeClassifier::fit(&x_rand, &y, Default::default());
+        let fail = DecisionTreeClassifier::fit(
+            &x_rand,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        );
 
         assert!(fail.is_err());
     }
@@ -777,7 +789,11 @@ mod tests {
         assert_eq!(empty.shape(), (0, 2));
 
         let y: Vec<u32> = vec![];
-        let result = DecisionTreeClassifier::fit(&empty, &y, Default::default());
+        let result = DecisionTreeClassifier::fit(
+            &empty,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
@@ -790,7 +806,11 @@ mod tests {
         assert_eq!(no_features.shape(), (2, 0));
 
         let y: Vec<u32> = vec![0, 1];
-        let result = DecisionTreeClassifier::fit(&no_features, &y, Default::default());
+        let result = DecisionTreeClassifier::fit(
+            &no_features,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
@@ -828,9 +848,13 @@ mod tests {
 
         assert_eq!(
             y,
-            DecisionTreeClassifier::fit(&x, &y, Default::default())
-                .and_then(|t| t.predict(&x))
-                .unwrap()
+            DecisionTreeClassifier::fit(
+                &x,
+                &y,
+                DecisionTreeClassifierParameters::default().with_seed(42)
+            )
+            .and_then(|t| t.predict(&x))
+            .unwrap()
         );
     }
 
@@ -860,7 +884,12 @@ mod tests {
         ])
         .unwrap();
         let y: Vec<u32> = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
-        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        let tree = DecisionTreeClassifier::fit(
+            &x,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
 
         // y = 1 if and only if x2 = 1 and x3 = 0. Thus a split on x2 and a split on x3
         // give the same gain at the root. The random feature order breaks the tie,
@@ -952,7 +981,12 @@ mod tests {
         .unwrap();
         let y = vec![1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0];
 
-        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        let tree = DecisionTreeClassifier::fit(
+            &x,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
 
         let deserialized_tree: DecisionTreeClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
             postcard::from_bytes(&postcard::to_allocvec(&tree).unwrap()).unwrap();
@@ -982,7 +1016,12 @@ mod tests {
         .unwrap();
         let y: Vec<i32> = vec![-7, -7, -7, 3, 3, 3, 100, 100, 100];
 
-        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        let tree = DecisionTreeClassifier::fit(
+            &x,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
         assert_eq!(tree.predict(&x).unwrap(), y);
 
         // The columns of predict_proba are in the order of the sorted classes: -7, 3, 100
@@ -1014,7 +1053,12 @@ mod tests {
         .unwrap();
         let y: Vec<i32> = vec![5; 6];
 
-        let tree = DecisionTreeClassifier::fit(&x, &y, Default::default()).unwrap();
+        let tree = DecisionTreeClassifier::fit(
+            &x,
+            &y,
+            DecisionTreeClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
         assert_eq!(tree.depth(), 0);
         assert_eq!(tree.tree_classifier.as_ref().unwrap().num_nodes(), 1);
 
@@ -1046,7 +1090,9 @@ mod tests {
     fn fit_with_weights() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..4).map(|i| i as f64), 4, 1, 0);
         let y: Vec<u32> = vec![0, 0, 0, 1];
-        let parameters = DecisionTreeClassifierParameters::default().with_max_depth(0);
+        let parameters = DecisionTreeClassifierParameters::default()
+            .with_max_depth(0)
+            .with_seed(42);
 
         // A stump predicts the majority class. The weights make class 1 the majority.
         let tree = DecisionTreeClassifier::fit(&x, &y, parameters.clone()).unwrap();
@@ -1061,7 +1107,7 @@ mod tests {
     fn fit_with_weights_validates_weights() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..6).map(|i| i as f64), 3, 2, 0);
         let y: Vec<u32> = vec![0, 1, 1];
-        let parameters = DecisionTreeClassifierParameters::default();
+        let parameters = DecisionTreeClassifierParameters::default().with_seed(42);
 
         let cases: Vec<(Vec<f64>, &str)> = vec![
             (
@@ -1179,7 +1225,8 @@ mod tests {
         for criterion in CRITERIA {
             let parameters = DecisionTreeClassifierParameters::default()
                 .with_criterion(criterion.clone())
-                .with_max_depth(2);
+                .with_max_depth(2)
+                .with_seed(42);
             let tree =
                 DecisionTreeClassifier::fit_with_weights(&x, &y, &sample_weights, parameters)
                     .unwrap();
@@ -1191,6 +1238,10 @@ mod tests {
         }
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn with_seed_sets_seed() {
         assert_eq!(DecisionTreeClassifierParameters::default().seed, None);

@@ -379,7 +379,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     /// // Column 1 is constant, so only column 0 can split the data.
     /// let x = DenseMatrix::from_2d_array(&[&[0., 7.], &[1., 7.], &[2., 7.], &[3., 7.]]).unwrap();
     /// let y: Vec<f64> = vec![1.0, 2.0, 5.0, 6.0];
-    /// let parameters = DecisionTreeRegressorParameters::default().with_max_depth(2);
+    /// let parameters = DecisionTreeRegressorParameters::default().with_max_depth(2).with_seed(42);
     /// let tree = DecisionTreeRegressor::fit(&x, &y, parameters).unwrap();
     ///
     /// // The split decreases the mean squared error from 4.25 to 0.25.
@@ -433,7 +433,7 @@ mod tests {
     fn fit_with_weights_validates_weights() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..6).map(|i| i as f64), 3, 2, 0);
         let y = vec![1.0_f64, 2.0, 3.0];
-        let parameters = DecisionTreeRegressorParameters::default();
+        let parameters = DecisionTreeRegressorParameters::default().with_seed(42);
 
         // Valid weights: a zero weight is permitted when the sum is positive
         for weights in [vec![1.0, 2.0, 3.0], vec![0.0, 0.0, 0.5]] {
@@ -493,9 +493,13 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let y_hat = DecisionTreeRegressor::fit(&x, &y, Default::default())
-            .and_then(|t| t.predict(&x))
-            .unwrap();
+        let y_hat = DecisionTreeRegressor::fit(
+            &x,
+            &y,
+            DecisionTreeRegressorParameters::default().with_seed(42),
+        )
+        .and_then(|t| t.predict(&x))
+        .unwrap();
 
         for i in 0..y_hat.len() {
             assert!((y_hat[i] - y[i]).abs() < 0.1);
@@ -512,7 +516,7 @@ mod tests {
                 max_depth: Option::None,
                 min_samples_leaf: 2,
                 min_samples_split: 6,
-                seed: Option::None,
+                seed: Some(42),
             },
         )
         .and_then(|t| t.predict(&x))
@@ -533,7 +537,7 @@ mod tests {
                 max_depth: Option::None,
                 min_samples_leaf: 1,
                 min_samples_split: 3,
-                seed: Option::None,
+                seed: Some(42),
             },
         )
         .and_then(|t| t.predict(&x))
@@ -587,7 +591,9 @@ mod tests {
         let sample_weights = [2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 4.0, 1.0, 2.0, 1.0, 3.0, 2.0];
 
         // smartcore counts the root as level 1, so sklearn max_depth=3 is max_depth=4 here.
-        let parameters = DecisionTreeRegressorParameters::default().with_max_depth(4);
+        let parameters = DecisionTreeRegressorParameters::default()
+            .with_max_depth(4)
+            .with_seed(42);
         let tree = DecisionTreeRegressor::fit_with_weights(&x, &y, &sample_weights, parameters)
             .expect("Fit should work");
 
@@ -675,7 +681,11 @@ mod tests {
         for (nrows, ncols, y) in cases {
             let x: DenseMatrix<f64> = DenseMatrix::new(nrows, ncols, vec![], false)
                 .expect("Construction of empty x should work");
-            let result = DecisionTreeRegressor::fit(&x, &y, Default::default());
+            let result = DecisionTreeRegressor::fit(
+                &x,
+                &y,
+                DecisionTreeRegressorParameters::default().with_seed(42),
+            );
             let expected = Failed::because(
                 FailedError::ParametersError,
                 "Training data must contain at least one sample and one feature.",
@@ -740,7 +750,9 @@ mod tests {
         // Split at 1.5: SSE(root) = 17, SSE(children) = 0.5 + 0.5, root mass = 4.
         let x = DenseMatrix::from_2d_array(&[&[0., 7.], &[1., 7.], &[2., 7.], &[3., 7.]]).unwrap();
         let y: Vec<f64> = vec![1.0, 2.0, 5.0, 6.0];
-        let parameters = DecisionTreeRegressorParameters::default().with_max_depth(2);
+        let parameters = DecisionTreeRegressorParameters::default()
+            .with_max_depth(2)
+            .with_seed(42);
         let tree = DecisionTreeRegressor::fit(&x, &y, parameters).expect("Fit should work");
 
         assert_eq!(
@@ -753,6 +765,10 @@ mod tests {
         );
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn with_seed_sets_seed() {
         assert_eq!(DecisionTreeRegressorParameters::default().seed, None);

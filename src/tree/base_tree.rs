@@ -1140,7 +1140,7 @@ mod tests {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
-                seed: None,
+                seed: Some(42),
                 splitter: Splitter::Best,
             },
         );
@@ -1165,7 +1165,7 @@ mod tests {
                 max_depth: None,
                 min_samples_leaf: 1,
                 min_samples_split: 2,
-                seed: None,
+                seed: Some(42),
                 splitter: Splitter::Best,
             },
         );
@@ -1192,7 +1192,7 @@ mod tests {
                 max_depth: Some(0),
                 min_samples_leaf: 1,
                 min_samples_split: 2,
-                seed: None,
+                seed: Some(42),
                 splitter: Splitter::Best,
             },
         );
@@ -1314,7 +1314,7 @@ mod tests {
             max_depth: Some(3),
             min_samples_leaf: 1,
             min_samples_split: 2,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 
@@ -1343,7 +1343,7 @@ mod tests {
             max_depth: Some(3),
             min_samples_leaf: 1,
             min_samples_split: 2,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 
@@ -1371,7 +1371,7 @@ mod tests {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 3,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 
@@ -1385,7 +1385,7 @@ mod tests {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 4,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 
@@ -1407,7 +1407,7 @@ mod tests {
             max_depth: Some(2),
             min_samples_leaf: 1,
             min_samples_split: 2,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 
@@ -1444,7 +1444,7 @@ mod tests {
             max_depth: Some(2),
             min_samples_leaf: 1,
             min_samples_split: 2,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 
@@ -1477,7 +1477,7 @@ mod tests {
             max_depth: None,
             min_samples_leaf: 1,
             min_samples_split: 2,
-            seed: None,
+            seed: Some(42),
             splitter: Splitter::Best,
         };
 

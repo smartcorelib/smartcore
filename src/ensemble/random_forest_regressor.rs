@@ -809,7 +809,12 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let forest = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
+        let forest = RandomForestRegressor::fit(
+            &x,
+            &y,
+            RandomForestRegressorParameters::default().with_seed(42),
+        )
+        .unwrap();
 
         let deserialized_forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
@@ -824,7 +829,6 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn serde_seed_parameter() {
-        // Round trip with serde_json and postcard, for Some and None.
         for seed in [Some(42u64), None] {
             let params = RandomForestRegressorParameters {
                 seed,
@@ -841,16 +845,13 @@ mod tests {
             assert_eq!(from_postcard.seed, seed);
         }
 
-        // JSON written before the change (seed was a plain u64) must still load.
         let old: RandomForestRegressorParameters = serde_json::from_str(r#"{"seed": 42}"#).unwrap();
         assert_eq!(old.seed, Some(42));
 
-        // An explicit null gives None.
         let null: RandomForestRegressorParameters =
             serde_json::from_str(r#"{"seed": null}"#).unwrap();
         assert_eq!(null.seed, None);
 
-        // A missing field takes the default value (serde(default)).
         let missing: RandomForestRegressorParameters = serde_json::from_str("{}").unwrap();
         assert_eq!(
             missing.seed,
@@ -858,7 +859,6 @@ mod tests {
         );
         assert_eq!(missing.seed, None);
 
-        // Search parameters: the list of seeds must survive a round trip.
         let search = RandomForestRegressorSearchParameters {
             seed: vec![None, Some(42)],
             ..Default::default()
@@ -867,7 +867,6 @@ mod tests {
         let from_json: RandomForestRegressorSearchParameters = serde_json::from_str(&json).unwrap();
         assert_eq!(from_json.seed, vec![None, Some(42)]);
 
-        // Old search-parameter JSON (Vec<u64>) must still load.
         let old_search: RandomForestRegressorSearchParameters =
             serde_json::from_str(r#"{"seed": [1, 2]}"#).unwrap();
         assert_eq!(old_search.seed, vec![Some(1), Some(2)]);

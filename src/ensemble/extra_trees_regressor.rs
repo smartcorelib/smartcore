@@ -863,7 +863,6 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn serde_seed_parameter() {
-        // Round trip with serde_json and postcard, for Some and None.
         for seed in [Some(42u64), None] {
             let params = ExtraTreesRegressorParameters {
                 seed,
@@ -880,16 +879,13 @@ mod tests {
             assert_eq!(from_postcard.seed, seed);
         }
 
-        // JSON written before the change (seed was a plain u64) must still load.
         let old: ExtraTreesRegressorParameters = serde_json::from_str(r#"{"seed": 42}"#).unwrap();
         assert_eq!(old.seed, Some(42));
 
-        // An explicit null gives None.
         let null: ExtraTreesRegressorParameters =
             serde_json::from_str(r#"{"seed": null}"#).unwrap();
         assert_eq!(null.seed, None);
 
-        // A missing field takes the default value (serde(default)).
         let missing: ExtraTreesRegressorParameters = serde_json::from_str("{}").unwrap();
         assert_eq!(missing.seed, ExtraTreesRegressorParameters::default().seed);
         assert_eq!(missing.seed, None);
