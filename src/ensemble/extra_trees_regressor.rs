@@ -6,7 +6,8 @@
 //! reduce the variance of the model and often make the training process faster.
 //!
 //! The two key differences from a standard Random Forest are:
-//! 1. It uses the whole original dataset to build each tree instead of bootstrap samples.
+//! 1. By default, it uses the whole original dataset to build each tree instead of bootstrap samples.
+//!    Set `bootstrap` to `true` to use bootstrap samples. OOB prediction needs bootstrap samples.
 //! 2. When splitting a node, it chooses a random split point for each feature, rather than the most optimal one.
 //!
 //! See [ensemble models](../index.html) for more details.
@@ -96,6 +97,10 @@ pub struct ExtraTreesRegressorParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree.
     pub seed: u64,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Whether to use bootstrap samples to build trees. If `false`, each tree uses the whole dataset.
+    /// This is required for OOB prediction.
+    pub bootstrap: bool,
 }
 
 /// Extra Trees Regressor
@@ -108,6 +113,8 @@ pub struct ExtraTreesRegressor<
     Y: Array1<TY>,
 > {
     forest_regressor: Option<BaseForest<TX, TY, X, Y, f64>>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    bootstrap: bool,
 }
 
 impl ExtraTreesRegressorParameters {
@@ -148,6 +155,13 @@ impl ExtraTreesRegressorParameters {
         self.seed = seed;
         self
     }
+
+    /// Whether to use bootstrap samples to build trees. If `false`, each tree uses the whole dataset.
+    /// This is required for OOB prediction.
+    pub fn with_bootstrap(mut self, bootstrap: bool) -> Self {
+        self.bootstrap = bootstrap;
+        self
+    }
 }
 impl Default for ExtraTreesRegressorParameters {
     fn default() -> Self {
@@ -159,6 +173,7 @@ impl Default for ExtraTreesRegressorParameters {
             m: Option::None,
             keep_samples: false,
             seed: 0,
+            bootstrap: false,
         }
     }
 }
@@ -169,6 +184,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     fn new() -> Self {
         Self {
             forest_regressor: Option::None,
+            bootstrap: false,
         }
     }
 
@@ -227,7 +243,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             m: parameters.m,
             keep_samples: parameters.keep_samples,
             seed: parameters.seed,
-            bootstrap: false,
+            bootstrap: parameters.bootstrap,
             splitter: Splitter::Random,
         };
         let forest_regressor =
@@ -235,6 +251,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         Ok(ExtraTreesRegressor {
             forest_regressor: Some(forest_regressor),
+            bootstrap: parameters.bootstrap,
         })
     }
 
@@ -250,8 +267,13 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     }
 
     /// Predict OOB values for `x`. `x` is expected to be equal to the dataset used in training.
+    /// The forest must be fitted with `bootstrap` and `keep_samples` set to `true`.
     pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
         match &self.forest_regressor {
+            // Without bootstrap, all rows are in-bag for all trees.
+            Some(_) if !self.bootstrap => {
+                Err(Failed::predict("OOB prediction needs bootstrap = true"))
+            }
             Some(forest) => predict_mean_oob(forest, x),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
@@ -485,6 +507,30 @@ mod tests {
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_without_bootstrap_should_fail() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(10)
+            .with_keep_samples(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters.clone()).unwrap();
+        let msg = "OOB prediction needs bootstrap = true";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+
+        // With bootstrap, each row is out-of-bag for some trees.
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters.with_bootstrap(true)).unwrap();
+        let y_oob = forest.predict_oob(&x).unwrap();
+        assert_eq!(y_oob.len(), y.len());
+        assert!(y_oob.iter().all(|v| v.is_finite()), "{y_oob:?}");
     }
 
     #[cfg_attr(
