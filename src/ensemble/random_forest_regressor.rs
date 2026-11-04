@@ -823,6 +823,29 @@ mod tests {
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_without_oob_trees_should_fail() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<i32> = (0..20).collect();
+        let parameters = RandomForestRegressorParameters::default()
+            .with_n_trees(1)
+            .with_seed(42);
+
+        // Without keep_samples, there is no OOB information.
+        let forest = RandomForestRegressor::fit(&x, &y, parameters.clone()).unwrap();
+        let msg = "Need samples=true for OOB predictions.";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+
+        // With one tree, the rows in its bootstrap sample have no OOB trees.
+        let forest =
+            RandomForestRegressor::fit(&x, &y, parameters.with_keep_samples(true)).unwrap();
+        let msg = "A row is in-bag for all trees, so it has no OOB prediction.";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+    }
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
