@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `ensemble`: `ExtraTreesRegressor::predict_oob` returns an error when the forest was fitted without bootstrap. Before this change, it returned `NaN` for a float target and panicked for an integer target (#520).
+- `ensemble`: `RandomForestRegressor::predict_oob` and `ExtraTreesRegressor::predict_oob` return an error when a row is in-bag for all trees. Before this change, it returned `NaN` for a float target and panicked for an integer target.
 
 ### Changed
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` now use `BaseTree` and `BaseForest`, the same code as the regressors. The new `GiniCriterion`, `EntropyCriterion` and `ClassificationErrorCriterion` implement the `Criterion` trait. The entropy improvement uses a numerically stable formula that is never negative. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.

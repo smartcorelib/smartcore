@@ -527,10 +527,31 @@ mod tests {
         assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
 
         // With bootstrap, each row is out-of-bag for some trees.
-        let forest = ExtraTreesRegressor::fit(&x, &y, parameters.with_bootstrap(true)).unwrap();
+        let parameters = parameters.with_n_trees(50).with_bootstrap(true);
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
         let y_oob = forest.predict_oob(&x).unwrap();
         assert_eq!(y_oob.len(), y.len());
         assert!(y_oob.iter().all(|v| v.is_finite()), "{y_oob:?}");
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_row_without_oob_trees_should_fail() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<i32> = (0..20).collect();
+        // With one tree, the rows in its bootstrap sample have no OOB trees.
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(1)
+            .with_keep_samples(true)
+            .with_bootstrap(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        let msg = "A row is in-bag for all trees, so it has no OOB prediction.";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
     }
 
     #[cfg_attr(
