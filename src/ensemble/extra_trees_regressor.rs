@@ -553,6 +553,62 @@ mod tests {
         let msg = "A row is in-bag for all trees, so it has no OOB prediction.";
         assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
     }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_with_integer_target_without_bootstrap_should_fail() {
+        // #520: before the fix, this panicked with a division by zero.
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<i32> = (0..20).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(10)
+            .with_keep_samples(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        let msg = "OOB prediction needs bootstrap = true";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_without_keep_samples_should_fail() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(10)
+            .with_bootstrap(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        let msg = "Need samples=true for OOB predictions.";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_without_bootstrap_field_uses_default() {
+        // Parameters serialized before the `bootstrap` field was added.
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"n_trees":10,"m":null,"keep_samples":true,"seed":42}"#;
+        let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+        assert!(!parameters.bootstrap);
+
+        // A fitted regressor serialized before the `bootstrap` field was added.
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        let mut value = serde_json::to_value(&forest).unwrap();
+        assert!(value.as_object_mut().unwrap().remove("bootstrap").is_some());
+        let forest: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            serde_json::from_value(value).unwrap();
+        let msg = "OOB prediction needs bootstrap = true";
+        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+    }
 
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
