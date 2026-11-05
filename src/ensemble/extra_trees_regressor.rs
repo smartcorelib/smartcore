@@ -95,8 +95,8 @@ pub struct ExtraTreesRegressorParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Option<u64>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Whether to use bootstrap samples to build trees. If `false`, each tree uses the whole dataset.
     /// This is required for OOB prediction.
@@ -150,9 +150,9 @@ impl ExtraTreesRegressorParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+        self.seed = Some(seed);
         self
     }
 
@@ -172,7 +172,7 @@ impl Default for ExtraTreesRegressorParameters {
             n_trees: 10,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            seed: Option::None,
             bootstrap: false,
         }
     }
@@ -977,5 +977,40 @@ mod tests {
         )
         .unwrap();
         assert_eq!(et.compute_feature_importances().unwrap(), vec![0.0; 3]);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_seed_parameter() {
+        for seed in [Some(42u64), None] {
+            let params = ExtraTreesRegressorParameters {
+                seed,
+                ..Default::default()
+            };
+
+            let json = serde_json::to_string(&params).unwrap();
+            let from_json: ExtraTreesRegressorParameters = serde_json::from_str(&json).unwrap();
+            assert_eq!(from_json.seed, seed);
+
+            let bytes = postcard::to_allocvec(&params).unwrap();
+            let from_postcard: ExtraTreesRegressorParameters =
+                postcard::from_bytes(&bytes).unwrap();
+            assert_eq!(from_postcard.seed, seed);
+        }
+
+        let old: ExtraTreesRegressorParameters = serde_json::from_str(r#"{"seed": 42}"#).unwrap();
+        assert_eq!(old.seed, Some(42));
+
+        let null: ExtraTreesRegressorParameters =
+            serde_json::from_str(r#"{"seed": null}"#).unwrap();
+        assert_eq!(null.seed, None);
+
+        let missing: ExtraTreesRegressorParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.seed, ExtraTreesRegressorParameters::default().seed);
+        assert_eq!(missing.seed, None);
     }
 }

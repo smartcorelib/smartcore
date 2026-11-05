@@ -85,8 +85,8 @@ pub struct RandomForestRegressorParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Option<u64>,
 }
 
 /// Random Forest Regressor
@@ -134,9 +134,9 @@ impl RandomForestRegressorParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+        self.seed = Some(seed);
         self
     }
 }
@@ -149,7 +149,7 @@ impl Default for RandomForestRegressorParameters {
             n_trees: 10,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            seed: Option::None,
         }
     }
 }
@@ -209,8 +209,8 @@ pub struct RandomForestRegressorSearchParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: Vec<bool>,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: Vec<u64>,
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Vec<Option<u64>>,
 }
 
 /// RandomForestRegressor grid search iterator
@@ -519,6 +519,29 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
+    #[test]
+    fn search_parameters_with_seed() {
+        let parameters = RandomForestRegressorSearchParameters {
+            n_trees: vec![10, 100],
+            seed: vec![None, Some(42)],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.seed, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.seed, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.seed, Some(42));
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.seed, Some(42));
+        assert!(iter.next().is_none());
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
@@ -559,7 +582,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
         )
         .and_then(|rf| rf.predict(&x))
@@ -587,7 +610,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
         );
 
@@ -634,7 +657,7 @@ mod tests {
                 n_trees: 1000,
                 m: Option::None,
                 keep_samples: true,
-                seed: 87,
+                seed: Some(87),
             },
         )
         .unwrap();
@@ -786,12 +809,67 @@ mod tests {
             114.2, 115.7, 116.9,
         ];
 
-        let forest = RandomForestRegressor::fit(&x, &y, Default::default()).unwrap();
+        let forest = RandomForestRegressor::fit(
+            &x,
+            &y,
+            RandomForestRegressorParameters::default().with_seed(42),
+        )
+        .unwrap();
 
         let deserialized_forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_seed_parameter() {
+        for seed in [Some(42u64), None] {
+            let params = RandomForestRegressorParameters {
+                seed,
+                ..Default::default()
+            };
+
+            let json = serde_json::to_string(&params).unwrap();
+            let from_json: RandomForestRegressorParameters = serde_json::from_str(&json).unwrap();
+            assert_eq!(from_json.seed, seed);
+
+            let bytes = postcard::to_allocvec(&params).unwrap();
+            let from_postcard: RandomForestRegressorParameters =
+                postcard::from_bytes(&bytes).unwrap();
+            assert_eq!(from_postcard.seed, seed);
+        }
+
+        let old: RandomForestRegressorParameters = serde_json::from_str(r#"{"seed": 42}"#).unwrap();
+        assert_eq!(old.seed, Some(42));
+
+        let null: RandomForestRegressorParameters =
+            serde_json::from_str(r#"{"seed": null}"#).unwrap();
+        assert_eq!(null.seed, None);
+
+        let missing: RandomForestRegressorParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(
+            missing.seed,
+            RandomForestRegressorParameters::default().seed
+        );
+        assert_eq!(missing.seed, None);
+
+        let search = RandomForestRegressorSearchParameters {
+            seed: vec![None, Some(42)],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&search).unwrap();
+        let from_json: RandomForestRegressorSearchParameters = serde_json::from_str(&json).unwrap();
+        assert_eq!(from_json.seed, vec![None, Some(42)]);
+
+        let old_search: RandomForestRegressorSearchParameters =
+            serde_json::from_str(r#"{"seed": [1, 2]}"#).unwrap();
+        assert_eq!(old_search.seed, vec![Some(1), Some(2)]);
     }
 
     #[cfg_attr(

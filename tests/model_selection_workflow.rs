@@ -153,7 +153,9 @@ fn train_test_split_iris_workflow() {
 
     let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true, Some(0));
 
-    let params = DecisionTreeClassifierParameters::default().with_max_depth(5);
+    let params = DecisionTreeClassifierParameters::default()
+        .with_max_depth(5)
+        .with_seed(42);
     let model = DecisionTreeClassifier::fit(&x_train, &y_train, params).expect("fit iris train");
     let preds = model.predict(&x_test).expect("predict iris test");
 

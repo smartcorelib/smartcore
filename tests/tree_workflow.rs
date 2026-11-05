@@ -53,7 +53,9 @@ fn decision_tree_classifier_inline_workflow() {
     .unwrap();
     let y: Vec<u32> = vec![0, 1, 1, 0, 0, 1, 1, 0];
 
-    let params = DecisionTreeClassifierParameters::default().with_max_depth(4);
+    let params = DecisionTreeClassifierParameters::default()
+        .with_max_depth(4)
+        .with_seed(42);
     let model = DecisionTreeClassifier::fit(&x, &y, params).expect("DecisionTreeClassifier::fit");
     let preds = model.predict(&x).expect("predict");
 
@@ -91,7 +93,9 @@ fn decision_tree_regressor_inline_workflow() {
     .unwrap();
     let y: Vec<f64> = vec![1.0, 4.0, 9.0, 16.0, 25.0, 36.0, 49.0, 64.0];
 
-    let params = DecisionTreeRegressorParameters::default().with_max_depth(4);
+    let params = DecisionTreeRegressorParameters::default()
+        .with_max_depth(4)
+        .with_seed(42);
     let model = DecisionTreeRegressor::fit(&x, &y, params).expect("DecisionTreeRegressor::fit");
     let preds = model.predict(&x).expect("predict");
 
@@ -125,7 +129,9 @@ fn decision_tree_classifier_iris_workflow() {
     );
     let y: Vec<u32> = ds.target.clone();
 
-    let params = DecisionTreeClassifierParameters::default().with_max_depth(5);
+    let params = DecisionTreeClassifierParameters::default()
+        .with_max_depth(5)
+        .with_seed(42);
     let model = DecisionTreeClassifier::fit(&x, &y, params).expect("fit on iris");
     let preds = model.predict(&x).expect("predict");
 

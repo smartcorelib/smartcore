@@ -40,7 +40,7 @@ pub struct BaseForestParameters {
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    pub seed: Option<u64>,
     #[cfg_attr(feature = "serde", serde(default))]
     pub bootstrap: bool,
     #[cfg_attr(feature = "serde", serde(default))]
@@ -131,7 +131,7 @@ impl<
             .m
             .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
 
-        let mut rng = get_rng_impl(Some(parameters.seed));
+        let mut rng = get_rng_impl(parameters.seed);
         let n_trees = parameters.n_trees;
         let mut trees: Vec<BaseTree<TX, TY, X, Y, Out>> = Vec::with_capacity(n_trees);
 
@@ -157,7 +157,9 @@ impl<
             order.push(col_i.argsort_mut());
         }
 
-        for tree_idx in 0..parameters.n_trees {
+        // Draw all seeds for the trees beforehand. No interleaving with bootstrapping.
+        let tree_seeds: Vec<u64> = (0..n_trees).map(|_| rng.random()).collect();
+        for &seed_for_tree in &tree_seeds {
             if parameters.bootstrap {
                 samples = BaseForest::<TX, TY, X, Y, Out>::sample_with_replacement(
                     n_rows,
@@ -175,7 +177,7 @@ impl<
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
                 min_samples_split: parameters.min_samples_split,
-                seed: Some(parameters.seed.wrapping_add(tree_idx as u64)), // give each tree its own fixed seed
+                seed: Some(seed_for_tree), // each tree gets its own seed from the forest RNG
                 splitter: parameters.splitter,
             };
             // Only use sample weights on base tree if not already applied during bootstrapping
@@ -430,7 +432,7 @@ mod tests {
             n_trees: 5,
             m: None,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             bootstrap: true,
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -459,7 +461,7 @@ mod tests {
                 n_trees: 5,
                 m: None,
                 keep_samples: false,
-                seed: 0,
+                seed: Some(0),
                 bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
             },
@@ -488,7 +490,7 @@ mod tests {
                 n_trees: 5,
                 m: None,
                 keep_samples: false,
-                seed: 0,
+                seed: Some(0),
                 bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
             },
@@ -514,7 +516,7 @@ mod tests {
             n_trees: 5,
             m: None,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             bootstrap: false,
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -573,7 +575,7 @@ mod tests {
                 n_trees: 10,
                 m: None,
                 keep_samples: true, // keep samples used for each tree, so we can check that they are different
-                seed: 42,
+                seed: Some(42),
                 bootstrap: true, // Use bootstrapping
                 splitter: crate::tree::base_tree::Splitter::Best,
             };
@@ -619,7 +621,7 @@ mod tests {
                 n_trees: 10,
                 m: Some(1),
                 keep_samples: false,
-                seed: 42,
+                seed: Some(42),
                 bootstrap: false,
                 splitter,
             };
@@ -648,7 +650,7 @@ mod tests {
             n_trees: 10,
             m: None,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             bootstrap: false, // No bootstrapping
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -691,7 +693,7 @@ mod tests {
             n_trees: 500, // Use more trees than before to smooth out randomness
             m: None,
             keep_samples: true, // keep samples used for each tree, so we can check that they are different
-            seed: 42,
+            seed: Some(42),
             bootstrap: true, // Use bootstrapping
             splitter: crate::tree::base_tree::Splitter::Best,
         };
@@ -751,7 +753,7 @@ mod tests {
                     n_trees: 10,
                     m: Some(1),
                     keep_samples: true,
-                    seed: 42,
+                    seed: Some(42),
                     bootstrap: true,
                     splitter,
                 };
@@ -781,7 +783,10 @@ mod tests {
                     &y,
                     weights,
                     &MSECriterion,
-                    BaseForestParameters { seed: 43, ..params },
+                    BaseForestParameters {
+                        seed: Some(43),
+                        ..params
+                    },
                 )
                 .expect("Fit should work");
                 assert_ne!(
@@ -790,5 +795,143 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn nearby_seeds_do_not_share_tree_seeds() {
+        let (x, y) = seed_test_data();
+
+        for bootstrap in [false, true] {
+            let params = BaseForestParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 10,
+                m: Some(1),
+                keep_samples: false,
+                seed: Some(42),
+                bootstrap,
+                splitter: Splitter::Random,
+            };
+            let fit = |seed: u64| {
+                BaseForest::fit(
+                    &x,
+                    &y,
+                    None,
+                    &MSECriterion,
+                    BaseForestParameters {
+                        seed: Some(seed),
+                        ..params.clone()
+                    },
+                )
+                .expect("Fit should work")
+            };
+
+            let forest_42 = fit(42);
+            let forest_42_again = fit(42);
+            assert_eq!(forest_42, forest_42_again, "bootstrap: {bootstrap}");
+            assert_eq!(
+                predict_mean(&forest_42, &x).unwrap(),
+                predict_mean(&forest_42_again, &x).unwrap(),
+                "bootstrap: {bootstrap}"
+            );
+
+            let forest_43 = fit(43);
+            for (i, tree_42) in forest_42.trees().iter().enumerate() {
+                for (j, tree_43) in forest_43.trees().iter().enumerate() {
+                    assert!(
+                        tree_42 != tree_43,
+                        "tree {i} (seed 42) is equal to tree {j} (seed 43), bootstrap: {bootstrap}"
+                    );
+                }
+            }
+
+            let trees = forest_42.trees();
+            for i in 0..trees.len() {
+                for j in (i + 1)..trees.len() {
+                    assert!(
+                        trees[i] != trees[j],
+                        "trees {i} and {j} are equal, bootstrap: {bootstrap}"
+                    );
+                }
+            }
+        }
+    }
+
+    fn seed_test_data() -> (DenseMatrix<f64>, Vec<f64>) {
+        let n_rows = 30;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..4 * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            4,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| ((i * 31) % 17) as f64).collect();
+        (x, y)
+    }
+
+    fn fit_with_seed(
+        x: &DenseMatrix<f64>,
+        y: &Vec<f64>,
+        seed: Option<u64>,
+    ) -> BaseForest<f64, f64, DenseMatrix<f64>, Vec<f64>, f64> {
+        let params = BaseForestParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 10,
+            m: Some(1),
+            keep_samples: false,
+            seed,
+            bootstrap: true,
+            splitter: Splitter::Random,
+        };
+        BaseForest::fit(x, y, None, &MSECriterion, params).expect("Fit should work")
+    }
+
+    /// Without std_rand (and without js), `None` uses the fixed fallback seed of
+    /// `get_rng_impl`. Two fits must give the same forest, equal to the forest for `Some(0)`.
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(not(any(feature = "std_rand", feature = "js")))]
+    fn seed_none_is_deterministic_without_std_rand() {
+        let (x, y) = seed_test_data();
+
+        let first = fit_with_seed(&x, &y, None);
+        let second = fit_with_seed(&x, &y, None);
+        assert_eq!(first, second);
+        assert_eq!(
+            predict_mean(&first, &x).unwrap(),
+            predict_mean(&second, &x).unwrap()
+        );
+
+        let with_seed_0 = fit_with_seed(&x, &y, Some(0));
+        assert_eq!(first, with_seed_0);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "std_rand")]
+    fn seed_none_differs_between_fits_with_std_rand() {
+        let (x, y) = seed_test_data();
+
+        let first = fit_with_seed(&x, &y, None);
+        let second = fit_with_seed(&x, &y, None);
+        // Two random 64-bit seeds are equal with probability 2^-64, and two
+        // different seeds give different forests (see nearby_seeds_do_not_share_tree_seeds).
+        assert!(
+            first != second,
+            "two fits with seed None give the same forest"
+        );
     }
 }

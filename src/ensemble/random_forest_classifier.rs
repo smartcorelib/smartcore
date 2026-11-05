@@ -94,8 +94,8 @@ pub struct RandomForestClassifierParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Option<u64>,
 }
 
 /// Random Forest Classifier
@@ -150,9 +150,9 @@ impl RandomForestClassifierParameters {
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+        self.seed = Some(seed);
         self
     }
 }
@@ -175,7 +175,7 @@ impl Default for RandomForestClassifierParameters {
             n_trees: 100,
             m: Option::None,
             keep_samples: false,
-            seed: 0,
+            seed: Option::None,
         }
     }
 }
@@ -231,8 +231,8 @@ pub struct RandomForestClassifierSearchParameters {
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: Vec<bool>,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: Vec<u64>,
+    /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Vec<Option<u64>>,
 }
 
 /// RandomForestClassifier grid search iterator
@@ -652,6 +652,29 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
+    #[test]
+    fn search_parameters_with_seed() {
+        let parameters = RandomForestClassifierSearchParameters {
+            n_trees: vec![10, 100],
+            seed: vec![None, Some(42)],
+            ..Default::default()
+        };
+        let mut iter = parameters.into_iter();
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.seed, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.seed, None);
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 10);
+        assert_eq!(next.seed, Some(42));
+        let next = iter.next().unwrap();
+        assert_eq!(next.n_trees, 100);
+        assert_eq!(next.seed, Some(42));
+        assert!(iter.next().is_none());
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
@@ -694,7 +717,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
         )
         .unwrap();
@@ -751,7 +774,7 @@ mod tests {
                 n_trees: 10,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
             &KFold::default().with_n_splits(5),
             &precision,
@@ -779,7 +802,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: false,
-                seed: 87,
+                seed: Some(87),
             },
         );
 
@@ -805,7 +828,7 @@ mod tests {
                 n_trees: 10,
                 m: None,
                 keep_samples: false,
-                seed: 0,
+                seed: Some(0),
             },
         );
         assert!(result.is_err());
@@ -854,7 +877,7 @@ mod tests {
                 n_trees: 100,
                 m: Option::None,
                 keep_samples: true,
-                seed: 87,
+                seed: Some(87),
             },
         )
         .unwrap();
@@ -927,12 +950,69 @@ mod tests {
         .unwrap();
         let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
-        let forest = RandomForestClassifier::fit(&x, &y, Default::default()).unwrap();
+        let forest = RandomForestClassifier::fit(
+            &x,
+            &y,
+            RandomForestClassifierParameters::default().with_seed(42),
+        )
+        .unwrap();
 
         let deserialized_forest: RandomForestClassifier<f64, i64, DenseMatrix<f64>, Vec<i64>> =
             postcard::from_bytes(&postcard::to_allocvec(&forest).unwrap()).unwrap();
 
         assert_eq!(forest, deserialized_forest);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_seed_parameter() {
+        for seed in [Some(42u64), None] {
+            let params = RandomForestClassifierParameters {
+                seed,
+                ..Default::default()
+            };
+
+            let json = serde_json::to_string(&params).unwrap();
+            let from_json: RandomForestClassifierParameters = serde_json::from_str(&json).unwrap();
+            assert_eq!(from_json.seed, seed);
+
+            let bytes = postcard::to_allocvec(&params).unwrap();
+            let from_postcard: RandomForestClassifierParameters =
+                postcard::from_bytes(&bytes).unwrap();
+            assert_eq!(from_postcard.seed, seed);
+        }
+
+        let old: RandomForestClassifierParameters =
+            serde_json::from_str(r#"{"seed": 42}"#).unwrap();
+        assert_eq!(old.seed, Some(42));
+
+        let null: RandomForestClassifierParameters =
+            serde_json::from_str(r#"{"seed": null}"#).unwrap();
+        assert_eq!(null.seed, None);
+
+        let missing: RandomForestClassifierParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(
+            missing.seed,
+            RandomForestClassifierParameters::default().seed
+        );
+        assert_eq!(missing.seed, None);
+
+        let search = RandomForestClassifierSearchParameters {
+            seed: vec![None, Some(42)],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&search).unwrap();
+        let from_json: RandomForestClassifierSearchParameters =
+            serde_json::from_str(&json).unwrap();
+        assert_eq!(from_json.seed, vec![None, Some(42)]);
+
+        let old_search: RandomForestClassifierSearchParameters =
+            serde_json::from_str(r#"{"seed": [1, 2]}"#).unwrap();
+        assert_eq!(old_search.seed, vec![Some(1), Some(2)]);
     }
 
     #[test]
@@ -963,7 +1043,7 @@ mod tests {
             n_trees: 10,
             m: Some(1),
             keep_samples: false,
-            seed: 42,
+            seed: Some(42),
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
 
@@ -1015,7 +1095,7 @@ mod tests {
         let params = RandomForestClassifierParameters {
             n_trees: 20,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             ..Default::default()
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
@@ -1047,7 +1127,7 @@ mod tests {
         let params = RandomForestClassifierParameters {
             n_trees: 10,
             keep_samples: true,
-            seed: 42,
+            seed: Some(42),
             ..Default::default()
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
