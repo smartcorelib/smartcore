@@ -8,15 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` get a `fit_with_weights` method. `RandomForestClassifier` gets a `compute_feature_importances` method.
-<<<<<<< HEAD
 - `tree`: `with_seed` on `DecisionTreeRegressorParameters` and `DecisionTreeClassifierParameters`.
-=======
 - `ensemble`: `ExtraTreesRegressorParameters` gets a `bootstrap` field and a `with_bootstrap` method. The default is `false`, so each tree still uses the whole dataset.
 
 ### Fixed
 - `ensemble`: `ExtraTreesRegressor::predict_oob` returns an error when the forest was fitted without bootstrap. Before this change, it returned `NaN` for a float target and panicked for an integer target (#520).
 - `ensemble`: `RandomForestRegressor::predict_oob` and `ExtraTreesRegressor::predict_oob` return an error when a row is in-bag for all trees. Before this change, it returned `NaN` for a float target and panicked for an integer target.
->>>>>>> main
 
 ### Changed
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` now use `BaseTree` and `BaseForest`, the same code as the regressors. The new `GiniCriterion`, `EntropyCriterion` and `ClassificationErrorCriterion` implement the `Criterion` trait. The entropy improvement uses a numerically stable formula that is never negative. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
@@ -27,14 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree`: the error text for an unfitted `DecisionTreeClassifier::predict_proba` changed from "'fit' should be called before calling 'predict'" to "'fit' should be called before calling 'predict_proba'". Code that matched the old string must be updated.
 - **Breaking change:** `tree`, `ensemble`: the fitted `DecisionTreeClassifier` and `RandomForestClassifier` store different fields. Models serialized with an earlier version cannot be deserialized. Fit these models again.
 - **Breaking change:** `tree`, `ensemble`. The `Node` enum is optimised to be smaller. As a result trees and ensembles serialized with older code no longer can be deserialised.
-<<<<<<< HEAD
 - **Breaking change:** `ensemble`: `seed` on `RandomForestRegressorParameters`, `RandomForestClassifierParameters` and `ExtraTreesRegressorParameters` is now `Option<u64>`. The search parameters are now `Vec<Option<u64>>`. With `None`, a seed is chosen at fit time (from OS entropy with `std_rand`).
 - `ensemble`: The default seed is now `None`, so default results change. With `std_rand`, they are no longer reproducible. Use `.with_seed(..)` for reproducible results.
 - **Breaking change:** `ensemble`: Postcard/bincode-serialized parameter structs from earlier versions no longer load. JSON still loads.
 - `ensemble`: each forest uses one RNG for bootstrap sampling and for the tree seeds (before: `seed + tree_idx`). Results for a given seed differ from earlier versions.
-=======
 - **Breaking change:** `ensemble`: `ExtraTreesRegressorParameters` gets a public `bootstrap` field. Struct literals without `..Default::default()` must add `bootstrap: false` to keep the earlier behavior. Serialized parameters without this field still deserialize, with `bootstrap = false` (#520).
->>>>>>> main
 
 ## [0.7.0] - 2026-10-26
 ### Added
