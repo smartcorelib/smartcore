@@ -13,7 +13,6 @@ use crate::numbers::floatnum::FloatNumber;
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
 use crate::tree::criterion::{Criterion, LeafOutput};
-use rand::Rng;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -158,9 +157,9 @@ impl<
             order.push(col_i.argsort_mut());
         }
 
-        for _ in 0..parameters.n_trees {
-            // draw seed for the next tree. Do this before any bootstrapping.
-            let seed_for_tree = rng.next_u64();
+        // Draw all seeds for the trees beforehand. No interleaving with bootstrapping.
+        let tree_seeds: Vec<u64> = (0..n_trees).map(|_| rng.random()).collect();
+        for &seed_for_tree in &tree_seeds {
             if parameters.bootstrap {
                 samples = BaseForest::<TX, TY, X, Y, Out>::sample_with_replacement(
                     n_rows,
