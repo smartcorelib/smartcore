@@ -328,7 +328,11 @@ where
                 n_trees += 1;
             }
         }
-        // TODO: What to do if there are no oob trees?
+        if n_trees == 0 {
+            return Err(Failed::predict(
+                "A row is in-bag for all trees, so it has no OOB prediction.",
+            ));
+        }
         result.set(row, sum / TY::from_usize(n_trees).unwrap());
     }
 
