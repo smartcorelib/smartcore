@@ -195,7 +195,9 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
     PartialEq for ExtraTreesClassifier<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.forest_classifier == other.forest_classifier && self.classes == other.classes
+        self.forest_classifier == other.forest_classifier
+            && self.classes == other.classes
+            && self.bootstrap == other.bootstrap
     }
 }
 
@@ -592,8 +594,11 @@ mod tests {
             .with_bootstrap(true)
             .with_seed(42);
         let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
-        let msg = "Need samples=true for OOB predictions.";
-        assert_eq!(classifier.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let result = classifier.predict_oob(&x);
+        assert_eq!(
+            result.err().map(|e| e.error()),
+            Some(FailedError::PredictFailed)
+        );
     }
 
     #[cfg_attr(
@@ -764,13 +769,52 @@ mod tests {
             y_wrong[i] = 0;
             weights[i] = 0.0;
         }
+        for bootstrap in [false, true] {
+            let parameters = ExtraTreesClassifierParameters::default()
+                .with_n_trees(50)
+                .with_bootstrap(bootstrap)
+                .with_seed(42);
+            let classifier =
+                ExtraTreesClassifier::fit_with_weights(&x, &y_wrong, &weights, parameters).unwrap();
+            let y_hat = classifier.predict(&x).unwrap();
+            assert_eq!(y_hat, y, "bootstrap: {bootstrap}");
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_with_weights_and_bootstrap_draws_rows_by_weight() {
+        let (x, y) = iris();
+        let n_trees = 10;
         let parameters = ExtraTreesClassifierParameters::default()
-            .with_n_trees(50)
+            .with_n_trees(n_trees)
+            .with_bootstrap(true)
+            .with_keep_samples(true)
             .with_seed(42);
+        let weights: Vec<f64> = (0..20).map(|i| if i < 10 { 100.0 } else { 1.0 }).collect();
         let classifier =
-            ExtraTreesClassifier::fit_with_weights(&x, &y_wrong, &weights, parameters).unwrap();
-        let y_hat = classifier.predict(&x).unwrap();
-        assert_eq!(y_hat, y);
+            ExtraTreesClassifier::fit_with_weights(&x, &y, &weights, parameters).unwrap();
+
+        let samples = classifier
+            .forest_classifier
+            .as_ref()
+            .unwrap()
+            .samples()
+            .unwrap();
+        assert_eq!(samples.len(), n_trees);
+        let light_rows_in_bag = samples
+            .iter()
+            .map(|in_bag| in_bag[10..].iter().filter(|b| **b).count())
+            .sum::<usize>();
+        // Expected value is about 2 of 100 pairs (tree, light row).
+        assert!(
+            light_rows_in_bag <= 10,
+            "light rows in bag: {light_rows_in_bag} of {}",
+            10 * n_trees
+        );
     }
 
     #[cfg_attr(
