@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking change:** `ensemble`: Postcard/bincode-serialized parameter structs from earlier versions no longer load. JSON still loads.
 - `ensemble`: each forest uses one RNG for bootstrap sampling and for the tree seeds (before: `seed + tree_idx`). Results for a given seed differ from earlier versions.
 - **Breaking change:** `ensemble`: `ExtraTreesRegressorParameters` gets a public `bootstrap` field. Struct literals without `..Default::default()` must add `bootstrap: false` to keep the earlier behavior. Serialized parameters without this field still deserialize, with `bootstrap = false` (#520).
+- `ensemble`: Extra trees do not sort the feature columns. Trees are not bit-identical the old ones because of different summation order.
 
 ## [0.7.0] - 2026-10-26
 ### Added
