@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` get a `fit_with_weights` method. `RandomForestClassifier` gets a `compute_feature_importances` method.
 - `tree`: `with_seed` on `DecisionTreeRegressorParameters` and `DecisionTreeClassifierParameters`.
 - `ensemble`: `ExtraTreesRegressorParameters` gets a `bootstrap` field and a `with_bootstrap` method. The default is `false`, so each tree still uses the whole dataset.
+- `ensemble`: `ExtraTreesClassifier` added with an API very similar to `ExtraTreesRegressor`
 
 ### Fixed
 - `ensemble`: `ExtraTreesRegressor::predict_oob` returns an error when the forest was fitted without bootstrap. Before this change, it returned `NaN` for a float target and panicked for an integer target (#520).
