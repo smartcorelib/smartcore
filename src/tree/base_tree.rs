@@ -427,12 +427,15 @@ impl BestSplit {
 struct SplitWorkspace<E, C: Criterion> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
-    sorted_by_feature: Vec<Vec<E>>,
+    columns: Vec<Vec<E>>, // either all features, sorted; or only one column (unsorted)
     variables: Vec<usize>, // feature indices, shuffled at each node; the order breaks ties between equal splits.
     true_stats: C::Stats,  // scratch stats for split functions to use
     false_stats: C::Stats,
     parent_stats: C::Stats,
-    best_split: BestSplit, // scratch space for the search in progress
+    best_split: BestSplit,        // scratch space for the search in progress
+    presorted: bool,              // columns are sorted by feature (Splitter::Best)
+    column_values: Vec<f64>, // values of the current feature for the node, same order as columns[0][start..end]
+    node_targets: Vec<C::Target>, // targets of the current node, same order as columns[0][start..end]
 }
 
 impl<E, C> SplitWorkspace<E, C>
@@ -442,19 +445,24 @@ where
     fn new(
         in_true_branch: Vec<bool>,
         partition_buffer: Vec<E>,
-        sorted_by_feature: Vec<Vec<E>>,
+        columns: Vec<Vec<E>>,
         n_features: usize,
         criterion: &C,
+        presorted: bool,
+        random_buffer_len: usize,
     ) -> Self {
         Self {
             in_true_branch,
             partition_buffer,
-            sorted_by_feature,
+            columns,
             variables: (0..n_features).collect::<Vec<_>>(),
             true_stats: criterion.empty_stats(),
             false_stats: criterion.empty_stats(),
             parent_stats: criterion.empty_stats(),
             best_split: BestSplit::new(),
+            presorted,
+            column_values: vec![0f64; random_buffer_len],
+            node_targets: Vec::with_capacity(random_buffer_len),
         }
     }
 }
@@ -495,7 +503,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             sample_weights,
             samples,
             num_attributes,
-            &order,
+            Some(&order),
             criterion,
             parameters,
         )
@@ -507,7 +515,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         sample_weights: Option<&[f64]>,
         samples: Vec<usize>,
         mtry: usize,
-        order: &[Vec<usize>],
+        order: Option<&[Vec<usize>]>,
         criterion: &C,
         parameters: BaseTreeParameters,
     ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
@@ -542,7 +550,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         sample_weights: Option<&[f64]>,
         samples: Vec<usize>,
         mtry: usize,
-        order: &[Vec<usize>],
+        order: Option<&[Vec<usize>]>,
         criterion: &C,
         parameters: BaseTreeParameters,
     ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
@@ -580,22 +588,33 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         // number of distinct rows of x in this tree with a positive mass
         let n_kept = counts.iter().filter(|&&c| c > 0).count();
 
-        let sorted_by_feature: Vec<Vec<E>> = order
-            .iter()
-            .map(|col_order| {
-                let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
-                let mut w = 0usize; // index to write to
-                for &i in col_order {
-                    let c = counts[i];
-                    out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
-                    w += (c > 0) as usize; // update w in a branchless way
-                }
-                out.truncate(n_kept);
-                out
-            })
-            .collect();
+        let columns: Vec<Vec<E>> = match order {
+            Some(order) => order
+                .iter()
+                .map(|col_order| {
+                    let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                    let mut w = 0usize; // index to write to
+                    for &i in col_order {
+                        let c = counts[i];
+                        out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
+                        w += (c > 0) as usize; // update w in a branchless way
+                    }
+                    out.truncate(n_kept);
+                    out
+                })
+                .collect(),
+            None => {
+                let column: Vec<E> = counts
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_i, c)| *c > 0)
+                    .map(|(i, c)| E::new(i, *c as usize, mass_of(i, &samples, sample_weights)))
+                    .collect();
+                vec![column]
+            }
+        };
 
-        let is_root_pure = match sorted_by_feature[0].split_first() {
+        let is_root_pure = match columns[0].split_first() {
             None => true,
             Some((first, rest)) => {
                 let t0 = criterion.target(*y.get(first.row()));
@@ -603,14 +622,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             }
         };
 
-        let end_idx = sorted_by_feature[0].len();
+        let end_idx = columns[0].len();
 
         let mut workspace = SplitWorkspace::new(
             vec![false; x.shape().0],
             vec![E::default(); end_idx],
-            sorted_by_feature,
+            columns,
             x.shape().1,
             criterion,
+            order.is_some(),
+            match parameters.splitter {
+                Splitter::Best => 0usize,
+                Splitter::Random => end_idx,
+            },
         );
 
         let mut base_tree = BaseTree {
@@ -698,6 +722,16 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
 
         let splitter = self.parameters().splitter;
 
+        if let Splitter::Random = splitter {
+            let elems = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+            workspace.node_targets.clear();
+            workspace.node_targets.extend(
+                elems
+                    .iter()
+                    .map(|e| criterion.target(*visitor.y.get(e.row()))),
+            );
+        }
+
         for k in 0..mtry.min(workspace.variables.len()) {
             let variable = workspace.variables[k];
             match splitter {
@@ -728,10 +762,24 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         if visitor.start_idx == visitor.end_idx {
             return;
         }
-        let first_elem = workspace.sorted_by_feature[j][visitor.start_idx];
-        let min_val = visitor.x.get((first_elem.row(), j));
-        let last_elem = workspace.sorted_by_feature[j][visitor.end_idx - 1];
-        let max_val = visitor.x.get((last_elem.row(), j));
+
+        let col = visitor.x.get_col(j);
+        let n_node = visitor.end_idx - visitor.start_idx;
+        let vals = &mut workspace.column_values[..n_node];
+
+        let mut min_val = TX::max_value();
+        let mut max_val = TX::min_value();
+        let elems = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+        for (dst, e) in vals.iter_mut().zip(elems) {
+            let val = *col.get(e.row());
+            if val < min_val {
+                min_val = val;
+            }
+            if val > max_val {
+                max_val = val;
+            }
+            *dst = val.to_f64().unwrap();
+        }
 
         // Convert min_val and max_val to f64 first, so that values that are different in type TX
         // but equal in f64 do not end up panicking the call to the rng.random_range function.
@@ -748,16 +796,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let true_stats = &mut workspace.true_stats;
         criterion.reset(true_stats);
 
-        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
-            if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
-                criterion.add(
-                    true_stats,
-                    criterion.target(*visitor.y.get(elem.row())),
-                    elem.mass(),
-                );
+        let vals = &workspace.column_values[..n_node];
+        for ((elem, &v), &target) in workspace.columns[0][visitor.start_idx..visitor.end_idx]
+            .iter()
+            .zip(vals)
+            .zip(&workspace.node_targets)
+        {
+            if v <= split_value {
+                criterion.add(true_stats, target, elem.mass());
                 true_count += elem.count();
-            } else {
-                break;
             }
         }
 
@@ -796,12 +843,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         // no need to reset false_stats, will be overwritten by 'difference'
         let false_stats = &mut workspace.false_stats;
         // set the "previous" element equal to the first one, so we don't have to deal with Option
-        let first_row_idx = workspace.sorted_by_feature[j][visitor.start_idx].row();
+        let first_row_idx = workspace.columns[j][visitor.start_idx].row();
         let mut prevx = visitor.x.get((first_row_idx, j)).to_f64().unwrap();
 
         let min_samples_leaf = self.parameters().min_samples_leaf;
 
-        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
+        for elem in &workspace.columns[j][visitor.start_idx..visitor.end_idx] {
             // Comparison for equality is done directly on f64 to avoid later problems
             // with values being unequal in TX but equal in f64.
             let x_ij = visitor.x.get((elem.row(), j)).to_f64().unwrap();
@@ -875,6 +922,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let parent_stats = &mut workspace.parent_stats;
         criterion.reset(parent_stats);
 
+        let mut n_true = 0usize;
         let mut true_count = 0usize;
         let mut false_count = 0usize;
         let mut true_first_target = None; // first target of true branch
@@ -882,50 +930,102 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         // for each row_index, does it belong in the true branch or not?
         let in_true_branch = &mut workspace.in_true_branch;
 
-        // the column for split_feature is in order, so all the true samples should come first, all the false samples second
-        let split_feature = visitor.best_split.split_feature;
-        let col = &workspace.sorted_by_feature[split_feature][visitor.start_idx..visitor.end_idx];
-        let mut n_true = 0usize;
-        for e in col {
-            if !is_true_sample(e, &visitor) {
-                break;
-            }
-            in_true_branch[e.row()] = true;
-            true_count += e.count();
-            criterion.add(
-                parent_stats,
-                criterion.target(*visitor.y.get(e.row())),
-                e.mass(),
-            );
-            n_true += 1;
-            let t = criterion.target(*visitor.y.get(e.row()));
-            match true_first_target {
-                None => true_first_target = Some(t),
-                Some(first) => is_true_pure &= first == t,
-            }
-        }
-        let true_stats = parent_stats.clone();
+        let mut true_stats = criterion.empty_stats();
         let mut false_stats = criterion.empty_stats();
         let mut false_first_target = None;
         let mut is_false_pure = true;
 
-        for e in &col[n_true..] {
-            in_true_branch[e.row()] = false;
-            false_count += e.count();
-            criterion.add(
-                parent_stats,
-                criterion.target(*visitor.y.get(e.row())),
-                e.mass(),
-            );
-            criterion.add(
-                &mut false_stats,
-                criterion.target(*visitor.y.get(e.row())),
-                e.mass(),
-            );
-            let t = criterion.target(*visitor.y.get(e.row()));
-            match false_first_target {
-                None => false_first_target = Some(t),
-                Some(first) => is_false_pure &= first == t,
+        let split_feature = visitor.best_split.split_feature;
+
+        if workspace.presorted {
+            // the column for split_feature is in order, so all the true samples should come first, all the false samples second
+            let col = &workspace.columns[split_feature][visitor.start_idx..visitor.end_idx];
+
+            for e in col {
+                if !is_true_sample(e, &visitor) {
+                    break;
+                }
+                in_true_branch[e.row()] = true;
+                true_count += e.count();
+                criterion.add(
+                    parent_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                n_true += 1;
+                let t = criterion.target(*visitor.y.get(e.row()));
+                match true_first_target {
+                    None => true_first_target = Some(t),
+                    Some(first) => is_true_pure &= first == t,
+                }
+            }
+
+            true_stats = parent_stats.clone();
+
+            for e in &col[n_true..] {
+                in_true_branch[e.row()] = false;
+                false_count += e.count();
+                criterion.add(
+                    parent_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                criterion.add(
+                    &mut false_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                let t = criterion.target(*visitor.y.get(e.row()));
+                match false_first_target {
+                    None => false_first_target = Some(t),
+                    Some(first) => is_false_pure &= first == t,
+                }
+            }
+        } else {
+            // presorted is false
+
+            // always use column 0
+            let col = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+
+            for e in col {
+                if is_true_sample(e, &visitor) {
+                    in_true_branch[e.row()] = true;
+                    true_count += e.count();
+                    criterion.add(
+                        parent_stats,
+                        criterion.target(*visitor.y.get(e.row())),
+                        e.mass(),
+                    );
+                    criterion.add(
+                        &mut true_stats,
+                        criterion.target(*visitor.y.get(e.row())),
+                        e.mass(),
+                    );
+                    n_true += 1;
+                    let t = criterion.target(*visitor.y.get(e.row()));
+                    match true_first_target {
+                        None => true_first_target = Some(t),
+                        Some(first) => is_true_pure &= first == t,
+                    }
+                } else {
+                    in_true_branch[e.row()] = false;
+                    false_count += e.count();
+                    criterion.add(
+                        parent_stats,
+                        criterion.target(*visitor.y.get(e.row())),
+                        e.mass(),
+                    );
+                    criterion.add(
+                        &mut false_stats,
+                        criterion.target(*visitor.y.get(e.row())),
+                        e.mass(),
+                    );
+                    let t = criterion.target(*visitor.y.get(e.row()));
+                    match false_first_target {
+                        None => false_first_target = Some(t),
+                        Some(first) => is_false_pure &= first == t,
+                    }
+                }
             }
         }
 
@@ -966,9 +1066,18 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             return true; // both children are leaves: no partition
         }
 
-        for j in 0..visitor.x.shape().1 {
+        if workspace.presorted {
+            for j in 0..visitor.x.shape().1 {
+                stable_partition(
+                    &mut workspace.columns[j][visitor.start_idx..visitor.end_idx],
+                    &mut workspace.partition_buffer,
+                    in_true_branch,
+                );
+            }
+        } else {
+            // this can actually be an "unstable partition"
             stable_partition(
-                &mut workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx],
+                &mut workspace.columns[0][visitor.start_idx..visitor.end_idx],
                 &mut workspace.partition_buffer,
                 in_true_branch,
             );
@@ -1964,7 +2073,7 @@ mod tests {
                             sample_weights,
                             samples.clone(),
                             3,
-                            &order,
+                            Some(&order),
                             &MSECriterion,
                             parameters,
                         )
@@ -2108,7 +2217,7 @@ mod tests {
                         None,
                         counts.clone(),
                         2,
-                        &order,
+                        Some(&order),
                         &MSECriterion,
                         parameters.clone(),
                     )
@@ -2148,7 +2257,7 @@ mod tests {
                     Some(&weights),
                     counts.clone(),
                     2,
-                    &order,
+                    Some(&order),
                     &MSECriterion,
                     parameters.clone(),
                 )
@@ -2237,7 +2346,7 @@ mod tests {
                     None,
                     f.counts.clone(),
                     2,
-                    &f.order,
+                    Some(&f.order),
                     &MSECriterion,
                     parameters,
                 )
@@ -2551,7 +2660,7 @@ mod tests {
                     None,
                     samples.clone(),
                     1,
-                    &order_of(&x),
+                    Some(&order_of(&x)),
                     &MSECriterion,
                     parameters,
                 )
@@ -2587,7 +2696,7 @@ mod tests {
                     None,
                     samples.clone(),
                     1,
-                    &order_of(&x),
+                    Some(&order_of(&x)),
                     &MSECriterion,
                     parameters,
                 )

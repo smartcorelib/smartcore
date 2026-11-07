@@ -150,12 +150,18 @@ impl<
             .transpose()?;
 
         // Compute the order of each attribute once
-        let mut order: Vec<Vec<usize>> = Vec::with_capacity(num_attributes);
+        let order = match parameters.splitter {
+            Splitter::Best => {
+                let mut the_order: Vec<Vec<usize>> = Vec::with_capacity(num_attributes);
 
-        for i in 0..num_attributes {
-            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
-            order.push(col_i.argsort_mut());
-        }
+                for i in 0..num_attributes {
+                    let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+                    the_order.push(col_i.argsort_mut());
+                }
+                Some(the_order)
+            }
+            Splitter::Random => None,
+        };
 
         // Draw all seeds for the trees beforehand. No interleaving with bootstrapping.
         let tree_seeds: Vec<u64> = (0..n_trees).map(|_| rng.random()).collect();
@@ -192,7 +198,7 @@ impl<
                 sample_weights_for_base_tree,
                 samples.clone(),
                 mtry,
-                &order,
+                order.as_deref(),
                 criterion,
                 params,
             )?;
