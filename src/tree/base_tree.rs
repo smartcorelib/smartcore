@@ -604,8 +604,10 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
                 .collect(),
         };
 
+        // number of distinct rows of x in this tree with a positive mass
+        let n_kept = counts.iter().filter(|&&c| c > 0).count();
         let t0 = criterion.target(*y.get(0));
-        let mut node_targets = vec![t0; if random { counts.len() } else { 0 }];
+        let mut node_targets = vec![t0; if random { n_kept + 1 } else { 0 }];
         let mut w = 0usize;
         for (i, &c) in counts.iter().enumerate() {
             // A row with mass 0 adds 0 to the statistics: no branch is necessary
@@ -624,9 +626,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
 
         let root = Node::new_leaf(criterion.leaf_value(&root_stats));
         nodes.push(root);
-
-        // number of distinct rows of x in this tree with a positive mass
-        let n_kept = counts.iter().filter(|&&c| c > 0).count();
 
         let columns: Vec<Vec<E>> = match order {
             Some(order) => order
@@ -802,7 +801,6 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             return;
         }
 
-        let col = visitor.x.get_col(j);
         let n_node = visitor.end_idx - visitor.start_idx;
         let vals = &mut workspace.column_values[..n_node];
 
@@ -810,7 +808,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let mut max_val = TX::min_value();
         let elems = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
         for (dst, e) in vals.iter_mut().zip(elems) {
-            let val = *col.get(e.row());
+            let val = *visitor.x.get((e.row(), j));
             if val < min_val {
                 min_val = val;
             }
