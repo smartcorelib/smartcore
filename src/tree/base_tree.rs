@@ -407,6 +407,22 @@ where
     w
 }
 
+// slice: slice that will be partitioned
+// node_targets: targets that will be partitioned in the same way
+// is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
+fn unstable_partition<E, T>(slice: &mut [E], node_targets: &mut [T], is_true: &[bool])
+where
+    E: NodeElement,
+{
+    let mut w = 0;
+    for i in 0..slice.len() {
+        let t = is_true[slice[i].row()];
+        slice.swap(w, i);
+        node_targets.swap(w, i);
+        w += t as usize;
+    }
+}
+
 #[derive(Copy, Clone)]
 struct BestSplit {
     proxy_score: f64,
@@ -427,12 +443,15 @@ impl BestSplit {
 struct SplitWorkspace<E, C: Criterion> {
     in_true_branch: Vec<bool>, // indexed by row index in X
     partition_buffer: Vec<E>,
-    sorted_by_feature: Vec<Vec<E>>,
+    columns: Vec<Vec<E>>, // either all features, sorted; or only one column (unsorted)
     variables: Vec<usize>, // feature indices, shuffled at each node; the order breaks ties between equal splits.
     true_stats: C::Stats,  // scratch stats for split functions to use
     false_stats: C::Stats,
     parent_stats: C::Stats,
-    best_split: BestSplit, // scratch space for the search in progress
+    best_split: BestSplit,        // scratch space for the search in progress
+    presorted: bool,              // columns are sorted by feature (Splitter::Best)
+    column_values: Vec<f64>, // values of the current feature for the node, same order as columns[0][start..end]
+    node_targets: Vec<C::Target>, // targets in the same order as columns[0]; partitioned with it (Splitter::Random only).
 }
 
 impl<E, C> SplitWorkspace<E, C>
@@ -442,19 +461,25 @@ where
     fn new(
         in_true_branch: Vec<bool>,
         partition_buffer: Vec<E>,
-        sorted_by_feature: Vec<Vec<E>>,
+        columns: Vec<Vec<E>>,
         n_features: usize,
         criterion: &C,
+        presorted: bool,
+        random_buffer_len: usize,
+        node_targets: Vec<C::Target>,
     ) -> Self {
         Self {
             in_true_branch,
             partition_buffer,
-            sorted_by_feature,
+            columns,
             variables: (0..n_features).collect::<Vec<_>>(),
             true_stats: criterion.empty_stats(),
             false_stats: criterion.empty_stats(),
             parent_stats: criterion.empty_stats(),
             best_split: BestSplit::new(),
+            presorted,
+            column_values: vec![0f64; random_buffer_len],
+            node_targets,
         }
     }
 }
@@ -480,13 +505,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             ));
         }
 
-        // Compute the order of each attribute once
-        let mut order: Vec<Vec<usize>> = Vec::new();
+        // Compute the order of each attribute once, only for Splitter::Best
+        let order = match parameters.splitter {
+            Splitter::Best => {
+                let mut the_order: Vec<Vec<usize>> = Vec::with_capacity(num_attributes);
 
-        for i in 0..num_attributes {
-            let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
-            order.push(col_i.argsort_mut());
-        }
+                for i in 0..num_attributes {
+                    let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+                    the_order.push(col_i.argsort_mut());
+                }
+                Some(the_order)
+            }
+            Splitter::Random => None,
+        };
 
         let samples = vec![1; x_nrows];
         BaseTree::fit_weak_learner(
@@ -495,7 +526,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             sample_weights,
             samples,
             num_attributes,
-            &order,
+            order.as_deref(),
             criterion,
             parameters,
         )
@@ -507,7 +538,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         sample_weights: Option<&[f64]>,
         samples: Vec<usize>,
         mtry: usize,
-        order: &[Vec<usize>],
+        order: Option<&[Vec<usize>]>,
         criterion: &C,
         parameters: BaseTreeParameters,
     ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
@@ -542,7 +573,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         sample_weights: Option<&[f64]>,
         samples: Vec<usize>,
         mtry: usize,
-        order: &[Vec<usize>],
+        order: Option<&[Vec<usize>]>,
         criterion: &C,
         parameters: BaseTreeParameters,
     ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
@@ -552,6 +583,13 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let mut n = 0usize;
         let mut root_mass = 0f64;
         let mut root_stats = criterion.empty_stats();
+
+        let random = matches!(parameters.splitter, Splitter::Random);
+        debug_assert!(
+            random || order.is_some(),
+            "Splitter::Best needs presorted columns"
+        );
+        let order = if random { None } else { order };
 
         // A row with mass 0 (bootstrap count 0 or sample weight 0) has no effect on
         // the statistics. Give it count 0, so that it is left out of the node elements and
@@ -566,36 +604,67 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
                 .collect(),
         };
 
+        // number of distinct rows of x in this tree with a positive mass
+        let n_kept = counts.iter().filter(|&&c| c > 0).count();
+        let t0 = criterion.target(*y.get(0));
+        let mut node_targets = vec![t0; if random { n_kept + 1 } else { 0 }];
+        let mut w = 0usize;
         for (i, &c) in counts.iter().enumerate() {
             // A row with mass 0 adds 0 to the statistics: no branch is necessary
             let mass = mass_of(i, &samples, sample_weights);
-            criterion.add(&mut root_stats, criterion.target(*y.get(i)), mass);
+            let t = criterion.target(*y.get(i));
+            criterion.add(&mut root_stats, t, mass);
+            if random {
+                // write branchless; rows with count 0 are overwritten.
+                node_targets[w] = t;
+                w += (c > 0) as usize;
+            }
             root_mass += mass;
             n += c as usize;
         }
+        node_targets.truncate(w);
 
         let root = Node::new_leaf(criterion.leaf_value(&root_stats));
         nodes.push(root);
 
-        // number of distinct rows of x in this tree with a positive mass
-        let n_kept = counts.iter().filter(|&&c| c > 0).count();
+        let columns: Vec<Vec<E>> = match order {
+            Some(order) => order
+                .iter()
+                .map(|col_order| {
+                    let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                    let mut w = 0usize; // index to write to
+                    for &i in col_order {
+                        let c = counts[i];
+                        out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
+                        w += (c > 0) as usize; // update w in a branchless way
+                    }
+                    out.truncate(n_kept);
+                    out
+                })
+                .collect(),
+            None => {
+                let column: Vec<E> = if n_kept == counts.len() {
+                    // no row to skip, default for extra trees
+                    (0..counts.len())
+                        .map(|i| {
+                            E::new(i, counts[i] as usize, mass_of(i, &samples, sample_weights))
+                        })
+                        .collect()
+                } else {
+                    let mut column = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                    let mut w = 0usize; // index to write to
+                    for (i, c) in counts.iter().enumerate() {
+                        column[w] = E::new(i, *c as usize, mass_of(i, &samples, sample_weights));
+                        w += (*c > 0) as usize; // update w in a branchless way
+                    }
+                    column.truncate(n_kept);
+                    column
+                };
+                vec![column]
+            }
+        };
 
-        let sorted_by_feature: Vec<Vec<E>> = order
-            .iter()
-            .map(|col_order| {
-                let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
-                let mut w = 0usize; // index to write to
-                for &i in col_order {
-                    let c = counts[i];
-                    out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
-                    w += (c > 0) as usize; // update w in a branchless way
-                }
-                out.truncate(n_kept);
-                out
-            })
-            .collect();
-
-        let is_root_pure = match sorted_by_feature[0].split_first() {
+        let is_root_pure = match columns[0].split_first() {
             None => true,
             Some((first, rest)) => {
                 let t0 = criterion.target(*y.get(first.row()));
@@ -603,14 +672,17 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             }
         };
 
-        let end_idx = sorted_by_feature[0].len();
+        let end_idx = columns[0].len();
 
         let mut workspace = SplitWorkspace::new(
             vec![false; x.shape().0],
-            vec![E::default(); end_idx],
-            sorted_by_feature,
+            vec![E::default(); if random { 0 } else { end_idx }],
+            columns,
             x.shape().1,
             criterion,
+            order.is_some(),
+            if random { end_idx } else { 0 },
+            node_targets,
         );
 
         let mut base_tree = BaseTree {
@@ -728,10 +800,23 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         if visitor.start_idx == visitor.end_idx {
             return;
         }
-        let first_elem = workspace.sorted_by_feature[j][visitor.start_idx];
-        let min_val = visitor.x.get((first_elem.row(), j));
-        let last_elem = workspace.sorted_by_feature[j][visitor.end_idx - 1];
-        let max_val = visitor.x.get((last_elem.row(), j));
+
+        let n_node = visitor.end_idx - visitor.start_idx;
+        let vals = &mut workspace.column_values[..n_node];
+
+        let mut min_val = TX::max_value();
+        let mut max_val = TX::min_value();
+        let elems = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+        for (dst, e) in vals.iter_mut().zip(elems) {
+            let val = *visitor.x.get((e.row(), j));
+            if val < min_val {
+                min_val = val;
+            }
+            if val > max_val {
+                max_val = val;
+            }
+            *dst = val.to_f64().unwrap();
+        }
 
         // Convert min_val and max_val to f64 first, so that values that are different in type TX
         // but equal in f64 do not end up panicking the call to the rng.random_range function.
@@ -748,16 +833,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let true_stats = &mut workspace.true_stats;
         criterion.reset(true_stats);
 
-        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
-            if visitor.x.get((elem.row(), j)).to_f64().unwrap() <= split_value {
-                criterion.add(
-                    true_stats,
-                    criterion.target(*visitor.y.get(elem.row())),
-                    elem.mass(),
-                );
+        let vals = &workspace.column_values[..n_node];
+        for ((elem, &v), &target) in workspace.columns[0][visitor.start_idx..visitor.end_idx]
+            .iter()
+            .zip(vals)
+            .zip(&workspace.node_targets[visitor.start_idx..visitor.end_idx])
+        {
+            if v <= split_value {
+                criterion.add(true_stats, target, elem.mass());
                 true_count += elem.count();
-            } else {
-                break;
             }
         }
 
@@ -796,12 +880,12 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         // no need to reset false_stats, will be overwritten by 'difference'
         let false_stats = &mut workspace.false_stats;
         // set the "previous" element equal to the first one, so we don't have to deal with Option
-        let first_row_idx = workspace.sorted_by_feature[j][visitor.start_idx].row();
+        let first_row_idx = workspace.columns[j][visitor.start_idx].row();
         let mut prevx = visitor.x.get((first_row_idx, j)).to_f64().unwrap();
 
         let min_samples_leaf = self.parameters().min_samples_leaf;
 
-        for elem in &workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx] {
+        for elem in &workspace.columns[j][visitor.start_idx..visitor.end_idx] {
             // Comparison for equality is done directly on f64 to avoid later problems
             // with values being unequal in TX but equal in f64.
             let x_ij = visitor.x.get((elem.row(), j)).to_f64().unwrap();
@@ -875,59 +959,95 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         let parent_stats = &mut workspace.parent_stats;
         criterion.reset(parent_stats);
 
+        let mut n_true = 0usize;
         let mut true_count = 0usize;
         let mut false_count = 0usize;
         let mut true_first_target = None; // first target of true branch
         let mut is_true_pure = true;
         // for each row_index, does it belong in the true branch or not?
         let in_true_branch = &mut workspace.in_true_branch;
-
-        // the column for split_feature is in order, so all the true samples should come first, all the false samples second
-        let split_feature = visitor.best_split.split_feature;
-        let col = &workspace.sorted_by_feature[split_feature][visitor.start_idx..visitor.end_idx];
-        let mut n_true = 0usize;
-        for e in col {
-            if !is_true_sample(e, &visitor) {
-                break;
-            }
-            in_true_branch[e.row()] = true;
-            true_count += e.count();
-            criterion.add(
-                parent_stats,
-                criterion.target(*visitor.y.get(e.row())),
-                e.mass(),
-            );
-            n_true += 1;
-            let t = criterion.target(*visitor.y.get(e.row()));
-            match true_first_target {
-                None => true_first_target = Some(t),
-                Some(first) => is_true_pure &= first == t,
-            }
-        }
-        let true_stats = parent_stats.clone();
         let mut false_stats = criterion.empty_stats();
         let mut false_first_target = None;
         let mut is_false_pure = true;
 
-        for e in &col[n_true..] {
-            in_true_branch[e.row()] = false;
-            false_count += e.count();
-            criterion.add(
-                parent_stats,
-                criterion.target(*visitor.y.get(e.row())),
-                e.mass(),
-            );
-            criterion.add(
-                &mut false_stats,
-                criterion.target(*visitor.y.get(e.row())),
-                e.mass(),
-            );
-            let t = criterion.target(*visitor.y.get(e.row()));
-            match false_first_target {
-                None => false_first_target = Some(t),
-                Some(first) => is_false_pure &= first == t,
+        let split_feature = visitor.best_split.split_feature;
+
+        let true_stats = if workspace.presorted {
+            // the column for split_feature is in order, so all the true samples should come first, all the false samples second
+            let col = &workspace.columns[split_feature][visitor.start_idx..visitor.end_idx];
+
+            for e in col {
+                if !is_true_sample(e, &visitor) {
+                    break;
+                }
+                in_true_branch[e.row()] = true;
+                true_count += e.count();
+                criterion.add(
+                    parent_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                n_true += 1;
+                let t = criterion.target(*visitor.y.get(e.row()));
+                match true_first_target {
+                    None => true_first_target = Some(t),
+                    Some(first) => is_true_pure &= first == t,
+                }
             }
-        }
+
+            let true_stats = parent_stats.clone();
+
+            for e in &col[n_true..] {
+                in_true_branch[e.row()] = false;
+                false_count += e.count();
+                criterion.add(
+                    parent_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                criterion.add(
+                    &mut false_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                let t = criterion.target(*visitor.y.get(e.row()));
+                match false_first_target {
+                    None => false_first_target = Some(t),
+                    Some(first) => is_false_pure &= first == t,
+                }
+            }
+            true_stats
+        } else {
+            // presorted is false
+
+            let mut true_stats = criterion.empty_stats();
+            // always use column 0
+            let col = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+            let targets = &workspace.node_targets[visitor.start_idx..visitor.end_idx];
+            for (e, t) in col.iter().zip(targets) {
+                if is_true_sample(e, &visitor) {
+                    in_true_branch[e.row()] = true;
+                    true_count += e.count();
+                    criterion.add(parent_stats, *t, e.mass());
+                    criterion.add(&mut true_stats, *t, e.mass());
+                    n_true += 1;
+                    match true_first_target {
+                        None => true_first_target = Some(*t),
+                        Some(first) => is_true_pure &= first == *t,
+                    }
+                } else {
+                    in_true_branch[e.row()] = false;
+                    false_count += e.count();
+                    criterion.add(parent_stats, *t, e.mass());
+                    criterion.add(&mut false_stats, *t, e.mass());
+                    match false_first_target {
+                        None => false_first_target = Some(*t),
+                        Some(first) => is_false_pure &= first == *t,
+                    }
+                }
+            }
+            true_stats
+        };
 
         // Stop early if it is clear that there will be too few examples in the leaf
         if true_count < self.parameters().min_samples_leaf
@@ -966,10 +1086,18 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             return true; // both children are leaves: no partition
         }
 
-        for j in 0..visitor.x.shape().1 {
-            stable_partition(
-                &mut workspace.sorted_by_feature[j][visitor.start_idx..visitor.end_idx],
-                &mut workspace.partition_buffer,
+        if workspace.presorted {
+            for j in 0..visitor.x.shape().1 {
+                stable_partition(
+                    &mut workspace.columns[j][visitor.start_idx..visitor.end_idx],
+                    &mut workspace.partition_buffer,
+                    in_true_branch,
+                );
+            }
+        } else {
+            unstable_partition(
+                &mut workspace.columns[0][visitor.start_idx..visitor.end_idx],
+                &mut workspace.node_targets[visitor.start_idx..visitor.end_idx],
                 in_true_branch,
             );
         }
@@ -1680,6 +1808,14 @@ mod tests {
             .collect()
     }
 
+    /// The presorted order for Splitter::Best; the random splitter does not use presorted columns.
+    fn order_for(splitter: Splitter, order: &[Vec<usize>]) -> Option<&[Vec<usize>]> {
+        match splitter {
+            Splitter::Best => Some(order),
+            Splitter::Random => None,
+        }
+    }
+
     /// Index of the leaf that gets row `row` of `x`. Uses the same rule as `leaf_output_for_row`.
     fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
         let mut node_id = 0;
@@ -1964,7 +2100,7 @@ mod tests {
                             sample_weights,
                             samples.clone(),
                             3,
-                            &order,
+                            order_for(splitter, &order),
                             &MSECriterion,
                             parameters,
                         )
@@ -2108,7 +2244,7 @@ mod tests {
                         None,
                         counts.clone(),
                         2,
-                        &order,
+                        order_for(splitter, &order),
                         &MSECriterion,
                         parameters.clone(),
                     )
@@ -2148,7 +2284,7 @@ mod tests {
                     Some(&weights),
                     counts.clone(),
                     2,
-                    &order,
+                    order_for(splitter, &order),
                     &MSECriterion,
                     parameters.clone(),
                 )
@@ -2237,7 +2373,7 @@ mod tests {
                     None,
                     f.counts.clone(),
                     2,
-                    &f.order,
+                    order_for(parameters.splitter, &f.order),
                     &MSECriterion,
                     parameters,
                 )
@@ -2551,7 +2687,7 @@ mod tests {
                     None,
                     samples.clone(),
                     1,
-                    &order_of(&x),
+                    order_for(splitter, &order_of(&x)),
                     &MSECriterion,
                     parameters,
                 )
@@ -2576,6 +2712,7 @@ mod tests {
         let weights = vec![1.0, 0.0, 2.0, 1.0, 0.5, 0.0, 1.0, 3.0];
         let samples = vec![1, 0, 2, 1, 3, 0, 1, 2];
 
+        let order = order_of(&x);
         for splitter in [Splitter::Best, Splitter::Random] {
             let parameters = params(None, 1, 2, splitter);
             let trees: Vec<TestTree> = vec![
@@ -2587,7 +2724,7 @@ mod tests {
                     None,
                     samples.clone(),
                     1,
-                    &order_of(&x),
+                    order_for(splitter, &order),
                     &MSECriterion,
                     parameters,
                 )
@@ -2626,5 +2763,286 @@ mod tests {
         // root + pure leaf + 7 nodes for the false subtree with 4 distinct targets
         assert_eq!(tree.nodes().len(), 9);
         assert_eq!(predict(&tree, &x), y);
+    }
+
+    /// Run `unstable_partition` on `elems` and check the result:
+    /// the true elements come first, each target stays with its element,
+    /// and no element is lost or changed.
+    /// The target of an element is `row * 10 + 1`, so a target that moves away from its
+    /// element gives an error.
+    fn check_unstable_partition<E: NodeElement>(elems: Vec<E>, is_true: &[bool]) {
+        let target_of = |row: usize| row * 10 + 1;
+        let mut slice = elems.clone();
+        let mut targets: Vec<usize> = slice.iter().map(|e| target_of(e.row())).collect();
+
+        unstable_partition(&mut slice, &mut targets, is_true);
+
+        let n_true = elems.iter().filter(|e| is_true[e.row()]).count();
+
+        // the true elements first, then the false elements
+        assert!(slice[..n_true].iter().all(|e| is_true[e.row()]));
+        assert!(slice[n_true..].iter().all(|e| !is_true[e.row()]));
+
+        // each target stays with its element
+        assert_eq!(targets.len(), slice.len());
+        for (e, &t) in slice.iter().zip(&targets) {
+            assert_eq!(t, target_of(e.row()));
+        }
+
+        // the same elements (row, count, mass) as before
+        let key = |e: &E| (e.row(), e.count(), e.mass().to_bits());
+        let mut before: Vec<_> = elems.iter().map(|e| key(e)).collect();
+        let mut after: Vec<_> = slice.iter().map(|e| key(e)).collect();
+        before.sort_unstable();
+        after.sort_unstable();
+        assert_eq!(before, after);
+    }
+
+    fn unit_elements(rows: &[usize]) -> Vec<UnitElement> {
+        rows.iter().map(|&r| UnitElement::new(r, 1, 1.0)).collect()
+    }
+
+    #[test]
+    fn unstable_partition_edge_cases() {
+        // is_true is indexed by row: rows 0, 2 and 4 are true
+        let mixed = [true, false, true, false, true];
+        let all_true = [true; 5];
+        let all_false = [false; 5];
+
+        check_unstable_partition::<UnitElement>(vec![], &mixed); // empty
+        check_unstable_partition(unit_elements(&[2]), &mixed); // one true element
+        check_unstable_partition(unit_elements(&[3]), &mixed); // one false element
+        check_unstable_partition(unit_elements(&[0, 1, 2, 3, 4]), &all_true);
+        check_unstable_partition(unit_elements(&[0, 1, 2, 3, 4]), &all_false);
+        check_unstable_partition(unit_elements(&[0, 1, 2, 3, 4]), &mixed); // alternating
+        check_unstable_partition(unit_elements(&[1, 3, 0, 2, 4]), &mixed); // false first
+        check_unstable_partition(unit_elements(&[0, 2, 4, 1, 3]), &mixed); // already partitioned
+        check_unstable_partition(unit_elements(&[1, 3, 0, 2, 4]), &all_false);
+    }
+
+    /// `split()` partitions only the range of one node. The elements and targets
+    /// before and after this range must not change.
+    #[test]
+    fn unstable_partition_changes_only_the_sub_slice() {
+        let is_true = [true, false, true, false, true, false, true];
+        let rows = [5, 0, 4, 1, 3, 2, 6];
+        let mut elems = unit_elements(&rows);
+        let mut targets: Vec<usize> = rows.iter().map(|&r| r * 10 + 1).collect();
+        let (start, end) = (2, 5);
+
+        unstable_partition(&mut elems[start..end], &mut targets[start..end], &is_true);
+
+        let rows_after: Vec<usize> = elems.iter().map(|e| e.row()).collect();
+        let targets_before: Vec<usize> = rows.iter().map(|&r| r * 10 + 1).collect();
+        assert_eq!(rows_after[..start], rows[..start]);
+        assert_eq!(rows_after[end..], rows[end..]);
+        assert_eq!(targets[..start], targets_before[..start]);
+        assert_eq!(targets[end..], targets_before[end..]);
+    }
+
+    #[test]
+    fn unstable_partition_random_masks_all_element_types() {
+        let mut rng = get_rng_impl(Some(42));
+        for n in [1, 2, 3, 10, 100] {
+            for _ in 0..20 {
+                // the rows of a node: a random subset of 0..2n in a random order
+                let mut rows: Vec<usize> = (0..2 * n).collect();
+                rows.shuffle(&mut rng);
+                rows.truncate(n);
+                let is_true: Vec<bool> = (0..2 * n).map(|_| rng.random_range(0..2) == 1).collect();
+
+                check_unstable_partition(unit_elements(&rows), &is_true);
+
+                let counted: Vec<CountedElement> = rows
+                    .iter()
+                    .map(|&r| CountedElement::new(r, r % 3 + 1, (r % 3 + 1) as f64))
+                    .collect();
+                check_unstable_partition(counted, &is_true);
+
+                let weighted: Vec<WeightedElement> = rows
+                    .iter()
+                    .map(|&r| WeightedElement::new(r, r % 3 + 1, 0.25 * (r + 1) as f64))
+                    .collect();
+                check_unstable_partition(weighted, &is_true);
+            }
+        }
+    }
+    /// The rows of `x` with a count > 0 that reach each node of `tree`.
+    fn rows_per_node(tree: &TestTree, x: &DenseMatrix<f64>, counts: &[usize]) -> Vec<Vec<usize>> {
+        let mut per_node = vec![Vec::new(); tree.nodes().len()];
+        for (row, _) in counts.iter().enumerate().filter(|&(_, &c)| c > 0) {
+            let mut node_id = 0;
+            loop {
+                per_node[node_id].push(row);
+                match &tree.nodes[node_id] {
+                    Node::Leaf { .. } => break,
+                    Node::Inner {
+                        split_feature,
+                        split_value,
+                        true_child,
+                        ..
+                    } => {
+                        let true_child = true_child.get() as usize;
+                        node_id = if *x.get((row, *split_feature as usize)) <= *split_value {
+                            true_child
+                        } else {
+                            true_child + 1
+                        };
+                    }
+                }
+            }
+        }
+        per_node
+    }
+
+    /// Fit random trees without presorted columns (`order = None`, the path of the forests)
+    /// for all element types. Check each node against the training rows that reach it:
+    /// - an inner node splits on a feature that is not constant in the node,
+    ///   with a threshold in `[min, max)` of that feature;
+    /// - a leaf has the weighted mean of its rows as output. This fails if a target
+    ///   is moved away from its element in the partition;
+    /// - a leaf is pure, or all features are constant in it. With `min_samples_leaf = 1`
+    ///   and `mtry` equal to the number of features, each other node must split.
+    #[test]
+    fn random_splitter_nodes_match_their_rows() {
+        let mut rng = get_rng_impl(Some(11));
+        let n = 40;
+        let n_features = 3;
+        // few distinct values: many features become constant inside a node
+        let x_rows: Vec<Vec<f64>> = (0..n)
+            .map(|_| {
+                (0..n_features)
+                    .map(|_| rng.random_range(0..4) as f64)
+                    .collect()
+            })
+            .collect();
+        // few distinct targets: many nodes become pure
+        let y: Vec<f64> = (0..n).map(|_| rng.random_range(0..3) as f64).collect();
+        // bootstrap counts with duplicates (> 1) and left-out rows (0)
+        let counts: Vec<usize> = (0..n).map(|_| rng.random_range(0..4usize)).collect();
+        let weights: Vec<f64> = (0..n).map(|_| rng.random_range(0.1..3.0)).collect();
+        let ones = vec![1usize; n];
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+
+        // (weights, counts): UnitElement, CountedElement and WeightedElement
+        let paths = [
+            (None, &ones),
+            (None, &counts),
+            (Some(weights.as_slice()), &counts),
+        ];
+        for (sample_weights, samples) in paths {
+            for seed in 0..10 {
+                let parameters = BaseTreeParameters {
+                    seed: Some(seed),
+                    ..params(None, 1, 2, Splitter::Random)
+                };
+                let tree: TestTree = BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    sample_weights,
+                    samples.clone(),
+                    n_features,
+                    None,
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work");
+                let message = format!(
+                    "weights: {}, counts: {}, seed: {seed}",
+                    sample_weights.is_some(),
+                    samples != &ones
+                );
+                assert!(tree.nodes().len() > 1, "{message}");
+
+                let mass =
+                    |row: usize| samples[row] as f64 * sample_weights.map_or(1.0, |w| w[row]);
+                for (node_id, rows) in rows_per_node(&tree, &x, samples).iter().enumerate() {
+                    assert!(!rows.is_empty(), "{message}, node {node_id} has no rows");
+                    let node = &tree.nodes()[node_id];
+                    match (node.split_feature(), node.split_value()) {
+                        (Some(j), Some(v)) => {
+                            let values = rows.iter().map(|&r| *x.get((r, j)));
+                            let min = values.clone().fold(f64::INFINITY, f64::min);
+                            let max = values.fold(f64::NEG_INFINITY, f64::max);
+                            assert!(min <= v && v < max, "{message}, node {node_id}");
+                        }
+                        _ => {
+                            let total: f64 = rows.iter().map(|&r| mass(r)).sum();
+                            let mean = rows.iter().map(|&r| mass(r) * y[r]).sum::<f64>() / total;
+                            let output = node.output().unwrap();
+                            assert!((output - mean).abs() < 1e-9, "{message}, node {node_id}");
+
+                            let is_pure = rows.iter().all(|&r| y[r] == y[rows[0]]);
+                            let all_constant = (0..n_features).all(|j| {
+                                rows.iter().all(|&r| x.get((r, j)) == x.get((rows[0], j)))
+                            });
+                            let count: usize = rows.iter().map(|&r| samples[r]).sum();
+                            assert!(
+                                is_pure || all_constant || count < 2,
+                                "{message}, leaf {node_id} can be split"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// With the random splitter, `min_samples_leaf` permits only one interval for the
+    /// threshold. If the random threshold is not in it, the node is not split.
+    /// The counts are numbers of samples, also for `CountedElement` and `WeightedElement`.
+    #[test]
+    fn random_splitter_min_samples_leaf_boundary() {
+        // (x, y, samples, weights, permitted threshold interval)
+        let x4 = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0], vec![4.0]])
+            .unwrap();
+        let x3 = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
+        let y4 = vec![0.0f64, 0.0, 0.0, 100.0];
+        let y3 = vec![0.0f64, 50.0, 100.0];
+        let w3 = vec![0.5, 2.0, 1.5];
+        let cases = [
+            // UnitElement: only 2 | 2, thus the threshold is in [2, 3)
+            ("unit", &x4, &y4, vec![1, 1, 1, 1], None, (2.0, 3.0)),
+            // CountedElement: row 0 counts 2 times, only {0} | {1, 2} is 2 | 2
+            ("counted", &x3, &y3, vec![2, 1, 1], None, (1.0, 2.0)),
+            // WeightedElement: the same, the weights do not change the sample counts
+            (
+                "weighted",
+                &x3,
+                &y3,
+                vec![2, 1, 1],
+                Some(w3.as_slice()),
+                (1.0, 2.0),
+            ),
+        ];
+        for (name, x, y, samples, weights, (low, high)) in cases {
+            let mut n_split = 0;
+            for seed in 0..50 {
+                let parameters = BaseTreeParameters {
+                    seed: Some(seed),
+                    ..params(None, 2, 2, Splitter::Random)
+                };
+                let tree: TestTree = BaseTree::fit_weak_learner(
+                    x,
+                    y,
+                    weights,
+                    samples.clone(),
+                    1,
+                    None,
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work");
+                if tree.nodes().len() == 1 {
+                    continue; // the random threshold was not permitted
+                }
+                n_split += 1;
+                assert_eq!(tree.nodes().len(), 3, "{name}, seed: {seed}");
+                let v = tree.nodes()[0].split_value().unwrap();
+                assert!(low <= v && v < high, "{name}, seed: {seed}, threshold: {v}");
+                assert_eq!(leaf_counts(&tree, x, &samples), vec![2, 2], "{name}");
+            }
+            assert!(n_split > 0, "{name}: no seed gives a split");
+        }
     }
 }
