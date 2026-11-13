@@ -12,7 +12,7 @@ use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::rand_custom::get_rng_impl;
-use crate::tree::criterion::{Criterion, LeafOutput};
+use crate::tree::criterion::{ClassificationOutput, Criterion, LeafOutput};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, Default)]
@@ -62,6 +62,9 @@ pub struct BaseTree<
     parameters: Option<BaseTreeParameters>,
     depth: u16,
     root_mass: f64,
+    /// empty for regressors
+    leaf_probabilities: Vec<f32>,
+    n_leaves: u32,
     _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_x: PhantomData<X>,
@@ -167,13 +170,22 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     for BaseTree<TX, TY, X, Y, Out>
 {
     fn eq(&self, other: &Self) -> bool {
-        if self.depth != other.depth || self.nodes.len() != other.nodes.len() {
+        if self.depth != other.depth
+            || self.nodes.len() != other.nodes.len()
+            || self.n_leaves != other.n_leaves
+            || self.leaf_probabilities.len() != other.leaf_probabilities.len()
+        {
             false
         } else {
             self.nodes
                 .iter()
                 .zip(other.nodes().iter())
                 .all(|(a, b)| a.approximate_eq(b))
+                && self
+                    .leaf_probabilities
+                    .iter()
+                    .zip(other.leaf_probabilities.iter())
+                    .all(|(&p1, &p2)| (p1 - p2).abs() < f32::EPSILON)
         }
     }
 }
@@ -578,6 +590,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         parameters: BaseTreeParameters,
     ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
         let mut nodes: Vec<Node<Out>> = Vec::new();
+        let mut leaf_probabilities: Vec<f32> = vec![];
         let mut rng = get_rng_impl(parameters.seed);
 
         let mut n = 0usize;
@@ -624,7 +637,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
         }
         node_targets.truncate(w);
 
-        let root = Node::new_leaf(criterion.leaf_value(&root_stats));
+        let root = Node::new_leaf(criterion.leaf_value(&root_stats, 0, &mut leaf_probabilities));
         nodes.push(root);
 
         let columns: Vec<Vec<E>> = match order {
@@ -690,6 +703,8 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             parameters: Some(parameters),
             depth: 0u16,
             root_mass,
+            leaf_probabilities,
+            n_leaves: 1,
             _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_x: PhantomData,
@@ -1056,6 +1071,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             return false;
         }
 
+        let parent_slot = match &self.nodes[visitor.node] {
+            Node::Leaf { output } => output.slot(),
+            Node::Inner { .. } => unreachable!("only a leaf node is split"),
+        };
+
         // Store the real (mass-weighted) impurity improvement in split_score, not the proxy.
         // false_stats is a direct sum, not parent - true: no cancellation for a small false side
         let true_child_idx = self.nodes.len();
@@ -1068,11 +1088,19 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
 
         let split_idx = visitor.start_idx + n_true;
 
+        let false_slot = self.n_leaves;
+        self.n_leaves += 1;
         // Add the child nodes to the tree
-        self.nodes
-            .push(Node::new_leaf(criterion.leaf_value(&true_stats)));
-        self.nodes
-            .push(Node::new_leaf(criterion.leaf_value(&false_stats)));
+        self.nodes.push(Node::new_leaf(criterion.leaf_value(
+            &true_stats,
+            parent_slot,
+            &mut self.leaf_probabilities,
+        )));
+        self.nodes.push(Node::new_leaf(criterion.leaf_value(
+            &false_stats,
+            false_slot,
+            &mut self.leaf_probabilities,
+        )));
 
         let child_level = visitor.level + 1;
         self.depth = u16::max(self.depth, child_level);
@@ -1186,13 +1214,25 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
     }
 }
 
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    BaseTree<TX, TY, X, Y, ClassificationOutput>
+{
+    /// Class distribution of the leaf that row of x reaches; one entry per class, sums to 1.
+    pub(crate) fn leaf_distribution_for_row(&self, x: &X, row: usize) -> &[f32] {
+        let leaf_output = self.leaf_output_for_row(x, row);
+        let slot = leaf_output.slot as usize;
+        let n_classes = self.leaf_probabilities.len() / self.n_leaves as usize;
+        &self.leaf_probabilities[slot * n_classes..(slot + 1) * n_classes]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::arrays::{Array, ArrayView1};
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_absolute_error;
-    use crate::tree::criterion::MSECriterion;
+    use crate::tree::criterion::{ClassificationOutput, GiniCriterion, MSECriterion};
 
     impl<Out: Copy> Node<Out> {
         /// Index of the true child, or `None` for a leaf.
@@ -1765,6 +1805,16 @@ mod tests {
         assert_eq!(std::mem::size_of::<UnitElement>(), 4);
         assert_eq!(std::mem::size_of::<CountedElement>(), 8);
         assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn test_leaf_output_sizes() {
+        assert_eq!(std::mem::size_of::<Node<f64>>(), 24);
+        assert_eq!(std::mem::size_of::<Node<ClassificationOutput>>(), 24);
     }
 
     type TestTree = BaseTree<f64, f64, DenseMatrix<f64>, Vec<f64>, f64>;
@@ -2765,6 +2815,267 @@ mod tests {
         assert_eq!(predict(&tree, &x), y);
     }
 
+    type ClassTree = BaseTree<f64, usize, DenseMatrix<f64>, Vec<usize>, ClassificationOutput>;
+
+    /// Number of `Node::Leaf` entries in the tree.
+    fn leaf_count<TY: Number, Y: Array1<TY>, Out: LeafOutput>(
+        tree: &BaseTree<f64, TY, DenseMatrix<f64>, Y, Out>,
+    ) -> usize {
+        tree.nodes()
+            .iter()
+            .filter(|node| matches!(node, Node::Leaf { .. }))
+            .count()
+    }
+
+    /// Deterministic data set: 30 rows, 3 features, 3 classes, with overlap so that the
+    /// trees have many leaves of different sizes.
+    fn class_data() -> (DenseMatrix<f64>, Vec<usize>) {
+        let rows: Vec<Vec<f64>> = (0..30)
+            .map(|i| (0..3).map(|j| ((i * 7 + j * 13) % 17) as f64).collect())
+            .collect();
+        let y: Vec<usize> = (0..30).map(|i| (i * 5 + i / 4) % 3).collect();
+        (DenseMatrix::from_2d_vec(&rows).unwrap(), y)
+    }
+
+    fn slot_parameters(max_depth: Option<u16>, splitter: Splitter) -> BaseTreeParameters {
+        BaseTreeParameters {
+            max_depth,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn n_leaves_matches_number_of_leaf_nodes() {
+        let (x, y_class) = class_data();
+        let y_reg: Vec<f64> = y_class.iter().map(|&c| c as f64 * 1.5).collect();
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let params = slot_parameters(max_depth, splitter);
+
+                let reg = BaseTree::fit_inner(&x, &y_reg, None, &MSECriterion, params.clone())
+                    .expect("Fit should work");
+                assert_eq!(reg.n_leaves as usize, leaf_count(&reg));
+                // A binary tree: number of leaves = number of inner nodes + 1
+                assert_eq!(reg.nodes().len(), 2 * reg.n_leaves as usize - 1);
+
+                let class: ClassTree =
+                    BaseTree::fit_inner(&x, &y_class, None, &GiniCriterion::new(3), params)
+                        .expect("Fit should work");
+                assert_eq!(class.n_leaves as usize, leaf_count(&class));
+                assert_eq!(class.nodes().len(), 2 * class.n_leaves as usize - 1);
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn n_leaves_is_one_for_root_only_tree() {
+        let (x, y) = class_data();
+        let tree: ClassTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &GiniCriterion::new(3),
+            slot_parameters(Some(1), Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.n_leaves, 1);
+        assert_eq!(tree.leaf_probabilities.len(), 3);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn regression_tree_has_no_leaf_probabilities() {
+        let (x, y_class) = class_data();
+        let y: Vec<f64> = y_class.iter().map(|&c| c as f64).collect();
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), None] {
+                let tree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &MSECriterion,
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+                // the deep tree must really have split, else the test is trivial
+                assert!(tree.n_leaves > 1 || max_depth == Some(1));
+                assert!(tree.leaf_probabilities.is_empty());
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn classification_leaf_probabilities_have_one_row_per_leaf() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                assert_eq!(
+                    tree.leaf_probabilities.len(),
+                    tree.n_leaves as usize * n_classes
+                );
+
+                // The slots of the leaves are exactly 0..n_leaves (no gaps, no duplicates)
+                let mut slots: Vec<u32> = tree
+                    .nodes()
+                    .iter()
+                    .filter_map(|node| match node {
+                        Node::Leaf { output } => Some(output.slot),
+                        Node::Inner { .. } => None,
+                    })
+                    .collect();
+                slots.sort_unstable();
+                assert_eq!(slots, (0..tree.n_leaves).collect::<Vec<u32>>());
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn slot_rows_sum_to_one() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                for dist in tree.leaf_probabilities.chunks(n_classes) {
+                    assert_eq!(
+                        dist.len(),
+                        n_classes,
+                        "splitter: {splitter:?}, max_depth: {max_depth:?}"
+                    );
+                    assert!(
+                        (dist.iter().map(|p| *p as f64).sum::<f64>() - 1.0).abs()
+                            < f32::EPSILON as f64,
+                        "splitter: {splitter:?}, max_depth: {max_depth:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn class_prediction_equals_argmax() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                for node in tree.nodes() {
+                    if let Node::Leaf { output } = node {
+                        let slot = output.slot as usize;
+                        let probs =
+                            &tree.leaf_probabilities[slot * n_classes..(slot + 1) * n_classes];
+                        assert_eq!(
+                            output.class_index,
+                            probs.argmax(),
+                            "splitter: {splitter:?}, max_depth: {max_depth:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn leaf_probabilities_are_weighted_class_frequencies() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        let sample_weights: Vec<f64> = (0..y.len()).map(|i| (i % 5 + 1) as f64).collect();
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    Some(&sample_weights),
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                // Expected: weighted class counts of the training rows that reach each leaf
+                let n_leaves = tree.n_leaves as usize;
+                let mut counts = vec![0f64; n_leaves * n_classes];
+                for (row, (&yi, &wi)) in y.iter().zip(&sample_weights).enumerate() {
+                    let slot = tree.leaf_output_for_row(&x, row).slot as usize;
+                    counts[slot * n_classes + yi] += wi;
+                }
+
+                for (slot, (got, exp)) in tree
+                    .leaf_probabilities
+                    .chunks(n_classes)
+                    .zip(counts.chunks(n_classes))
+                    .enumerate()
+                {
+                    let mass: f64 = exp.iter().sum();
+                    for c in 0..n_classes {
+                        let expected = exp[c] / mass;
+                        assert!(
+                            (got[c] as f64 - expected).abs() < f32::EPSILON as f64,
+                            "{splitter:?}, {max_depth:?}, slot {slot}, class {c}: {} vs {expected}",
+                            got[c]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /// Run `unstable_partition` on `elems` and check the result:
     /// the true elements come first, each target stays with its element,
     /// and no element is lost or changed.
@@ -2791,8 +3102,8 @@ mod tests {
 
         // the same elements (row, count, mass) as before
         let key = |e: &E| (e.row(), e.count(), e.mass().to_bits());
-        let mut before: Vec<_> = elems.iter().map(|e| key(e)).collect();
-        let mut after: Vec<_> = slice.iter().map(|e| key(e)).collect();
+        let mut before: Vec<_> = elems.iter().map(&key).collect();
+        let mut after: Vec<_> = slice.iter().map(&key).collect();
         before.sort_unstable();
         after.sort_unstable();
         assert_eq!(before, after);
@@ -3044,5 +3355,34 @@ mod tests {
             }
             assert!(n_split > 0, "{name}: no seed gives a split");
         }
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_round_trip_keeps_leaf_probabilities() {
+        let (x, y) = class_data();
+        let tree: ClassTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &GiniCriterion::new(3),
+            slot_parameters(Some(2), Splitter::Best),
+        )
+        .expect("Fit should work");
+        // the tree must really have split, else the test is trivial
+        assert!(tree.n_leaves > 1);
+        // a shallow tree has impure leaves, so not all probabilities are 0 or 1
+        assert!(tree.leaf_probabilities.iter().any(|&p| p > 0.0 && p < 1.0));
+
+        let bytes = postcard::to_allocvec(&tree).unwrap();
+        let deserialized: ClassTree = postcard::from_bytes(&bytes).unwrap();
+        assert_eq!(tree, deserialized);
+        assert_eq!(tree.n_leaves, deserialized.n_leaves);
+        assert_eq!(tree.leaf_probabilities, deserialized.leaf_probabilities);
+
+        // Equality must detect a different leaf distribution, also when the nodes are the same
+        let mut changed: ClassTree = postcard::from_bytes(&bytes).unwrap();
+        changed.leaf_probabilities[0] += 0.5;
+        assert_ne!(tree, changed);
     }
 }

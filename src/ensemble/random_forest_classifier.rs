@@ -64,7 +64,9 @@ use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
 use crate::tree::base_tree::{Splitter, validate_sample_weights};
-use crate::tree::criterion::{ClassificationErrorCriterion, EntropyCriterion, GiniCriterion};
+use crate::tree::criterion::{
+    ClassificationErrorCriterion, ClassificationOutput, EntropyCriterion, GiniCriterion,
+};
 use crate::tree::decision_tree_classifier::SplitCriterion;
 
 /// Parameters of the Random Forest algorithm.
@@ -108,7 +110,7 @@ pub struct RandomForestClassifier<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    forest_classifier: Option<BaseForest<TX, usize, X, Vec<usize>, usize>>,
+    forest_classifier: Option<BaseForest<TX, usize, X, Vec<usize>, ClassificationOutput>>,
     classes: Option<Vec<TY>>,
     _phantom: PhantomData<Y>,
 }

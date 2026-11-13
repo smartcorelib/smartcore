@@ -13,7 +13,7 @@ use crate::numbers::floatnum::FloatNumber;
 
 use crate::rand_custom::get_rng_impl;
 use crate::tree::base_tree::{BaseTree, BaseTreeParameters, Splitter};
-use crate::tree::criterion::{Criterion, LeafOutput};
+use crate::tree::criterion::{ClassificationOutput, Criterion, LeafOutput};
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
@@ -345,7 +345,7 @@ where
 
 /// Mode of the tree predictions for each row of `x`.
 pub(crate) fn predict_mode<TX, TY, X, Y>(
-    forest: &BaseForest<TX, TY, X, Y, usize>,
+    forest: &BaseForest<TX, TY, X, Y, ClassificationOutput>,
     x: &X,
     num_classes: usize,
 ) -> Result<Vec<usize>, Failed>
@@ -362,7 +362,7 @@ where
     for row in 0..n {
         counts.fill(0);
         for tree in forest.trees() {
-            counts[*tree.leaf_output_for_row(x, row)] += 1;
+            counts[tree.leaf_output_for_row(x, row).class_index] += 1;
         }
         result[row] = counts.argmax();
     }
@@ -372,7 +372,7 @@ where
 /// Mode of the out-of-bag tree predictions for each row of `x`.
 /// `x` is expected to be equal to the dataset used in training.
 pub(crate) fn predict_mode_oob<TX, TY, X, Y>(
-    forest: &BaseForest<TX, TY, X, Y, usize>,
+    forest: &BaseForest<TX, TY, X, Y, ClassificationOutput>,
     x: &X,
     num_classes: usize,
 ) -> Result<Vec<usize>, Failed>
@@ -408,7 +408,7 @@ where
         counts.fill(0);
         for (tree, in_bag) in forest.trees().iter().zip(samples) {
             if !in_bag[row] {
-                counts[*tree.leaf_output_for_row(x, row)] += 1;
+                counts[tree.leaf_output_for_row(x, row).class_index] += 1;
             }
         }
         // TODO: What to do if there are no oob trees?
