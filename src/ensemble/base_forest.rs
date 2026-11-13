@@ -4,6 +4,7 @@ use std::fmt::Debug;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::ensemble::max_features::MaxFeatures;
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::linalg::basic::arrays::{ArrayView1, MutArrayView1};
@@ -33,8 +34,8 @@ pub struct BaseForestParameters {
     /// The number of trees in the forest.
     pub n_trees: usize,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Number of random sample of predictors to use as split candidates.
-    pub m: Option<usize>,
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
@@ -127,9 +128,7 @@ impl<
             ));
         }
 
-        let mtry = parameters
-            .m
-            .unwrap_or((num_attributes as f64).sqrt().floor() as usize);
+        let mtry = parameters.m.resolve(num_attributes)?;
 
         let mut rng = get_rng_impl(parameters.seed);
         let n_trees = parameters.n_trees;
@@ -436,7 +435,7 @@ mod tests {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 5,
-            m: None,
+            m: MaxFeatures::Sqrt,
             keep_samples: true,
             seed: Some(42),
             bootstrap: true,
@@ -465,7 +464,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 5,
-                m: None,
+                m: MaxFeatures::Sqrt,
                 keep_samples: false,
                 seed: Some(0),
                 bootstrap: true,
@@ -494,7 +493,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 5,
-                m: None,
+                m: MaxFeatures::Sqrt,
                 keep_samples: false,
                 seed: Some(0),
                 bootstrap: true,
@@ -520,7 +519,7 @@ mod tests {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 5,
-            m: None,
+            m: MaxFeatures::Sqrt,
             keep_samples: true,
             seed: Some(42),
             bootstrap: false,
@@ -579,7 +578,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 10,
-                m: None,
+                m: MaxFeatures::Sqrt,
                 keep_samples: true, // keep samples used for each tree, so we can check that they are different
                 seed: Some(42),
                 bootstrap: true, // Use bootstrapping
@@ -625,7 +624,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 10,
-                m: Some(1),
+                m: MaxFeatures::Count(1),
                 keep_samples: false,
                 seed: Some(42),
                 bootstrap: false,
@@ -654,7 +653,7 @@ mod tests {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
-            m: None,
+            m: MaxFeatures::Sqrt,
             keep_samples: true,
             seed: Some(42),
             bootstrap: false, // No bootstrapping
@@ -697,7 +696,7 @@ mod tests {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 500, // Use more trees than before to smooth out randomness
-            m: None,
+            m: MaxFeatures::Sqrt,
             keep_samples: true, // keep samples used for each tree, so we can check that they are different
             seed: Some(42),
             bootstrap: true, // Use bootstrapping
@@ -757,7 +756,7 @@ mod tests {
                     min_samples_leaf: 1,
                     min_samples_split: 2,
                     n_trees: 10,
-                    m: Some(1),
+                    m: MaxFeatures::Count(1),
                     keep_samples: true,
                     seed: Some(42),
                     bootstrap: true,
@@ -817,7 +816,7 @@ mod tests {
                 min_samples_leaf: 1,
                 min_samples_split: 2,
                 n_trees: 10,
-                m: Some(1),
+                m: MaxFeatures::Count(1),
                 keep_samples: false,
                 seed: Some(42),
                 bootstrap,
@@ -890,7 +889,7 @@ mod tests {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
-            m: Some(1),
+            m: MaxFeatures::Count(1),
             keep_samples: false,
             seed,
             bootstrap: true,
@@ -938,6 +937,166 @@ mod tests {
         assert!(
             first != second,
             "two fits with seed None give the same forest"
+        );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_returns_error_for_invalid_max_features() {
+        let n_rows = 10;
+        let n_features = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_features * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            n_features,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+
+        let invalid = [
+            MaxFeatures::Count(0),
+            MaxFeatures::Count(n_features + 1),
+            MaxFeatures::Fraction(0.0),
+            MaxFeatures::Fraction(-0.5),
+            MaxFeatures::Fraction(1.5),
+            MaxFeatures::Fraction(f64::NAN),
+            MaxFeatures::Fraction(f64::INFINITY),
+        ];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for m in invalid {
+                let params = BaseForestParameters {
+                    max_depth: None,
+                    min_samples_leaf: 1,
+                    min_samples_split: 2,
+                    n_trees: 3,
+                    m,
+                    keep_samples: false,
+                    seed: Some(42),
+                    bootstrap: true,
+                    splitter,
+                };
+                let result = BaseForest::fit(&x, &y, None, &MSECriterion, params);
+                let err = result.err().unwrap_or_else(|| {
+                    panic!("fit must fail for m = {m:?} (splitter: {splitter:?})")
+                });
+                assert_eq!(
+                    err.error(),
+                    FailedError::ParametersError,
+                    "m = {m:?} (splitter: {splitter:?})"
+                );
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_accepts_boundary_max_features() {
+        let n_rows = 10;
+        let n_features = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_features * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            n_features,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+
+        let valid = [
+            MaxFeatures::Sqrt,
+            MaxFeatures::All,
+            MaxFeatures::Count(1),
+            MaxFeatures::Count(n_features),
+            MaxFeatures::Fraction(1.0),
+            MaxFeatures::Fraction(0.01),
+        ];
+
+        for m in valid {
+            let params = BaseForestParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                n_trees: 3,
+                m,
+                keep_samples: false,
+                seed: Some(42),
+                bootstrap: true,
+                splitter: Splitter::Best,
+            };
+            let forest = BaseForest::fit(&x, &y, None, &MSECriterion, params)
+                .unwrap_or_else(|e| panic!("fit must succeed for m = {m:?}: {e}"));
+            assert_eq!(forest.trees.unwrap().len(), 3, "m = {m:?}");
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn equivalent_max_features_give_same_forest() {
+        let n_rows = 10;
+        let n_features = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_features * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            n_features,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+        let mut params = BaseForestParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 3,
+            m: MaxFeatures::All,
+            keep_samples: false,
+            seed: Some(42),
+            bootstrap: true,
+            splitter: Splitter::Best,
+        };
+
+        let forest_all =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        params.m = MaxFeatures::Fraction(1.0);
+
+        let forest_fraction =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        params.m = MaxFeatures::Count(4);
+
+        let forest_count =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        assert_eq!(
+            forest_all, forest_count,
+            "Forest fit by 'all' and 'count' is different"
+        );
+        assert_eq!(
+            forest_all, forest_fraction,
+            "Forest fit by 'all' and 'fraction' is different"
+        );
+
+        params.m = MaxFeatures::Sqrt;
+
+        let forest_sqrt =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        params.m = MaxFeatures::Count(2);
+
+        let forest_count_sqrt =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        assert_eq!(
+            forest_sqrt, forest_count_sqrt,
+            "Forest fit by 'sqrt' and 'count' is different"
         );
     }
 }

@@ -19,6 +19,7 @@
 mod base_forest;
 pub mod extra_trees_classifier;
 pub mod extra_trees_regressor;
+pub mod max_features;
 /// Random forest classifier
 pub mod random_forest_classifier;
 /// Random forest regressor

@@ -81,6 +81,7 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
     BaseForest, BaseForestParameters, predict_mode, predict_mode_oob,
 };
+use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
@@ -112,8 +113,8 @@ pub struct ExtraTreesClassifierParameters {
     /// The number of trees in the forest.
     pub n_trees: usize,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Number of random sample of predictors to use as split candidates.
-    pub m: Option<usize>,
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
@@ -168,9 +169,9 @@ impl ExtraTreesClassifierParameters {
         self.n_trees = n_trees;
         self
     }
-    /// Number of random sample of predictors to use as split candidates.
-    pub fn with_m(mut self, m: usize) -> Self {
-        self.m = Some(m);
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub fn with_m(mut self, m: impl Into<MaxFeatures>) -> Self {
+        self.m = m.into();
         self
     }
     /// Seed used for feature selection and for the random split points of each tree.
@@ -209,7 +210,7 @@ impl Default for ExtraTreesClassifierParameters {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
-            m: Option::None,
+            m: MaxFeatures::Sqrt,
             keep_samples: false,
             seed: Option::None,
             bootstrap: false,

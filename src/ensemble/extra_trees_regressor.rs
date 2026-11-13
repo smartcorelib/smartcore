@@ -63,6 +63,7 @@ use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
     BaseForest, BaseForestParameters, predict_mean, predict_mean_oob,
 };
+use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
@@ -89,8 +90,8 @@ pub struct ExtraTreesRegressorParameters {
     /// The number of trees in the forest.
     pub n_trees: usize,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Number of random sample of predictors to use as split candidates.
-    pub m: Option<usize>,
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Whether to keep samples used for tree generation. This is required for OOB prediction.
     pub keep_samples: bool,
@@ -138,9 +139,9 @@ impl ExtraTreesRegressorParameters {
         self.n_trees = n_trees;
         self
     }
-    /// Number of random sample of predictors to use as split candidates.
-    pub fn with_m(mut self, m: usize) -> Self {
-        self.m = Some(m);
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub fn with_m(mut self, m: impl Into<MaxFeatures>) -> Self {
+        self.m = m.into();
         self
     }
 
@@ -170,7 +171,7 @@ impl Default for ExtraTreesRegressorParameters {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
-            m: Option::None,
+            m: MaxFeatures::Sqrt,
             keep_samples: false,
             seed: Option::None,
             bootstrap: false,
@@ -594,7 +595,7 @@ mod tests {
     #[test]
     fn serde_without_bootstrap_field_uses_default() {
         // Parameters serialized before the `bootstrap` field was added.
-        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"n_trees":10,"m":null,"keep_samples":true,"seed":42}"#;
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":"Sqrt","n_trees":10,"keep_samples":true,"seed":42}"#;
         let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
         assert!(!parameters.bootstrap);
 
@@ -608,6 +609,41 @@ mod tests {
             serde_json::from_value(value).unwrap();
         let msg = "OOB prediction needs bootstrap = true";
         assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_without_m_field_uses_default() {
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"n_trees":10,"keep_samples":true,"seed":42}"#;
+        let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+        assert_eq!(parameters.m, MaxFeatures::Sqrt);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_with_old_m_format_fails() {
+        // Before 0.8.0, `m` was `Option<usize>`. Serde always wrote it, as `null` or as a number.
+        // `m` is now `MaxFeatures`, so these old values no longer deserialize (see CHANGELOG).
+        let old_formats = [
+            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":null,"n_trees":10,"keep_samples":true,"seed":42}"#,
+            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":3,"n_trees":10,"keep_samples":true,"seed":42}"#,
+        ];
+        for json in old_formats {
+            let result: Result<ExtraTreesRegressorParameters, _> = serde_json::from_str(json);
+            assert!(result.is_err(), "old format must not deserialize: {json}");
+        }
+
+        // The new format deserializes.
+        let new_formats = [
+            (r#"{"m":"Sqrt"}"#, MaxFeatures::Sqrt),
+            (r#"{"m":"All"}"#, MaxFeatures::All),
+            (r#"{"m":{"Count":3}}"#, MaxFeatures::Count(3)),
+            (r#"{"m":{"Fraction":0.5}}"#, MaxFeatures::Fraction(0.5)),
+        ];
+        for (json, expected) in new_formats {
+            let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+            assert_eq!(parameters.m, expected, "json = {json}");
+        }
     }
 
     #[cfg_attr(
