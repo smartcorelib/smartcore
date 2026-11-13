@@ -6,9 +6,9 @@ use std::convert::Infallible;
 use std::marker::PhantomData;
 
 use lazymatrix::{
-    DotSlice, ElemDivAssign, LazyMatrix, MatTransposeVecInto, MatVecInto, MatrixErrorType,
-    MatrixShape, MatrixWrite, Scalar, ScaledSubSlice, SubScalarAssign, SumEntries, VectorView,
-    WeightedGramInto, WeightedGramKernel,
+    ColumnNormalizationParams, DotSlice, ElemDivAssign, LazyMatrix, MatTransposeVecInto,
+    MatVecInto, MatrixErrorType, MatrixShape, MatrixWrite, Scalar, ScaledSubSlice, SubScalarAssign,
+    SumEntries, VectorView, WeightedGramInto, WeightedGramKernel,
 };
 
 use crate::linalg::basic::arrays::{Array1, Array2};
@@ -16,14 +16,18 @@ use crate::numbers::floatnum::FloatNumber;
 
 /// Keep the design borrowed while coefficient matrices retain the caller's storage type.
 pub(super) struct LazyDesign<'a, T: FloatNumber, X: Array2<T>> {
-    normalized: LazyMatrix<MatrixAdapter<'a, T, X>, T>,
+    normalized: LazyMatrix<MatrixAdapter<'a, T, X>, ColumnNormalizationParams<T>>,
     augmentation: Option<(T, T)>,
 }
 
 impl<'a, T: FloatNumber, X: Array2<T>> LazyDesign<'a, T, X> {
     pub(super) fn new(x: &'a X, centers: Option<Vec<T>>, scales: Option<Vec<T>>) -> Self {
         Self {
-            normalized: LazyMatrix::from_parts(MatrixAdapter(x, PhantomData), centers, scales),
+            normalized: LazyMatrix::from_column_parts(
+                MatrixAdapter(x, PhantomData),
+                centers,
+                scales,
+            ),
             augmentation: None,
         }
     }
@@ -41,11 +45,11 @@ impl<'a, T: FloatNumber, X: Array2<T>> LazyDesign<'a, T, X> {
     }
 
     pub(super) fn centers(&self) -> &[T] {
-        self.normalized.centers().unwrap()
+        self.normalized.normalization().centers().unwrap()
     }
 
     pub(super) fn scales(&self) -> &[T] {
-        self.normalized.scales().unwrap()
+        self.normalized.normalization().scales().unwrap()
     }
 
     pub(super) fn gamma(&self) -> T {
