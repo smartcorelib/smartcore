@@ -123,7 +123,7 @@ impl RandomForestRegressorParameters {
         self.n_trees = n_trees;
         self
     }
-    /// Number of random sample of predictors to use as split candidates.
+    /// Number of features to test at each split. See [`MaxFeatures`].
     pub fn with_m(mut self, m: impl Into<MaxFeatures>) -> Self {
         self.m = m.into();
         self
@@ -541,6 +541,30 @@ mod tests {
         assert_eq!(next.n_trees, 100);
         assert_eq!(next.seed, Some(42));
         assert!(iter.next().is_none());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn search_parameters_max_features() {
+        let seq = [
+            MaxFeatures::Sqrt,
+            MaxFeatures::Count(1),
+            MaxFeatures::Count(2),
+            MaxFeatures::Fraction(0.1),
+            MaxFeatures::All,
+        ];
+        let parameters = RandomForestRegressorSearchParameters {
+            m: seq.to_vec(),
+            ..Default::default()
+        };
+        let iter = parameters.into_iter();
+
+        for (idx, rf_params) in iter.enumerate() {
+            assert_eq!(seq[idx], rf_params.m);
+        }
     }
 
     #[cfg_attr(
@@ -1349,5 +1373,103 @@ mod tests {
         )
         .unwrap();
         assert_eq!(rf.compute_feature_importances().unwrap(), vec![0.0; 3]);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_returns_error_for_invalid_max_features() {
+        let n_rows = 10;
+        let n_features = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_features * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            n_features,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+
+        let invalid = [
+            MaxFeatures::Count(0),
+            MaxFeatures::Count(n_features + 1),
+            MaxFeatures::Fraction(0.0),
+            MaxFeatures::Fraction(-0.5),
+            MaxFeatures::Fraction(1.5),
+            MaxFeatures::Fraction(f64::NAN),
+            MaxFeatures::Fraction(f64::INFINITY),
+        ];
+
+        for m in invalid {
+            let params = RandomForestRegressorParameters::default().with_m(m);
+            let result = RandomForestRegressor::fit(&x, &y, params);
+            let err = result
+                .err()
+                .unwrap_or_else(|| panic!("fit must fail for m = {m:?}"));
+            assert_eq!(err.error(), FailedError::ParametersError, "m = {m:?}");
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn equivalent_max_features_give_same_predictions() {
+        let n_rows = 10;
+        let n_features = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_features * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            n_features,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+        let mut params = RandomForestRegressorParameters::default()
+            .with_m(MaxFeatures::All)
+            .with_seed(42);
+
+        let forest_all =
+            RandomForestRegressor::fit(&x, &y, params.clone()).expect("Fit should work");
+        let yhat_all = forest_all.predict(&x).expect("predict should work");
+
+        params.m = MaxFeatures::Fraction(1.0);
+
+        let forest_fraction =
+            RandomForestRegressor::fit(&x, &y, params.clone()).expect("Fit should work");
+        let yhat_fraction = forest_fraction.predict(&x).expect("predict should work");
+
+        params.m = MaxFeatures::Count(4);
+
+        let forest_count =
+            RandomForestRegressor::fit(&x, &y, params.clone()).expect("Fit should work");
+        let yhat_count = forest_count.predict(&x).expect("predict should work");
+
+        assert_eq!(
+            yhat_all, yhat_fraction,
+            "Predictions made by 'all' and 'fraction' are different",
+        );
+        assert_eq!(
+            yhat_all, yhat_count,
+            "Predictions made by 'all' and 'count' are different",
+        );
+
+        params.m = MaxFeatures::Sqrt;
+
+        let forest_sqrt =
+            RandomForestRegressor::fit(&x, &y, params.clone()).expect("Fit should work");
+        let yhat_sqrt = forest_sqrt.predict(&x).expect("predict should work");
+
+        params.m = MaxFeatures::Count(2);
+
+        let forest_count_sqrt =
+            RandomForestRegressor::fit(&x, &y, params.clone()).expect("Fit should work");
+        let yhat_count_sqrt = forest_count_sqrt.predict(&x).expect("predict should work");
+
+        assert_eq!(
+            yhat_sqrt, yhat_count_sqrt,
+            "Predictions made 'sqrt' and 'count' are different"
+        );
     }
 }

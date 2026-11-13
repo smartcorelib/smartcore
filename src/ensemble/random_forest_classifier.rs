@@ -139,7 +139,7 @@ impl RandomForestClassifierParameters {
         self.n_trees = n_trees;
         self
     }
-    /// Number of random sample of predictors to use as split candidates.
+    /// Number of features to test at each split. See [`MaxFeatures`].
     pub fn with_m(mut self, m: impl Into<MaxFeatures>) -> Self {
         self.m = m.into();
         self

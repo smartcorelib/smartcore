@@ -1034,4 +1034,69 @@ mod tests {
             assert_eq!(forest.trees.unwrap().len(), 3, "m = {m:?}");
         }
     }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn equivalent_max_features_give_same_forest() {
+        let n_rows = 10;
+        let n_features = 4;
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator(
+            (0..n_features * n_rows).map(|k| ((k * 7919) % 101) as f64),
+            n_rows,
+            n_features,
+            0,
+        );
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+        let mut params = BaseForestParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            n_trees: 3,
+            m: MaxFeatures::All,
+            keep_samples: false,
+            seed: Some(42),
+            bootstrap: true,
+            splitter: Splitter::Best,
+        };
+
+        let forest_all =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        params.m = MaxFeatures::Fraction(1.0);
+
+        let forest_fraction =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        params.m = MaxFeatures::Count(4);
+
+        let forest_count =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        assert_eq!(
+            forest_all, forest_count,
+            "Forest fit by 'all' and 'count' is different"
+        );
+        assert_eq!(
+            forest_all, forest_fraction,
+            "Forest fit by 'all' and 'fraction' is different"
+        );
+
+        params.m = MaxFeatures::Sqrt;
+
+        let forest_sqrt =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        params.m = MaxFeatures::Count(2);
+
+        let forest_count_sqrt =
+            BaseForest::fit(&x, &y, None, &MSECriterion, params.clone()).expect("Fit should work");
+
+        assert_eq!(
+            forest_sqrt, forest_count_sqrt,
+            "Forest fit by 'sqrt' and 'count' is different"
+        );
+    }
 }
