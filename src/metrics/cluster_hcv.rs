@@ -42,8 +42,8 @@ impl<T: Number + Ord> HCVScore<T> {
         let contingency = contingency_matrix(y_true, y_pred);
         let mi = mutual_info_score(&contingency);
 
-        let homogeneity = entropy_c.map(|e| mi / e).unwrap_or(0f64);
-        let completeness = entropy_k.map(|e| mi / e).unwrap_or(0f64);
+        let homogeneity = entropy_c.filter(|&e| e > 0f64).map_or(1f64, |e| mi / e);
+        let completeness = entropy_k.filter(|&e| e > 0f64).map_or(1f64, |e| mi / e);
 
         let v_measure_score = if homogeneity + completeness == 0f64 {
             0f64
@@ -104,5 +104,26 @@ mod tests {
         assert!((0.2548 - scores.homogeneity.unwrap()).abs() < 1e-4);
         assert!((0.5440 - scores.completeness.unwrap()).abs() < 1e-4);
         assert!((0.3471 - scores.v_measure.unwrap()).abs() < 1e-4);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn single_cluster_or_class() {
+        let mut scores = HCVScore::new();
+        scores.compute(&vec![0, 0, 1, 1, 2, 2], &vec![0, 0, 0, 0, 0, 0]);
+        assert_eq!(Some(0.0), scores.homogeneity());
+        assert_eq!(Some(1.0), scores.completeness());
+        assert_eq!(Some(0.0), scores.v_measure());
+
+        scores.compute(&vec![0, 0, 0, 0], &vec![0, 1, 0, 1]);
+        assert_eq!(Some(1.0), scores.homogeneity());
+        assert!(scores.completeness().unwrap().abs() < 1e-10);
+        assert!(scores.v_measure().unwrap().abs() < 1e-10);
+
+        scores.compute(&vec![3, 3, 3], &vec![3, 3, 3]);
+        assert_eq!(Some(1.0), scores.v_measure());
     }
 }
