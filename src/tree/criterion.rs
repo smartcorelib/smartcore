@@ -197,7 +197,7 @@ impl ClassStats {
         self.write_distribution(&mut store[start..start + n]);
 
         ClassificationOutput {
-            class_index: self.class_counts.argmax(),
+            class_index: (&store[start..start + n]).argmax(),
             slot,
         }
     }
@@ -1465,5 +1465,18 @@ mod tests {
         for offset in &offsets {
             assert!((offset - 3.5).abs() < 1e-9);
         }
+    }
+
+    #[test]
+    fn class_index_agrees_with_stored_distribution() {
+        let criterion = GiniCriterion { num_classes: 2 };
+        let stats = class_stats(2, &[(0, 1.0), (1, 1.0 + 1e-9)]);
+        assert!(stats.class_counts[1] > stats.class_counts[0]); // the f64 counts are not tied
+
+        let mut store = vec![];
+        let output = criterion.leaf_value(&stats, 0, &mut store);
+
+        assert_eq!(store, vec![0.5_f32, 0.5_f32]); // the f32 row is tied
+        assert_eq!(output.class_index, store.argmax());
     }
 }
