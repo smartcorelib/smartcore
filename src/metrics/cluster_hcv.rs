@@ -120,8 +120,8 @@ mod tests {
 
         scores.compute(&vec![0, 0, 0, 0], &vec![0, 1, 0, 1]);
         assert_eq!(Some(1.0), scores.homogeneity());
-        assert!(scores.completeness().unwrap().abs() < 1e-10);
-        assert!(scores.v_measure().unwrap().abs() < 1e-10);
+        assert_eq!(Some(0.0), scores.completeness());
+        assert_eq!(Some(0.0), scores.v_measure());
 
         scores.compute(&vec![3, 3, 3], &vec![3, 3, 3]);
         assert_eq!(Some(1.0), scores.v_measure());
