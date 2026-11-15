@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ensemble`: `ExtraTreesRegressorParameters` gets a `bootstrap` field and a `with_bootstrap` method. The default is `false`, so each tree still uses the whole dataset.
 - `ensemble`: `ExtraTreesClassifier` added with an API very similar to `ExtraTreesRegressor`
 - `ensemble`: `MaxFeatures` enum (`Sqrt`, `Fraction`, `Count`, `All`) sets the number of features to test at each split in the forest estimators.
+- `ensemble`: `RandomForestClassifier` and `ExtraTreesClassifier` get a `predict_proba` method.
 
 ### Fixed
 - `ensemble`: `ExtraTreesRegressor::predict_oob` returns an error when the forest was fitted without bootstrap. Before this change, it returned `NaN` for a float target and panicked for an integer target (#520).

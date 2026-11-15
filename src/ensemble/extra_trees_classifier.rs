@@ -79,11 +79,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
-    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob,
+    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob, predict_proba,
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::linalg::basic::matrix::DenseMatrix;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
@@ -392,6 +393,72 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             }
             _ => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
+            )),
+        }
+    }
+
+    /// Predict the class probabilities for each row of `x`.
+    ///
+    /// The probability of a class is the mean, over all trees, of the class
+    /// distribution in the leaf that the row reaches. The class distribution
+    /// of a leaf is the weighted fraction of training samples of each class
+    /// in that leaf.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The input samples as a matrix where each row is a sample and each column is a feature.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `DenseMatrix<f64>` where each row corresponds to a sample and each
+    /// column corresponds to a class. The columns are in the order of the sorted classes. The values
+    /// of each row add up to 1.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `fit` was not called before this method.
+    ///
+    /// ```
+    /// use smartcore::ensemble::extra_trees_classifier::*;
+    /// use smartcore::linalg::basic::arrays::Array;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// // Column 0 sets the class: rows 0-9 are class 1, rows 10-19 are class 3
+    /// // and rows 20-29 are class 7. Column 1 is noise.
+    /// let rows: Vec<Vec<f64>> = (0..30)
+    ///     .map(|i| vec![i as f64, ((i * 7) % 30) as f64])
+    ///     .collect();
+    /// let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+    /// let y: Vec<u32> = (0..30)
+    ///     .map(|i| match i / 10 {
+    ///         0 => 1,
+    ///         1 => 3,
+    ///         _ => 7,
+    ///     })
+    ///     .collect();
+    /// let parameters = ExtraTreesClassifierParameters::default()
+    ///     .with_n_trees(20)
+    ///     .with_seed(42);
+    /// let forest = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
+    ///
+    /// let x_new = DenseMatrix::from_2d_array(&[&[2.0, 5.0], &[25.0, 5.0]]).unwrap();
+    /// let proba = forest.predict_proba(&x_new).unwrap();
+    ///
+    /// // One row for each sample and one column for each class, in the order 1, 3, 7.
+    /// assert_eq!(proba.shape(), (2, 3));
+    /// for i in 0..2 {
+    ///     let sum: f64 = (0..3).map(|j| *proba.get((i, j))).sum();
+    ///     assert!((sum - 1.0).abs() < 1e-6);
+    /// }
+    /// // The first sample is most probably class 1, the second sample class 7.
+    /// assert!(*proba.get((0, 0)) > 0.5);
+    /// assert!(*proba.get((1, 2)) > 0.5);
+    /// ```
+    pub fn predict_proba(&self, x: &X) -> Result<DenseMatrix<f64>, Failed> {
+        match (&self.forest_classifier, &self.classes) {
+            (Some(forest), Some(classes)) => predict_proba(forest, x, classes.len()),
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'predict_proba'",
             )),
         }
     }
@@ -892,5 +959,90 @@ mod tests {
         assert_eq!(params.seed, Some(42));
         assert!(!params.bootstrap);
         assert!(!params.keep_samples);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_proba_recovers_known_probability() {
+        use crate::rand_custom::get_rng_impl;
+        use rand::RngExt;
+
+        // True model: P(y = 1 | x) = sigmoid(x0 + x1^2 - 2), x ~ U[-3, 3]^2.
+        fn true_p(x0: f64, x1: f64) -> f64 {
+            1.0 / (1.0 + (-(x0 + x1 * x1 - 2.0)).exp())
+        }
+
+        // Draws n rows. Returns the features, the labels and the true probabilities.
+        fn sample(n: usize, seed: u64) -> (DenseMatrix<f64>, Vec<u32>, Vec<f64>) {
+            let mut rng = get_rng_impl(Some(seed));
+            let mut values = Vec::with_capacity(2 * n);
+            let mut y = Vec::with_capacity(n);
+            let mut p = Vec::with_capacity(n);
+            for _ in 0..n {
+                let x0: f64 = rng.random_range(-3.0..3.0);
+                let x1: f64 = rng.random_range(-3.0..3.0);
+                let pi = true_p(x0, x1);
+                values.push(x0);
+                values.push(x1);
+                y.push(u32::from(rng.random::<f64>() < pi));
+                p.push(pi);
+            }
+            (DenseMatrix::new(n, 2, values, false).unwrap(), y, p)
+        }
+
+        let (x_train, y_train, _) = sample(2000, 1);
+        let (x_test, _, p_test) = sample(500, 2);
+
+        let params = ExtraTreesClassifierParameters::default()
+            .with_n_trees(100)
+            .with_min_samples_leaf(5)
+            .with_seed(42);
+        let forest = ExtraTreesClassifier::fit(&x_train, &y_train, params).unwrap();
+        let proba = forest.predict_proba(&x_test).unwrap();
+
+        // Each row is a probability distribution.
+        let tol = 2.0 * f32::EPSILON as f64; // ≈ 2.4e-7, two classes
+        for i in 0..p_test.len() {
+            assert!(*proba.get((i, 0)) >= 0.0);
+            assert!(*proba.get((i, 1)) >= 0.0);
+            let s = *proba.get((i, 0)) + *proba.get((i, 1));
+            assert!((s - 1.0).abs() < tol, "s should be close to one but is {s}");
+        }
+
+        // Labels are {0, 1} and sorted, so column 1 is P(y = 1).
+        let mae: f64 = p_test
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (proba.get((i, 1)) - p).abs())
+            .sum::<f64>()
+            / p_test.len() as f64;
+
+        // Baseline: always predict the base rate of the training labels.
+        let base_rate = y_train.iter().sum::<u32>() as f64 / y_train.len() as f64;
+        let baseline_mae: f64 =
+            p_test.iter().map(|p| (base_rate - p).abs()).sum::<f64>() / p_test.len() as f64;
+
+        assert!(
+            mae < 0.5 * baseline_mae,
+            "forest MAE {mae:.3} vs base-rate MAE {baseline_mae:.3}"
+        );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_proba_without_fit_should_not_panic() {
+        let tree: ExtraTreesClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
+            ExtraTreesClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let predicted_probas = tree.predict_proba(&x);
+        assert!(predicted_probas.is_err());
+        let msg = "'fit' should be called before calling 'predict_proba'";
+        assert_eq!(predicted_probas.err(), Some(Failed::predict(msg)));
     }
 }

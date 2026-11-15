@@ -1217,12 +1217,15 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
     BaseTree<TX, TY, X, Y, ClassificationOutput>
 {
-    /// Class distribution of the leaf that row of x reaches; one entry per class, sums to 1.
-    pub(crate) fn leaf_distribution_for_row(&self, x: &X, row: usize) -> &[f32] {
-        let leaf_output = self.leaf_output_for_row(x, row);
-        let slot = leaf_output.slot as usize;
-        let n_classes = self.leaf_probabilities.len() / self.n_leaves as usize;
-        &self.leaf_probabilities[slot * n_classes..(slot + 1) * n_classes]
+    /// Class distribution of the leaf that row of x reaches; one entry per class, sums to 1.
+    /// `n_classes` must be the number of classes the tree was fit on.
+    pub(crate) fn leaf_distribution_for_row(&self, x: &X, row: usize, n_classes: usize) -> &[f32] {
+        debug_assert_eq!(
+            self.leaf_probabilities.len(),
+            n_classes * self.n_leaves as usize
+        );
+        let start = self.leaf_output_for_row(x, row).slot as usize * n_classes;
+        &self.leaf_probabilities[start..start + n_classes]
     }
 }
 
