@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ensemble`: Extra trees do not sort the feature columns. Trees are not bit-identical to the old ones because of different summation order.
 - **Breaking change:** `ensemble`: `m` on the four forest parameter structs is now `MaxFeatures` (was `Option<usize>`). `with_m(3)` still works. `fit` returns an error when `m` is not valid for the data. Parameters serialized with an earlier version that contain `m` no longer deserialize.
 - **Breaking change:** `ensemble`: `m` on `RandomForestClassifierSearchParameters` and `RandomForestRegressorSearchParameters` is now `Vec<MaxFeatures>` (was `Vec<Option<usize>>`). The default grid is `[MaxFeatures::Sqrt]`. Change `vec![None, Some(3)]` to `vec![MaxFeatures::Sqrt, MaxFeatures::Count(3)]`.
+- **Breaking change:** `tree`, `ensemble`: the fitted trees store the number of leaves and, for classification, the class distribution of each leaf. Decision trees, random forests and extra trees serialized with an earlier version cannot be deserialized. Fit these models again.
+- `tree`: `DecisionTreeClassifier::predict_proba` returns the weighted class frequencies of the training samples in the leaf. Before this change, it returned 1 for the predicted class and 0 for the other classes.
 
 ## [0.7.0] - 2026-10-26
 ### Added
