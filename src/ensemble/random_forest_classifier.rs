@@ -55,7 +55,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
-    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob, predict_proba,
+    BaseForest, BaseForestParameters, predict_class, predict_mode_oob, predict_proba,
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
@@ -554,7 +554,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match (&self.forest_classifier, &self.classes) {
             (Some(forest), Some(classes)) => {
-                let preds_as_usize = predict_mode(forest, x, classes.len())?;
+                let preds_as_usize = predict_class(forest, x, classes.len())?;
                 let mut result = Y::zeros(x.shape().0);
                 for (i, class_index) in preds_as_usize.iter().enumerate() {
                     result.set(i, classes[*class_index]);
@@ -1474,5 +1474,49 @@ mod tests {
         }
         // If the two trees give the same distributions, the test does not check the mean.
         assert!(trees_differ, "the two trees give the same distributions");
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_uses_soft_voting() {
+        // One constant feature: no split is possible, so each tree is one leaf.
+        // The leaf distribution is the class fractions of the bootstrap sample.
+        let n = 21;
+        let x = DenseMatrix::new(n, 1, vec![0.0f64; n], false).unwrap();
+        let y: Vec<i32> = (0..n).map(|i| if i < 11 { 12 } else { -7 }).collect();
+
+        for seed in 0..100 {
+            let parameters = RandomForestClassifierParameters::default()
+                .with_n_trees(3)
+                .with_seed(seed);
+            let classifier = RandomForestClassifier::fit(&x, &y, parameters).unwrap();
+            let classes = classifier.classes.as_ref().unwrap();
+            let trees = classifier.forest_classifier.as_ref().unwrap().trees();
+
+            let mut sum = [0.0f64; 2];
+            let mut votes = [0usize; 2];
+            for tree in trees {
+                let dist = tree.leaf_distribution_for_row(&x, 0, 2);
+                sum[0] += dist[0] as f64;
+                sum[1] += dist[1] as f64;
+                votes[usize::from(dist[1] > dist[0])] += 1;
+            }
+            let soft = usize::from(sum[1] > sum[0]);
+            let hard = usize::from(votes[1] > votes[0]);
+            if soft == hard {
+                continue;
+            }
+
+            // Hard and soft voting disagree, so predict must give the soft vote.
+            let predictions = classifier.predict(&x).unwrap();
+            for (i, p) in predictions.iter().enumerate() {
+                assert_eq!(*p, classes[soft], "seed {seed}, row {i}");
+            }
+            return;
+        }
+        panic!("no seed in 0..100 gives different hard and soft votes");
     }
 }

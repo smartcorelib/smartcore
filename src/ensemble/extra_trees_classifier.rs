@@ -1,7 +1,7 @@
 //! # Extra Trees Classifier
 //! An Extra-Trees (Extremely Randomized Trees) classifier is an ensemble estimator that fits multiple
 //! randomized [decision trees](../../tree/index.html) on the dataset. The predicted class is the class
-//! that gets the most votes from the trees.
+//! with the highest mean probability over the trees (soft voting).
 //!
 //! It is similar to a [random forest](../random_forest_classifier/index.html), but it introduces more
 //! randomness in the way the trees are built. This can reduce the variance of the model and often makes
@@ -79,7 +79,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
-    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob, predict_proba,
+    BaseForest, BaseForestParameters, predict_class, predict_mode_oob, predict_proba,
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
@@ -346,7 +346,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match (&self.forest_classifier, &self.classes) {
             (Some(forest), Some(classes)) => {
-                let preds_as_usize = predict_mode(forest, x, classes.len())?;
+                let preds_as_usize = predict_class(forest, x, classes.len())?;
                 let mut result = Y::zeros(x.shape().0);
                 for (i, class_index) in preds_as_usize.iter().enumerate() {
                     result.set(i, classes[*class_index]);

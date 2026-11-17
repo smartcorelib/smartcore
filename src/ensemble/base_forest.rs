@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView2};
 use crate::linalg::basic::arrays::{ArrayView1, MutArrayView1};
 use crate::linalg::basic::matrix::DenseMatrix;
 use crate::numbers::basenum::Number;
@@ -281,13 +281,15 @@ where
     let mut result = Y::zeros(n);
     let num_trees = TY::from_usize(forest.trees().len()).unwrap();
 
-    for row in 0..n {
-        let mut sum = TY::zero();
-        for tree in forest.trees() {
-            sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
+    for tree in forest.trees() {
+        for row in 0..n {
+            result.add_element_mut(
+                row,
+                TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap(),
+            );
         }
-        result.set(row, sum / num_trees);
     }
+    result.div_scalar_mut(num_trees);
     Ok(result)
 }
 
@@ -344,8 +346,8 @@ where
     Ok(result)
 }
 
-/// Mode of the tree predictions for each row of `x`.
-pub(crate) fn predict_mode<TX, TY, X, Y>(
+/// Class prediction for each row of `x`. The predicted class for a row is the one with the highest mean probability.
+pub(crate) fn predict_class<TX, TY, X, Y>(
     forest: &BaseForest<TX, TY, X, Y, ClassificationOutput>,
     x: &X,
     num_classes: usize,
@@ -356,18 +358,8 @@ where
     X: Array2<TX>,
     Y: Array1<TY>,
 {
-    let (n, _) = x.shape();
-    let mut result = vec![0; n];
-    let mut counts = vec![0usize; num_classes];
-
-    for row in 0..n {
-        counts.fill(0);
-        for tree in forest.trees() {
-            counts[tree.leaf_output_for_row(x, row).class_index] += 1;
-        }
-        result[row] = counts.argmax();
-    }
-    Ok(result)
+    let predicted_probas = predict_proba(forest, x, num_classes)?;
+    Ok(predicted_probas.argmax(1))
 }
 
 /// Mode of the out-of-bag tree predictions for each row of `x`.
