@@ -412,7 +412,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     ///
     /// A `Result` containing a `DenseMatrix<f64>` where each row corresponds to a sample and each
     /// column corresponds to a class. The columns are in the order of the sorted classes. The values
-    /// of each row add up to 1.
+    /// of each row add up to 1 within f32 precision.
     ///
     /// # Errors
     ///
@@ -1044,5 +1044,63 @@ mod tests {
         assert!(predicted_probas.is_err());
         let msg = "'fit' should be called before calling 'predict_proba'";
         assert_eq!(predicted_probas.err(), Some(Failed::predict(msg)));
+    }
+
+    fn iris_with_unsorted_labels() -> (DenseMatrix<f64>, Vec<i32>) {
+        let (x, y) = iris();
+        let y = y.iter().map(|c| if *c == 0 { 12 } else { -7 }).collect();
+        (x, y)
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_proba_with_one_tree_equals_leaf_distributions() {
+        let (x, y) = iris_with_unsorted_labels();
+        let parameters = ExtraTreesClassifierParameters::default()
+            .with_n_trees(1)
+            .with_min_samples_leaf(3)
+            .with_seed(42);
+        let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
+        let proba = classifier.predict_proba(&x).unwrap();
+        assert_eq!(proba.shape(), (20, 2));
+
+        let tree = &classifier.forest_classifier.as_ref().unwrap().trees()[0];
+        for i in 0..20 {
+            let leaf = tree.leaf_distribution_for_row(&x, i, 2);
+            for (j, p) in leaf.iter().enumerate() {
+                assert_eq!(*proba.get((i, j)), *p as f64, "row {i}, column {j}");
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_proba_with_stumps_gives_weighted_class_fractions() {
+        let (x, y) = iris_with_unsorted_labels();
+        let weights: Vec<f64> = y.iter().map(|c| if *c == 12 { 3.0 } else { 1.0 }).collect();
+        let parameters = ExtraTreesClassifierParameters::default()
+            .with_max_depth(1)
+            .with_n_trees(3)
+            .with_seed(42);
+        let classifier =
+            ExtraTreesClassifier::fit_with_weights(&x, &y, &weights, parameters).unwrap();
+        let proba = classifier.predict_proba(&x).unwrap();
+        assert_eq!(proba.shape(), (20, 2));
+
+        for i in 0..20 {
+            for (j, expected) in [0.25, 0.75].iter().enumerate() {
+                let p = *proba.get((i, j));
+                assert!(
+                    (p - expected).abs() < 1e-6,
+                    "row {i}, column {j}: {p} is not {expected}"
+                );
+            }
+        }
     }
 }

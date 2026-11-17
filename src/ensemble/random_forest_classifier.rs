@@ -599,7 +599,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     ///
     /// A `Result` containing a `DenseMatrix<f64>` where each row corresponds to a sample and each
     /// column corresponds to a class. The columns are in the order of the sorted classes. The values
-    /// of each row add up to 1.
+    /// of each row add up to 1 within f32 precision.
     ///
     /// # Errors
     ///
@@ -700,6 +700,35 @@ mod tests {
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::*;
+
+    /// Part of the Iris dataset: 10 rows of class 0 and 10 rows of class 1.
+    fn iris() -> (DenseMatrix<f64>, Vec<u32>) {
+        let x = DenseMatrix::from_2d_array(&[
+            &[5.1, 3.5, 1.4, 0.2],
+            &[4.9, 3.0, 1.4, 0.2],
+            &[4.7, 3.2, 1.3, 0.2],
+            &[4.6, 3.1, 1.5, 0.2],
+            &[5.0, 3.6, 1.4, 0.2],
+            &[5.4, 3.9, 1.7, 0.4],
+            &[4.6, 3.4, 1.4, 0.3],
+            &[5.0, 3.4, 1.5, 0.2],
+            &[4.4, 2.9, 1.4, 0.2],
+            &[4.9, 3.1, 1.5, 0.1],
+            &[7.0, 3.2, 4.7, 1.4],
+            &[6.4, 3.2, 4.5, 1.5],
+            &[6.9, 3.1, 4.9, 1.5],
+            &[5.5, 2.3, 4.0, 1.3],
+            &[6.5, 2.8, 4.6, 1.5],
+            &[5.7, 2.8, 4.5, 1.3],
+            &[6.3, 3.3, 4.7, 1.6],
+            &[4.9, 2.4, 3.3, 1.0],
+            &[6.6, 2.9, 4.6, 1.3],
+            &[5.2, 2.7, 3.9, 1.4],
+        ])
+        .unwrap();
+        let y = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        (x, y)
+    }
 
     #[test]
     fn search_parameters() {
@@ -1411,5 +1440,39 @@ mod tests {
         assert!(predicted_probas.is_err());
         let msg = "'fit' should be called before calling 'predict_proba'";
         assert_eq!(predicted_probas.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_proba_of_two_trees_is_exact_mean() {
+        let (x, _) = iris();
+        let y: Vec<i32> = (0..20).map(|i| if i < 8 { 12 } else { -7 }).collect();
+
+        let parameters = RandomForestClassifierParameters::default()
+            .with_n_trees(2)
+            .with_max_depth(2)
+            .with_min_samples_leaf(3)
+            .with_seed(42);
+        let classifier = RandomForestClassifier::fit(&x, &y, parameters).unwrap();
+        let proba = classifier.predict_proba(&x).unwrap();
+        assert_eq!(proba.shape(), (20, 2));
+
+        let trees = classifier.forest_classifier.as_ref().unwrap().trees();
+        assert_eq!(trees.len(), 2);
+        let mut trees_differ = false;
+        for i in 0..20 {
+            let first = trees[0].leaf_distribution_for_row(&x, i, 2);
+            let second = trees[1].leaf_distribution_for_row(&x, i, 2);
+            trees_differ |= first != second;
+            for (j, (a, b)) in first.iter().zip(second).enumerate() {
+                let expected = (*a as f64 + *b as f64) / 2.0;
+                assert_eq!(*proba.get((i, j)), expected, "row {i}, column {j}");
+            }
+        }
+        // If the two trees give the same distributions, the test does not check the mean.
+        assert!(trees_differ, "the two trees give the same distributions");
     }
 }
