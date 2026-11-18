@@ -558,7 +558,7 @@ impl<TX: Number + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>>
 
                 for i in 0..n {
                     values.extend(
-                        tree.leaf_distribution_for_row(x, i)
+                        tree.leaf_distribution_for_row(x, i, k)
                             .iter()
                             .map(|&p| p as f64),
                     );

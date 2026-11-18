@@ -8,6 +8,7 @@ use crate::ensemble::max_features::MaxFeatures;
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::linalg::basic::arrays::{ArrayView1, MutArrayView1};
+use crate::linalg::basic::matrix::DenseMatrix;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 
@@ -416,6 +417,38 @@ where
     }
 
     Ok(result)
+}
+
+/// Mean of the leaf distribution predictions for each row of `x`.
+pub(crate) fn predict_proba<TX, TY, X, Y>(
+    forest: &BaseForest<TX, TY, X, Y, ClassificationOutput>,
+    x: &X,
+    num_classes: usize,
+) -> Result<DenseMatrix<f64>, Failed>
+where
+    TX: Number + FloatNumber,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+{
+    let (n, _) = x.shape();
+    let mut probs = vec![0f64; n * num_classes];
+
+    for tree in forest.trees() {
+        for (row, row_probs) in probs.chunks_exact_mut(num_classes).enumerate() {
+            let proba_for_row = tree.leaf_distribution_for_row(x, row, num_classes);
+            for (prev_prob, new_prob) in row_probs.iter_mut().zip(proba_for_row) {
+                *prev_prob += *new_prob as f64;
+            }
+        }
+    }
+
+    let normalising_factor = 1.0 / (forest.trees().len() as f64);
+    for p in probs.iter_mut() {
+        *p *= normalising_factor;
+    }
+
+    DenseMatrix::new(n, num_classes, probs, false)
 }
 
 #[cfg(test)]
