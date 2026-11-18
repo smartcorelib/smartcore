@@ -55,7 +55,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
+<<<<<<< HEAD
     BaseForest, BaseForestParameters, predict_class, predict_mode_oob, predict_proba,
+=======
+    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob, predict_proba,
+>>>>>>> main
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
