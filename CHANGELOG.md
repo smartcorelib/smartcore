@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking change:** `ensemble`: `m` on `RandomForestClassifierSearchParameters` and `RandomForestRegressorSearchParameters` is now `Vec<MaxFeatures>` (was `Vec<Option<usize>>`). The default grid is `[MaxFeatures::Sqrt]`. Change `vec![None, Some(3)]` to `vec![MaxFeatures::Sqrt, MaxFeatures::Count(3)]`.
 - **Breaking change:** `tree`, `ensemble`: the fitted trees store the number of leaves and, for classification, the class distribution of each leaf. Decision trees, random forests and extra trees serialized with an earlier version cannot be deserialized. Fit these models again.
 - `tree`: `DecisionTreeClassifier::predict_proba` returns the weighted class frequencies of the training samples in the leaf. Before this change, it returned 1 for the predicted class and 0 for the other classes.
+- **Breaking change:** `ensemble`: `RandomForestClassifier::predict` and `ExtraTreesClassifier::predict` return the class with the highest mean probability over the trees (soft voting), as scikit-learn does. Before this change, they returned the class with the most tree votes. Predictions can be different, also with a fixed seed.
 
 ## [0.7.0] - 2026-10-26
 ### Added

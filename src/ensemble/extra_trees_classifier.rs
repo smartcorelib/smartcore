@@ -1,7 +1,7 @@
 //! # Extra Trees Classifier
 //! An Extra-Trees (Extremely Randomized Trees) classifier is an ensemble estimator that fits multiple
 //! randomized [decision trees](../../tree/index.html) on the dataset. The predicted class is the class
-//! that gets the most votes from the trees.
+//! with the highest mean probability over the trees (soft voting).
 //!
 //! It is similar to a [random forest](../random_forest_classifier/index.html), but it introduces more
 //! randomness in the way the trees are built. This can reduce the variance of the model and often makes
@@ -79,7 +79,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
-    BaseForest, BaseForestParameters, predict_mode, predict_mode_oob, predict_proba,
+    BaseForest, BaseForestParameters, predict_class, predict_mode_oob, predict_proba,
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
@@ -346,7 +346,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
         match (&self.forest_classifier, &self.classes) {
             (Some(forest), Some(classes)) => {
-                let preds_as_usize = predict_mode(forest, x, classes.len())?;
+                let preds_as_usize = predict_class(forest, x, classes.len())?;
                 let mut result = Y::zeros(x.shape().0);
                 for (i, class_index) in preds_as_usize.iter().enumerate() {
                     result.set(i, classes[*class_index]);
@@ -1114,5 +1114,97 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_gives_class_with_highest_probability() {
+        let (x, y) = iris_with_unsorted_labels();
+        let parameters = ExtraTreesClassifierParameters::default()
+            .with_max_depth(2)
+            .with_n_trees(7)
+            .with_seed(42);
+        let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).expect("Fit should work");
+        let y_hat = classifier.predict(&x).unwrap();
+        let proba = classifier.predict_proba(&x).unwrap();
+
+        // The columns of `proba` are in the order of the sorted classes.
+        let has_uncertain_row = assert_predict_has_highest_probability(&y_hat, &proba, &[-7, 12]);
+        assert!(
+            has_uncertain_row,
+            "all probabilities are 0 or 1; the test is too easy"
+        );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_gives_class_with_highest_probability_for_three_classes() {
+        let (x, y) = three_classes();
+        let parameters = ExtraTreesClassifierParameters::default()
+            .with_max_depth(1)
+            .with_n_trees(7)
+            .with_seed(42);
+        let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
+        let y_hat = classifier.predict(&x).unwrap();
+        let proba = classifier.predict_proba(&x).unwrap();
+
+        // The columns of `proba` are in the order of the sorted classes.
+        let has_uncertain_row =
+            assert_predict_has_highest_probability(&y_hat, &proba, &[-7, 3, 100]);
+        assert!(
+            has_uncertain_row,
+            "all probabilities are 0 or 1; the test is too easy"
+        );
+    }
+
+    fn three_classes() -> (DenseMatrix<f64>, Vec<i32>) {
+        let x = DenseMatrix::from_2d_array(&[
+            &[0.0],
+            &[1.0],
+            &[2.0],
+            &[10.0],
+            &[11.0],
+            &[12.0],
+            &[20.0],
+            &[21.0],
+            &[22.0],
+        ])
+        .unwrap();
+        let y = vec![-7, -7, -7, 3, 3, 3, 100, 100, 100];
+        (x, y)
+    }
+
+    /// Checks that, for each row, the class from `predict` has the highest probability in
+    /// `predict_proba`. `classes` are the sorted class labels (the column order of `proba`).
+    /// Returns `true` if at least one row has a predicted probability below 1.
+    fn assert_predict_has_highest_probability(
+        y_hat: &[i32],
+        proba: &DenseMatrix<f64>,
+        classes: &[i32],
+    ) -> bool {
+        assert_eq!(proba.shape(), (y_hat.len(), classes.len()));
+        let mut has_uncertain_row = false;
+        for (i, label) in y_hat.iter().enumerate() {
+            let col = classes.iter().position(|c| c == label).unwrap();
+            let p_predicted = *proba.get((i, col));
+            for j in 0..classes.len() {
+                // `>=` accepts ties: then `predict` gives the first class with the max value.
+                assert!(
+                    p_predicted >= *proba.get((i, j)),
+                    "row {i}: predicted class {label} has p = {p_predicted}, column {j} has p = {}",
+                    proba.get((i, j))
+                );
+            }
+            if p_predicted < 1.0 {
+                has_uncertain_row = true;
+            }
+        }
+        has_uncertain_row
     }
 }

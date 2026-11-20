@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::{Failed, FailedError};
-use crate::linalg::basic::arrays::{Array1, Array2};
+use crate::linalg::basic::arrays::{Array1, Array2, ArrayView2};
 use crate::linalg::basic::arrays::{ArrayView1, MutArrayView1};
 use crate::linalg::basic::matrix::DenseMatrix;
 use crate::numbers::basenum::Number;
@@ -288,13 +288,15 @@ where
     let mut result = Y::zeros(n);
     let num_trees = TY::from_usize(forest.trees().len()).unwrap();
 
-    for row in 0..n {
-        let mut sum = TY::zero();
-        for tree in forest.trees() {
-            sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
+    for tree in forest.trees() {
+        for row in 0..n {
+            result.add_element_mut(
+                row,
+                TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap(),
+            );
         }
-        result.set(row, sum / num_trees);
     }
+    result.div_scalar_mut(num_trees);
     Ok(result)
 }
 
@@ -351,8 +353,8 @@ where
     Ok(result)
 }
 
-/// Mode of the tree predictions for each row of `x`.
-pub(crate) fn predict_mode<TX, TY, X, Y>(
+/// Class prediction for each row of `x`. The predicted class for a row is the one with the highest mean probability.
+pub(crate) fn predict_class<TX, TY, X, Y>(
     forest: &BaseForest<TX, TY, X, Y, ClassificationOutput>,
     x: &X,
     num_classes: usize,
@@ -363,18 +365,8 @@ where
     X: Array2<TX>,
     Y: Array1<TY>,
 {
-    let (n, _) = x.shape();
-    let mut result = vec![0; n];
-    let mut counts = vec![0usize; num_classes];
-
-    for row in 0..n {
-        counts.fill(0);
-        for tree in forest.trees() {
-            counts[tree.leaf_output_for_row(x, row).class_index] += 1;
-        }
-        result[row] = counts.argmax();
-    }
-    Ok(result)
+    let predicted_probas = predict_proba(forest, x, num_classes)?;
+    Ok(predicted_probas.argmax(1))
 }
 
 /// Mode of the out-of-bag tree predictions for each row of `x`.
@@ -464,7 +456,7 @@ mod tests {
     use super::*;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
-    use crate::tree::criterion::MSECriterion;
+    use crate::tree::criterion::{GiniCriterion, MSECriterion};
 
     #[test]
     fn test_base_forest_keep_samples() {
@@ -1138,5 +1130,50 @@ mod tests {
             forest_sqrt, forest_count_sqrt,
             "Forest fit by 'sqrt' and 'count' is different"
         );
+    }
+
+    /// A tree with one leaf whose class distribution is `[p, 1 - p]`.
+    /// One constant feature makes a split impossible; the weights set the class fractions.
+    fn one_leaf_tree(
+        p: f64,
+    ) -> BaseTree<f64, usize, DenseMatrix<f64>, Vec<usize>, ClassificationOutput> {
+        let x = DenseMatrix::from_2d_array(&[&[0.0], &[0.0]]).unwrap();
+        let y: Vec<usize> = vec![0, 1];
+        let params = BaseTreeParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(0),
+            splitter: Splitter::Best,
+        };
+        BaseTree::fit_inner(&x, &y, Some(&[p, 1.0 - p]), &GiniCriterion::new(2), params).unwrap()
+    }
+
+    #[test]
+    fn predict_class_uses_soft_voting() {
+        // P(class 0) for each tree: 0.6, 0.6, 0.1.
+        let forest = BaseForest {
+            trees: Some(vec![
+                one_leaf_tree(0.6),
+                one_leaf_tree(0.6),
+                one_leaf_tree(0.1),
+            ]),
+            num_features: Some(1),
+            samples: None,
+        };
+        let x = DenseMatrix::from_2d_array(&[&[0.0]]).unwrap();
+
+        // Hard voting would give class 0: two of the three trees prefer it.
+        let hard_votes_for_0 = forest
+            .trees()
+            .iter()
+            .filter(|t| t.leaf_distribution_for_row(&x, 0, 2)[0] > 0.5)
+            .count();
+        assert_eq!(hard_votes_for_0, 2);
+
+        // Soft voting: mean P(class 0) = 1.3 / 3 < 0.5, so class 1.
+        let proba = predict_proba(&forest, &x, 2).unwrap();
+        assert!((*proba.get((0, 0)) - 1.3 / 3.0).abs() < 1e-6);
+        assert_eq!(predict_class(&forest, &x, 2).unwrap(), vec![1]);
     }
 }
