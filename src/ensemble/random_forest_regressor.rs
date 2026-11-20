@@ -77,7 +77,7 @@ pub struct RandomForestRegressorParameters {
     /// The minimum number of samples required to split an internal node. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
     pub min_samples_split: usize,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// The number of trees in the forest.
+    /// The number of trees in the forest. This value must be at least 1 when you call `fit`.
     pub n_trees: usize,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of features to test at each split. See [`MaxFeatures`].
@@ -118,7 +118,7 @@ impl RandomForestRegressorParameters {
         self.min_samples_split = min_samples_split;
         self
     }
-    /// The number of trees in the forest.
+    /// Sets the number of trees in the forest. `fit` returns a parameter error if this value is 0.
     pub fn with_n_trees(mut self, n_trees: usize) -> Self {
         self.n_trees = n_trees;
         self
@@ -974,6 +974,10 @@ mod tests {
         }
     }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
     #[test]
     fn fit_with_no_trees_returns_parameter_error() {
         let x = DenseMatrix::from_2d_array(&[&[1.0], &[2.0]]).unwrap();
