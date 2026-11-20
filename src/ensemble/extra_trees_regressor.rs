@@ -670,6 +670,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn fit_with_no_trees_returns_parameter_error() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0], &[2.0]]).unwrap();
+        let y = vec![1.0, 2.0];
+        let result = ExtraTreesRegressor::fit(
+            &x,
+            &y,
+            ExtraTreesRegressorParameters::default().with_n_trees(0),
+        );
+
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
     mod sklearn_parity {
         use super::*;
         // sklearn parity tests.

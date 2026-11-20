@@ -936,6 +936,18 @@ mod tests {
         assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
     }
 
+    #[test]
+    fn fit_with_no_trees_returns_parameter_error() {
+        let (x, y) = iris();
+        let result = RandomForestClassifier::fit(
+            &x,
+            &y,
+            RandomForestClassifierParameters::default().with_n_trees(0),
+        );
+
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test

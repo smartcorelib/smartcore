@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ensemble`: `RandomForestClassifier` and `ExtraTreesClassifier` get a `predict_proba` method.
 
 ### Fixed
+- `ensemble`: The four forest estimators return a parameter error when `n_trees` is zero instead of fitting an empty forest (#541).
 - `ensemble`: `ExtraTreesRegressor::predict_oob` returns an error when the forest was fitted without bootstrap. Before this change, it returned `NaN` for a float target and panicked for an integer target (#520).
 - `ensemble`: `RandomForestRegressor::predict_oob` and `ExtraTreesRegressor::predict_oob` return an error when a row is in-bag for all trees. Before this change, it returned `NaN` for a float target and panicked for an integer target.
 

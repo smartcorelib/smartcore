@@ -728,6 +728,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn fit_with_no_trees_returns_parameter_error() {
+        let (x, y) = iris();
+        let result = ExtraTreesClassifier::fit(
+            &x,
+            &y,
+            ExtraTreesClassifierParameters::default().with_n_trees(0),
+        );
+
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
