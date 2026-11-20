@@ -83,8 +83,8 @@ pub struct RandomForestRegressorParameters {
     /// Number of features to test at each split. See [`MaxFeatures`].
     pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: bool,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    pub oob_score: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub seed: Option<u64>,
@@ -129,9 +129,9 @@ impl RandomForestRegressorParameters {
         self
     }
 
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub fn with_keep_samples(mut self, keep_samples: bool) -> Self {
-        self.keep_samples = keep_samples;
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    pub fn with_oob_score(mut self, oob_score: bool) -> Self {
+        self.oob_score = oob_score;
         self
     }
 
@@ -149,7 +149,7 @@ impl Default for RandomForestRegressorParameters {
             min_samples_split: 2,
             n_trees: 10,
             m: MaxFeatures::Sqrt,
-            keep_samples: false,
+            oob_score: false,
             seed: Option::None,
         }
     }
@@ -207,8 +207,8 @@ pub struct RandomForestRegressorSearchParameters {
     /// Number of random sample of predictors to use as split candidates.
     pub m: Vec<MaxFeatures>,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: Vec<bool>,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    pub oob_score: Vec<bool>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub seed: Vec<Option<u64>>,
@@ -222,7 +222,7 @@ pub struct RandomForestRegressorSearchParametersIterator {
     current_min_samples_split: usize,
     current_n_trees: usize,
     current_m: usize,
-    current_keep_samples: usize,
+    current_oob_score: usize,
     current_seed: usize,
 }
 
@@ -238,7 +238,7 @@ impl IntoIterator for RandomForestRegressorSearchParameters {
             current_min_samples_split: 0,
             current_n_trees: 0,
             current_m: 0,
-            current_keep_samples: 0,
+            current_oob_score: 0,
             current_seed: 0,
         }
     }
@@ -265,10 +265,10 @@ impl Iterator for RandomForestRegressorSearchParametersIterator {
                     .len()
             && self.current_n_trees == self.random_forest_regressor_search_parameters.n_trees.len()
             && self.current_m == self.random_forest_regressor_search_parameters.m.len()
-            && self.current_keep_samples
+            && self.current_oob_score
                 == self
                     .random_forest_regressor_search_parameters
-                    .keep_samples
+                    .oob_score
                     .len()
             && self.current_seed == self.random_forest_regressor_search_parameters.seed.len()
         {
@@ -286,8 +286,8 @@ impl Iterator for RandomForestRegressorSearchParametersIterator {
                 .min_samples_split[self.current_min_samples_split],
             n_trees: self.random_forest_regressor_search_parameters.n_trees[self.current_n_trees],
             m: self.random_forest_regressor_search_parameters.m[self.current_m],
-            keep_samples: self.random_forest_regressor_search_parameters.keep_samples
-                [self.current_keep_samples],
+            oob_score: self.random_forest_regressor_search_parameters.oob_score
+                [self.current_oob_score],
             seed: self.random_forest_regressor_search_parameters.seed[self.current_seed],
         };
 
@@ -328,10 +328,10 @@ impl Iterator for RandomForestRegressorSearchParametersIterator {
             self.current_min_samples_split = 0;
             self.current_n_trees = 0;
             self.current_m += 1;
-        } else if self.current_keep_samples + 1
+        } else if self.current_oob_score + 1
             < self
                 .random_forest_regressor_search_parameters
-                .keep_samples
+                .oob_score
                 .len()
         {
             self.current_max_depth = 0;
@@ -339,7 +339,7 @@ impl Iterator for RandomForestRegressorSearchParametersIterator {
             self.current_min_samples_split = 0;
             self.current_n_trees = 0;
             self.current_m = 0;
-            self.current_keep_samples += 1;
+            self.current_oob_score += 1;
         } else if self.current_seed + 1 < self.random_forest_regressor_search_parameters.seed.len()
         {
             self.current_max_depth = 0;
@@ -347,7 +347,7 @@ impl Iterator for RandomForestRegressorSearchParametersIterator {
             self.current_min_samples_split = 0;
             self.current_n_trees = 0;
             self.current_m = 0;
-            self.current_keep_samples = 0;
+            self.current_oob_score = 0;
             self.current_seed += 1;
         } else {
             self.current_max_depth += 1;
@@ -355,7 +355,7 @@ impl Iterator for RandomForestRegressorSearchParametersIterator {
             self.current_min_samples_split += 1;
             self.current_n_trees += 1;
             self.current_m += 1;
-            self.current_keep_samples += 1;
+            self.current_oob_score += 1;
             self.current_seed += 1;
         }
 
@@ -373,7 +373,7 @@ impl Default for RandomForestRegressorSearchParameters {
             min_samples_split: vec![default_params.min_samples_split],
             n_trees: vec![default_params.n_trees],
             m: vec![default_params.m],
-            keep_samples: vec![default_params.keep_samples],
+            oob_score: vec![default_params.oob_score],
             seed: vec![default_params.seed],
         }
     }
@@ -419,7 +419,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             min_samples_split: parameters.min_samples_split,
             n_trees: parameters.n_trees,
             m: parameters.m,
-            keep_samples: parameters.keep_samples,
+            oob_score: parameters.oob_score,
             seed: parameters.seed,
             bootstrap: true,
             splitter: Splitter::Best,
@@ -443,10 +443,32 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         }
     }
 
-    /// Predict OOB values for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+    /// Predict the value of each training row with only the trees for which the row is
+    /// out-of-bag (OOB). The prediction is the mean of the predictions of these trees.
+    /// The result has one value for each row of the training data, in the same order.
+    /// A row that is in the bootstrap sample of all trees gets `None`.
+    ///
+    /// The forest must be fitted with `oob_score` set to `true`. If not, this returns an error.
+    ///
+    /// ```
+    /// use smartcore::ensemble::random_forest_regressor::*;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// let rows: Vec<Vec<f64>> = (0..40).map(|i| vec![i as f64]).collect();
+    /// let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+    /// let y: Vec<f64> = (0..40).map(|i| (i * i) as f64).collect();
+    /// let parameters = RandomForestRegressorParameters::default()
+    ///     .with_n_trees(100)
+    ///     .with_oob_score(true)
+    ///     .with_seed(42);
+    /// let forest = RandomForestRegressor::fit(&x, &y, parameters).unwrap();
+    /// let y_oob = forest.predict_oob().unwrap();
+    /// assert_eq!(y_oob.len(), y.len());
+    /// assert!(y_oob.iter().all(|v| v.is_some()));
+    /// ```
+    pub fn predict_oob(&self) -> Result<Vec<Option<TY>>, Failed> {
         match &self.forest_regressor {
-            Some(forest) => predict_mean_oob(forest, x),
+            Some(forest) => predict_mean_oob(forest),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
@@ -606,7 +628,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 1000,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(87),
             },
         )
@@ -634,7 +656,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 1000,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(87),
             },
         );
@@ -681,16 +703,19 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 1000,
                 m: MaxFeatures::Sqrt,
-                keep_samples: true,
+                oob_score: true,
                 seed: Some(87),
             },
         )
         .unwrap();
 
         let y_hat = regressor.predict(&x).unwrap();
-        let y_hat_oob = regressor.predict_oob(&x).unwrap();
+        let y_hat_oob = regressor.predict_oob().expect("Predict oob should work");
 
         println!("{:?}", mean_absolute_error(&y, &y_hat));
+
+        assert!(y_hat_oob.iter().all(|yv| yv.is_some()));
+        let y_hat_oob = y_hat_oob.into_iter().flatten().collect();
         println!("{:?}", mean_absolute_error(&y, &y_hat_oob));
 
         assert!(mean_absolute_error(&y, &y_hat) < mean_absolute_error(&y, &y_hat_oob));
@@ -920,8 +945,7 @@ mod tests {
     fn predict_oob_without_fit_should_not_panic() {
         let forest: RandomForestRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             RandomForestRegressor::new();
-        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
-        let yhat = forest.predict_oob(&x);
+        let yhat = forest.predict_oob();
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
@@ -931,23 +955,46 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_without_oob_trees_should_fail() {
+    fn predict_oob_without_oob_score_should_fail() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
         let y: Vec<i32> = (0..20).collect();
         let parameters = RandomForestRegressorParameters::default()
             .with_n_trees(1)
             .with_seed(42);
 
-        // Without keep_samples, there is no OOB information.
-        let forest = RandomForestRegressor::fit(&x, &y, parameters.clone()).unwrap();
-        let msg = "Need samples=true for OOB predictions.";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let forest = RandomForestRegressor::fit(&x, &y, parameters).unwrap();
+        let msg = "oob_score was not set";
+        assert_eq!(forest.predict_oob().err(), Some(Failed::predict(msg)));
+    }
 
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_row_without_oob_trees_gives_none() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<i32> = (0..20).collect();
         // With one tree, the rows in its bootstrap sample have no OOB trees.
-        let forest =
-            RandomForestRegressor::fit(&x, &y, parameters.with_keep_samples(true)).unwrap();
-        let msg = "A row is in-bag for all trees, so it has no OOB prediction.";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let parameters = RandomForestRegressorParameters::default()
+            .with_n_trees(1)
+            .with_oob_score(true)
+            .with_seed(42);
+
+        let forest = RandomForestRegressor::fit(&x, &y, parameters).unwrap();
+        let yhat_oob = forest.predict_oob().unwrap();
+        let counts = forest
+            .forest_regressor
+            .as_ref()
+            .unwrap()
+            .oob_counts()
+            .unwrap();
+        assert_eq!(yhat_oob.len(), 20);
+        // The bootstrap sample must have rows in the bag and rows out of the bag.
+        assert!(counts.contains(&0) && counts.contains(&1));
+        for (i, (yv, &c)) in yhat_oob.iter().zip(counts).enumerate() {
+            assert_eq!(yv.is_some(), c == 1, "row {i}: {yv:?}, OOB count {c}");
+        }
     }
 
     #[cfg_attr(
@@ -1102,7 +1149,7 @@ mod tests {
                 .with_m(m)
                 .with_min_samples_leaf(1)
                 .with_min_samples_split(2)
-                .with_keep_samples(true)
+                .with_oob_score(true)
                 .with_seed(42);
             let forest = match sample_weights {
                 None => RandomForestRegressor::fit(&x, &y, parameters).unwrap(),
@@ -1118,7 +1165,10 @@ mod tests {
             let y_hat_probe: Vec<f64> = forest.predict(&x_probe).unwrap();
             assert_close_to_sklearn(&y_hat_probe, probe_ref, tol, "probe");
 
-            let y_hat_oob: Vec<f64> = forest.predict_oob(&x).unwrap();
+            let y_hat_oob: Vec<Option<f64>> = forest.predict_oob().unwrap();
+            assert!(y_hat_oob.iter().all(|yv| yv.is_some()));
+            let y_hat_oob = y_hat_oob.into_iter().flatten().collect::<Vec<_>>();
+
             assert_close_to_sklearn(&y_hat_oob, oob_ref, oob_tol, "oob");
         }
 

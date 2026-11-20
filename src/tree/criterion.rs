@@ -54,6 +54,8 @@ pub(crate) trait Criterion {
 
     /// Convert a target value of the training data to the target of this criterion.
     fn target<T: Number>(&self, y: T) -> Self::Target;
+
+    fn n_outputs(&self) -> usize;
 }
 
 /// Value in a leaf of a tree.
@@ -62,6 +64,8 @@ pub(crate) trait LeafOutput: Clone + Debug {
 
     /// Index of the leaf row in leaf_probabilities. Multiply by the number of classes to find the start of the row.
     fn slot(&self) -> u32;
+
+    fn add_to(&self, leaf_probabilities: &[f32], acc: &mut [f64]);
 }
 
 impl LeafOutput for f64 {
@@ -72,6 +76,10 @@ impl LeafOutput for f64 {
     // Return zero as regressors do not store leaf probabilities.
     fn slot(&self) -> u32 {
         0
+    }
+
+    fn add_to(&self, _leaf_probabilities: &[f32], acc: &mut [f64]) {
+        acc[0] += *self;
     }
 }
 
@@ -147,6 +155,10 @@ impl Criterion for MSECriterion {
 
     fn target<T: Number>(&self, y: T) -> Self::Target {
         y.to_f64().unwrap()
+    }
+
+    fn n_outputs(&self) -> usize {
+        1
     }
 }
 
@@ -250,6 +262,17 @@ impl LeafOutput for ClassificationOutput {
     fn slot(&self) -> u32 {
         self.slot
     }
+
+    fn add_to(&self, leaf_probabilities: &[f32], acc: &mut [f64]) {
+        let num_classes = acc.len();
+        let start = self.slot as usize * num_classes;
+        for (a, p) in acc
+            .iter_mut()
+            .zip(&leaf_probabilities[start..start + num_classes])
+        {
+            *a += *p as f64;
+        }
+    }
 }
 
 impl Criterion for GiniCriterion {
@@ -310,6 +333,10 @@ impl Criterion for GiniCriterion {
 
     fn target<T: Number>(&self, y: T) -> Self::Target {
         y.to_usize().unwrap()
+    }
+
+    fn n_outputs(&self) -> usize {
+        self.num_classes
     }
 }
 
@@ -414,6 +441,10 @@ impl Criterion for EntropyCriterion {
     fn target<T: Number>(&self, y: T) -> Self::Target {
         y.to_usize().unwrap()
     }
+
+    fn n_outputs(&self) -> usize {
+        self.num_classes
+    }
 }
 
 pub(crate) struct ClassificationErrorCriterion {
@@ -485,6 +516,10 @@ impl Criterion for ClassificationErrorCriterion {
 
     fn target<T: Number>(&self, y: T) -> Self::Target {
         y.to_usize().unwrap()
+    }
+
+    fn n_outputs(&self) -> usize {
+        self.num_classes
     }
 }
 
