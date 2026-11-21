@@ -75,6 +75,8 @@ pub mod precision;
 pub mod r2;
 /// Computes the recall.
 pub mod recall;
+#[cfg(test)]
+mod tests_edge_cases;
 
 use crate::linalg::basic::arrays::{Array1, ArrayView1};
 use crate::numbers::basenum::Number;
@@ -278,10 +280,7 @@ pub fn r2<T: Number + FloatNumber, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> 
 /// A cluster result satisfies homogeneity if all of its clusters contain only data points which are members of a single class.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn homogeneity_score<
-    T: Number + FloatNumber + RealNumber + Ord,
-    V: ArrayView1<T> + Array1<T>,
->(
+pub fn homogeneity_score<T: Number + Ord, V: ArrayView1<T> + Array1<T>>(
     y_true: &V,
     y_pred: &V,
 ) -> f64 {
@@ -294,10 +293,7 @@ pub fn homogeneity_score<
 /// Completeness metric of a cluster labeling given a ground truth (range is between 0.0 and 1.0).
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn completeness_score<
-    T: Number + FloatNumber + RealNumber + Ord,
-    V: ArrayView1<T> + Array1<T>,
->(
+pub fn completeness_score<T: Number + Ord, V: ArrayView1<T> + Array1<T>>(
     y_true: &V,
     y_pred: &V,
 ) -> f64 {
@@ -309,7 +305,7 @@ pub fn completeness_score<
 /// The harmonic mean between homogeneity and completeness.
 /// * `labels_true` - ground truth class labels to be used as a reference.
 /// * `labels_pred` - cluster labels to evaluate.
-pub fn v_measure_score<T: Number + FloatNumber + RealNumber + Ord, V: ArrayView1<T> + Array1<T>>(
+pub fn v_measure_score<T: Number + Ord, V: ArrayView1<T> + Array1<T>>(
     y_true: &V,
     y_pred: &V,
 ) -> f64 {
