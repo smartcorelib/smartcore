@@ -120,14 +120,18 @@ impl<T: Number + Unsigned> NBDistribution<T, T> for CategoricalNBDistribution<T>
     fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<T> + 'a>) -> f64 {
         if class_index < self.class_labels.len() {
             let mut likelihood = 0f64;
-            for feature in 0..j.shape() {
+            let n_features = j.shape();
+            for (feature, coefficients) in self.coefficients.iter().take(n_features).enumerate() {
                 let value = j.get(feature).to_usize().unwrap();
-                if self.coefficients[feature][class_index].len() > value {
-                    likelihood += self.coefficients[feature][class_index][value];
+                let coefficients = &coefficients[class_index];
+                if coefficients.len() > value {
+                    likelihood += coefficients[value];
                 } else {
                     return 0f64;
                 }
             }
+            // Keep the bounds check after the early return for an unseen category.
+            assert!(n_features <= self.coefficients.len());
             likelihood
         } else {
             0f64
@@ -596,6 +600,10 @@ mod tests {
         let deserialized_cnb: CategoricalNB<u32, DenseMatrix<u32>, Vec<u32>> =
             serde_json::from_str(&serde_json::to_string(&cnb).unwrap()).unwrap();
 
+        assert_eq!(cnb, deserialized_cnb);
+
+        let bytes = postcard::to_allocvec(&cnb).unwrap();
+        let deserialized_cnb = postcard::from_bytes(&bytes).unwrap();
         assert_eq!(cnb, deserialized_cnb);
     }
 
