@@ -472,6 +472,88 @@ mod tests {
         assert!(regressor.oob_scores.is_some());
     }
 
+    /// Three OOB leaves with P(class 0) = 0.6, 0.6 and 0.1.
+    /// Hard voting gives class 0 (2 votes against 1). Soft voting must give class 1,
+    /// because the summed probabilities are 1.3 for class 0 and 1.7 for class 1.
+    #[test]
+    fn oob_soft_voting_differs_from_hard_voting() {
+        let leaf_probabilities: Vec<f32> = vec![0.6, 0.4, 0.6, 0.4, 0.1, 0.9];
+        let leaves = [
+            ClassificationOutput {
+                class_index: 0,
+                slot: 0,
+            },
+            ClassificationOutput {
+                class_index: 0,
+                slot: 1,
+            },
+            ClassificationOutput {
+                class_index: 1,
+                slot: 2,
+            },
+        ];
+
+        // Row 0 is OOB for the three leaves. Row 1 is OOB for no tree.
+        let mut oob = OobAggregate::new(2, 2);
+        for leaf in &leaves {
+            leaf.add_to(&leaf_probabilities, &mut oob.sums[0..2]);
+            oob.counts[0] += 1;
+        }
+
+        // Make sure that the hard vote really disagrees with the soft vote.
+        let class_0_votes = leaves.iter().filter(|l| l.class_index == 0).count();
+        assert!(class_0_votes > leaves.len() - class_0_votes);
+
+        let forest: BaseForest<f64, u32, DenseMatrix<f64>, Vec<u32>, ClassificationOutput> =
+            BaseForest {
+                trees: Some(vec![]),
+                num_features: Some(1),
+                oob_scores: Some(oob),
+            };
+
+        assert_eq!(predict_class_oob(&forest).unwrap(), vec![Some(1), None]);
+    }
+
+    /// Two OOB leaves with values 0.9 and 1.9. The mean 1.4 is computed in f64 and then
+    /// converted to i32, which gives 1. A conversion of each leaf before the mean
+    /// (0 + 1, integer division by 2) would give 0.
+    #[test]
+    fn oob_mean_for_integer_target_is_converted_after_averaging() {
+        let oob = OobAggregate {
+            sums: vec![0.9 + 1.9, 0.0],
+            counts: vec![2, 0],
+            width: 1,
+        };
+        let forest: BaseForest<f64, i32, DenseMatrix<f64>, Vec<i32>, f64> = BaseForest {
+            trees: Some(vec![]),
+            num_features: Some(1),
+            oob_scores: Some(oob),
+        };
+
+        assert_eq!(predict_mean_oob(&forest).unwrap(), vec![Some(1), None]);
+    }
+
+    /// A row with OOB trees gets `None` when its mean does not fit in the target type.
+    #[test]
+    fn oob_mean_that_does_not_fit_target_type_is_none() {
+        // Means: 300, -2 and 5. Only 5 fits in u8.
+        let oob = OobAggregate {
+            sums: vec![600.0, -4.0, 10.0],
+            counts: vec![2, 2, 2],
+            width: 1,
+        };
+        let forest: BaseForest<f64, u8, DenseMatrix<f64>, Vec<u8>, f64> = BaseForest {
+            trees: Some(vec![]),
+            num_features: Some(1),
+            oob_scores: Some(oob),
+        };
+
+        assert_eq!(
+            predict_mean_oob(&forest).unwrap(),
+            vec![None, None, Some(5)]
+        );
+    }
+
     #[test]
     fn test_fit_on_empty_data_returns_error() {
         // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test

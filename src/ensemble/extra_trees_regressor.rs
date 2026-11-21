@@ -270,6 +270,10 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     /// The result has one value for each row of the training data, in the same order.
     /// A row that is in the bootstrap sample of all trees gets `None`.
     ///
+    /// The mean is computed in `f64` and then converted to `TY` with `TY::from_f64`.
+    /// For an integer `TY`, the conversion truncates toward zero. A row also gets `None`
+    /// if the mean cannot be converted to `TY`, for example when it is out of range.
+    ///
     /// The forest must be fitted with `bootstrap` and `oob_score` set to `true`.
     /// If `oob_score` is `false`, this returns an error.
     pub fn predict_oob(&self) -> Result<Vec<Option<TY>>, Failed> {
@@ -612,19 +616,44 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
-    fn serde_fitted_model_with_old_bootstrap_field_is_ignored() {
-        // Before 0.8.0, the fitted regressor stored a `bootstrap` field. It is not used now.
-        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
-        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
-        let parameters = ExtraTreesRegressorParameters::default().with_seed(42);
+    fn serde_fitted_model_from_before_oob_score_change() {
+        // Before 0.8.0, the fitted regressor stored a `bootstrap` field, and the forest stored
+        // the bootstrap `samples` of each tree instead of `oob_scores`. The tree format did not
+        // change, so this edit of a new JSON gives the JSON shape that 0.7 wrote.
+        // The old `samples` cannot give OOB predictions. The user must fit the model again
+        // with `oob_score = true`.
+        let n_rows = 20;
+        let n_trees = 5;
+        let x: DenseMatrix<f64> =
+            DenseMatrix::from_iterator((0..n_rows).map(|i| i as f64), n_rows, 1, 0);
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(n_trees)
+            .with_bootstrap(true)
+            .with_oob_score(true)
+            .with_seed(42);
         let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        assert!(forest.predict_oob().is_ok());
+
         let mut value = serde_json::to_value(&forest).unwrap();
         let object = value.as_object_mut().unwrap();
+        let forest_object = object
+            .get_mut("forest_regressor")
+            .and_then(|v| v.as_object_mut())
+            .unwrap();
+        assert!(forest_object.remove("oob_scores").is_some());
+        let samples: Vec<Vec<bool>> = (0..n_trees)
+            .map(|t| (0..n_rows).map(|row| (row + t as usize) % 2 == 0).collect())
+            .collect();
+        forest_object.insert("samples".to_string(), serde_json::json!(samples));
         assert!(!object.contains_key("bootstrap"));
         object.insert("bootstrap".to_string(), serde_json::Value::Bool(true));
+
         let restored: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_value(value).unwrap();
         assert_eq!(restored.predict(&x).unwrap(), forest.predict(&x).unwrap());
+        let msg = "oob_score was not set";
+        assert_eq!(restored.predict_oob().err(), Some(Failed::predict(msg)));
     }
 
     #[cfg(feature = "serde")]

@@ -448,6 +448,10 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     /// The result has one value for each row of the training data, in the same order.
     /// A row that is in the bootstrap sample of all trees gets `None`.
     ///
+    /// The mean is computed in `f64` and then converted to `TY` with `TY::from_f64`.
+    /// For an integer `TY`, the conversion truncates toward zero. A row also gets `None`
+    /// if the mean cannot be converted to `TY`, for example when it is out of range.
+    ///
     /// The forest must be fitted with `oob_score` set to `true`. If not, this returns an error.
     ///
     /// ```
