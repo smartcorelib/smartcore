@@ -117,6 +117,13 @@ impl<
         criterion: &C,
         parameters: BaseForestParameters,
     ) -> Result<BaseForest<TX, TY, X, Y, Out>, Failed> {
+        if parameters.n_trees == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "n_trees must be at least 1",
+            ));
+        }
+
         let (n_rows, num_attributes) = x.shape();
 
         if n_rows != y.shape() {
