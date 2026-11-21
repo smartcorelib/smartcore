@@ -1854,6 +1854,113 @@ mod tests {
         );
     }
 
+    /// Build the same logical matrix in column-major and in row-major layout.
+    fn both_layouts<T: Number>(rows: &[&[T]]) -> [(&'static str, DenseMatrix<T>); 2] {
+        let (nrows, ncols) = (rows.len(), rows[0].len());
+        let row_major: Vec<T> = rows.iter().flat_map(|r| r.iter().copied()).collect();
+        let col_major = DenseMatrix::from_2d_array(rows).unwrap();
+        let row_major = DenseMatrix::new(nrows, ncols, row_major, false).unwrap();
+        for (r, row) in rows.iter().enumerate() {
+            for (c, v) in row.iter().enumerate() {
+                assert_eq!(col_major.get((r, c)), v, "column-major get(({r}, {c}))");
+                assert_eq!(row_major.get((r, c)), v, "row-major get(({r}, {c}))");
+            }
+        }
+        [("column-major", col_major), ("row-major", row_major)]
+    }
+
+    fn check_argmax_axis1<T: Number + PartialOrd>(name: &str, rows: &[&[T]], expected: &[usize]) {
+        assert_eq!(rows.len(), expected.len(), "case `{name}`: bad test table");
+        for (layout, m) in both_layouts(rows) {
+            let got = m.argmax(1);
+            assert_eq!(
+                got.len(),
+                rows.len(),
+                "case `{name}`, {layout}: result length"
+            );
+            for (r, row) in rows.iter().enumerate() {
+                assert_eq!(
+                    got[r], expected[r],
+                    "case `{name}`, {layout}, row {r} = {row:?}: expected {}, got {}",
+                    expected[r], got[r]
+                );
+                let got_1d = m.get_row(r).argmax();
+                assert_eq!(
+                    got[r], got_1d,
+                    "case `{name}`, {layout}, row {r} = {row:?}: argmax(1) gives {}, 1D argmax gives {got_1d}",
+                    got[r]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_argmax_axis1_floats() {
+        let cases: &[(&str, &[&[f64]], &[usize])] = &[
+            (
+                "probabilities",
+                &[&[0.1, 0.7, 0.2], &[0.6, 0.3, 0.1], &[0.2, 0.3, 0.5]],
+                &[1, 0, 2],
+            ),
+            ("small difference", &[&[0.3, 0.3 + 1e-12, 0.3]], &[1]),
+            (
+                "all negative",
+                &[&[-3.0, -1.0, -2.0], &[-0.5, -0.25, -0.75]],
+                &[1, 1],
+            ),
+            ("contains f64::MIN", &[&[f64::MIN, -1.0]], &[1]),
+            ("contains -inf", &[&[f64::NEG_INFINITY, -5.0]], &[1]),
+            ("max at last column", &[&[0.0, 0.1, 0.2, 0.9]], &[3]),
+            ("single column", &[&[0.3], &[0.9], &[0.1]], &[0, 0, 0]),
+        ];
+        for (name, rows, expected) in cases {
+            check_argmax_axis1(name, rows, expected);
+        }
+
+        check_argmax_axis1::<f32>(
+            "probabilities f32",
+            &[&[0.1, 0.7, 0.2], &[0.6, 0.3, 0.1], &[0.2, 0.3, 0.5]],
+            &[1, 0, 2],
+        );
+    }
+
+    #[test]
+    fn test_argmax_axis1_ties() {
+        // On a tie, the first (lowest) index wins.
+        let third = 1.0 / 3.0;
+        let three_way: &[f64] = &[third, third, third];
+        let cases: &[(&str, &[&[f64]], &[usize])] = &[
+            ("two-way tie", &[&[0.5, 0.5]], &[0]),
+            ("tie not at index 0", &[&[0.1, 0.45, 0.45]], &[1]),
+            ("three-way tie", &[three_way], &[0]),
+            ("tie, then a larger value", &[&[0.4, 0.4, 0.9]], &[2]),
+            ("tie after a smaller value", &[&[0.2, 0.4, 0.4, 0.0]], &[1]),
+            ("all zeros", &[&[0.0, 0.0, 0.0]], &[0]),
+            ("all f64::MIN", &[&[f64::MIN, f64::MIN]], &[0]),
+            (
+                "mixed rows",
+                &[
+                    &[0.5, 0.5, 0.0],
+                    &[0.0, 0.5, 0.5],
+                    &[0.5, 0.0, 0.5],
+                    &[0.2, 0.2, 0.6],
+                ],
+                &[0, 1, 0, 2],
+            ),
+        ];
+        for (name, rows, expected) in cases {
+            check_argmax_axis1(name, rows, expected);
+        }
+    }
+
+    #[test]
+    fn test_argmax_axis0_ties() {
+        let rows: &[&[f64]] = &[&[0.5, 0.1], &[0.5, 0.1]];
+        for (layout, m) in both_layouts(rows) {
+            assert_eq!(m.argmax(0), vec![0, 0], "{layout}");
+        }
+    }
+
     #[test]
     fn test_sum() {
         assert_eq!(

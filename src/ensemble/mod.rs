@@ -4,8 +4,9 @@
 //! When combined with bagging, ensemble models achive superior performance to individual estimators.
 //!
 //! The main idea behind bagging (or bootstrap aggregation) is to fit the same base model to a big number of random subsets of the original training
-//! set and then aggregate their individual predictions to form a final prediction. In classification setting the overall prediction is the most commonly
-//! occurring majority class among the individual predictions.
+//! set and then aggregate their individual predictions to form a final prediction. For classification, each tree gives the class probabilities of
+//! the leaf that the sample falls into. The final prediction is the class with the highest mean probability over all trees
+//! (soft voting).
 //!
 //! In `smartcore` you will find implementation of RandomForest - a popular averaging algorithms based on randomized [decision trees](../tree/index.html).
 //! Random forests provide an improvement over bagged trees by way of a small tweak that decorrelates the trees. As in bagging, we build a number of
