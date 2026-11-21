@@ -114,8 +114,8 @@ impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
         let (_, n) = self.LU.shape();
         let mut piv = M::zeros(n, n);
 
-        for i in 0..n {
-            piv.set((i, self.pivot[i]), T::one());
+        for (i, &pivot) in self.pivot[..n].iter().enumerate() {
+            piv.set((i, pivot), T::one());
         }
 
         piv
@@ -153,8 +153,8 @@ impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
         let mut X = M::zeros(b_m, b_n);
 
         for j in 0..b_n {
-            for i in 0..m {
-                X.set((i, j), *b.get((self.pivot[i], j)));
+            for (i, &pivot) in self.pivot[..m].iter().enumerate() {
+                X.set((i, j), *b.get((pivot, j)));
             }
         }
 

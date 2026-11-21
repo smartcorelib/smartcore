@@ -351,8 +351,8 @@ impl<T: Number + RealNumber, X: Array2<T> + SVDDecomposable<T> + EVDDecomposable
 
         let mut x_transformed = x.matmul(&self.projection);
         for r in 0..nrows {
-            for c in 0..n_components {
-                x_transformed.sub_element_mut((r, c), self.pmu[c]);
+            for (c, &center) in self.pmu[..n_components].iter().enumerate() {
+                x_transformed.sub_element_mut((r, c), center);
             }
         }
         Ok(x_transformed)

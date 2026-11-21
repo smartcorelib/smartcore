@@ -85,9 +85,12 @@ impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 
     fn log_likelihood<'a>(&self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64 {
         let mut likelihood = 0f64;
-        for feature in 0..j.shape() {
+        for (feature, &log_prob) in self.feature_log_prob[class_index][..j.shape()]
+            .iter()
+            .enumerate()
+        {
             let value = X::to_f64(j.get(feature)).unwrap();
-            likelihood += value * self.feature_log_prob[class_index][feature];
+            likelihood += value * log_prob;
         }
         likelihood
     }
