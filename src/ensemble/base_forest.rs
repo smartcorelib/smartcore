@@ -38,8 +38,8 @@ pub struct BaseForestParameters {
     /// Number of features to test at each split. See [`MaxFeatures`].
     pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: bool,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. Needs `bootstrap = true`.
+    pub oob_score: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree.
     pub seed: Option<u64>,
@@ -47,6 +47,24 @@ pub struct BaseForestParameters {
     pub bootstrap: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     pub splitter: Splitter,
+}
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, PartialEq)]
+pub(crate) struct OobAggregate {
+    sums: Vec<f64>,   // n_rows * width, row-major
+    counts: Vec<u32>, // number of OOB trees for each row
+    width: usize,     // 1 for regressors, n_classes for classifiers
+}
+
+impl OobAggregate {
+    fn new(n_rows: usize, width: usize) -> Self {
+        Self {
+            sums: vec![0.0; n_rows * width],
+            counts: vec![0; n_rows],
+            width,
+        }
+    }
 }
 
 impl<
@@ -85,7 +103,7 @@ pub struct BaseForest<
 > {
     trees: Option<Vec<BaseTree<TX, TY, X, Y, Out>>>,
     num_features: Option<usize>,
-    samples: Option<Vec<Vec<bool>>>,
+    oob_scores: Option<OobAggregate>,
 }
 
 impl<
@@ -101,9 +119,11 @@ impl<
         self.trees.as_ref().unwrap()
     }
 
-    /// For each tree, the rows it used in training. `None` if `keep_samples` was false.
-    pub(crate) fn samples(&self) -> Option<&[Vec<bool>]> {
-        self.samples.as_deref()
+    /// Number of trees for which each training row was out of bag.
+    /// `None` if the forest was not fitted with `oob_score = true`.
+    #[cfg(test)]
+    pub(crate) fn oob_counts(&self) -> Option<&[u32]> {
+        self.oob_scores.as_ref().map(|o| o.counts.as_slice())
     }
 
     /// Build a forest of trees from the training set.
@@ -129,15 +149,22 @@ impl<
             ));
         }
 
+        if parameters.oob_score && !parameters.bootstrap {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "oob_score = true needs bootstrap = true",
+            ));
+        }
+
         let mtry = parameters.m.resolve(num_attributes)?;
 
         let mut rng = get_rng_impl(parameters.seed);
         let n_trees = parameters.n_trees;
         let mut trees: Vec<BaseTree<TX, TY, X, Y, Out>> = Vec::with_capacity(n_trees);
 
-        let mut maybe_all_samples: Option<Vec<Vec<bool>>> = Option::None;
-        if parameters.keep_samples {
-            maybe_all_samples = Some(Vec::with_capacity(n_trees));
+        let mut maybe_oob_scores = None;
+        if parameters.oob_score {
+            maybe_oob_scores = Some(OobAggregate::new(n_rows, criterion.n_outputs()));
         }
 
         let mut samples: Vec<usize> = (0..n_rows).map(|_| 1).collect();
@@ -174,11 +201,6 @@ impl<
                 );
             }
 
-            // keep samples is flag is on
-            if let Some(ref mut all_samples) = maybe_all_samples {
-                all_samples.push(samples.iter().map(|x| *x != 0).collect())
-            }
-
             let params = BaseTreeParameters {
                 max_depth: parameters.max_depth,
                 min_samples_leaf: parameters.min_samples_leaf,
@@ -202,13 +224,26 @@ impl<
                 criterion,
                 params,
             )?;
+
+            if let Some(oob_scores) = &mut maybe_oob_scores {
+                let width = oob_scores.width;
+                for (row, _sample) in samples.iter().enumerate().filter(|&(_i, s)| *s == 0) {
+                    tree.add_leaf_value_for_row(
+                        x,
+                        row,
+                        &mut oob_scores.sums[width * row..(row + 1) * width],
+                    );
+                    oob_scores.counts[row] += 1;
+                }
+            }
+
             trees.push(tree);
         }
 
         Ok(BaseForest {
             trees: Some(trees),
             num_features: Some(x.shape().1),
-            samples: maybe_all_samples,
+            oob_scores: maybe_oob_scores,
         })
     }
 
@@ -293,55 +328,39 @@ where
     Ok(result)
 }
 
-/// Mean of the out-of-bag tree predictions for each row of `x`.
-/// `x` is expected to be equal to the dataset used in training.
+/// Mean of the out-of-bag (OOB) tree predictions for each row of the training data.
+/// `None` if the row is in-bag for all trees, or if `TY` cannot hold the mean.
 pub(crate) fn predict_mean_oob<TX, TY, X, Y>(
     forest: &BaseForest<TX, TY, X, Y, f64>,
-    x: &X,
-) -> Result<Y, Failed>
+) -> Result<Vec<Option<TY>>, Failed>
 where
     TX: Number + FloatNumber,
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
 {
-    let (n, _) = x.shape();
-
-    let samples = match forest.samples() {
-        Some(s) => s,
+    let oob_scores = match &forest.oob_scores {
+        Some(oob) => oob,
         None => {
             return Err(Failed::because(
                 FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
+                "oob_score was not set",
             ));
         }
     };
 
-    if samples[0].len() != n {
-        return Err(Failed::because(
-            FailedError::PredictFailed,
-            "Prediction matrix must match matrix used in training for OOB predictions.",
-        ));
-    }
-
-    let mut result = Y::zeros(n);
-
-    for row in 0..n {
-        let mut sum = TY::zero();
-        let mut n_trees = 0usize;
-        for (tree, in_bag) in forest.trees().iter().zip(samples) {
-            if !in_bag[row] {
-                sum += TY::from_f64(*tree.leaf_output_for_row(x, row)).unwrap();
-                n_trees += 1;
+    let result: Vec<Option<TY>> = oob_scores
+        .sums
+        .chunks_exact(oob_scores.width)
+        .zip(&oob_scores.counts)
+        .map(|(total, &count)| {
+            if count > 0 {
+                TY::from_f64(total[0] / count as f64)
+            } else {
+                None
             }
-        }
-        if n_trees == 0 {
-            return Err(Failed::predict(
-                "A row is in-bag for all trees, so it has no OOB prediction.",
-            ));
-        }
-        result.set(row, sum / TY::from_usize(n_trees).unwrap());
-    }
+        })
+        .collect();
 
     Ok(result)
 }
@@ -362,51 +381,33 @@ where
     Ok(predicted_probas.argmax(1))
 }
 
-/// Mode of the out-of-bag tree predictions for each row of `x`.
-/// `x` is expected to be equal to the dataset used in training.
-pub(crate) fn predict_mode_oob<TX, TY, X, Y>(
+/// Class with the highest summed out-of-bag (OOB) leaf probability for each training row.
+/// `None` if the row is in-bag for all trees.
+pub(crate) fn predict_class_oob<TX, TY, X, Y>(
     forest: &BaseForest<TX, TY, X, Y, ClassificationOutput>,
-    x: &X,
-    num_classes: usize,
-) -> Result<Vec<usize>, Failed>
+) -> Result<Vec<Option<usize>>, Failed>
 where
     TX: Number + FloatNumber,
     TY: Number,
     X: Array2<TX>,
     Y: Array1<TY>,
 {
-    let (n, _) = x.shape();
-
-    let samples = match forest.samples() {
-        Some(s) => s,
+    let oob_scores = match &forest.oob_scores {
+        Some(oob) => oob,
         None => {
             return Err(Failed::because(
                 FailedError::PredictFailed,
-                "Need samples=true for OOB predictions.",
+                "oob_score was not set",
             ));
         }
     };
 
-    if samples[0].len() != n {
-        return Err(Failed::because(
-            FailedError::PredictFailed,
-            "Prediction matrix must match matrix used in training for OOB predictions.",
-        ));
-    }
-
-    let mut result = vec![0; n];
-    let mut counts = vec![0; num_classes];
-
-    for row in 0..n {
-        counts.fill(0);
-        for (tree, in_bag) in forest.trees().iter().zip(samples) {
-            if !in_bag[row] {
-                counts[tree.leaf_output_for_row(x, row).class_index] += 1;
-            }
-        }
-        // TODO: What to do if there are no oob trees?
-        result[row] = counts.argmax();
-    }
+    let result: Vec<Option<usize>> = oob_scores
+        .sums
+        .chunks_exact(oob_scores.width)
+        .zip(&oob_scores.counts)
+        .map(|(totals, &count)| (count > 0).then(|| totals.argmax()))
+        .collect();
 
     Ok(result)
 }
@@ -452,7 +453,7 @@ mod tests {
     use crate::tree::criterion::{GiniCriterion, MSECriterion};
 
     #[test]
-    fn test_base_forest_keep_samples() {
+    fn test_base_forest_oob_scores() {
         let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[3.0, 4.0], &[5.0, 6.0]]).unwrap();
         let y = vec![1.0, 2.0, 3.0];
         let params = BaseForestParameters {
@@ -461,14 +462,96 @@ mod tests {
             min_samples_split: 2,
             n_trees: 5,
             m: MaxFeatures::Sqrt,
-            keep_samples: true,
+            oob_score: true,
             seed: Some(42),
             bootstrap: true,
             splitter: crate::tree::base_tree::Splitter::Best,
         };
         let regressor = BaseForest::fit(&x, &y, None, &MSECriterion, params).unwrap();
         assert_eq!(regressor.trees.unwrap().len(), 5);
-        assert!(regressor.samples.is_some());
+        assert!(regressor.oob_scores.is_some());
+    }
+
+    /// Three OOB leaves with P(class 0) = 0.6, 0.6 and 0.1.
+    /// Hard voting gives class 0 (2 votes against 1). Soft voting must give class 1,
+    /// because the summed probabilities are 1.3 for class 0 and 1.7 for class 1.
+    #[test]
+    fn oob_soft_voting_differs_from_hard_voting() {
+        let leaf_probabilities: Vec<f32> = vec![0.6, 0.4, 0.6, 0.4, 0.1, 0.9];
+        let leaves = [
+            ClassificationOutput {
+                class_index: 0,
+                slot: 0,
+            },
+            ClassificationOutput {
+                class_index: 0,
+                slot: 1,
+            },
+            ClassificationOutput {
+                class_index: 1,
+                slot: 2,
+            },
+        ];
+
+        // Row 0 is OOB for the three leaves. Row 1 is OOB for no tree.
+        let mut oob = OobAggregate::new(2, 2);
+        for leaf in &leaves {
+            leaf.add_to(&leaf_probabilities, &mut oob.sums[0..2]);
+            oob.counts[0] += 1;
+        }
+
+        // Make sure that the hard vote really disagrees with the soft vote.
+        let class_0_votes = leaves.iter().filter(|l| l.class_index == 0).count();
+        assert!(class_0_votes > leaves.len() - class_0_votes);
+
+        let forest: BaseForest<f64, u32, DenseMatrix<f64>, Vec<u32>, ClassificationOutput> =
+            BaseForest {
+                trees: Some(vec![]),
+                num_features: Some(1),
+                oob_scores: Some(oob),
+            };
+
+        assert_eq!(predict_class_oob(&forest).unwrap(), vec![Some(1), None]);
+    }
+
+    /// Two OOB leaves with values 0.9 and 1.9. The mean 1.4 is computed in f64 and then
+    /// converted to i32, which gives 1. A conversion of each leaf before the mean
+    /// (0 + 1, integer division by 2) would give 0.
+    #[test]
+    fn oob_mean_for_integer_target_is_converted_after_averaging() {
+        let oob = OobAggregate {
+            sums: vec![0.9 + 1.9, 0.0],
+            counts: vec![2, 0],
+            width: 1,
+        };
+        let forest: BaseForest<f64, i32, DenseMatrix<f64>, Vec<i32>, f64> = BaseForest {
+            trees: Some(vec![]),
+            num_features: Some(1),
+            oob_scores: Some(oob),
+        };
+
+        assert_eq!(predict_mean_oob(&forest).unwrap(), vec![Some(1), None]);
+    }
+
+    /// A row with OOB trees gets `None` when its mean does not fit in the target type.
+    #[test]
+    fn oob_mean_that_does_not_fit_target_type_is_none() {
+        // Means: 300, -2 and 5. Only 5 fits in u8.
+        let oob = OobAggregate {
+            sums: vec![600.0, -4.0, 10.0],
+            counts: vec![2, 2, 2],
+            width: 1,
+        };
+        let forest: BaseForest<f64, u8, DenseMatrix<f64>, Vec<u8>, f64> = BaseForest {
+            trees: Some(vec![]),
+            num_features: Some(1),
+            oob_scores: Some(oob),
+        };
+
+        assert_eq!(
+            predict_mean_oob(&forest).unwrap(),
+            vec![None, None, Some(5)]
+        );
     }
 
     #[test]
@@ -490,7 +573,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 5,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(0),
                 bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
@@ -519,7 +602,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 5,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(0),
                 bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
@@ -545,7 +628,7 @@ mod tests {
             min_samples_split: 2,
             n_trees: 5,
             m: MaxFeatures::Sqrt,
-            keep_samples: true,
+            oob_score: false,
             seed: Some(42),
             bootstrap: false,
             splitter: crate::tree::base_tree::Splitter::Best,
@@ -589,8 +672,8 @@ mod tests {
     }
 
     #[test]
-    fn test_each_tree_gets_different_bootstrap_sample() {
-        // actual data uses is irrelevant
+    fn bootstrap_samples_differ_between_trees() {
+        // The data values are not important.
         let n_rows = 100;
         let x: DenseMatrix<f64> =
             DenseMatrix::from_iterator((0..2 * n_rows).map(|k| k as f64), n_rows, 2, 0);
@@ -604,23 +687,61 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 10,
                 m: MaxFeatures::Sqrt,
-                keep_samples: true, // keep samples used for each tree, so we can check that they are different
+                oob_score: true, // keep the OOB counts, so we can examine the bootstrap samples
                 seed: Some(42),
-                bootstrap: true, // Use bootstrapping
+                bootstrap: true,
                 splitter: crate::tree::base_tree::Splitter::Best,
             };
+            let n_trees = params.n_trees as u32;
             let regressor = BaseForest::fit(&x, &y, weights, &MSECriterion, params).unwrap();
-            let samples = regressor.samples.unwrap();
+            let counts = regressor.oob_counts().unwrap();
+            assert_eq!(counts.len(), n_rows);
+
+            // At least one tree has out-of-bag rows.
+            assert!(
+                counts.iter().any(|&c| c > 0),
+                "no tree has out-of-bag rows (weights: {weights:?})"
+            );
+            // If all trees had the same bootstrap sample, each row would be out of bag
+            // in 0 or in all trees.
+            assert!(
+                counts.iter().any(|&c| 0 < c && c < n_trees),
+                "all trees have the same bootstrap sample (weights: {weights:?})"
+            );
+        }
+    }
+
+    #[test]
+    fn successive_bootstrap_samples_are_different() {
+        // `fit` draws the samples for all trees from one RNG. Each draw must be different.
+        let n_rows = 100;
+        let n_trees = 10;
+        let sample_weights: Vec<f64> = (0..n_rows).map(|i| 1.0 + (i % 4) as f64).collect();
+        let weighted = rand::distr::weighted::WeightedIndex::new(&sample_weights).unwrap();
+
+        for dist in [None, Some(&weighted)] {
+            let mut rng = get_rng_impl(Some(42));
+            let samples: Vec<Vec<usize>> = (0..n_trees)
+                .map(|_| {
+                    BaseForest::<f64, f64, DenseMatrix<f64>, Vec<f64>, f64>::sample_with_replacement(
+                        n_rows, &mut rng, dist,
+                    )
+                })
+                .collect();
 
             for (t, in_bag) in samples.iter().enumerate() {
+                assert_eq!(in_bag.iter().sum::<usize>(), n_rows);
                 assert!(
-                    in_bag.iter().any(|b| !b),
-                    "tree {t} has no out-of-bag rows (weights: {weights:?})"
+                    in_bag.contains(&0),
+                    "tree {t} has no out-of-bag rows (weighted: {})",
+                    dist.is_some()
                 );
                 for (u, other) in samples.iter().enumerate().skip(t + 1) {
                     assert_ne!(
-                        in_bag, other,
-                        "trees {t} and {u} have the same bootstrap sample (weights: {weights:?})"
+                        in_bag,
+                        other,
+                        "trees {t} and {u} have the same bootstrap sample (weighted: {})",
+                        dist.is_some()
                     );
                 }
             }
@@ -650,7 +771,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 10,
                 m: MaxFeatures::Count(1),
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(42),
                 bootstrap: false,
                 splitter,
@@ -679,7 +800,7 @@ mod tests {
             min_samples_split: 2,
             n_trees: 10,
             m: MaxFeatures::Sqrt,
-            keep_samples: true,
+            oob_score: false,
             seed: Some(42),
             bootstrap: false, // No bootstrapping
             splitter: crate::tree::base_tree::Splitter::Best,
@@ -722,7 +843,7 @@ mod tests {
             min_samples_split: 2,
             n_trees: 500, // Use more trees than before to smooth out randomness
             m: MaxFeatures::Sqrt,
-            keep_samples: true, // keep samples used for each tree, so we can check that they are different
+            oob_score: false,
             seed: Some(42),
             bootstrap: true, // Use bootstrapping
             splitter: crate::tree::base_tree::Splitter::Best,
@@ -782,7 +903,7 @@ mod tests {
                     min_samples_split: 2,
                     n_trees: 10,
                     m: MaxFeatures::Count(1),
-                    keep_samples: true,
+                    oob_score: true,
                     seed: Some(42),
                     bootstrap: true,
                     splitter,
@@ -798,7 +919,7 @@ mod tests {
                     "forests differ (splitter: {splitter:?}, weights: {weights:?})"
                 );
                 assert_eq!(
-                    forest_a.samples, forest_b.samples,
+                    forest_a.oob_scores, forest_b.oob_scores,
                     "bootstrap samples differ (splitter: {splitter:?}, weights: {weights:?})"
                 );
                 assert_eq!(
@@ -842,7 +963,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 10,
                 m: MaxFeatures::Count(1),
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(42),
                 bootstrap,
                 splitter: Splitter::Random,
@@ -915,7 +1036,7 @@ mod tests {
             min_samples_split: 2,
             n_trees: 10,
             m: MaxFeatures::Count(1),
-            keep_samples: false,
+            oob_score: false,
             seed,
             bootstrap: true,
             splitter: Splitter::Random,
@@ -999,7 +1120,7 @@ mod tests {
                     min_samples_split: 2,
                     n_trees: 3,
                     m,
-                    keep_samples: false,
+                    oob_score: false,
                     seed: Some(42),
                     bootstrap: true,
                     splitter,
@@ -1049,7 +1170,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 3,
                 m,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(42),
                 bootstrap: true,
                 splitter: Splitter::Best,
@@ -1081,7 +1202,7 @@ mod tests {
             min_samples_split: 2,
             n_trees: 3,
             m: MaxFeatures::All,
-            keep_samples: false,
+            oob_score: false,
             seed: Some(42),
             bootstrap: true,
             splitter: Splitter::Best,
@@ -1152,7 +1273,7 @@ mod tests {
                 one_leaf_tree(0.1),
             ]),
             num_features: Some(1),
-            samples: None,
+            oob_scores: None,
         };
         let x = DenseMatrix::from_2d_array(&[&[0.0]]).unwrap();
 
