@@ -59,8 +59,8 @@ impl<T: Number + RealNumber, M: SVDDecomposable<T>> SVD<T, M> {
     pub fn S(&self) -> M {
         let mut s = M::zeros(self.U.shape().1, self.V.shape().0);
 
-        for i in 0..self.s.len() {
-            s.set((i, i), self.s[i]);
+        for (i, &value) in self.s.iter().enumerate() {
+            s.set((i, i), value);
         }
 
         s

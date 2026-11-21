@@ -82,7 +82,7 @@ wasm-bindgen-test = "0.3"
 [dev-dependencies]
 itertools = "0.15.0"
 serde_json = "1.0"
-postcard = { version = "1.1", features = ["use-std"] }
+postcard = { version = "1.1", default-features = false, features = ["use-std"] }
 
 # proptest pulls in wait-timeout (Unix syscalls), which doesn't compile on
 # wasm32. Gate it to non-wasm targets only.

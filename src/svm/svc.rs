@@ -818,10 +818,8 @@ impl<'a, TX: Number + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>
     }
 
     fn process(&mut self, i: usize, x: &[TX], y: f64, cache: &mut Cache<TX, TY, X, Y>) -> bool {
-        for j in 0..self.sv.len() {
-            if self.sv[j].index == i {
-                return true;
-            }
+        if self.sv.iter().any(|v| v.index == i) {
+            return true;
         }
 
         let mut g = y;
