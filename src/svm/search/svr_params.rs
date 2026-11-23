@@ -38,7 +38,7 @@ use crate::linalg::basic::arrays::Array2;
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
-use crate::svm::{svr, Kernels};
+use crate::svm::{Kernels, svr};
 use std::marker::PhantomData;
 
 /// ## SVR grid search parameters
@@ -75,6 +75,7 @@ use std::marker::PhantomData;
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct SVRSearchParameters<T: Number + RealNumber, M: Array2<T>> {
     /// Epsilon in the epsilon-SVR model.
     pub eps: Vec<T>,

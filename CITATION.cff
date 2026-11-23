@@ -2,10 +2,10 @@ cff-version: 1.2.0
 message: "If this software contributes to published work, please cite smartcore."
 type: software
 title: "smartcore: Machine Learning in Rust"
-abstract: "smartcore is a comprehensive machine learning and numerical computing library for Rust, offering supervised and unsupervised algorithms, model evaluation tools, and linear algebra abstractions, with optional ndarray integration." [web:5][web:3]
-repository-code: "https://github.com/smartcorelib/smartcore" [web:5]
-url: "https://github.com/smartcorelib" [web:3]
-license: "MIT" [web:13]
+abstract: "smartcore is a comprehensive machine learning and numerical computing library for Rust, offering supervised and unsupervised algorithms, model evaluation tools, and linear algebra abstractions, with optional ndarray integration."
+repository-code: "https://github.com/smartcorelib/smartcore"
+url: "https://github.com/smartcorelib"
+license: "MIT"
 keywords:
   - Rust
   - machine learning
@@ -18,24 +18,24 @@ keywords:
   - Random Forest
   - XGBoost [web:5]
 authors:
-  - name: "smartcore Developers" [web:7]
-  - name: "Lorenzo (contributor)" [web:16]
-  - name: "Community contributors" [web:7]
+  - name: "smartcore Developers"
+  - name: "Lorenzo (contributor)"
+  - name: "Community contributors"
 version: "0.4.2" [attached_file:1]
-date-released: "2025-09-14" [attached_file:1]
+date-released: "2025-09-14"
 preferred-citation:
   type: software
   title: "smartcore: Machine Learning in Rust"
   authors:
-    - name: "smartcore Developers" [web:7]
-  url: "https://github.com/smartcorelib" [web:3]
-  repository-code: "https://github.com/smartcorelib/smartcore" [web:5]
-  license: "MIT" [web:13]
+    - name: "smartcore Developers"
+  url: "https://github.com/smartcorelib"
+  repository-code: "https://github.com/smartcorelib/smartcore"
+  license: "MIT"
 references:
   - type: manual
     title: "smartcore Documentation"
-    url: "https://docs.rs/smartcore" [web:5]
+    url: "https://docs.rs/smartcore"
   - type: webpage
     title: "smartcore Homepage"
-    url: "https://github.com/smartcorelib" [web:3]
-notes: "For development features, see the docs.rs page and the repository README; SmartCore includes algorithms such as SVM, Random Forest, K-Means, PCA, DBSCAN, and XGBoost." [web:5]
+    url: "https://github.com/smartcorelib"
+notes: "For development features, see the docs.rs page and the repository README; SmartCore includes algorithms such as SVM, Random Forest, K-Means, PCA, DBSCAN, and XGBoost."

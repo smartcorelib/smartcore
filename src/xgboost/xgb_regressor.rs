@@ -42,7 +42,7 @@
 //! ```
 //!
 
-use rand::{seq::SliceRandom, Rng};
+use rand::{Rng, seq::SliceRandom};
 use std::{iter::zip, marker::PhantomData};
 
 use crate::{
@@ -113,7 +113,7 @@ impl Objective {
     ///
     /// # Returns
     /// A vector of hessians for each sample.
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     pub fn hessian<TY: Number, Y: Array1<TY>>(&self, y_true: &Y, y_pred: &[f64]) -> Vec<f64> {
         match self {
             Objective::MeanSquaredError => vec![1.0; y_true.shape()],
@@ -391,6 +391,7 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
 /// This struct holds all the hyperparameters that control the training process.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
+#[must_use]
 pub struct XGRegressorParameters {
     /// The number of boosting rounds or trees to build.
     pub n_estimators: usize,
@@ -491,6 +492,8 @@ impl XGRegressorParameters {
     /// Sets the fraction of samples to be used for fitting individual base learners.
     ///
     /// A value of less than 1.0 introduces randomness and helps prevent overfitting.
+    /// The value must be in the range (0, 1]. Each tree gets `floor(n_samples * subsample)`
+    /// rows, with a minimum of one row (provided the dataset is non-empty).
     pub fn with_subsample(mut self, subsample: f64) -> Self {
         self.subsample = subsample;
         self
@@ -531,7 +534,14 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
             ));
         }
 
-        let (n_samples, _) = data.shape();
+        let (n_samples, n_features) = data.shape();
+        if n_samples == 0 || n_features == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            ));
+        }
+
         let learning_rate = parameters.learning_rate;
         let mut predictions = vec![parameters.base_score; n_samples];
 
@@ -579,34 +589,49 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>> XGRegres
 
     /// Predicts target values for the given input data.
     pub fn predict(&self, data: &X) -> Result<Vec<TX>, Failed> {
-        let (n_samples, _) = data.shape();
+        // Match on both fields: after deserialization, 'parameters' and
+        // 'regressors' could be out of sync, so a single check must cover them.
+        match (&self.parameters, &self.regressors) {
+            (Some(parameters), Some(regressors)) => {
+                let (n_samples, _) = data.shape();
 
-        let parameters = self.parameters.as_ref().unwrap();
-        let mut predictions = vec![parameters.base_score; n_samples];
-        let regressors = self.regressors.as_ref().unwrap();
+                let mut predictions = vec![parameters.base_score; n_samples];
 
-        for regressor in regressors.iter() {
-            let corrections = regressor.predict(data);
-            predictions = zip(predictions, corrections)
-                .map(|(pred, correction)| pred + (parameters.learning_rate * correction))
-                .collect();
+                for regressor in regressors.iter() {
+                    let corrections = regressor.predict(data);
+                    predictions = zip(predictions, corrections)
+                        .map(|(pred, correction)| pred + (parameters.learning_rate * correction))
+                        .collect();
+                }
+
+                Ok(predictions
+                    .into_iter()
+                    .map(|p| TX::from_f64(p).unwrap())
+                    .collect())
+            }
+            _ => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(predictions
-            .into_iter()
-            .map(|p| TX::from_f64(p).unwrap())
-            .collect())
     }
 
     /// Creates a random sample of indices without replacement.
+    ///
+    /// The sample holds at least one index when the population is not empty. The tree fit
+    /// needs a minimum of one row, thus the sample size cannot be zero.
     fn sample_without_replacement(
         population_size: usize,
         subsample_ratio: f64,
         rng: &mut impl Rng,
     ) -> Vec<usize> {
+        debug_assert!(population_size > 0);
+        debug_assert!(subsample_ratio > 0.0 && subsample_ratio <= 1.0);
         let mut indices: Vec<usize> = (0..population_size).collect();
         indices.shuffle(rng);
-        indices.truncate((population_size as f64 * subsample_ratio) as usize);
+        // `population_size * subsample_ratio` truncates to 0 for a small population, e.g. 3 rows
+        // at a ratio of 0.3. Keep one row in that case, as scikit-learn does for its own
+        // `subsample` parameter (#444).
+        indices.truncate(((population_size as f64 * subsample_ratio) as usize).max(1));
         indices
     }
 }
@@ -762,6 +787,124 @@ mod tests {
         assert_eq!(predictions.unwrap().len(), 2);
     }
 
+    /// `subsample` < 1.0 must not panic when the sample size truncates to zero rows.
+    #[test]
+    fn test_subsample_smaller_than_one_sample_does_not_panic() {
+        let x_vec = vec![vec![1.0, 1.0], vec![2.0, 1.0], vec![1.0, 2.0]];
+        let x = DenseMatrix::from_2d_vec(&x_vec).unwrap();
+        let y = vec![5.0, 7.0, 8.0];
+
+        // 3 samples * 0.3 truncates to 0 rows, so the tree is fit on an empty index set.
+        let params = XGRegressorParameters::default()
+            .with_n_estimators(5)
+            .with_max_depth(3)
+            .with_subsample(0.3);
+
+        let model = XGRegressor::fit(&x, &y, params);
+        assert!(model.is_ok(), "Fit failed: {:?}", model.err());
+
+        let predictions: Vec<f64> = model.unwrap().predict(&x).unwrap();
+        assert_eq!(predictions.len(), 3);
+        assert!(predictions.iter().all(|p| p.is_finite()));
+    }
+
+    /// A single-row dataset with any `subsample` < 1.0 also truncates to zero rows.
+    #[test]
+    fn test_subsample_on_single_row_does_not_panic() {
+        let x_vec = vec![vec![1.0, 1.0]];
+        let x = DenseMatrix::from_2d_vec(&x_vec).unwrap();
+        let y = vec![5.0];
+
+        let params = XGRegressorParameters::default()
+            .with_n_estimators(5)
+            .with_max_depth(3)
+            .with_subsample(0.9);
+
+        let model = XGRegressor::fit(&x, &y, params);
+        assert!(model.is_ok(), "Fit failed: {:?}", model.err());
+
+        let predictions: Vec<f64> = model.unwrap().predict(&x).unwrap();
+        assert_eq!(predictions.len(), 1);
+        assert!(predictions[0].is_finite());
+        // Defaults are base_score 0.5 and learning_rate 0.3. Five boosted steps move
+        // the prediction towards the target 5.0, but do not reach it.
+        assert!(predictions[0] > 0.5 && predictions[0] < 5.0);
+    }
+
+    #[test]
+    fn test_fit_on_empty_data_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0, 1.0], vec![2.0, 1.0]]).unwrap();
+        let empty = full.take(&[] as &[usize], 0);
+        assert_eq!(empty.shape(), (0, 2));
+
+        let y: Vec<f64> = vec![];
+        let model = XGRegressor::fit(&empty, &y, XGRegressorParameters::default());
+        assert!(model.is_err());
+        assert_eq!(model.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0, 1.0], vec![2.0, 1.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y = vec![1.0, 2.0];
+        let model = XGRegressor::fit(&no_features, &y, XGRegressorParameters::default());
+        assert!(model.is_err());
+        assert_eq!(model.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn test_sample_without_replacement_clamps_to_one_row() {
+        // (population, ratio): each pair gives `floor(population * ratio) == 0`.
+        let cases = [(3, 0.3), (2, 0.4), (1, 0.9), (10, 0.05), (5, 1e-12)];
+
+        for (population, ratio) in cases {
+            let mut rng = get_rng_impl(Some(42));
+            let sample =
+                XGRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::sample_without_replacement(
+                    population, ratio, &mut rng,
+                );
+
+            assert_eq!(
+                sample.len(),
+                1,
+                "population {population} at ratio {ratio} gave {sample:?}"
+            );
+            assert!(sample[0] < population);
+        }
+    }
+
+    /// Regression guard: the clamp must not change a sample size that is already one or more.
+    /// A ratio of 0.8 must still take 80% of the rows, not all of them.
+    #[test]
+    fn test_sample_without_replacement_keeps_the_ratio_above_one_row() {
+        // (population, ratio, expected sample size)
+        let cases = [(2, 0.5, 1), (2, 1.0, 2), (10, 0.8, 8), (100, 0.8, 80)];
+
+        for (population, ratio, expected) in cases {
+            let mut rng = get_rng_impl(Some(42));
+            let mut sample =
+                XGRegressor::<f64, f64, DenseMatrix<f64>, Vec<f64>>::sample_without_replacement(
+                    population, ratio, &mut rng,
+                );
+
+            assert_eq!(
+                sample.len(),
+                expected,
+                "population {population} at ratio {ratio} gave {sample:?}"
+            );
+            assert!(sample.iter().all(|&i| i < population));
+
+            // The indices must stay unique, i.e. the sample is without replacement.
+            sample.sort_unstable();
+            sample.dedup();
+            assert_eq!(sample.len(), expected);
+        }
+    }
+
     /// A "smoke test" to ensure the main XGRegressor can fit and predict on multidimensional data.
     #[test]
     fn test_xgregressor_fit_predict_multidimensional() {
@@ -796,5 +939,19 @@ mod tests {
 
         let predictions = predict_result.unwrap();
         assert_eq!(predictions.len(), 4);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let tree: XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> = XGRegressor::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = tree.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

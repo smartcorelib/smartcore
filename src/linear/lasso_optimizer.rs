@@ -16,6 +16,9 @@ use crate::linalg::basic::arrays::{Array1, Array2, ArrayView1, MutArray, MutArra
 use crate::linear::bg_solver::BiconjugateGradientSolver;
 use crate::numbers::floatnum::FloatNumber;
 
+#[cfg(feature = "lazy-normalization")]
+use crate::linear::lazy_normalization::LazyDesign;
+
 /// Interior Point Optimizer
 pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
     ata: X,
@@ -28,13 +31,44 @@ pub struct InteriorPointOptimizer<T: FloatNumber, X: Array2<T>> {
 impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
     /// Initialize a new Interior Point Optimizer
     pub fn new(a: &X, n: usize) -> InteriorPointOptimizer<T, X> {
+        Self::from_gram(a.ab(true, a, false), n)
+    }
+
+    fn from_gram(ata: X, n: usize) -> Self {
         InteriorPointOptimizer {
-            ata: a.ab(true, a, false),
+            ata,
             d1: vec![T::zero(); n],
             d2: vec![T::zero(); n],
             prb: vec![T::zero(); n],
             prs: vec![T::zero(); n],
         }
+    }
+
+    #[cfg(feature = "lazy-normalization")]
+    pub(super) fn new_lazy(design: &LazyDesign<'_, T, X>) -> Self {
+        Self::from_gram(design.gram(), design.shape().1)
+    }
+
+    #[cfg(feature = "lazy-normalization")]
+    pub(super) fn optimize_lazy(
+        &mut self,
+        design: &LazyDesign<'_, T, X>,
+        y: &Vec<T>,
+        lambda: T,
+        max_iter: usize,
+        tol: T,
+        fit_intercept: bool,
+    ) -> Result<Vec<T>, Failed> {
+        self.optimize_with_products(
+            design.shape(),
+            y,
+            lambda,
+            max_iter,
+            tol,
+            fit_intercept,
+            |v| design.matvec(v),
+            |v| design.transpose_matvec(v),
+        )
     }
 
     /// Run the optimization
@@ -47,7 +81,34 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         tol: T,
         fit_intercept: bool,
     ) -> Result<Vec<T>, Failed> {
-        let (n, p) = x.shape();
+        self.optimize_with_products(
+            x.shape(),
+            y,
+            lambda,
+            max_iter,
+            tol,
+            fit_intercept,
+            |v| v.xa(true, x),
+            |v| v.xa(false, x),
+        )
+    }
+
+    fn optimize_with_products<F, G>(
+        &mut self,
+        shape: (usize, usize),
+        y: &Vec<T>,
+        lambda: T,
+        max_iter: usize,
+        tol: T,
+        fit_intercept: bool,
+        matvec: F,
+        transpose_matvec: G,
+    ) -> Result<Vec<T>, Failed>
+    where
+        F: Fn(&Vec<T>) -> Vec<T>,
+        G: Fn(&Vec<T>) -> Vec<T>,
+    {
+        let (n, p) = shape;
         let p_f64 = T::from_usize(p).unwrap();
 
         let lambda = lambda.max(T::epsilon());
@@ -96,7 +157,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
         let lambda_f64 = lambda.to_f64().unwrap();
 
         for ntiter in 0..max_iter {
-            let mut z = w.xa(true, x);
+            let mut z = matvec(&w);
 
             for i in 0..n {
                 z[i] -= y[i];
@@ -104,7 +165,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
             }
 
             // CALCULATE DUALITY GAP
-            let xnu = nu.xa(false, x);
+            let xnu = transpose_matvec(&nu);
             let max_xnu = xnu.norm(f64::INFINITY);
             if max_xnu > lambda_f64 {
                 let lnu = T::from_f64(lambda_f64 / max_xnu).unwrap();
@@ -136,7 +197,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                 self.d2[i] = (q1i * q1i - q2i * q2i) / t;
             }
 
-            let mut gradphi = z.xa(false, x);
+            let mut gradphi = transpose_matvec(&z);
 
             for i in 0..p {
                 let g1 = T::two() * gradphi[i] - (q1[i] - q2[i]) / t;
@@ -157,7 +218,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                 pcgtol *= min_pcgtol;
             }
 
-            let error = self.solve_mut(x, &grad, &mut dxu, pcgtol, pcgmaxi)?;
+            let error = self.solve_mut(&self.ata, &grad, &mut dxu, pcgtol, pcgmaxi)?;
             if error > pcgtol {
                 pitr = pcgmaxi;
             }
@@ -184,7 +245,7 @@ impl<T: FloatNumber, X: Array2<T>> InteriorPointOptimizer<T, X> {
                     .fold(T::neg_infinity(), |max, v| v.max(max))
                     < T::zero()
                 {
-                    let mut newz = neww.xa(true, x);
+                    let mut newz = matvec(&neww);
                     for i in 0..n {
                         newz[i] -= y[i];
                     }
@@ -248,5 +309,53 @@ impl<'a, T: FloatNumber, X: Array2<T>> BiconjugateGradientSolver<'a, T, X>
 
     fn mat_t_vec_mul(&self, a: &X, x: &Vec<T>, y: &mut Vec<T>) {
         self.mat_vec_mul(a, x, y);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::basic::arrays::Array;
+    use crate::linalg::basic::matrix::DenseMatrix;
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn new_builds_ata_with_correct_shape() {
+        // a is 4x2 -> ata = a^T a is 2x2
+        let a = DenseMatrix::from_2d_array(&[&[1., 2.], &[3., 4.], &[5., 6.], &[7., 8.]]).unwrap();
+        let opt: InteriorPointOptimizer<f64, DenseMatrix<f64>> = InteriorPointOptimizer::new(&a, 2);
+        assert_eq!(opt.ata.shape(), (2, 2));
+        // ata[0][0] = sum of column 0 squared = 1+9+25+49 = 84
+        assert!((opt.ata.get((0, 0)) - 84.0).abs() < 1e-10);
+        // ata[1][1] = sum of column 1 squared = 4+16+36+64 = 120
+        assert!((opt.ata.get((1, 1)) - 120.0).abs() < 1e-10);
+        // internal scratch vectors sized to p=2
+        assert_eq!(opt.d1.len(), 2);
+        assert_eq!(opt.d2.len(), 2);
+        assert_eq!(opt.prb.len(), 2);
+        assert_eq!(opt.prs.len(), 2);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn optimize_with_zero_lambda_recovers_least_squares() {
+        // y = 2*x0 + 3*x1 (exact, no noise). With lambda -> 0 (clamped to epsilon
+        // internally) the l1-regularized LS solution should approach [2, 3].
+        let x = DenseMatrix::from_2d_array(&[&[1., 0.], &[0., 1.], &[1., 1.], &[2., 1.]]).unwrap();
+        let y = vec![2.0, 3.0, 5.0, 7.0];
+
+        let mut opt: InteriorPointOptimizer<f64, DenseMatrix<f64>> =
+            InteriorPointOptimizer::new(&x, 2);
+        let w = opt.optimize(&x, &y, 1e-10, 100, 1e-8, false).unwrap();
+
+        assert_eq!(w.len(), 2);
+        assert!((w[0] - 2.0).abs() < 1e-3, "w[0]={} expected ~2.0", w[0]);
+        assert!((w[1] - 3.0).abs() < 1e-3, "w[1]={} expected ~3.0", w[1]);
     }
 }

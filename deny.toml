@@ -1,0 +1,29 @@
+# Configuration for cargo-deny.
+# Documentation: https://embarkstudios.github.io/cargo-deny/
+#
+# Run locally with: cargo deny --all-features check
+
+[graph]
+all-features = true
+
+[advisories]
+# Fail if a dependency is yanked. A yanked version can have a known defect.
+yanked = "deny"
+
+[licenses]
+# Licenses that dependencies can use. `smartcore` is Apache-2.0.
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+]
+
+[bans]
+# Different versions of one crate are common in the tree. Show them, do not fail.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

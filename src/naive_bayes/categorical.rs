@@ -120,14 +120,18 @@ impl<T: Number + Unsigned> NBDistribution<T, T> for CategoricalNBDistribution<T>
     fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<T> + 'a>) -> f64 {
         if class_index < self.class_labels.len() {
             let mut likelihood = 0f64;
-            for feature in 0..j.shape() {
+            let n_features = j.shape();
+            for (feature, coefficients) in self.coefficients.iter().take(n_features).enumerate() {
                 let value = j.get(feature).to_usize().unwrap();
-                if self.coefficients[feature][class_index].len() > value {
-                    likelihood += self.coefficients[feature][class_index][value];
+                let coefficients = &coefficients[class_index];
+                if coefficients.len() > value {
+                    likelihood += coefficients[value];
                 } else {
                     return 0f64;
                 }
             }
+            // Keep the bounds check after the early return for an unseen category.
+            assert!(n_features <= self.coefficients.len());
             likelihood
         } else {
             0f64
@@ -258,6 +262,7 @@ impl<T: Number + Unsigned> CategoricalNBDistribution<T> {
 /// `CategoricalNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct CategoricalNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -281,6 +286,7 @@ impl Default for CategoricalNBParameters {
 /// CategoricalNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct CategoricalNBSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -378,27 +384,36 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.as_ref().unwrap().predict(x)
+        match &self.inner {
+            Some(inner) => inner.predict(x),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn classes(&self) -> &Vec<T> {
         &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Number of features of each sample
+    #[must_use]
     pub fn n_features(&self) -> usize {
         self.inner.as_ref().unwrap().distribution.n_features
     }
 
     /// Number of features of each sample
+    #[must_use]
     pub fn n_categories(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.n_categories
     }
@@ -406,12 +421,14 @@ impl<T: Number + Unsigned, X: Array2<T>, Y: Array1<T>> CategoricalNB<T, X, Y> {
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the number of samples
     /// encountered for each class and category of the specific feature.
+    #[must_use]
     pub fn category_count(&self) -> &Vec<Vec<Vec<usize>>> {
         &self.inner.as_ref().unwrap().distribution.category_count
     }
     /// Holds arrays of shape (n_classes, n_categories of respective feature)
     /// for each feature. Each array provides the empirical log probability
     /// of categories given the respective feature and class, ``P(x_i|y)``.
+    #[must_use]
     pub fn feature_log_prob(&self) -> &Vec<Vec<Vec<f64>>> {
         &self.inner.as_ref().unwrap().distribution.coefficients
     }
@@ -584,5 +601,23 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&cnb).unwrap()).unwrap();
 
         assert_eq!(cnb, deserialized_cnb);
+
+        let bytes = postcard::to_allocvec(&cnb).unwrap();
+        let deserialized_cnb = postcard::from_bytes(&bytes).unwrap();
+        assert_eq!(cnb, deserialized_cnb);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let cnb: CategoricalNB<u32, DenseMatrix<u32>, Vec<u32>> = CategoricalNB::new();
+        let x = DenseMatrix::from_2d_array(&[&[1u32]]).expect("Construction of x should work");
+        let yhat = cnb.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

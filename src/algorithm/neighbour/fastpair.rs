@@ -29,8 +29,8 @@ use num::Bounded;
 
 use crate::error::{Failed, FailedError};
 use crate::linalg::basic::arrays::{Array1, Array2};
-use crate::metrics::distance::euclidian::Euclidian;
 use crate::metrics::distance::PairwiseDistance;
+use crate::metrics::distance::euclidian::Euclidian;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
 
@@ -146,7 +146,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
         // compute sparse matrix (connectivity matrix)
         let mut sparse_matrix = M::zeros(len, len);
-        for (_, p) in distances.iter() {
+        for p in distances.values() {
             sparse_matrix.set((p.node, p.neighbour.unwrap()), p.distance.unwrap());
         }
 
@@ -156,6 +156,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
 
     /// Find closest pair by scanning list of nearest neighbors.
     #[allow(dead_code)]
+    #[must_use]
     pub fn closest_pair(&self) -> PairwiseDistance<T> {
         let mut a = self.neighbours[0]; // Start with first point
         let mut d = self.distances[&a].distance;
@@ -177,6 +178,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     /// Return order dissimilarities from closest to furthest
     ///
     #[allow(dead_code)]
+    #[must_use]
     pub fn ordered_pairs(&self) -> std::vec::IntoIter<&PairwiseDistance<T>> {
         // improvement: implement this to return `impl Iterator<Item = &PairwiseDistance<T>>`
         // need to implement trait `Iterator` for `Vec<&PairwiseDistance<T>>`
@@ -192,7 +194,7 @@ impl<'a, T: RealNumber + FloatNumber, M: Array2<T>> FastPair<'a, T, M> {
     // Compute distances from input to all other points in data-structure.
     // input is the row index of the sample matrix
     //
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn distances_from(&self, index_row: usize) -> Vec<PairwiseDistance<T>> {
         let mut distances = Vec::<PairwiseDistance<T>>::with_capacity(self.samples.shape().0);
         for other in self.neighbours.iter() {

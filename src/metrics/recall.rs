@@ -19,17 +19,30 @@
 //! let score: f64 = Recall::new().get_score( &y_true, &y_pred);
 //! ```
 //!
+//! Integer labels work too, so these metrics pair with classifiers like
+//! `RandomForestClassifier`, whose `fit` takes ordered integer labels:
+//!
+//! ```
+//! use smartcore::metrics::recall::Recall;
+//! use smartcore::metrics::Metrics;
+//! let y_pred: Vec<u16> = vec![0, 1, 1, 0];
+//! let y_true: Vec<u16> = vec![0, 0, 1, 1];
+//!
+//! let score: f64 = Recall::new().get_score(&y_true, &y_pred);
+//! ```
+//!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::linalg::basic::arrays::ArrayView1;
-use crate::numbers::realnum::RealNumber;
+use crate::metrics::confusion::{ConfusionCounts, label_bits};
+use crate::numbers::basenum::Number;
 
 use crate::metrics::Metrics;
 
@@ -40,7 +53,37 @@ pub struct Recall<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: RealNumber> Metrics<T> for Recall<T> {
+impl<T: Number> Recall<T> {
+    /// Per-class recall scores derived from shared confusion counts.
+    ///
+    /// Returns a map from label bit pattern to that class's recall
+    /// (`tp / support`, or `0.0` when the class has no support).
+    ///
+    /// Iterates only over `counts.classes_set()` (labels seen in `y_true`).
+    /// A label that appears in `y_pred` but never in `y_true` has no support
+    /// and no true positives, so it is silently ignored — it does not
+    /// inflate or deflate any class's recall. This matches sklearn's
+    /// behaviour, where the label set is derived from `y_true`.
+    pub(crate) fn per_class_scores_from_counts(
+        &self,
+        counts: &ConfusionCounts,
+    ) -> HashMap<u64, f64> {
+        let mut scores: HashMap<u64, f64> = HashMap::new();
+        for &bits in counts.classes_set() {
+            let support_count = counts.support(bits);
+            let tp = counts.tp(bits);
+            let rec = if support_count > 0 {
+                tp as f64 / support_count as f64
+            } else {
+                0.0
+            };
+            scores.insert(bits, rec);
+        }
+        scores
+    }
+}
+
+impl<T: Number> Metrics<T> for Recall<T> {
     /// create a typed object to call Recall functions
     fn new() -> Self {
         Self {
@@ -63,57 +106,30 @@ impl<T: RealNumber> Metrics<T> for Recall<T> {
                 y_pred.shape()
             );
         }
-
         let n = y_true.shape();
-
-        let mut classes_set = HashSet::new();
-        for i in 0..n {
-            classes_set.insert(y_true.get(i).to_f64_bits());
+        // Empty input has no classes; return 0.0 (the multiclass path below
+        // relies on classes >= 1 to divide by `classes`).
+        if n == 0 {
+            return 0.0;
         }
-        let classes: usize = classes_set.len();
+
+        let counts = ConfusionCounts::new(y_true, y_pred);
+        let classes = counts.classes_set().len();
+        let scores = self.per_class_scores_from_counts(&counts);
 
         if classes == 2 {
-            // Binary case: recall for positive class (assumed T::one())
-            let positive = T::one();
-            let mut tp: usize = 0;
-            let mut fn_count: usize = 0;
-            for i in 0..n {
-                let t = *y_true.get(i);
-                let p = *y_pred.get(i);
-                if p == t {
-                    if t == positive {
-                        tp += 1;
-                    }
-                } else if t == positive {
-                    fn_count += 1;
-                }
-            }
-            if tp + fn_count == 0 {
-                0.0
-            } else {
-                tp as f64 / (tp + fn_count) as f64
-            }
+            // Binary case: recall for the positive class, assumed to be
+            // T::one() (i.e. 1.0 when labels are 0.0/1.0). If the positive
+            // label is not present in y_true the score is 0.0.
+            let positive_bits = label_bits(T::one());
+            *scores.get(&positive_bits).unwrap_or(&0.0)
         } else {
-            // Multiclass case: macro-averaged recall
-            let mut support: HashMap<u64, usize> = HashMap::new();
-            let mut tp_map: HashMap<u64, usize> = HashMap::new();
-            for i in 0..n {
-                let t_bits = y_true.get(i).to_f64_bits();
-                *support.entry(t_bits).or_insert(0) += 1;
-                if *y_true.get(i) == *y_pred.get(i) {
-                    *tp_map.entry(t_bits).or_insert(0) += 1;
-                }
-            }
-            let mut recall_sum = 0.0;
-            for (&bits, &sup) in &support {
-                let tp = *tp_map.get(&bits).unwrap_or(&0);
-                recall_sum += tp as f64 / sup as f64;
-            }
-            if support.is_empty() {
-                0.0
-            } else {
-                recall_sum / support.len() as f64
-            }
+            // Multiclass case: macro-averaged recall. classes >= 1 is
+            // guaranteed here because of the `n == 0` guard above. The sum
+            // over `HashMap::values()` is order-independent (floating-point
+            // addition of non-negative finite values is commutative and
+            // associative for the magnitudes involved here).
+            scores.values().sum::<f64>() / classes as f64
         }
     }
 }
@@ -172,5 +188,28 @@ mod tests {
         let score: f64 = Recall::new().get_score(&y_true, &y_pred);
         let expected = (0.5 + 1.0 + (2.0 / 3.0)) / 3.0;
         assert!((score - expected).abs() < 1e-8);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn recall_integer_labels() {
+        // Binary case with ordered integer labels (#322).
+        let y_true: Vec<i32> = vec![0, 1, 1, 0];
+        let y_pred: Vec<i32> = vec![0, 0, 1, 1];
+        let score: f64 = Recall::new().get_score(&y_true, &y_pred);
+        assert!((score - 0.5).abs() < 1e-8);
+
+        // Multiclass macro-average with u16 labels.
+        let y_true: Vec<u16> = vec![0, 0, 0, 1, 1, 1, 2, 2, 2];
+        let y_pred: Vec<u16> = vec![0, 1, 2, 0, 1, 2, 0, 1, 2];
+        let score: f64 = Recall::new().get_score(&y_true, &y_pred);
+        assert!((score - 0.333333333).abs() < 1e-8);
+
+        // Perfect predictions score 1.0.
+        let score: f64 = Recall::new().get_score(&y_true, &y_true);
+        assert!((score - 1.0).abs() < 1e-8);
     }
 }

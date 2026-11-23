@@ -1,11 +1,10 @@
-#![allow(
+#![expect(
     clippy::type_complexity,
     clippy::too_many_arguments,
     clippy::many_single_char_names,
-    clippy::unnecessary_wraps,
-    clippy::upper_case_acronyms,
-    clippy::approx_constant
+    clippy::unnecessary_wraps
 )]
+#![allow(clippy::upper_case_acronyms, clippy::approx_constant)]
 #![warn(missing_docs)]
 
 //! # smartcore
@@ -27,10 +26,10 @@
 //! smartcore = "*"
 //! ```
 //!
-//! To start using smartcore development version with latest unstable additions:
+//! To start using smartcore latest additions from the `main` branch:
 //! ```ignore
 //! [dependencies]
-//! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "development" }
+//! smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "main" }
 //! ```
 //!
 //! There are different features that can be added to the base library, for example to add sample datasets:
@@ -39,6 +38,11 @@
 //! smartcore = { git = "https://github.com/smartcorelib/smartcore", features = ["datasets"] }
 //! ```
 //! Check `smartcore`'s `Cargo.toml` for available features.
+//!
+//! **Breaking change in 0.7**: the `datasets` feature no longer enables `std_rand`. The
+//! generators `make_blobs`, `make_circles` and `make_moons` then use a fixed seed and
+//! return the same output on each call. Enable `std_rand` together with `datasets` to
+//! seed the generators from OS entropy, as in 0.6.
 //!
 //! ## Using Jupyter
 //! For quick introduction, Jupyter Notebooks are available [here](https://github.com/smartcorelib/smartcore-jupyter/tree/main/notebooks).

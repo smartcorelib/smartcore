@@ -6,7 +6,8 @@
 //! reduce the variance of the model and often make the training process faster.
 //!
 //! The two key differences from a standard Random Forest are:
-//! 1. It uses the whole original dataset to build each tree instead of bootstrap samples.
+//! 1. By default, it uses the whole original dataset to build each tree instead of bootstrap samples.
+//!    Set `bootstrap` to `true` to use bootstrap samples. OOB prediction needs bootstrap samples.
 //! 2. When splitting a node, it chooses a random split point for each feature, rather than the most optimal one.
 //!
 //! See [ensemble models](../index.html) for more details.
@@ -59,17 +60,22 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
-use crate::ensemble::base_forest_regressor::{BaseForestRegressor, BaseForestRegressorParameters};
+use crate::ensemble::base_forest::{
+    BaseForest, BaseForestParameters, predict_mean, predict_mean_oob,
+};
+use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
 use crate::linalg::basic::arrays::{Array1, Array2};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
-use crate::tree::base_tree_regressor::Splitter;
+use crate::tree::base_tree::{Splitter, validate_sample_weights};
+use crate::tree::criterion::MSECriterion;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// Parameters of the Extra Trees Regressor
 /// Some parameters here are passed directly into base estimator.
+#[must_use]
 pub struct ExtraTreesRegressorParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Tree max depth. See [Decision Tree Regressor](../../tree/decision_tree_regressor/index.html)
@@ -84,14 +90,19 @@ pub struct ExtraTreesRegressorParameters {
     /// The number of trees in the forest.
     pub n_trees: usize,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Number of random sample of predictors to use as split candidates.
-    pub m: Option<usize>,
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: bool,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    /// Set `bootstrap` to `true` too, otherwise `fit` returns an error.
+    pub oob_score: bool,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Seed used for bootstrap sampling and feature selection for each tree.
-    pub seed: u64,
+    /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
+    pub seed: Option<u64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Whether to use bootstrap samples to build trees. If `false`, each tree uses the whole dataset.
+    /// This is required for OOB prediction.
+    pub bootstrap: bool,
 }
 
 /// Extra Trees Regressor
@@ -103,7 +114,7 @@ pub struct ExtraTreesRegressor<
     X: Array2<TX>,
     Y: Array1<TY>,
 > {
-    forest_regressor: Option<BaseForestRegressor<TX, TY, X, Y>>,
+    forest_regressor: Option<BaseForest<TX, TY, X, Y, f64>>,
 }
 
 impl ExtraTreesRegressorParameters {
@@ -127,21 +138,29 @@ impl ExtraTreesRegressorParameters {
         self.n_trees = n_trees;
         self
     }
-    /// Number of random sample of predictors to use as split candidates.
-    pub fn with_m(mut self, m: usize) -> Self {
-        self.m = Some(m);
+    /// Number of features to test at each split. See [`MaxFeatures`].
+    pub fn with_m(mut self, m: impl Into<MaxFeatures>) -> Self {
+        self.m = m.into();
         self
     }
 
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub fn with_keep_samples(mut self, keep_samples: bool) -> Self {
-        self.keep_samples = keep_samples;
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    /// Set `bootstrap` to `true` too, otherwise `fit` returns an error.
+    pub fn with_oob_score(mut self, oob_score: bool) -> Self {
+        self.oob_score = oob_score;
         self
     }
 
-    /// Seed used for bootstrap sampling and feature selection for each tree.
+    /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
+        self.seed = Some(seed);
+        self
+    }
+
+    /// Whether to use bootstrap samples to build trees. If `false`, each tree uses the whole dataset.
+    /// This is required for OOB prediction.
+    pub fn with_bootstrap(mut self, bootstrap: bool) -> Self {
+        self.bootstrap = bootstrap;
         self
     }
 }
@@ -152,9 +171,10 @@ impl Default for ExtraTreesRegressorParameters {
             min_samples_leaf: 1,
             min_samples_split: 2,
             n_trees: 10,
-            m: Option::None,
-            keep_samples: false,
-            seed: 0,
+            m: MaxFeatures::Sqrt,
+            oob_score: false,
+            seed: Option::None,
+            bootstrap: false,
         }
     }
 }
@@ -192,41 +212,114 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         y: &Y,
         parameters: ExtraTreesRegressorParameters,
     ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
-        let regressor_params = BaseForestRegressorParameters {
+        Self::fit_inner(x, y, None, parameters)
+    }
+
+    /// Build a forest of trees from the training set.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - the target class values
+    /// * `sample_weights`: sample_weights to use during fitting
+    pub fn fit_with_weights(
+        x: &X,
+        y: &Y,
+        sample_weights: &[f64],
+        parameters: ExtraTreesRegressorParameters,
+    ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
+        validate_sample_weights(sample_weights, x.shape().0)?;
+        Self::fit_inner(x, y, Some(sample_weights), parameters)
+    }
+
+    fn fit_inner(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        parameters: ExtraTreesRegressorParameters,
+    ) -> Result<ExtraTreesRegressor<TX, TY, X, Y>, Failed> {
+        let regressor_params = BaseForestParameters {
             max_depth: parameters.max_depth,
             min_samples_leaf: parameters.min_samples_leaf,
             min_samples_split: parameters.min_samples_split,
             n_trees: parameters.n_trees,
             m: parameters.m,
-            keep_samples: parameters.keep_samples,
+            oob_score: parameters.oob_score,
             seed: parameters.seed,
-            bootstrap: false,
+            bootstrap: parameters.bootstrap,
             splitter: Splitter::Random,
         };
-        let forest_regressor = BaseForestRegressor::fit(x, y, regressor_params)?;
+        let forest_regressor =
+            BaseForest::fit(x, y, sample_weights, &MSECriterion, regressor_params)?;
 
         Ok(ExtraTreesRegressor {
             forest_regressor: Some(forest_regressor),
         })
     }
 
-    /// Predict class for `x`
+    /// Predict values for `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let forest_regressor = self.forest_regressor.as_ref().unwrap();
-        forest_regressor.predict(x)
+        match &self.forest_regressor {
+            Some(forest) => predict_mean(forest, x),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
-        let forest_regressor = self.forest_regressor.as_ref().unwrap();
-        forest_regressor.predict_oob(x)
+    /// Predict the value of each training row with only the trees for which the row is
+    /// out-of-bag (OOB). The prediction is the mean of the predictions of these trees.
+    /// The result has one value for each row of the training data, in the same order.
+    /// A row that is in the bootstrap sample of all trees gets `None`.
+    ///
+    /// The mean is computed in `f64` and then converted to `TY` with `TY::from_f64`.
+    /// For an integer `TY`, the conversion truncates toward zero. A row also gets `None`
+    /// if the mean cannot be converted to `TY`, for example when it is out of range.
+    ///
+    /// The forest must be fitted with `bootstrap` and `oob_score` set to `true`.
+    /// If `oob_score` is `false`, this returns an error.
+    pub fn predict_oob(&self) -> Result<Vec<Option<TY>>, Failed> {
+        match &self.forest_regressor {
+            Some(forest) => predict_mean_oob(forest),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
+    }
+
+    /// Compute the feature importances for this forest.
+    /// * returns: a vector where index `j` gives the feature importances for feature `j`
+    ///
+    /// ```
+    /// use smartcore::ensemble::extra_trees_regressor::*;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// // Column 1 is constant, so it cannot split the data.
+    /// let rows: Vec<Vec<f64>> = (0..20).map(|i| vec![i as f64, 7.0]).collect();
+    /// let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+    /// let y: Vec<f64> = (0..20).map(|i| (i * i) as f64).collect();
+    ///
+    /// let parameters = ExtraTreesRegressorParameters::default()
+    ///     .with_n_trees(10)
+    ///     .with_seed(42);
+    /// let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+    ///
+    /// // All splits use column 0, so it gets all the importance.
+    /// // The importances of a forest are normalized: they add up to 1.
+    /// assert_eq!(forest.compute_feature_importances().unwrap(), vec![1.0, 0.0]);
+    /// ```
+    pub fn compute_feature_importances(&self) -> Result<Vec<f64>, Failed> {
+        match &self.forest_regressor {
+            Some(forest) => forest.compute_feature_importances(),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'compute_feature_importances'",
+            )),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::FailedError;
     use crate::linalg::basic::matrix::DenseMatrix;
     use crate::metrics::mean_squared_error;
 
@@ -259,6 +352,41 @@ mod tests {
         let mse = mean_squared_error(&y, &y_hat);
         // With this simple dataset, the error should be very low.
         assert!(mse < 1.0);
+    }
+
+    #[test]
+    fn fit_with_weights_validates_weights() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..6).map(|i| i as f64), 3, 2, 0);
+        let y = vec![1.0_f64, 2.0, 3.0];
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(5)
+            .with_seed(42);
+
+        // Valid weights: a zero weight is permitted when the sum is positive
+        for weights in [vec![1.0, 2.0, 3.0], vec![0.0, 0.0, 0.5]] {
+            assert!(
+                ExtraTreesRegressor::fit_with_weights(&x, &y, &weights, parameters.clone()).is_ok(),
+                "weights: {weights:?}"
+            );
+        }
+
+        let wrong_length = "Number of sample weights must equal number of rows in x";
+        let not_finite_or_negative = "Sample weights must be finite and non-negative";
+        let zero_sum = "Sum of sample weights must be positive";
+        let cases: Vec<(Vec<f64>, &str)> = vec![
+            (vec![], wrong_length),
+            (vec![1.0, 2.0], wrong_length),
+            (vec![1.0, 2.0, 3.0, 4.0], wrong_length),
+            (vec![1.0, -1.0, 3.0], not_finite_or_negative),
+            (vec![1.0, f64::NAN, 3.0], not_finite_or_negative),
+            (vec![1.0, f64::INFINITY, 3.0], not_finite_or_negative),
+            (vec![0.0, 0.0, 0.0], zero_sum),
+        ];
+        for (weights, msg) in cases {
+            let result =
+                ExtraTreesRegressor::fit_with_weights(&x, &y, &weights, parameters.clone());
+            assert_eq!(result.err(), Some(Failed::fit(msg)), "weights: {weights:?}");
+        }
     }
 
     #[test]
@@ -314,5 +442,664 @@ mod tests {
         let y_hat2 = regressor2.predict(&x).unwrap();
 
         assert_eq!(y_hat1, y_hat2);
+    }
+
+    #[test]
+    fn fit_with_weights_predicts_approx_weighted_mean() {
+        // 20 rows, 1 feature. Stumps (max_depth = 0): each tree predicts the
+        // weighted mean of y over its bootstrap sample (which is also weighted)
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| if i < 10 { 0.0 } else { 10.0 }).collect();
+        // Rows with y = 10 have weight 9, rows with y = 0 have weight 1.
+        let sample_weights: Vec<f64> = (0..20).map(|i| if i < 10 { 1.0 } else { 9.0 }).collect();
+
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_max_depth(0)
+            .with_n_trees(50)
+            .with_seed(42);
+
+        let forest =
+            ExtraTreesRegressor::fit_with_weights(&x, &y, &sample_weights, parameters.clone())
+                .expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        // weighted mean is (10.0 * 0 + 90*10) / 100 = 9
+        for p in y_hat.iter() {
+            assert!(
+                (p - 9.0f64).abs() < 1e-9,
+                "expected value very close to 9, got {p}"
+            );
+        }
+
+        // Without weights, the predicted value should be close to 5
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        let y_hat = forest.predict(&x).expect("Predict should work");
+
+        for p in y_hat.iter() {
+            assert!(
+                (p - 5.0).abs() < 1e-9,
+                "expected value very close to 5, got {p}"
+            );
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let forest: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            ExtraTreesRegressor::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = forest.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_without_fit_should_not_panic() {
+        let forest: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            ExtraTreesRegressor::new();
+        let yhat = forest.predict_oob();
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_with_oob_score_needs_bootstrap() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(10)
+            .with_oob_score(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters.clone());
+        assert!(forest.is_err());
+        assert_eq!(forest.err().unwrap().error(), FailedError::ParametersError);
+
+        // With bootstrap, each row is out-of-bag for some trees.
+        let parameters = parameters.with_n_trees(50).with_bootstrap(true);
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        let y_oob = forest.predict_oob().unwrap();
+        assert_eq!(y_oob.len(), y.len());
+        assert!(y_oob.iter().flatten().all(|v| v.is_finite()), "{y_oob:?}");
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_row_without_oob_trees_gives_none() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<i32> = (0..20).collect();
+        // With one tree, the rows in its bootstrap sample have no OOB trees.
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(1)
+            .with_oob_score(true)
+            .with_bootstrap(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        let yhat_oob = forest.predict_oob().unwrap();
+        let counts = forest
+            .forest_regressor
+            .as_ref()
+            .unwrap()
+            .oob_counts()
+            .unwrap();
+        assert_eq!(yhat_oob.len(), 20);
+        // The bootstrap sample must have rows in the bag and rows out of the bag.
+        assert!(counts.contains(&0) && counts.contains(&1));
+        for (i, (yv, &c)) in yhat_oob.iter().zip(counts).enumerate() {
+            assert_eq!(yv.is_some(), c == 1, "row {i}: {yv:?}, OOB count {c}");
+        }
+    }
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_with_integer_target_and_oob_score_without_bootstrap_should_fail() {
+        // #520: before the fix, `predict_oob` panicked here with a division by zero.
+        // Now `fit` rejects `oob_score = true` without bootstrap.
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<i32> = (0..20).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(10)
+            .with_oob_score(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters);
+        assert!(forest.is_err());
+        assert_eq!(forest.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_oob_without_oob_score_should_fail() {
+        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
+        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(10)
+            .with_bootstrap(true)
+            .with_seed(42);
+
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        let msg = "oob_score was not set";
+        assert_eq!(forest.predict_oob().err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_without_bootstrap_field_uses_default() {
+        // Parameters serialized before the `bootstrap` field was added.
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":"Sqrt","n_trees":10,"keep_samples":true,"seed":42}"#;
+        let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+        assert!(!parameters.bootstrap);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_fitted_model_from_before_oob_score_change() {
+        // Before 0.8.0, the fitted regressor stored a `bootstrap` field, and the forest stored
+        // the bootstrap `samples` of each tree instead of `oob_scores`. The tree format did not
+        // change, so this edit of a new JSON gives the JSON shape that 0.7 wrote.
+        // The old `samples` cannot give OOB predictions. The user must fit the model again
+        // with `oob_score = true`.
+        let n_rows = 20;
+        let n_trees = 5;
+        let x: DenseMatrix<f64> =
+            DenseMatrix::from_iterator((0..n_rows).map(|i| i as f64), n_rows, 1, 0);
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(n_trees)
+            .with_bootstrap(true)
+            .with_oob_score(true)
+            .with_seed(42);
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        assert!(forest.predict_oob().is_ok());
+
+        let mut value = serde_json::to_value(&forest).unwrap();
+        let object = value.as_object_mut().unwrap();
+        let forest_object = object
+            .get_mut("forest_regressor")
+            .and_then(|v| v.as_object_mut())
+            .unwrap();
+        assert!(forest_object.remove("oob_scores").is_some());
+        let samples: Vec<Vec<bool>> = (0..n_trees)
+            .map(|t| (0..n_rows).map(|row| (row + t as usize) % 2 == 0).collect())
+            .collect();
+        forest_object.insert("samples".to_string(), serde_json::json!(samples));
+        assert!(!object.contains_key("bootstrap"));
+        object.insert("bootstrap".to_string(), serde_json::Value::Bool(true));
+
+        let restored: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            serde_json::from_value(value).unwrap();
+        assert_eq!(restored.predict(&x).unwrap(), forest.predict(&x).unwrap());
+        let msg = "oob_score was not set";
+        assert_eq!(restored.predict_oob().err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_without_m_field_uses_default() {
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"n_trees":10,"keep_samples":true,"seed":42}"#;
+        let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+        assert_eq!(parameters.m, MaxFeatures::Sqrt);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_with_old_m_format_fails() {
+        // Before 0.8.0, `m` was `Option<usize>`. Serde always wrote it, as `null` or as a number.
+        // `m` is now `MaxFeatures`, so these old values no longer deserialize (see CHANGELOG).
+        let old_formats = [
+            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":null,"n_trees":10,"oob_score":true,"seed":42}"#,
+            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":3,"n_trees":10,"oob_score":true,"seed":42}"#,
+        ];
+        for json in old_formats {
+            let result: Result<ExtraTreesRegressorParameters, _> = serde_json::from_str(json);
+            assert!(result.is_err(), "old format must not deserialize: {json}");
+        }
+
+        // The new format deserializes.
+        let new_formats = [
+            (r#"{"m":"Sqrt"}"#, MaxFeatures::Sqrt),
+            (r#"{"m":"All"}"#, MaxFeatures::All),
+            (r#"{"m":{"Count":3}}"#, MaxFeatures::Count(3)),
+            (r#"{"m":{"Fraction":0.5}}"#, MaxFeatures::Fraction(0.5)),
+        ];
+        for (json, expected) in new_formats {
+            let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+            assert_eq!(parameters.m, expected, "json = {json}");
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_with_old_keep_samples_field_is_ignored() {
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"n_trees":10,"keep_samples":true,"seed":42}"#;
+        let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+        assert!(!parameters.oob_score);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_with_empty_x_should_not_panic() {
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(5)
+            .with_seed(42);
+        // (rows, columns, y): no rows, no columns, or both
+        let cases: Vec<(usize, usize, Vec<f64>)> =
+            vec![(0, 0, vec![]), (0, 3, vec![]), (3, 0, vec![1.0, 2.0, 3.0])];
+        for (nrows, ncols, y) in cases {
+            let x: DenseMatrix<f64> = DenseMatrix::new(nrows, ncols, vec![], false)
+                .expect("Construction of empty x should work");
+            let result = ExtraTreesRegressor::fit(&x, &y, parameters.clone());
+            let expected = Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            );
+            assert_eq!(result.err(), Some(expected), "shape: ({nrows}, {ncols})");
+        }
+    }
+
+    mod sklearn_parity {
+        use super::*;
+        // sklearn parity tests.
+        //
+        // smartcore and numpy use different RNGs.
+        // However, with many trees, both forests converge to the same bagged
+        // predictor. Thus we compare the predictions within a tolerance.
+        //
+        // Reference: sklearn 1.9.1, numpy 2.4.6. Each reference value is the mean of 10 sklearn
+        // runs (random_state = 0..10). The tolerance is approximately 4 x the largest standard
+        // deviation of one sklearn run, for each row.
+        //
+        // ```python
+        // rng = np.random.default_rng(0)
+        // x = np.round(rng.uniform(-1, 1, (40, 4)), 4)
+        // y = np.round(x[:, 0] * x[:, 1] + np.sin(3 * x[:, 2]) + 0.1 * rng.normal(size=40), 4)
+        // x_probe = np.round(rng.uniform(-1, 1, (10, 4)), 4)
+        // for max_features in [1.0, 2]:
+        //   train, probe = [], []
+        //   for seed in range(N_SEEDS):
+        //     rf = ExtraTreesRegressor(
+        //         n_estimators=N_TREES,
+        //         max_features=max_features,
+        //         max_depth=None,
+        //         min_samples_leaf=5, # so that the predictions are not equal to the training values
+        //         min_samples_split=2,
+        //         bootstrap=False,
+        //         random_state=seed,
+        //         n_jobs=-1,
+        //      ).fit(x, y)
+        //     train.append(rf.predict(x))
+        //     probe.append(rf.predict(x_probe))
+        // print(f"\nExtra Trees. === max_features={max_features}")
+        // for name, runs in [("train", train), ("probe", probe)]:
+        //     runs = np.array(runs)
+        //     mean = runs.mean(axis=0)
+        //     max_std = runs.std(axis=0, ddof=1).max()
+        //     max_dev = np.abs(runs - mean).max()
+        //     print(f"{name}: max_std={max_std:.5f} max_dev={max_dev:.5f}")
+        //     print(f"{name}_ref:", rust_vec(mean))
+        // ```
+        //
+
+        fn sklearn_parity_train_data() -> (DenseMatrix<f64>, Vec<f64>) {
+            let x = DenseMatrix::from_2d_array(&[
+                &[0.2739, -0.4604, -0.9181, -0.9669],
+                &[0.6265, 0.8255, 0.2133, 0.459],
+                &[0.0872, 0.8701, 0.6317, -0.9945],
+                &[0.7148, -0.9328, 0.4593, -0.6487],
+                &[0.7264, 0.0829, -0.4006, -0.1546],
+                &[-0.9434, -0.7514, 0.3412, 0.2944],
+                &[0.2308, -0.2326, 0.9944, 0.9617],
+                &[0.3711, 0.3009, 0.3769, -0.2222],
+                &[-0.7298, 0.443, 0.0507, -0.3795],
+                &[-0.0283, 0.779, 0.8681, -0.2844],
+                &[0.1431, -0.3563, 0.1886, -0.3242],
+                &[-0.2168, 0.7805, -0.5457, 0.2464],
+                &[-0.832, 0.6653, 0.5742, -0.5213],
+                &[0.753, -0.8829, -0.3278, -0.6994],
+                &[-0.0993, 0.5926, -0.5387, -0.896],
+                &[-0.1909, -0.603, -0.8185, 0.1607],
+                &[-0.4026, 0.344, -0.601, 0.8842],
+                &[-0.2698, -0.789, 0.2582, 0.8543],
+                &[-0.1192, 0.9092, -0.0002, -0.1495],
+                &[0.2404, 0.9902, 0.8979, -0.0799],
+                &[0.5155, -0.0052, 0.0586, 0.5716],
+                &[-0.1707, 0.469, 0.4223, 0.8641],
+                &[-0.7701, 0.458, 0.8548, 0.9359],
+                &[-0.9706, 0.7273, 0.9624, 0.9144],
+                &[-0.7025, 0.9453, 0.7799, 0.6447],
+                &[-0.04, -0.5353, 0.6038, 0.8471],
+                &[-0.4677, 0.0779, -0.1145, 0.862],
+                &[-0.919, 0.464, 0.2287, -0.9433],
+                &[0.4384, -0.968, 0.5159, 0.0255],
+                &[0.8582, -0.8678, 0.6826, -0.8666],
+                &[-0.3114, -0.1394, 0.9321, 0.1245],
+                &[-0.4823, -0.5166, 0.7762, -0.5483],
+                &[-0.7509, -0.4233, 0.1722, 0.1082],
+                &[0.6194, 0.121, -0.4232, -0.1742],
+                &[0.6362, 0.253, 0.9182, -0.2612],
+                &[0.1052, 0.1878, 0.6966, -0.7091],
+                &[-0.187, 0.8199, -0.9139, 0.6454],
+                &[-0.1692, 0.6596, -0.9801, -0.2699],
+                &[-0.8427, 0.3052, -0.4523, 0.4053],
+                &[0.8876, -0.7464, 0.7296, -0.8811],
+            ])
+            .unwrap();
+            let y = vec![
+                -0.5144, 0.9957, 0.7839, 0.3660, -0.9022, 1.5099, 0.0804, 1.1980, -0.1768, 0.4984,
+                0.3364, -1.0023, 0.5267, -1.3905, -1.0531, -0.4267, -1.0746, 0.9736, -0.1242,
+                0.5237, 0.2751, 0.6806, 0.1690, -0.4747, -0.0497, 1.0539, -0.3933, 0.1634, 0.6273,
+                0.0960, 0.5208, 1.0106, 0.7643, -1.0745, 0.4076, 0.9968, -0.5477, -0.3399, -1.0701,
+                0.0243,
+            ];
+            (x, y)
+        }
+
+        fn sklearn_parity_probe_data() -> DenseMatrix<f64> {
+            DenseMatrix::from_2d_array(&[
+                &[-0.3606, -0.625, 0.3451, -0.6098],
+                &[0.1554, 0.2045, 0.9248, -0.8555],
+                &[-0.0001, 0.4882, -0.6455, -0.2239],
+                &[-0.8742, 0.4518, -0.8245, -0.2098],
+                &[0.747, -0.0554, 0.8252, 0.5318],
+                &[0.8306, -0.7452, -0.8529, -0.8593],
+                &[0.7377, 0.2681, -0.0069, -0.6729],
+                &[0.3475, -0.364, 0.4218, -0.0793],
+                &[0.0149, 0.5793, -0.8145, 0.1575],
+                &[-0.6055, 0.6163, -0.0223, 0.9774],
+            ])
+            .unwrap()
+        }
+
+        fn sklearn_sample_weights() -> Vec<f64> {
+            (0..40).into_iter().map(|i| ((i % 4) + 1) as f64).collect()
+        }
+
+        fn assert_close_to_sklearn(actual: &[f64], expected: &[f64], tol: f64, label: &str) {
+            assert_eq!(actual.len(), expected.len(), "{label}: length");
+            for (i, (a, e)) in actual.iter().zip(expected.iter()).enumerate() {
+                assert!(
+                    (a - e).abs() <= tol,
+                    "{label}, row {i}: smartcore {a}, sklearn {e}, tol {tol}"
+                );
+            }
+        }
+
+        /// Fits the extra trees regressor with 2000 trees and compares the predictions with sklearn.
+        fn check_sklearn_parity(
+            m: usize,
+            train_ref: &[f64],
+            probe_ref: &[f64],
+            tol: f64,
+            sample_weights: Option<&[f64]>,
+        ) {
+            let (x, y) = sklearn_parity_train_data();
+            let x_probe = sklearn_parity_probe_data();
+
+            // Use `min_samples_leaf`= 5 to prevent the tree from predicting all training examples correct
+            let parameters = ExtraTreesRegressorParameters::default()
+                .with_n_trees(2000)
+                .with_m(m)
+                .with_min_samples_leaf(5)
+                .with_min_samples_split(2)
+                .with_oob_score(false)
+                .with_seed(42);
+            let forest = match sample_weights {
+                None => ExtraTreesRegressor::fit(&x, &y, parameters).unwrap(),
+                Some(sample_weights) => {
+                    ExtraTreesRegressor::fit_with_weights(&x, &y, sample_weights, parameters)
+                        .unwrap()
+                }
+            };
+
+            let y_hat: Vec<f64> = forest.predict(&x).unwrap();
+            assert_close_to_sklearn(&y_hat, train_ref, tol, "train");
+
+            let y_hat_probe: Vec<f64> = forest.predict(&x_probe).unwrap();
+            assert_close_to_sklearn(&y_hat_probe, probe_ref, tol, "probe");
+        }
+
+        #[test]
+        fn sklearn_parity_all_features() {
+            /*
+             * train: max_std=0.01081 max_dev=0.02053
+             * probe: max_std=0.01127 max_dev=0.02510
+             */
+            let train_ref = [
+                -0.514400, 0.350098, 0.500618, 0.370298, -0.582169, 0.630296, 0.362747, 0.528070,
+                0.027928, 0.409103, 0.376290, -0.672295, 0.408925, -0.406530, -0.656713, -0.433254,
+                -0.656863, 0.572460, -0.005012, 0.398251, 0.134855, 0.457975, 0.232323, 0.203198,
+                0.255614, 0.580654, -0.171093, 0.266703, 0.538009, 0.339515, 0.425172, 0.512873,
+                0.452168, -0.597154, 0.382057, 0.522851, -0.636264, -0.652577, -0.614220, 0.327194,
+            ];
+            let probe_ref = [
+                0.538464, 0.434785, -0.641271, -0.638714, 0.324906, -0.499588, -0.042825, 0.545153,
+                -0.637955, -0.073064,
+            ];
+            check_sklearn_parity(4, &train_ref, &probe_ref, 0.045, None);
+        }
+
+        #[test]
+        fn sklearn_parity_with_weights() {
+            /*
+             * train: max_std=0.01332 max_dev=0.02559
+             * probe: max_std=0.01166 max_dev=0.01867
+             */
+            let train_ref = [
+                -0.494622, 0.335181, 0.532771, 0.398018, -0.535612, 0.545873, 0.337625, 0.588692,
+                0.030596, 0.431604, 0.376213, -0.686286, 0.400965, -0.400551, -0.658719, -0.481374,
+                -0.649386, 0.477041, -0.017966, 0.424634, 0.126455, 0.419039, 0.196019, 0.148182,
+                0.238049, 0.512727, -0.195074, 0.255755, 0.513608, 0.384085, 0.438159, 0.544918,
+                0.374897, -0.552449, 0.433162, 0.583000, -0.636756, -0.643531, -0.627507, 0.372639,
+            ];
+
+            let probe_ref = [
+                0.530162, 0.489443, -0.611812, -0.626195, 0.352540, -0.502707, 0.001104, 0.551536,
+                -0.621779, -0.120032,
+            ];
+
+            check_sklearn_parity(
+                4,
+                &train_ref,
+                &probe_ref,
+                0.05,
+                Some(&sklearn_sample_weights()),
+            );
+        }
+    }
+
+    /// Data where only column 0 carries information: `y` is a step function of column 0.
+    /// Columns 1 and 2 are permutations of the row index, so they do not separate the two steps.
+    fn step_data() -> (DenseMatrix<f64>, Vec<f64>) {
+        let n = 50;
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| vec![i as f64, ((i * 37) % n) as f64, ((i * 17) % n) as f64])
+            .collect();
+        let y = (0..n).map(|i| if i < n / 2 { 0.0 } else { 10.0 }).collect();
+        (DenseMatrix::from_2d_vec(&rows).unwrap(), y)
+    }
+
+    #[test]
+    fn feature_importances_unfitted_returns_error() {
+        let et =
+            <ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> as SupervisedEstimator<
+                DenseMatrix<f64>,
+                Vec<f64>,
+                ExtraTreesRegressorParameters,
+            >>::new();
+        let result = et.compute_feature_importances();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().error(), FailedError::PredictFailed);
+    }
+
+    #[test]
+    fn feature_importances_sum_to_one() {
+        let (x, y) = step_data();
+        for m in [1, 2, 3] {
+            let et = ExtraTreesRegressor::fit(
+                &x,
+                &y,
+                ExtraTreesRegressorParameters::default()
+                    .with_n_trees(50)
+                    .with_m(m)
+                    .with_seed(42),
+            )
+            .unwrap();
+            let importances = et.compute_feature_importances().unwrap();
+            assert_eq!(importances.len(), 3);
+            assert!(importances.iter().all(|&v| v >= 0.0 && v.is_finite()));
+            assert!((importances.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn feature_importances_constant_column_gets_zero() {
+        // The random splitter skips a constant column, so every split is on column 0,
+        // whatever the random thresholds are.
+        let x = DenseMatrix::from_2d_vec(&(0..20).map(|i| vec![i as f64, 7.0]).collect::<Vec<_>>())
+            .unwrap();
+        let y: Vec<f64> = (0..20).map(|i| (i * i) as f64).collect();
+        let et = ExtraTreesRegressor::fit(
+            &x,
+            &y,
+            ExtraTreesRegressorParameters::default()
+                .with_n_trees(10)
+                .with_seed(42),
+        )
+        .unwrap();
+        assert_eq!(et.compute_feature_importances().unwrap(), vec![1.0, 0.0]);
+    }
+
+    #[test]
+    fn feature_importances_find_informative_feature() {
+        let (x, y) = step_data();
+        for m in [1, 3] {
+            let et = ExtraTreesRegressor::fit(
+                &x,
+                &y,
+                ExtraTreesRegressorParameters::default()
+                    .with_n_trees(100)
+                    .with_m(m)
+                    .with_seed(42),
+            )
+            .unwrap();
+            let importances = et.compute_feature_importances().unwrap();
+            assert!(importances[0] > importances[1], "m = {m}: {importances:?}");
+            assert!(importances[0] > importances[2], "m = {m}: {importances:?}");
+        }
+    }
+
+    #[test]
+    fn feature_importances_do_not_depend_on_weight_scale() {
+        // There is no bootstrap, so the weights go directly to the trees.
+        // Multiplying all weights by 4 (exact in f64) must give the same importances.
+        let (x, y) = step_data();
+        let weights: Vec<f64> = (0..y.len()).map(|i| 0.5 + (i % 4) as f64 * 0.25).collect();
+        let scaled: Vec<f64> = weights.iter().map(|w| 4.0 * w).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(20)
+            .with_m(2)
+            .with_seed(42);
+
+        let a = ExtraTreesRegressor::fit_with_weights(&x, &y, &weights, parameters.clone())
+            .unwrap()
+            .compute_feature_importances()
+            .unwrap();
+        let b = ExtraTreesRegressor::fit_with_weights(&x, &y, &scaled, parameters)
+            .unwrap()
+            .compute_feature_importances()
+            .unwrap();
+        for (ai, bi) in a.iter().zip(b.iter()) {
+            assert!((ai - bi).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn feature_importances_are_zero_without_improvement() {
+        let (x, y) = step_data();
+
+        // max_depth 1: every tree is only a root.
+        let et = ExtraTreesRegressor::fit(
+            &x,
+            &y,
+            ExtraTreesRegressorParameters::default()
+                .with_n_trees(5)
+                .with_max_depth(1)
+                .with_seed(42),
+        )
+        .unwrap();
+        assert_eq!(et.compute_feature_importances().unwrap(), vec![0.0; 3]);
+
+        // Constant y: trees can split, but no split decreases the impurity.
+        let y_const = vec![3.0; y.len()];
+        let et = ExtraTreesRegressor::fit(
+            &x,
+            &y_const,
+            ExtraTreesRegressorParameters::default()
+                .with_n_trees(5)
+                .with_seed(42),
+        )
+        .unwrap();
+        assert_eq!(et.compute_feature_importances().unwrap(), vec![0.0; 3]);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_seed_parameter() {
+        for seed in [Some(42u64), None] {
+            let params = ExtraTreesRegressorParameters {
+                seed,
+                ..Default::default()
+            };
+
+            let json = serde_json::to_string(&params).unwrap();
+            let from_json: ExtraTreesRegressorParameters = serde_json::from_str(&json).unwrap();
+            assert_eq!(from_json.seed, seed);
+
+            let bytes = postcard::to_allocvec(&params).unwrap();
+            let from_postcard: ExtraTreesRegressorParameters =
+                postcard::from_bytes(&bytes).unwrap();
+            assert_eq!(from_postcard.seed, seed);
+        }
+
+        let old: ExtraTreesRegressorParameters = serde_json::from_str(r#"{"seed": 42}"#).unwrap();
+        assert_eq!(old.seed, Some(42));
+
+        let null: ExtraTreesRegressorParameters =
+            serde_json::from_str(r#"{"seed": null}"#).unwrap();
+        assert_eq!(null.seed, None);
+
+        let missing: ExtraTreesRegressorParameters = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.seed, ExtraTreesRegressorParameters::default().seed);
+        assert_eq!(missing.seed, None);
     }
 }

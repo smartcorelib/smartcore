@@ -109,12 +109,15 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 
     fn log_likelihood<'a>(&'a self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64 {
         let mut likelihood = 0f64;
-        for feature in 0..j.shape() {
+        for (feature, &log_prob) in self.feature_log_prob[class_index][..j.shape()]
+            .iter()
+            .enumerate()
+        {
             let value = *j.get(feature);
             if value == X::one() {
-                likelihood += self.feature_log_prob[class_index][feature];
+                likelihood += log_prob;
             } else {
-                likelihood += (1f64 - self.feature_log_prob[class_index][feature].exp()).ln();
+                likelihood += (1f64 - log_prob.exp()).ln();
             }
         }
         likelihood
@@ -128,6 +131,7 @@ impl<X: Number + PartialOrd, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 /// `BernoulliNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct BernoulliNBParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -171,6 +175,7 @@ impl<T: Number + PartialOrd> Default for BernoulliNBParameters<T> {
 /// BernoulliNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct BernoulliNBSearchParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -429,13 +434,17 @@ impl<TX: Number + PartialOrd, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        if let Some(threshold) = self.binarize {
-            self.inner
-                .as_ref()
-                .unwrap()
-                .predict(&Self::binarize(x, threshold))
-        } else {
-            self.inner.as_ref().unwrap().predict(x)
+        match &self.inner {
+            Some(inner) => {
+                if let Some(threshold) = self.binarize {
+                    inner.predict(&Self::binarize(x, threshold))
+                } else {
+                    inner.predict(x)
+                }
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
     }
 
@@ -654,5 +663,19 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&bnb).unwrap()).unwrap();
 
         assert_eq!(bnb, deserialized_bnb);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let bnb: BernoulliNB<f64, u32, DenseMatrix<f64>, Vec<u32>> = BernoulliNB::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = bnb.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

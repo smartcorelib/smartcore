@@ -109,6 +109,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> PartialEq for KMeans<
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// K-Means clustering algorithm parameters
+#[must_use]
 pub struct KMeansParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of clusters.
@@ -148,6 +149,7 @@ impl Default for KMeansParameters {
 /// KMeans grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct KMeansSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Number of clusters.
@@ -426,11 +428,13 @@ mod tests {
     fn invalid_k() {
         let x = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
 
-        assert!(KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
-            &x,
-            KMeansParameters::default().with_k(0)
-        )
-        .is_err());
+        assert!(
+            KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(
+                &x,
+                KMeansParameters::default().with_k(0)
+            )
+            .is_err()
+        );
         assert_eq!(
             "Fit failed: invalid number of clusters: 1",
             KMeans::<i32, i32, DenseMatrix<i32>, Vec<i32>>::fit(

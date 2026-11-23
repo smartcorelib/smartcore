@@ -93,6 +93,7 @@ impl<X: Number + RealNumber, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 /// `GaussianNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Default, Clone)]
+#[must_use]
 pub struct GaussianNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
@@ -118,6 +119,7 @@ impl GaussianNBParameters {
 /// GaussianNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct GaussianNBSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Prior probabilities of the classes. If specified the priors are not adjusted according to the data
@@ -260,7 +262,7 @@ impl<TY: Number + Ord + Unsigned> GaussianNBDistribution<TY> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq)]
 pub struct GaussianNB<
-    TX: Number + RealNumber + RealNumber,
+    TX: Number + RealNumber,
     TY: Number + Ord + Unsigned,
     X: Array2<TX>,
     Y: Array1<TY>,
@@ -268,12 +270,8 @@ pub struct GaussianNB<
     inner: Option<BaseNaiveBayes<TX, TY, X, Y, GaussianNBDistribution<TY>>>,
 }
 
-impl<
-        TX: Number + RealNumber + RealNumber,
-        TY: Number + Ord + Unsigned,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > fmt::Display for GaussianNB<TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    fmt::Display for GaussianNB<TX, TY, X, Y>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "GaussianNB:\ninner: {:?}", self.inner.as_ref().unwrap())?;
@@ -281,12 +279,8 @@ impl<
     }
 }
 
-impl<
-        TX: Number + RealNumber + RealNumber,
-        TY: Number + Ord + Unsigned,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    SupervisedEstimator<X, Y, GaussianNBParameters> for GaussianNB<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -299,12 +293,8 @@ impl<
     }
 }
 
-impl<
-        TX: Number + RealNumber + RealNumber,
-        TY: Number + Ord + Unsigned,
-        X: Array2<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for GaussianNB<TX, TY, X, Y>
+impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array1<TY>>
+    Predictor<X, Y> for GaussianNB<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
@@ -330,35 +320,45 @@ impl<TX: Number + RealNumber, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Arr
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.as_ref().unwrap().predict(x)
+        match &self.inner {
+            Some(inner) => inner.predict(x),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn classes(&self) -> &Vec<TY> {
         &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Probability of each class
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_priors(&self) -> &Vec<f64> {
         &self.inner.as_ref().unwrap().distribution.class_priors
     }
 
     /// Mean of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
+    #[must_use]
     pub fn theta(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.theta
     }
 
     /// Variance of each feature per class
     /// Returns a 2d vector of shape (n_classes, n_features).
+    #[must_use]
     pub fn var(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.var
     }
@@ -407,13 +407,12 @@ mod tests {
 
         assert_eq!(gnb.class_count(), &[3, 3]);
 
-        assert_eq!(
-            gnb.var(),
-            &[
-                &[0.666666666666667, 0.22222222222222232],
-                &[0.666666666666667, 0.22222222222222232]
-            ]
-        );
+        assert_eq!(gnb.var().len(), 2);
+        for var in gnb.var() {
+            assert_eq!(var.len(), 2);
+            assert!((var[0] - 2. / 3.).abs() < 1e-15);
+            assert!((var[1] - 2. / 9.).abs() < 1e-15);
+        }
 
         assert_eq!(gnb.class_priors(), &[0.5, 0.5]);
 
@@ -473,5 +472,19 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&gnb).unwrap()).unwrap();
 
         assert_eq!(gnb, deserialized_gnb);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let gnb: GaussianNB<f64, u32, DenseMatrix<f64>, Vec<u32>> = GaussianNB::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = gnb.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

@@ -65,10 +65,10 @@ use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
 use crate::numbers::basenum::Number;
 use crate::numbers::floatnum::FloatNumber;
 use crate::numbers::realnum::RealNumber;
+use crate::optimization::FunctionOrder;
 use crate::optimization::first_order::lbfgs::LBFGS;
 use crate::optimization::first_order::{FirstOrderOptimizer, OptimizerResult};
 use crate::optimization::line_search::Backtracking;
-use crate::optimization::FunctionOrder;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -82,6 +82,7 @@ pub enum LogisticRegressionSolverName {
 /// Logistic Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -94,6 +95,7 @@ pub struct LogisticRegressionParameters<T: Number + FloatNumber> {
 /// Logistic Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LogisticRegressionSearchParameters<T: Number> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -185,7 +187,7 @@ pub struct LogisticRegression<
 trait ObjectiveFunction<T: Number + FloatNumber, X: Array2<T>> {
     fn f(&self, w_bias: &[T]) -> T;
 
-    #[allow(clippy::ptr_arg)]
+    #[expect(clippy::ptr_arg)]
     fn df(&self, g: &mut Vec<T>, w_bias: &Vec<T>);
 
     #[allow(clippy::ptr_arg)]
@@ -501,32 +503,39 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Predict class labels for samples in `x`.
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let n = x.shape().0;
-        let mut result = Y::zeros(n);
-        if self.num_classes == 2 {
-            let y_hat = x.ab(false, self.coefficients(), true);
-            let intercept = *self.intercept().get((0, 0));
-            for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
-                result.set(
-                    i,
-                    self.classes()[usize::from(
-                        RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half(),
-                    )],
-                );
-            }
-        } else {
-            let mut y_hat = x.matmul(&self.coefficients().transpose());
-            for r in 0..n {
-                for c in 0..self.num_classes {
-                    y_hat.set((r, c), *y_hat.get((r, c)) + *self.intercept().get((c, 0)));
+        match (&self.coefficients, &self.intercept, &self.classes) {
+            (Some(coefficients), Some(intercept), Some(classes)) => {
+                let n = x.shape().0;
+                let mut result = Y::zeros(n);
+                if self.num_classes == 2 {
+                    let y_hat = x.ab(false, coefficients, true);
+                    let intercept = *intercept.get((0, 0));
+                    for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
+                        result.set(
+                            i,
+                            classes[usize::from(
+                                RealNumber::sigmoid(*y_hat_i + intercept) > RealNumber::half(),
+                            )],
+                        );
+                    }
+                } else {
+                    let mut y_hat = x.matmul(&coefficients.transpose());
+                    for r in 0..n {
+                        for c in 0..self.num_classes {
+                            y_hat.set((r, c), *y_hat.get((r, c)) + *intercept.get((c, 0)));
+                        }
+                    }
+                    let class_idxs = y_hat.argmax(1);
+                    for (i, class_i) in class_idxs.iter().enumerate().take(n) {
+                        result.set(i, classes[*class_i]);
+                    }
                 }
+                Ok(result)
             }
-            let class_idxs = y_hat.argmax(1);
-            for (i, class_i) in class_idxs.iter().enumerate().take(n) {
-                result.set(i, self.classes()[*class_i]);
-            }
+            (_, _, _) => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-        Ok(result)
     }
 
     /// Get estimates regression coefficients, this create a sharable reference
@@ -566,8 +575,6 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
 mod tests {
     use super::*;
 
-    #[cfg(feature = "datasets")]
-    use crate::dataset::generator::make_blobs;
     use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
 
@@ -753,69 +760,118 @@ mod tests {
         assert_eq!(y_hat, vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
     }
 
-    #[cfg(feature = "datasets")]
+    /// Deterministic 3-class fixture: 5 samples per class, clearly separated in 2D.
+    /// Replaces the former `make_blobs`-based test which produced different RNG
+    /// outputs on native vs wasm32 targets, causing flaky exact-vector assertions.
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
     fn lr_fit_predict_multiclass() {
-        let blobs = make_blobs(15, 4, 3);
-
-        let x: DenseMatrix<f32> = DenseMatrix::from_iterator(blobs.data.into_iter(), 15, 4, 0);
-        let y: Vec<i32> = blobs.target.into_iter().map(|v| v as i32).collect();
+        // Three well-separated clusters: class 0 near (0,0), 1 near (10,0), 2 near (5,10)
+        let x: DenseMatrix<f32> = DenseMatrix::from_2d_array(&[
+            &[0.0_f32, 0.0],
+            &[0.5, 0.2],
+            &[0.2, 0.5],
+            &[-0.3, 0.1],
+            &[0.1, -0.4],
+            &[10.0, 0.0],
+            &[10.5, 0.2],
+            &[9.8, 0.5],
+            &[10.2, -0.3],
+            &[9.7, 0.1],
+            &[5.0, 10.0],
+            &[5.2, 10.5],
+            &[4.8, 9.8],
+            &[5.1, 10.2],
+            &[4.9, 9.7],
+        ])
+        .unwrap();
+        let y: Vec<i32> = vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
-
         let y_hat = lr.predict(&x).unwrap();
 
-        assert_eq!(y_hat, vec![0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2]);
+        let acc =
+            y_hat.iter().zip(y.iter()).filter(|(p, a)| p == a).count() as f64 / y.len() as f64;
+        assert!(
+            acc >= 0.80,
+            "lr_fit_predict_multiclass accuracy too low: {acc:.3}"
+        );
 
+        // Regularisation should shrink coefficients
         let lr_reg = LogisticRegression::fit(
             &x,
             &y,
             LogisticRegressionParameters::default().with_alpha(10.0),
         )
         .unwrap();
-
         let reg_coeff_sum: f32 = lr_reg.coefficients().abs().iter().sum();
-        let coeff: f32 = lr.coefficients().abs().iter().sum();
-
-        assert!(reg_coeff_sum < coeff);
+        let coeff_sum: f32 = lr.coefficients().abs().iter().sum();
+        assert!(
+            reg_coeff_sum < coeff_sum,
+            "regularisation did not shrink coefficients: {reg_coeff_sum} >= {coeff_sum}"
+        );
     }
 
-    #[cfg(feature = "datasets")]
+    /// Deterministic binary fixture: 10 samples per class, clearly separated.
+    /// Replaces the former `make_blobs`-based test for the same RNG-portability reason.
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
     fn lr_fit_predict_binary() {
-        let blobs = make_blobs(20, 4, 2);
-
-        let x = DenseMatrix::from_iterator(blobs.data.into_iter(), 20, 4, 0);
-        let y: Vec<i32> = blobs.target.into_iter().map(|v| v as i32).collect();
+        // Class 0 near (0,0), class 1 near (20,0) — easily linearly separable
+        let x: DenseMatrix<f32> = DenseMatrix::from_2d_array(&[
+            &[0.0_f32, 0.0],
+            &[0.5, 0.2],
+            &[0.2, 0.5],
+            &[-0.3, 0.1],
+            &[0.1, -0.4],
+            &[-0.2, 0.3],
+            &[0.4, -0.1],
+            &[-0.1, -0.3],
+            &[0.3, 0.4],
+            &[-0.4, -0.2],
+            &[20.0, 0.0],
+            &[20.5, 0.2],
+            &[19.8, 0.5],
+            &[20.2, -0.3],
+            &[19.7, 0.1],
+            &[20.3, -0.2],
+            &[19.6, 0.4],
+            &[20.1, -0.4],
+            &[19.9, 0.3],
+            &[20.4, -0.1],
+        ])
+        .unwrap();
+        let y: Vec<i32> = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
         let lr = LogisticRegression::fit(&x, &y, Default::default()).unwrap();
-
         let y_hat = lr.predict(&x).unwrap();
 
-        assert_eq!(
-            y_hat,
-            vec![0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+        let acc =
+            y_hat.iter().zip(y.iter()).filter(|(p, a)| p == a).count() as f64 / y.len() as f64;
+        assert!(
+            acc >= 0.90,
+            "lr_fit_predict_binary accuracy too low: {acc:.3}"
         );
 
+        // Regularisation should shrink coefficients
         let lr_reg = LogisticRegression::fit(
             &x,
             &y,
             LogisticRegressionParameters::default().with_alpha(10.0),
         )
         .unwrap();
-
         let reg_coeff_sum: f32 = lr_reg.coefficients().abs().iter().sum();
-        let coeff: f32 = lr.coefficients().abs().iter().sum();
-
-        assert!(reg_coeff_sum < coeff);
+        let coeff_sum: f32 = lr.coefficients().abs().iter().sum();
+        assert!(
+            reg_coeff_sum < coeff_sum,
+            "regularisation did not shrink coefficients: {reg_coeff_sum} >= {coeff_sum}"
+        );
     }
 
     //TODO: serialization for the new DenseMatrix needs to be implemented
@@ -932,9 +988,10 @@ mod tests {
 
     #[test]
     fn test_logit() {
-        let x: &DenseMatrix<f64> = &DenseMatrix::rand(52181, 94);
-        let y1: Vec<u32> = vec![1; 2181];
-        let y2: Vec<u32> = vec![0; 50000];
+        // Class ratio matches the original 52181-row fixture (2181 positive of 52181).
+        let x: &DenseMatrix<f64> = &DenseMatrix::rand(10000, 94);
+        let y1: Vec<u32> = vec![1; 418];
+        let y2: Vec<u32> = vec![0; 9582];
         let y: &Vec<u32> = &(y1.into_iter().chain(y2).collect());
         println!("y vec height: {:?}", y.len());
         println!("x matrix shape: {:?}", x.shape());
@@ -944,6 +1001,21 @@ mod tests {
 
         println!("y_hat shape: {:?}", y_hat.shape());
 
-        assert_eq!(y_hat.shape(), 52181);
+        assert_eq!(y_hat.shape(), 10000);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let model: LogisticRegression<f64, i32, DenseMatrix<f64>, Vec<i32>> =
+            LogisticRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

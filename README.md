@@ -1,11 +1,11 @@
 <p align="center">
-  <a href="https://smartcorelib.org">
+  <a href="https://smartcorelib.github.io/">
     <img src="smartcore.svg" width="450" alt="smartcore">    
   </a>  
 </p>
 <p align = "center">
     <strong>
-        <a href="https://smartcorelib.org">User guide</a> | <a href="https://docs.rs/smartcore/">API</a> | <a href="https://github.com/smartcorelib/smartcore-jupyter">Notebooks</a>
+        <a href="https://smartcorelib.github.io/">User guide</a> | <a href="https://docs.rs/smartcore/">API</a> | <a href="https://github.com/smartcorelib/smartcore-jupyter">Notebooks</a>
     </strong>
 </p>
 
@@ -18,7 +18,7 @@
 -----
 [![CI](https://github.com/smartcorelib/smartcore/actions/workflows/ci.yml/badge.svg)](https://github.com/smartcorelib/smartcore/actions/workflows/ci.yml) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17219259.svg)](https://doi.org/10.5281/zenodo.17219259)
 
-To start getting familiar with the new smartcore v0.4 API, there is now available a [**Jupyter Notebook environment repository**](https://github.com/smartcorelib/smartcore-jupyter). Please see instructions there, contributions welcome see [CONTRIBUTING](.github/CONTRIBUTING.md).
+To start getting familiar with the smartcore API, there is now available a [**Jupyter Notebook environment repository**](https://github.com/smartcorelib/smartcore-jupyter). Please see instructions there, contributions welcome see [CONTRIBUTING](.github/CONTRIBUTING.md).
 
 smartcore is a fast, ergonomic machine learning library for Rust, covering classical supervised and unsupervised methods with a modular linear algebra abstraction and optional ndarray support. It aims to provide production-friendly APIs, strong typing, and good defaults while remaining flexible for research and experimentation.
 
@@ -37,14 +37,14 @@ Add to Cargo.toml:
 
 ```toml
 [dependencies]
-smartcore = "^0.4.3"
+smartcore = "^0.7"
 ```
 
-For the latest development branch:
+For the latest changes from the `main` branch:
 
 ```toml
 [dependencies]
-smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "development" }
+smartcore = { git = "https://github.com/smartcorelib/smartcore", branch = "main" }
 ```
 
 Optional features (examples):
@@ -54,6 +54,22 @@ Optional features (examples):
 - ndarray-bindings (deprecated in favor of ndarray-only support per recent changes)
 
 Check Cargo.toml for available features and compatibility notes.
+
+## Breaking changes in 0.7.0
+
+> [!WARNING]
+> The `datasets` feature no longer enables `std_rand` (#416).
+>
+> - The generators `make_blobs`, `make_circles` and `make_moons` no longer take their seed from the OS RNG.
+> - Without `std_rand` they use a fixed seed and return the same output on every call.
+> - With `std_rand` they take their seed from OS entropy, as before.
+>
+> To keep the 0.6 behaviour, enable both features:
+>
+> ```toml
+> [dependencies]
+> smartcore = { version = "^0.7", features = ["datasets", "std_rand"] }
+> ```
 
 ## Quick start
 
@@ -106,10 +122,33 @@ smartcore organizes algorithms into clear modules with consistent traits:
 
 Recent refactors emphasize reusable components in trees/forests and expanded multiclass SVM capabilities. XGBoost-style regression and single-linkage clustering have been added. See CHANGELOG for API changes and migration notes.
 
+## Optional lazy normalization
+
+The optional `lazy-normalization` feature lets Lasso and Elastic Net borrow the
+design matrix during normalization. Elastic Net also applies its identity-block
+augmentation without storing the augmented design. Enable it with `features =
+["lazy-normalization"]`, then select it with
+`LassoParameters::default().with_lazy_normalization(true)` or
+`ElasticNetParameters::default().with_lazy_normalization(true)`. The default
+remains eager, even when the feature is enabled. The `normalize` option still
+controls whether columns are centered and scaled. Parameter searches use the
+fixed `lazy_normalization` setting. It works with `DenseMatrix` and
+`ndarray-bindings`.
+
+Lazy normalization reduces memory use by computing normalized values when the
+solver needs them. This adds repeated arithmetic and can increase fit time for
+both estimators, including Elastic Net on large inputs. The solver still stores
+a dense Gram matrix with one row and column per feature.
+
+Enabling the feature adds a public `lazy_normalization` field to both estimators'
+parameter and search parameter structs. Code that constructs these structs
+without `..Default::default()` must add the field. Missing fields default to
+`false` during deserialization.
+
 ## Data access and readers
 
 - CSV readers: Read matrices from CSV with configurable delimiter and header rows, with helpful error messages and testing utilities (including non-IO reader abstractions).
-- Dataset generators: make_blobs, make_circles, make_moons for quick experiments.
+- Dataset generators: make_blobs, make_circles, make_moons for quick experiments. Since 0.7.0 they use a fixed seed unless you also enable `std_rand` (see the breaking changes note above).
 - Built-in datasets (feature-gated): digits, diabetes, breast cancer, boston, with serialization utilities to persist or refresh .xy bundles.
 
 
@@ -119,26 +158,41 @@ smartcore adopts a WASM/WASI-first posture in defaults to ease browser and embed
 
 ## Notebooks
 
-A curated set of Jupyter notebooks is available via the companion repository to explore smartcore interactively. To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the v0.4 API.
+A curated set of Jupyter notebooks is available via the [companion repository to explore smartcore interactively](https://github.com/smartcorelib/smartcore-jupyter). To run locally, use EVCXR to enable Rust notebooks. This is the recommended path to quickly experiment with the smartcore API.
 
 ## Roadmap and recent changes
 
 - Trait-system refactor, fewer structs and more object-safe traits, large codebase reorganization.
-- Move to Rust 2021 edition and cleanup of duplicate code paths.
+- Move to Rust 2024 edition (MSRV 1.85) and cleanup of duplicate code paths.
 - Seeds and deterministic controls across algorithms using RNG plumbing.
 - Search parameter API for hyperparameter exploration in K-Means and SVM families.
 - Tree and forest components refactored for reuse; Extra Trees added.
 - SVM multiclass support; SVR kernel enum and related improvements.
 - XGBoost-style regression introduced; single-linkage clustering implemented.
+- Classification metrics hardened: multiclass macro F1 now averages per-class
+  F-measures (matching sklearn), and Precision/Recall/F1 share a single
+  per-class confusion-counts helper so the per-class bookkeeping lives in one
+  place.
 
 See CHANGELOG.md for precise details, deprecations, and breaking changes. Some features like nalgebra-bindings have been dropped in favor of ndarray-only paths. Default features are tuned for WASM/WASI builds; enable serde/datasets as needed.
+
+## Live trend charts
+
+[benchmark-action/github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark) renders an interactive chart page per tool on the `gh-pages` branch, published via GitHub Pages:
+
+| Tool | Chart URL | What it plots | Direction | Alert |
+|---|---|---|---|---|
+| criterion (wall-clock) | <https://smartcorelib.github.io/smartcore-benches/dev/> | `cargo bench` wall-clock time per bench (ns/iter) over time | lower = better | 200% — advisory, posts a comment, does not fail CI |
+| iai-callgrind (instruction count) | <https://smartcorelib.github.io/smartcore-benches/iai-dev/> | instructions retired (`Ir`) per bench — deterministic, machine-independent | lower = better | 120% — fails the `iai` job + status check |
+
+Open the URLs above in a browser. Each page shows a searchable line chart (`data.js` is the raw history) with one series per benchmark name (e.g. `matmul/1024`, `iai_matmul::matmul::bench_matmul_256`). Hover for the value, range, and commit that produced each point. The iai page is the one to watch for regressions: instruction counts are deterministic on 
 
 ## Contributing
 
 Contributions are welcome:
 
 - Open an issue describing the change and link it in the PR.
-- Keep PRs in sync with the development branch and ensure tests pass on stable Rust.
+- Keep PRs in sync with the main branch and ensure tests pass on stable Rust (MSRV 1.85, edition 2024).
 - Provide or update tests; run clippy and apply formatting. Coverage and linting are part of the workflow.
 - Use the provided PR and issue templates to describe behavior changes, new features, and expectations.
 

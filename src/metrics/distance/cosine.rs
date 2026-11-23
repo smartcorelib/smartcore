@@ -50,6 +50,7 @@ impl<T: Number> Default for Cosine<T> {
 
 impl<T: Number> Cosine<T> {
     /// Instantiate the initial structure
+    #[must_use]
     pub fn new() -> Cosine<T> {
         Cosine { _t: PhantomData }
     }
@@ -67,7 +68,7 @@ impl<T: Number> Cosine<T> {
 
     /// Calculate the squared magnitude (norm squared) of a vector
     #[inline]
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub(crate) fn squared_magnitude<A: ArrayView1<T>>(x: &A) -> f64 {
         x.iterator(0)
             .map(|&a| {

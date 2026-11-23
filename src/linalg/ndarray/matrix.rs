@@ -4,6 +4,7 @@ use std::ops::Range;
 use crate::linalg::basic::arrays::{
     Array as BaseArray, Array2, ArrayView1, ArrayView2, MutArray, MutArrayView2,
 };
+use crate::linalg::basic::matrix::DenseMatrix;
 
 use crate::linalg::traits::cholesky::CholeskyDecomposable;
 use crate::linalg::traits::evd::EVDDecomposable;
@@ -13,11 +14,52 @@ use crate::linalg::traits::svd::SVDDecomposable;
 use crate::numbers::basenum::Number;
 use crate::numbers::realnum::RealNumber;
 
-use ndarray::{s, Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, OwnedRepr};
+use ndarray::{Array, ArrayBase, ArrayView, ArrayViewMut, Axis, Ix2, Order, OwnedRepr, s};
 
 // ---------------------------------------------------------------------------
 // ArrayBase<OwnedRepr<T>, Ix2>  (owned 2-D array)
 // ---------------------------------------------------------------------------
+
+const ROW_MAJOR_AXIS: u8 = 0;
+
+impl<T: Debug + Display + Copy> DenseMatrix<T> {
+    /// Copies an owned two-dimensional ndarray into a [`DenseMatrix`].
+    ///
+    /// The resulting matrix uses row-major (C) storage regardless of the
+    /// memory layout of the source array.
+    ///
+    /// # Notes
+    ///
+    /// [`ndarray::Array2::iter`] always yields elements in logical row-major
+    /// order, independent of whether the source is C- or Fortran-ordered. This
+    /// invariant makes transposed-layout conversion correct.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `nrows * ncols` overflows `usize`. An empty array (zero
+    /// rows or zero columns) does not panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ndarray::Array2;
+    /// use smartcore::linalg::basic::arrays::Array;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// let array = Array2::from_shape_vec(
+    ///     (3, 4),
+    ///     (0..12).map(|value| value as f64).collect(),
+    /// ).unwrap();
+    /// let matrix = DenseMatrix::from_ndarray2(&array);
+    /// assert_eq!(matrix.shape(), (3, 4));
+    /// assert_eq!(*matrix.get((1, 2)), 6.0);
+    /// ```
+    #[must_use]
+    pub fn from_ndarray2(a: &ndarray::Array2<T>) -> Self {
+        // iter() yields logical row-major order regardless of memory layout.
+        Self::from_iterator(a.iter().copied(), a.nrows(), a.ncols(), ROW_MAJOR_AXIS)
+    }
+}
 
 impl<T: Debug + Display + Copy + Sized> BaseArray<T, (usize, usize)>
     for ArrayBase<OwnedRepr<T>, Ix2>
@@ -84,7 +126,7 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn slice<'a>(&'a self, rows: Range<usize>, cols: Range<usize>) -> Box<dyn ArrayView2<T> + 'a> {
-        Box::new(self.slice(s![rows, cols]))
+        Box::new(self.view().slice_move(s![rows, cols]))
     }
 
     fn slice_mut<'a>(
@@ -97,7 +139,7 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     {
         // slice_mut returns ArrayBase<ViewRepr<&mut T>, Ix2> which is ArrayViewMut.
         // We implement MutArrayView2 for ArrayViewMut below, so this cast is valid.
-        Box::new(self.slice_mut(s![rows, cols]))
+        Box::new(self.view_mut().slice_move(s![rows, cols]))
     }
 
     fn fill(nrows: usize, ncols: usize, value: T) -> Self {
@@ -105,13 +147,14 @@ impl<T: Debug + Display + Copy + Sized> Array2<T> for ArrayBase<OwnedRepr<T>, Ix
     }
 
     fn from_iterator<I: Iterator<Item = T>>(iter: I, nrows: usize, ncols: usize, axis: u8) -> Self {
-        let a = Array::from_iter(iter.take(nrows * ncols))
-            .into_shape((nrows, ncols))
-            .unwrap();
-        match axis {
-            0 => a,
-            _ => a.reversed_axes().into_shape((nrows, ncols)).unwrap(),
-        }
+        let order = if axis == 0 {
+            Order::RowMajor
+        } else {
+            Order::ColumnMajor
+        };
+        Array::from_iter(iter.take(nrows * ncols))
+            .into_shape_with_order(((nrows, ncols), order))
+            .unwrap()
     }
 
     fn transpose(&self) -> Self {
@@ -214,3 +257,137 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, (usize, usize)> for ArrayVie
 // which is exactly what slice_mut's return type Box<dyn MutArrayView2<T>> requires.
 impl<T: Debug + Display + Copy + Sized> ArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
 impl<T: Debug + Display + Copy + Sized> MutArrayView2<T> for ArrayViewMut<'_, T, Ix2> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::arr2;
+
+    #[test]
+    fn from_iterator_preserves_input_order() {
+        let row_major = <ndarray::Array2<i32> as Array2<i32>>::from_iterator(1..=6, 2, 3, 0);
+        assert_eq!(row_major, arr2(&[[1, 2, 3], [4, 5, 6]]));
+        assert_eq!(row_major.strides(), &[3, 1]);
+
+        let column_major = <ndarray::Array2<i32> as Array2<i32>>::from_iterator(1..=6, 2, 3, 1);
+        assert_eq!(column_major, arr2(&[[1, 3, 5], [2, 4, 6]]));
+        assert_eq!(column_major.strides(), &[1, 2]);
+
+        for (nrows, ncols) in [(0, 3), (3, 0)] {
+            for axis in [0, 1] {
+                let empty = <ndarray::Array2<i32> as Array2<i32>>::from_iterator(
+                    std::iter::empty(),
+                    nrows,
+                    ncols,
+                    axis,
+                );
+                assert_eq!(BaseArray::shape(&empty), (nrows, ncols));
+            }
+        }
+    }
+
+    #[test]
+    fn h_stack_preserves_column_order() {
+        let left = arr2(&[[1, 2], [4, 5]]);
+        let right = arr2(&[[3], [6]]);
+        let stacked = Array2::h_stack(&left, &right);
+
+        assert_eq!(stacked, arr2(&[[1, 2, 3], [4, 5, 6]]));
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2() {
+        let input = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[1, 2, 3], &[4, 5, 6]]).unwrap();
+        assert_eq!(matrix, expected);
+
+        let transposed = input.reversed_axes();
+        let matrix = DenseMatrix::from_ndarray2(&transposed);
+        let expected = DenseMatrix::from_2d_array(&[&[1, 4], &[2, 5], &[3, 6]]).unwrap();
+        assert_eq!(matrix, expected);
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_square() {
+        let input = arr2(&[[1, 2], [3, 4]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[1, 2], &[3, 4]]).unwrap();
+        assert_eq!(matrix, expected);
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_row_vector() {
+        let input = arr2(&[[10, 20, 30, 40]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[10, 20, 30, 40]]).unwrap();
+        assert_eq!(matrix, expected);
+        assert_eq!(matrix.shape(), (1, 4));
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_col_vector() {
+        let input = arr2(&[[10], [20], [30], [40]]);
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        let expected = DenseMatrix::from_2d_array(&[&[10], &[20], &[30], &[40]]).unwrap();
+        assert_eq!(matrix, expected);
+        assert_eq!(matrix.shape(), (4, 1));
+    }
+
+    #[test]
+    fn test_dense_matrix_from_ndarray2_empty() {
+        let input = ndarray::Array2::<i32>::zeros((0, 0));
+        let matrix = DenseMatrix::from_ndarray2(&input);
+        assert!(matrix.is_empty());
+        assert_eq!(matrix.shape(), (0, 0));
+    }
+
+    #[test]
+    fn test_get_row() {
+        let m = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        let row = Array2::get_row(&m, 1);
+        assert_eq!(row.shape(), 3);
+        assert_eq!(*row.get(0), 4);
+        assert_eq!(*row.get(1), 5);
+        assert_eq!(*row.get(2), 6);
+    }
+
+    #[test]
+    fn test_get_col() {
+        let m = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        let col = Array2::get_col(&m, 1);
+        assert_eq!(col.shape(), 2);
+        assert_eq!(*col.get(0), 2);
+        assert_eq!(*col.get(1), 5);
+    }
+
+    #[test]
+    fn test_slice() {
+        let m = arr2(&[[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+        let view = Array2::slice(&m, 1..3, 0..2);
+        assert_eq!(view.shape(), (2, 2));
+        assert_eq!(*view.get((0, 0)), 4);
+        assert_eq!(*view.get((0, 1)), 5);
+        assert_eq!(*view.get((1, 0)), 7);
+        assert_eq!(*view.get((1, 1)), 8);
+    }
+
+    #[test]
+    fn test_slice_mut() {
+        let mut m = arr2(&[[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+        {
+            let mut view = Array2::slice_mut(&mut m, 1..3, 0..2);
+            view.set((0, 0), 40);
+            view.set((1, 1), 80);
+        }
+        assert_eq!(m, arr2(&[[1, 2, 3], [40, 5, 6], [7, 80, 9]]));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let empty = ndarray::Array2::<i32>::from_shape_simple_fn((0, 0), || unreachable!());
+        let non_empty = arr2(&[[1, 2], [3, 4]]);
+        assert!(BaseArray::is_empty(&empty));
+        assert!(!BaseArray::is_empty(&non_empty));
+    }
+}

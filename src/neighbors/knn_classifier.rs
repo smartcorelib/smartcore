@@ -48,6 +48,7 @@ use crate::numbers::basenum::Number;
 /// `KNNClassifier` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct KNNClassifierParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.
@@ -240,9 +241,9 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
             )));
         }
 
-        if parameters.k <= 1 {
+        if parameters.k < 1 {
             return Err(Failed::fit(&format!(
-                "k should be > 1, k=[{}]",
+                "k should be > 0, k=[{}]",
                 parameters.k
             )));
         }
@@ -264,17 +265,24 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let mut result = Y::zeros(x.shape().0);
+        match &self.knn_algorithm {
+            Some(_) => {
+                let mut result = Y::zeros(x.shape().0);
 
-        let mut row_vec = vec![TX::zero(); x.shape().1];
-        for (i, row) in x.row_iter().enumerate() {
-            row.iterator(0)
-                .zip(row_vec.iter_mut())
-                .for_each(|(&s, v)| *v = s);
-            result.set(i, self.classes()[self.predict_for_row(&row_vec)?]);
+                let mut row_vec = vec![TX::zero(); x.shape().1];
+                for (i, row) in x.row_iter().enumerate() {
+                    row.iterator(0)
+                        .zip(row_vec.iter_mut())
+                        .for_each(|(&s, v)| *v = s);
+                    result.set(i, self.classes()[self.predict_for_row(&row_vec)?]);
+                }
+
+                Ok(result)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
         }
-
-        Ok(result)
     }
 
     /// Compute class probabilities for a single row. All the rest functions will use it
@@ -333,16 +341,23 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
     /// Returns a vector of probability vectors, one per sample.
     /// Each probability vector has length equal to number of classes and sums to 1.
     pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
-        let mut result = Vec::with_capacity(x.shape().0);
-        let mut row_vec = vec![TX::zero(); x.shape().1];
-        for row in x.row_iter() {
-            row.iterator(0)
-                .zip(row_vec.iter_mut())
-                .for_each(|(&s, v)| *v = s);
-            result.push(self.predict_proba_for_row(&row_vec)?);
-        }
+        match &self.knn_algorithm {
+            Some(_) => {
+                let mut result = Vec::with_capacity(x.shape().0);
+                let mut row_vec = vec![TX::zero(); x.shape().1];
+                for row in x.row_iter() {
+                    row.iterator(0)
+                        .zip(row_vec.iter_mut())
+                        .for_each(|(&s, v)| *v = s);
+                    result.push(self.predict_proba_for_row(&row_vec)?);
+                }
 
-        Ok(result)
+                Ok(result)
+            }
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 }
 
@@ -404,6 +419,41 @@ mod tests {
             .predict(&DenseMatrix::from_2d_array(&[&[4.1]]).unwrap())
             .unwrap();
         assert_eq!(vec![3], y_hat);
+    }
+
+    #[test]
+    fn knn_fit_predict_k1() {
+        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.], &[3.], &[4.], &[5.]]).unwrap();
+        let y = vec![2, 3, 2, 3, 2];
+        let one_hot = vec![
+            vec![1., 0.],
+            vec![0., 1.],
+            vec![1., 0.],
+            vec![0., 1.],
+            vec![1., 0.],
+        ];
+
+        for algorithm in [KNNAlgorithmName::CoverTree, KNNAlgorithmName::LinearSearch] {
+            let knn = KNNClassifier::fit(
+                &x,
+                &y,
+                KNNClassifierParameters::default()
+                    .with_k(1)
+                    .with_algorithm(algorithm),
+            )
+            .unwrap();
+
+            assert_eq!(y, knn.predict(&x).unwrap());
+            assert_eq!(one_hot, knn.predict_proba(&x).unwrap());
+        }
+    }
+
+    #[test]
+    fn knn_fit_k0_fails() {
+        let x = DenseMatrix::from_2d_array(&[&[1.], &[2.]]).unwrap();
+        let y = vec![2, 3];
+
+        assert!(KNNClassifier::fit(&x, &y, KNNClassifierParameters::default().with_k(0)).is_err());
     }
 
     // New 8 tests (2026-03-19)
@@ -721,8 +771,38 @@ mod tests {
         let y = vec![2, 2, 2, 3, 3];
 
         let knn = KNNClassifier::fit(&x, &y, Default::default()).unwrap();
-        let deserialized_knn = bincode::deserialize(&bincode::serialize(&knn).unwrap()).unwrap();
+        let deserialized_knn = postcard::from_bytes(&postcard::to_allocvec(&knn).unwrap()).unwrap();
 
         assert_eq!(knn, deserialized_knn);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let knn: KNNClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>, Euclidian<f64>> =
+            KNNClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = knn.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_proba_without_fit_should_not_panic() {
+        let knn: KNNClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>, Euclidian<f64>> =
+            KNNClassifier::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = knn.predict_proba(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

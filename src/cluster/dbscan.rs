@@ -72,6 +72,7 @@ pub struct DBSCAN<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>, D: Dista
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 /// DBSCAN clustering algorithm parameters
+#[must_use]
 pub struct DBSCANParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.
@@ -124,6 +125,7 @@ impl<T: Number, D: Distance<Vec<T>>> DBSCANParameters<T, D> {
 /// DBSCAN grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct DBSCANSearchParameters<T: Number, D: Distance<Vec<T>>> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// a function that defines a distance between each pair of point in training data.

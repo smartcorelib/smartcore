@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
   pull_request:
-    branches: [development]
+    branches: [main]
 
 jobs:
   tests:
@@ -20,8 +20,6 @@ jobs:
             { os: "ubuntu", target: "wasm32-unknown-unknown" },
             { os: "macos", target: "aarch64-apple-darwin" },
           ]
-    env:
-      TZ: "/usr/share/zoneinfo/your/location"
     steps:
       - uses: actions/checkout@v4
       - name: Cache .cargo and target
@@ -55,9 +53,14 @@ jobs:
     strategy:
       matrix:
         platform: [{ os: "ubuntu" }]
-        features: ["--features serde", "--features datasets", ""]
-    env:
-      TZ: "/usr/share/zoneinfo/your/location"
+        features:
+          - "--features serde"
+          - "--features datasets"
+          - "--features ndarray-bindings"
+          - "--features std,ndarray-bindings"
+          - "--features lazy-normalization"
+          - "--features lazy-normalization,ndarray-bindings"
+          - ""
     steps:
       - uses: actions/checkout@v4
       - name: Cache .cargo and target
@@ -72,3 +75,61 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Stable Build
         run: cargo build --no-default-features ${{ matrix.features }}
+      - name: Assert ndarray feature resolution
+        shell: bash
+        run: |
+          case "${{ matrix.features }}" in
+            "--features ndarray-bindings")
+              ci/check-ndarray-features.sh no-std --no-default-features ${{ matrix.features }}
+              ;;
+            "--features std,ndarray-bindings")
+              ci/check-ndarray-features.sh std --no-default-features ${{ matrix.features }}
+              ;;
+            "")
+              ci/check-ndarray-features.sh absent --no-default-features
+              # Default features and explicit std must not activate ndarray.
+              ci/check-ndarray-features.sh absent
+              ci/check-ndarray-features.sh absent --no-default-features --features std
+              # Default plus bindings keeps ndarray's std feature on.
+              ci/check-ndarray-features.sh std --features default,ndarray-bindings
+              ;;
+            *)
+              if [[ "${{ matrix.features }}" == *ndarray-bindings* ]]; then
+                ci/check-ndarray-features.sh no-std --no-default-features ${{ matrix.features }}
+              else
+                ci/check-ndarray-features.sh absent --no-default-features ${{ matrix.features }}
+              fi
+              ;;
+          esac
+      - name: Tests
+        if: matrix.features == '--features ndarray-bindings' || matrix.features == '--features std,ndarray-bindings' || contains(matrix.features, 'lazy-normalization') || matrix.features == '--features datasets'
+        run: cargo test --no-default-features ${{ matrix.features }}
+      - name: Explicit std does not activate ndarray
+        if: matrix.features == ''
+        run: cargo build --no-default-features --features std
+      - name: Default plus ndarray-bindings
+        if: matrix.features == ''
+        run: |
+          cargo build --features default,ndarray-bindings
+          cargo test --features default,ndarray-bindings
+
+  msrv:
+    # Verify the declared rust-version (MSRV) in Cargo.toml still builds.
+    name: MSRV (1.85)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache .cargo and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo
+            ./target
+          key: ${{ runner.os }}-msrv-${{ hashFiles('Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-msrv
+      - name: Install Rust 1.85
+        uses: dtolnay/rust-toolchain@1.85.0
+      - name: Build with all features at MSRV
+        run: cargo +1.85.0 build --all-features
+      - name: Build without features at MSRV
+        run: cargo +1.85.0 build

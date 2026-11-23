@@ -47,7 +47,7 @@ use crate::linalg::basic::arrays::{Array1, ArrayView1};
     typetag::serde(tag = "type")
 )]
 pub trait Kernel: Debug {
-    #[allow(clippy::ptr_arg)]
+    #[expect(clippy::ptr_arg)]
     /// Apply kernel function to x_i and x_j
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed>;
 }
@@ -68,6 +68,7 @@ pub trait Kernel: Debug {
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
+#[must_use]
 pub enum Kernels {
     /// Linear kernel (default).
     ///
@@ -198,7 +199,7 @@ impl Kernels {
                 gamma: Some(gamma),
                 coef0,
             },
-            other => other,
+            Kernels::Linear => Kernels::Linear,
         }
     }
 
@@ -214,7 +215,7 @@ impl Kernels {
                 gamma,
                 coef0,
             },
-            other => other,
+            Kernels::Linear | Kernels::RBF { .. } | Kernels::Sigmoid { .. } => self,
         }
     }
 
@@ -235,7 +236,7 @@ impl Kernels {
                 gamma,
                 coef0: Some(coef0),
             },
-            other => other,
+            Kernels::Linear | Kernels::RBF { .. } => self,
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{self, Debug, Display};
 use std::ops::Range;
 
 use crate::linalg::basic::arrays::{Array, Array1, ArrayView1, MutArray, MutArrayView1};
@@ -152,6 +152,12 @@ impl<T: Debug + Display + Copy + Sized> MutArray<T, usize> for VecMutView<'_, T>
 impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecMutView<'_, T> {}
 impl<T: Debug + Display + Copy + Sized> MutArrayView1<T> for VecMutView<'_, T> {}
 
+impl<T: Debug + Display + Copy + Sized> fmt::Display for VecMutView<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iterator(0)).finish()
+    }
+}
+
 impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'_, T> {
     fn get(&self, i: usize) -> &T {
         &self.ptr[i]
@@ -172,6 +178,12 @@ impl<T: Debug + Display + Copy + Sized> Array<T, usize> for VecView<'_, T> {
 }
 
 impl<T: Debug + Display + Copy + Sized> ArrayView1<T> for VecView<'_, T> {}
+
+impl<T: Debug + Display + Copy + Sized> fmt::Display for VecView<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iterator(0)).finish()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -344,5 +356,58 @@ mod tests {
         let x = vec![1., 2., 3.];
 
         vector_ops(&x);
+    }
+
+    #[test]
+    fn test_display() {
+        let mut x = vec![1, 2, 3, 4];
+
+        let view = VecView { ptr: &x[1..3] };
+        assert_eq!("[2, 3]", format!("{view}"));
+
+        let mut_view = VecMutView { ptr: &mut x[..2] };
+        assert_eq!("[1, 2]", format!("{mut_view}"));
+    }
+
+    #[test]
+    fn test_display_slice() {
+        let x = vec![1, 2, 3, 4];
+        assert_eq!("[2, 3]", format!("{}", x.slice(1..3)));
+        assert_eq!("[]", format!("{}", x.slice(2..2)));
+        assert_eq!("[4]", format!("{}", x.slice(3..4)));
+
+        // Elements use the Debug format: 1.0 prints as "1.0", not "1".
+        let y = vec![1.0f64, 2.5, -0.5];
+        assert_eq!("[1.0, 2.5, -0.5]", format!("{}", y.slice(0..3)));
+        assert_eq!("[1.0]", format!("{}", y.slice(0..1)));
+        assert_eq!("[1.00, 2.50]", format!("{:.2}", y.slice(0..2)));
+    }
+
+    #[test]
+    fn test_display_slice_mut() {
+        let mut x = vec![1, 2, 3, 4];
+        assert_eq!("[2, 3]", format!("{}", x.slice_mut(1..3)));
+        assert_eq!("[]", format!("{}", x.slice_mut(2..2)));
+        assert_eq!("[4]", format!("{}", x.slice_mut(3..4)));
+
+        // Elements use the Debug format: 1.0 prints as "1.0", not "1".
+        let mut y = vec![1.0f64, 2.5, -0.5];
+        assert_eq!("[1.0, 2.5, -0.5]", format!("{}", y.slice_mut(0..3)));
+        assert_eq!("[1.0]", format!("{}", y.slice_mut(0..1)));
+        assert_eq!("[1.00, 2.50]", format!("{:.2}", y.slice_mut(0..2)));
+    }
+
+    #[test]
+    fn test_display_concrete_views() {
+        let mut y = vec![1.0f64, 2.5];
+        assert_eq!("[]", format!("{}", VecView { ptr: &y[..0] }));
+        assert_eq!("[1.0]", format!("{}", VecView { ptr: &y[..1] }));
+        assert_eq!("[1.00, 2.50]", format!("{:.2}", VecView { ptr: &y[..] }));
+        assert_eq!("[]", format!("{}", VecMutView { ptr: &mut y[..0] }));
+        assert_eq!("[2.5]", format!("{}", VecMutView { ptr: &mut y[1..] }));
+        assert_eq!(
+            "[1.00, 2.50]",
+            format!("{:.2}", VecMutView { ptr: &mut y[..] })
+        );
     }
 }

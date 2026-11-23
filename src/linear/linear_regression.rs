@@ -16,8 +16,9 @@
 //! The QR decomposition is more computationally efficient and more numerically stable than calculating the normal equation directly,
 //! but does not work for all data matrices. Unlike the QR decomposition, all matrices have an SVD decomposition.
 //!
-//! Example:
+//! ### Examples
 //!
+//! #### Single-Output Regression
 //! ```
 //! use smartcore::linalg::basic::matrix::DenseMatrix;
 //! use smartcore::linear::linear_regression::*;
@@ -50,6 +51,23 @@
 //!             with_solver(LinearRegressionSolverName::QR)).unwrap();
 //!
 //! let y_hat = lr.predict(&x).unwrap();
+//! ```
+//!
+//! #### Multi-Output Regression
+//! ```
+//! use smartcore::linalg::basic::matrix::DenseMatrix;
+//! use smartcore::linear::linear_regression::*;
+//!
+//! let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]]).unwrap();
+//! let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]]).unwrap();
+//!
+//! let model = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+//!     &x,
+//!     &y,
+//!     Default::default(),
+//! ).unwrap();
+//!
+//! let y_hat = model.predict_matrix(&x).unwrap();
 //! ```
 //!
 //! ## References:
@@ -88,6 +106,7 @@ pub enum LinearRegressionSolverName {
 /// Linear Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LinearRegressionParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -109,10 +128,11 @@ pub struct LinearRegression<
     TX: Number + RealNumber,
     TY: Number,
     X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-    Y: Array1<TY>,
+    Y,
 > {
     coefficients: Option<X>,
-    intercept: Option<TX>,
+    intercept: Option<X>,
+    _phantom_tx: PhantomData<TX>,
     _phantom_ty: PhantomData<TY>,
     _phantom_y: PhantomData<Y>,
 }
@@ -128,6 +148,7 @@ impl LinearRegressionParameters {
 /// Linear Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct LinearRegressionSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -181,34 +202,51 @@ impl Default for LinearRegressionSearchParameters {
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > PartialEq for LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y,
+> PartialEq for LinearRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.intercept == other.intercept
-            && self.coefficients().shape() == other.coefficients().shape()
-            && self
-                .coefficients()
-                .iterator(0)
-                .zip(other.coefficients().iterator(0))
-                .all(|(&a, &b)| (a - b).abs() <= TX::epsilon())
+        let intercepts_match = match (&self.intercept, &other.intercept) {
+            (Some(a), Some(b)) => {
+                a.shape() == b.shape()
+                    && a.iterator(0)
+                        .zip(b.iterator(0))
+                        .all(|(&x, &y)| (x - y).abs() <= TX::epsilon())
+            }
+            (None, None) => true,
+            _ => false,
+        };
+
+        let coefficients_match = match (&self.coefficients, &other.coefficients) {
+            (Some(a), Some(b)) => {
+                a.shape() == b.shape()
+                    && a.iterator(0)
+                        .zip(b.iterator(0))
+                        .all(|(&x, &y)| (x - y).abs() <= TX::epsilon())
+            }
+            (None, None) => true,
+            _ => false,
+        };
+
+        intercepts_match && coefficients_match
     }
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> SupervisedEstimator<X, Y, LinearRegressionParameters> for LinearRegression<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
             coefficients: Option::None,
             intercept: Option::None,
+            _phantom_tx: PhantomData,
             _phantom_ty: PhantomData,
             _phantom_y: PhantomData,
         }
@@ -220,11 +258,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> Predictor<X, Y> for LinearRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
@@ -232,11 +270,118 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > LinearRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y,
+> LinearRegression<TX, TY, X, Y>
+{
+    /// Fits Linear Regression to your data.
+    /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
+    /// * `y` - _NxK_ matrix with _N_ observations and _K_ target values in each observation.
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
+    pub fn fit_matrix<YM: Array2<TX>>(
+        x: &X,
+        y: &YM,
+        parameters: LinearRegressionParameters,
+    ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
+        let (x_nrows, num_attributes) = x.shape();
+        let (y_nrows, num_targets) = y.shape();
+
+        if x_nrows != y_nrows {
+            return Err(Failed::fit(
+                "Number of rows of X doesn't match number of rows of Y",
+            ));
+        }
+
+        // The intercept column adds one unknown, so the solved system has
+        // num_attributes + 1 columns. Both solvers below need at least that
+        // many rows; a shorter system is underdetermined (#435).
+        if x_nrows < num_attributes + 1 {
+            return Err(Failed::fit(&format!(
+                "The system is underdetermined: n_samples = {x_nrows}, \
+                 n_features = {num_attributes}. Need n_samples >= n_features + 1."
+            )));
+        }
+
+        // Augment X with column of ones for intercept fitting
+        let a = x.h_stack(&X::ones(x_nrows, 1));
+
+        // Convert Y into X storage; both iterator(0) and from_iterator(axis = 0)
+        // traverse logical row-major order for every Array2 implementation
+        let y_x = X::from_iterator(y.iterator(0).copied(), y_nrows, num_targets, 0);
+
+        // Solve A * W = Y for W matrix of size (num_attributes + 1) x K
+        let w = match parameters.solver {
+            LinearRegressionSolverName::QR => a.qr_solve_mut(y_x)?,
+            LinearRegressionSolverName::SVD => a.svd_solve_mut(y_x)?,
+        };
+
+        let weights = X::from_slice(w.slice(0..num_attributes, 0..num_targets).as_ref());
+        let intercept = X::from_slice(
+            w.slice(num_attributes..num_attributes + 1, 0..num_targets)
+                .as_ref(),
+        );
+
+        Ok(LinearRegression {
+            intercept: Some(intercept),
+            coefficients: Some(weights),
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_y: PhantomData,
+        })
+    }
+
+    /// Predict target values from `x`
+    /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
+    pub fn predict_matrix(&self, x: &X) -> Result<X, Failed> {
+        match (&self.coefficients, &self.intercept) {
+            (Some(coefficients), Some(intercept)) => {
+                let (nrows, _) = x.shape();
+
+                let (_, num_targets) = intercept.shape();
+
+                let mut y_hat = x.matmul(coefficients);
+
+                // Tile the 1xK intercept across all rows, then add in one pass
+                let bias = X::from_iterator(
+                    (0..nrows).flat_map(|_| intercept.iterator(0).copied()),
+                    nrows,
+                    num_targets,
+                    0,
+                );
+                y_hat.add_mut(&bias);
+
+                Ok(y_hat)
+            }
+            (_, _) => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
+    }
+
+    /// Get estimates regression coefficients
+    pub fn coefficients(&self) -> &X {
+        self.coefficients.as_ref().unwrap()
+    }
+
+    /// Get estimate of intercept (first target for multi-output models)
+    pub fn intercept(&self) -> &TX {
+        self.intercept.as_ref().unwrap().get((0, 0))
+    }
+
+    /// Get estimates of intercepts as a _1xK_ matrix
+    pub fn intercept_matrix(&self) -> &X {
+        self.intercept.as_ref().unwrap()
+    }
+}
+
+impl<
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + QRDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> LinearRegression<TX, TY, X, Y>
 {
     /// Fits Linear Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
@@ -247,65 +392,31 @@ impl<
         y: &Y,
         parameters: LinearRegressionParameters,
     ) -> Result<LinearRegression<TX, TY, X, Y>, Failed> {
-        let b = X::from_iterator(
+        let y_mat = X::from_iterator(
             y.iterator(0).map(|&v| TX::from(v).unwrap()),
             y.shape(),
             1,
             0,
         );
-        let (x_nrows, num_attributes) = x.shape();
-        let (y_nrows, _) = b.shape();
-
-        if x_nrows != y_nrows {
-            return Err(Failed::fit(
-                "Number of rows of X doesn\'t match number of rows of Y",
-            ));
-        }
-
-        let a = x.h_stack(&X::ones(x_nrows, 1));
-
-        let w = match parameters.solver {
-            LinearRegressionSolverName::QR => a.qr_solve_mut(b)?,
-            LinearRegressionSolverName::SVD => a.svd_solve_mut(b)?,
-        };
-
-        let weights = X::from_slice(w.slice(0..num_attributes, 0..1).as_ref());
-
-        Ok(LinearRegression {
-            intercept: Some(*w.get((num_attributes, 0))),
-            coefficients: Some(weights),
-            _phantom_ty: PhantomData,
-            _phantom_y: PhantomData,
-        })
+        Self::fit_matrix(x, &y_mat, parameters)
     }
 
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
+        let y_hat_mat = self.predict_matrix(x)?;
         let (nrows, _) = x.shape();
-        let bias = X::fill(nrows, 1, *self.intercept());
-        let mut y_hat = x.matmul(self.coefficients());
-        y_hat.add_mut(&bias);
         Ok(Y::from_iterator(
-            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+            y_hat_mat.iterator(0).map(|&v| TY::from(v).unwrap()),
             nrows,
         ))
-    }
-
-    /// Get estimates regression coefficients
-    pub fn coefficients(&self) -> &X {
-        self.coefficients.as_ref().unwrap()
-    }
-
-    /// Get estimate of intercept
-    pub fn intercept(&self) -> &TX {
-        self.intercept.as_ref().unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::linalg::basic::arrays::Array;
     use crate::linalg::basic::matrix::DenseMatrix;
 
     #[test]
@@ -348,68 +459,305 @@ mod tests {
             83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8,
         ];
 
-        let y_hat_qr = LinearRegression::fit(
+        let lr = LinearRegression::fit(
             &x,
             &y,
             LinearRegressionParameters {
                 solver: LinearRegressionSolverName::QR,
             },
         )
-        .and_then(|lr| lr.predict(&x))
         .unwrap();
+
+        let y_hat_qr = lr.predict(&x).unwrap();
 
         let y_hat_svd = LinearRegression::fit(&x, &y, Default::default())
             .and_then(|lr| lr.predict(&x))
             .unwrap();
 
-        assert!(y
-            .iter()
-            .zip(y_hat_qr.iter())
-            .all(|(&a, &b)| (a - b).abs() <= 5.0));
-        assert!(y
-            .iter()
-            .zip(y_hat_svd.iter())
-            .all(|(&a, &b)| (a - b).abs() <= 5.0));
+        assert!(
+            y.iter()
+                .zip(y_hat_qr.iter())
+                .all(|(&a, &b)| (a - b).abs() <= 5.0)
+        );
+        assert!(
+            y.iter()
+                .zip(y_hat_svd.iter())
+                .all(|(&a, &b)| (a - b).abs() <= 5.0)
+        );
+
+        // Confirm single-output intercept getter works properly
+        let intercept: f64 = *lr.intercept();
+        assert!((intercept - 83.0).abs() > 0.0);
     }
 
-    // TODO: serialization for the new DenseMatrix needs to be implemented
-    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
-    //         &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
-    //         &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
-    //         &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
-    //         &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
-    //         &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
-    //         &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
-    //         &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
-    //         &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
-    //         &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
-    //         &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
-    //         &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
-    //         &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
-    //         &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
-    //         &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
-    //         &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-    //     ]).unwrap();
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
+            &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ])
+        .unwrap();
 
-    //     let y = vec![
-    //         83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
-    //         114.2, 115.7, 116.9,
-    //     ];
+        let y = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
 
-    //     let lr = LinearRegression::fit(&x, &y, Default::default()).unwrap();
+        let lr = LinearRegression::fit(&x, &y, Default::default()).unwrap();
 
-    //     let deserialized_lr: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-    //         serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
+        let deserialized_lr: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            postcard::from_bytes(&postcard::to_allocvec(&lr).unwrap()).unwrap();
 
-    //     assert_eq!(lr, deserialized_lr);
+        assert_eq!(lr, deserialized_lr);
+    }
 
-    //     let default = LinearRegressionParameters::default();
-    //     let parameters: LinearRegressionParameters = serde_json::from_str("{}").unwrap();
-    //     assert_eq!(parameters.solver, default.solver);
-    // }
+    #[test]
+    #[cfg(feature = "serde")]
+    fn multi_output_serde() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]])
+            .unwrap();
+        let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]])
+            .unwrap();
+
+        let lr = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            Default::default(),
+        )
+        .unwrap();
+
+        let deserialized_lr: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            postcard::from_bytes(&postcard::to_allocvec(&lr).unwrap()).unwrap();
+
+        assert_eq!(lr, deserialized_lr);
+        assert_eq!(
+            lr.intercept_matrix().shape(),
+            deserialized_lr.intercept_matrix().shape()
+        );
+    }
+
+    #[test]
+    fn multi_output_ols_fit_predict() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 4.0], &[4.0, 3.0]])
+            .unwrap();
+
+        let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5], &[5.0, 3.0], &[10.0, 0.5], &[11.0, 2.0]])
+            .unwrap();
+
+        // Test SVD solver path
+        let model_svd = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::SVD),
+        )
+        .unwrap();
+        let pred_svd = model_svd.predict_matrix(&x).unwrap();
+
+        // Test QR solver path
+        let model_qr = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::QR),
+        )
+        .unwrap();
+        let pred_qr = model_qr.predict_matrix(&x).unwrap();
+
+        assert_eq!(pred_svd.shape(), (4, 2));
+        assert_eq!(pred_qr.shape(), (4, 2));
+        assert_eq!(model_svd.coefficients().shape(), (2, 2));
+
+        // Both solvers should agree on well-conditioned data
+        assert!(
+            pred_svd
+                .iterator(0)
+                .zip(pred_qr.iterator(0))
+                .all(|(&a, &b)| (a - b).abs() <= 1e-8)
+        );
+    }
+
+    #[test]
+    fn multi_output_numerical_correctness() {
+        // Target model: Y_1 = 2*X_1 + 1*X_2 + 3, Y_2 = 1*X_1 + 3*X_2 + 2
+        let x = DenseMatrix::from_2d_array(&[
+            &[1.0, 0.0],
+            &[0.0, 1.0],
+            &[2.0, 2.0],
+            &[3.0, 1.0],
+            &[1.0, 4.0],
+        ])
+        .unwrap();
+
+        let y = DenseMatrix::from_2d_array(&[
+            &[5.0, 3.0],
+            &[4.0, 5.0],
+            &[9.0, 10.0],
+            &[10.0, 8.0],
+            &[9.0, 15.0],
+        ])
+        .unwrap();
+
+        let model = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            Default::default(),
+        )
+        .unwrap();
+
+        let coefs = model.coefficients();
+        let intercept = model.intercept_matrix();
+
+        // Check slope matrix (2 x 2)
+        assert!((coefs.get((0, 0)) - 2.0).abs() < 1e-5);
+        assert!((coefs.get((1, 0)) - 1.0).abs() < 1e-5);
+        assert!((coefs.get((0, 1)) - 1.0).abs() < 1e-5);
+        assert!((coefs.get((1, 1)) - 3.0).abs() < 1e-5);
+
+        // Check intercept vector (1 x 2)
+        assert!((intercept.get((0, 0)) - 3.0).abs() < 1e-5);
+        assert!((intercept.get((0, 1)) - 2.0).abs() < 1e-5);
+
+        // Predictions should reproduce the exact linear targets
+        let y_hat = model.predict_matrix(&x).unwrap();
+        for i in 0..y.shape().0 {
+            for j in 0..y.shape().1 {
+                assert!((*y_hat.get((i, j)) - *y.get((i, j))).abs() < 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn fit_matrix_dimension_mismatch() {
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0]]).unwrap();
+        let y = DenseMatrix::from_2d_array(&[&[4.0, 1.5]]).unwrap();
+
+        let result = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit_matrix(
+            &x,
+            &y,
+            Default::default(),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_underdetermined_system_svd_returns_error() {
+        // Issue #435: n_features + 1 > n_samples must yield Err(Failed), not a panic.
+        // The intercept column makes the augmented system 3x4 while only 3 rows exist.
+        let x =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 10.0]])
+                .unwrap();
+        let y: Vec<f64> = vec![1.0, 2.0, 3.0];
+
+        let result = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            Default::default(),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_underdetermined_system_qr_returns_error() {
+        // Issue #435: the QR solver must also report an error instead of
+        // panicking with "Matrix is rank deficient."
+        let x =
+            DenseMatrix::from_2d_array(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 10.0]])
+                .unwrap();
+        let y: Vec<f64> = vec![1.0, 2.0, 3.0];
+
+        let result = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::QR),
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn fit_boundary_sample_count_fits_both_solvers() {
+        // n_samples == n_features + 1 gives a full-rank square augmented system;
+        // both solvers must still fit and recover y = x1 + 2*x2 + 1.
+        let x = DenseMatrix::from_2d_array(&[&[1.0, 2.0], &[2.0, 1.0], &[3.0, 3.0]]).unwrap();
+        let y: Vec<f64> = vec![6.0, 5.0, 10.0];
+
+        let model_svd = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            Default::default(),
+        )
+        .unwrap();
+        let model_qr = LinearRegression::<f64, f64, DenseMatrix<f64>, Vec<f64>>::fit(
+            &x,
+            &y,
+            LinearRegressionParameters::default().with_solver(LinearRegressionSolverName::QR),
+        )
+        .unwrap();
+
+        for model in [&model_svd, &model_qr] {
+            assert!((*model.coefficients().get((0, 0)) - 1.0).abs() < 1e-8);
+            assert!((*model.coefficients().get((1, 0)) - 2.0).abs() < 1e-8);
+            assert!((*model.intercept() - 1.0).abs() < 1e-8);
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_matrix_without_fit_should_not_panic() {
+        let model: LinearRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = LinearRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict_matrix(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
 }

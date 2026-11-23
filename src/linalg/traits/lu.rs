@@ -31,7 +31,7 @@
 //!
 //! <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 //! <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-#![allow(non_snake_case)]
+#![expect(non_snake_case)]
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -46,7 +46,7 @@ use crate::numbers::realnum::RealNumber;
 pub struct LU<T: Number + RealNumber, M: Array2<T>> {
     LU: M,
     pivot: Vec<usize>,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pivot_sign: i8,
     singular: bool,
     phantom: PhantomData<T>,
@@ -114,8 +114,8 @@ impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
         let (_, n) = self.LU.shape();
         let mut piv = M::zeros(n, n);
 
-        for i in 0..n {
-            piv.set((i, self.pivot[i]), T::one());
+        for (i, &pivot) in self.pivot[..n].iter().enumerate() {
+            piv.set((i, pivot), T::one());
         }
 
         piv
@@ -153,8 +153,8 @@ impl<T: Number + RealNumber, M: Array2<T>> LU<T, M> {
         let mut X = M::zeros(b_m, b_n);
 
         for j in 0..b_n {
-            for i in 0..m {
-                X.set((i, j), *b.get((self.pivot[i], j)));
+            for (i, &pivot) in self.pivot[..m].iter().enumerate() {
+                X.set((i, j), *b.get((pivot, j)));
             }
         }
 

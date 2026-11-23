@@ -2,9 +2,9 @@ name: Coverage
 
 on:
   push:
-    branches: [ main, development ]
+    branches: [ main ]
   pull_request:
-    branches: [ development ]
+    branches: [ main ]
 
 jobs:
   coverage:
@@ -23,11 +23,14 @@ jobs:
           restore-keys: ${{ runner.os }}-coverage-cargo
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
+        run: cargo install --locked cargo-tarpaulin
       - name: Run cargo-tarpaulin
-        run: cargo tarpaulin --out Lcov --all-features -- --test-threads 1
+        run: cargo tarpaulin --release --engine llvm --all-features --run-types Tests --run-types Doctests --out Lcov --fail-under 80 -- --test-threads 1
       - name: Upload to codecov.io
+        if: always()
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false

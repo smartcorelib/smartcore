@@ -67,6 +67,6 @@ $ rust-code-analysis-cli -p src/algorithm/neighbour/fastpair.rs --ls 22 --le 213
   
 * **read history**: search past open or closed issues for your problem before opening a new issue.
 
-* **PRs on develop**: any change should be PRed first in `development`
+* **PRs on main**: any change should be PRed first in `main`
 
 * **testing**:  everything should work and be tested as defined in the workflow. If any is failing for non-related reasons, annotate the test failure in the PR comment.

@@ -5,7 +5,7 @@
 Fixes #
 
 ### Checklist
-- [ ] My branch is up-to-date with development branch.
+- [ ] My branch is up-to-date with main branch.
 - [ ] Everything works and tested on latest stable Rust.
 - [ ] Coverage and Linting have been applied 
 

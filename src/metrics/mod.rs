@@ -59,6 +59,8 @@ pub mod auc;
 /// Compute the homogeneity, completeness and V-Measure scores.
 pub mod cluster_hcv;
 pub(crate) mod cluster_helpers;
+/// Per-class confusion-count helpers shared by classification metrics.
+pub(crate) mod confusion;
 /// Multitude of distance metrics are defined here
 pub mod distance;
 /// F1 score, also known as balanced F-score or F-measure.
@@ -117,23 +119,38 @@ pub struct ClusterMetrics<T> {
     phantom: PhantomData<T>,
 }
 
-impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
+impl<T: Number> ClassificationMetrics<T> {
     /// Recall, see [recall](recall/index.html).
+    ///
+    /// Works with float and integer labels, e.g. the ordered integer labels
+    /// accepted by `RandomForestClassifier::fit`.
+    #[must_use]
     pub fn recall() -> recall::Recall<T> {
         recall::Recall::new()
     }
 
     /// Precision, see [precision](precision/index.html).
+    ///
+    /// Works with float and integer labels, e.g. the ordered integer labels
+    /// accepted by `RandomForestClassifier::fit`.
+    #[must_use]
     pub fn precision() -> precision::Precision<T> {
         precision::Precision::new()
     }
 
     /// F1 score, also known as balanced F-score or F-measure, see [F1](f1/index.html).
+    ///
+    /// Works with float and integer labels, e.g. the ordered integer labels
+    /// accepted by `RandomForestClassifier::fit`.
+    #[must_use]
     pub fn f1(beta: f64) -> f1::F1<T> {
         f1::F1::new_with(beta)
     }
+}
 
+impl<T: Number + FloatNumber + PartialOrd> ClassificationMetrics<T> {
     /// Area Under the Receiver Operating Characteristic Curve (ROC AUC), see [AUC](auc/index.html).
+    #[must_use]
     pub fn roc_auc_score() -> auc::AUC<T> {
         auc::AUC::<T>::new()
     }
@@ -141,6 +158,7 @@ impl<T: Number + RealNumber + FloatNumber> ClassificationMetrics<T> {
 
 impl<T: Number + Ord> ClassificationMetricsOrd<T> {
     /// Accuracy score, see [accuracy](accuracy/index.html).
+    #[must_use]
     pub fn accuracy() -> accuracy::Accuracy<T> {
         accuracy::Accuracy::new()
     }
@@ -148,16 +166,19 @@ impl<T: Number + Ord> ClassificationMetricsOrd<T> {
 
 impl<T: Number + FloatNumber> RegressionMetrics<T> {
     /// Mean squared error, see [mean squared error](mean_squared_error/index.html).
+    #[must_use]
     pub fn mean_squared_error() -> mean_squared_error::MeanSquareError<T> {
         mean_squared_error::MeanSquareError::new()
     }
 
     /// Mean absolute error, see [mean absolute error](mean_absolute_error/index.html).
+    #[must_use]
     pub fn mean_absolute_error() -> mean_absolute_error::MeanAbsoluteError<T> {
         mean_absolute_error::MeanAbsoluteError::new()
     }
 
     /// Coefficient of determination (R2), see [R2](r2/index.html).
+    #[must_use]
     pub fn r2() -> r2::R2<T> {
         r2::R2::<T>::new()
     }
@@ -165,6 +186,7 @@ impl<T: Number + FloatNumber> RegressionMetrics<T> {
 
 impl<T: Number + Ord> ClusterMetrics<T> {
     /// Homogeneity and completeness and V-Measure scores at once.
+    #[must_use]
     pub fn hcv_score() -> cluster_hcv::HCVScore<T> {
         cluster_hcv::HCVScore::<T>::new()
     }
@@ -181,34 +203,33 @@ pub fn accuracy<T: Number + Ord, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f6
 /// Calculated recall score, see [recall](recall/index.html)
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn recall<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
-    y_true: &V,
-    y_pred: &V,
-) -> f64 {
-    let obj = ClassificationMetrics::<T>::recall();
+///
+/// Works with float and integer labels, e.g. the ordered integer labels
+/// accepted by `RandomForestClassifier::fit`.
+pub fn recall<T: Number, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+    let obj = recall::Recall::<T>::new();
     obj.get_score(y_true, y_pred)
 }
 
 /// Calculated precision score, see [precision](precision/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn precision<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
-    y_true: &V,
-    y_pred: &V,
-) -> f64 {
-    let obj = ClassificationMetrics::<T>::precision();
+///
+/// Works with float and integer labels, e.g. the ordered integer labels
+/// accepted by `RandomForestClassifier::fit`.
+pub fn precision<T: Number, V: ArrayView1<T>>(y_true: &V, y_pred: &V) -> f64 {
+    let obj = precision::Precision::<T>::new();
     obj.get_score(y_true, y_pred)
 }
 
 /// Computes F1 score, see [F1](f1/index.html).
 /// * `y_true` - cround truth (correct) labels.
 /// * `y_pred` - predicted labels, as returned by a classifier.
-pub fn f1<T: Number + RealNumber + FloatNumber, V: ArrayView1<T>>(
-    y_true: &V,
-    y_pred: &V,
-    beta: f64,
-) -> f64 {
-    let obj = ClassificationMetrics::<T>::f1(beta);
+///
+/// Works with float and integer labels, e.g. the ordered integer labels
+/// accepted by `RandomForestClassifier::fit`.
+pub fn f1<T: Number, V: ArrayView1<T>>(y_true: &V, y_pred: &V, beta: f64) -> f64 {
+    let obj = f1::F1::<T>::new_with(beta);
     obj.get_score(y_true, y_pred)
 }
 
@@ -295,4 +316,30 @@ pub fn v_measure_score<T: Number + FloatNumber + RealNumber + Ord, V: ArrayView1
     let mut obj = ClusterMetrics::<T>::hcv_score();
     obj.compute(y_true, y_pred);
     obj.v_measure().unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn classification_metrics_integer_labels() {
+        // #322: precision/recall/f1 through the ClassificationMetrics entry
+        // point must accept ordered integer labels, not only floats.
+        let y_true: Vec<u16> = vec![0, 1, 1, 0, 1, 0];
+        let y_pred: Vec<u16> = vec![0, 0, 1, 1, 1, 1];
+
+        let p = ClassificationMetrics::<u16>::precision().get_score(&y_true, &y_pred);
+        assert!((p - 0.5).abs() < 1e-8);
+
+        let r = ClassificationMetrics::<u16>::recall().get_score(&y_true, &y_pred);
+        assert!((r - 2.0 / 3.0).abs() < 1e-8);
+
+        let f = ClassificationMetrics::<u16>::f1(1.0).get_score(&y_true, &y_pred);
+        assert!((f - 4.0 / 7.0).abs() < 1e-8);
+    }
 }

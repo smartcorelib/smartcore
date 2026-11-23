@@ -1,0 +1,3396 @@
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::num::NonZeroU32;
+
+use rand::RngExt;
+use rand::seq::SliceRandom;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+use crate::error::{Failed, FailedError};
+use crate::linalg::basic::arrays::{Array1, Array2, MutArrayView1};
+use crate::numbers::basenum::Number;
+use crate::rand_custom::get_rng_impl;
+use crate::tree::criterion::{ClassificationOutput, Criterion, LeafOutput};
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, Default)]
+pub enum Splitter {
+    Random,
+    #[default]
+    Best,
+}
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+/// Parameters of base tree
+#[must_use]
+pub struct BaseTreeParameters {
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The maximum depth of the tree
+    pub max_depth: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The minimum number of samples required to be at a leaf node.
+    pub min_samples_leaf: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// The minimum number of samples required to split an internal node.
+    pub min_samples_split: usize,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Controls the randomness of the estimator
+    pub seed: Option<u64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    /// Determines the strategy used to choose the split at each node.
+    pub splitter: Splitter,
+}
+
+/// Base Decision Tree
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "Out: Serialize", deserialize = "Out: Deserialize<'de>"))
+)]
+#[derive(Debug)]
+pub struct BaseTree<
+    TX: Number + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    Out: LeafOutput,
+> {
+    nodes: Vec<Node<Out>>,
+    parameters: Option<BaseTreeParameters>,
+    depth: u16,
+    root_mass: f64,
+    /// empty for regressors
+    leaf_probabilities: Vec<f32>,
+    n_leaves: u32,
+    _phantom_tx: PhantomData<TX>,
+    _phantom_ty: PhantomData<TY>,
+    _phantom_x: PhantomData<X>,
+    _phantom_y: PhantomData<Y>,
+}
+
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: LeafOutput>
+    BaseTree<TX, TY, X, Y, Out>
+{
+    /// Get nodes, return a shared reference
+    fn nodes(&self) -> &Vec<Node<Out>> {
+        self.nodes.as_ref()
+    }
+    /// Get parameters, return a shared reference
+    fn parameters(&self) -> &BaseTreeParameters {
+        self.parameters.as_ref().unwrap()
+    }
+
+    /// Get depth of tree
+    pub(crate) fn depth(&self) -> u16 {
+        self.depth
+    }
+    /// Get number of nodes in the tree
+    #[cfg(test)]
+    pub(crate) fn num_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+}
+
+/// A tree node. Node 0 is the root.
+/// `Inner` sends a sample to `true_child` if `x[split_feature] <= split_value`, else to
+/// `true_child + 1` (the false child is always pushed directly after the true child).
+/// `true_child` is never 0 (the root), so `NonZeroU32` makes the node smaller.
+/// `Leaf` holds the prediction.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+enum Node<Out> {
+    Inner {
+        split_feature: u32,
+        split_value: f64,
+        split_score: f64,
+        true_child: NonZeroU32,
+    },
+    Leaf {
+        output: Out,
+    },
+}
+
+impl<Out: LeafOutput> Node<Out> {
+    fn new_leaf(output: Out) -> Self {
+        Node::Leaf { output }
+    }
+
+    // Create a new inner node (i.e. where the tree is split).
+    // Will panic if true_child is zero or larger than u32::MAX
+    fn new_inner(
+        split_feature: usize,
+        split_value: f64,
+        split_score: f64,
+        true_child: usize,
+    ) -> Self {
+        Node::Inner {
+            split_feature: u32::try_from(split_feature).expect("split_feature must fit in u32"),
+            split_value,
+            split_score,
+            true_child: u32::try_from(true_child)
+                .ok()
+                .and_then(NonZeroU32::new)
+                .expect("true_child must be in 1..=u32::MAX"),
+        }
+    }
+}
+
+impl<Out: LeafOutput> Node<Out> {
+    fn approximate_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Node::Leaf { output: a }, Node::Leaf { output: b }) => a.approximate_eq(b),
+            (
+                Node::Inner {
+                    split_feature: f1,
+                    split_value: v1,
+                    split_score: s1,
+                    true_child: c1,
+                },
+                Node::Inner {
+                    split_feature: f2,
+                    split_value: v2,
+                    split_score: s2,
+                    true_child: c2,
+                },
+            ) => {
+                f1 == f2
+                    && c1 == c2
+                    && (v1 - v2).abs() < f64::EPSILON
+                    && (s1 - s2).abs() < f64::EPSILON
+            }
+            _ => false, // a leaf is never equal to an inner node
+        }
+    }
+}
+
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: LeafOutput> PartialEq
+    for BaseTree<TX, TY, X, Y, Out>
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.depth != other.depth
+            || self.nodes.len() != other.nodes.len()
+            || self.n_leaves != other.n_leaves
+            || self.leaf_probabilities.len() != other.leaf_probabilities.len()
+        {
+            false
+        } else {
+            self.nodes
+                .iter()
+                .zip(other.nodes().iter())
+                .all(|(a, b)| a.approximate_eq(b))
+                && self
+                    .leaf_probabilities
+                    .iter()
+                    .zip(other.leaf_probabilities.iter())
+                    .all(|(&p1, &p2)| (p1 - p2).abs() < f32::EPSILON)
+        }
+    }
+}
+
+struct NodeVisitor<
+    'a,
+    TX: Number + PartialOrd,
+    TY: Number,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    C: Criterion,
+> {
+    x: &'a X,
+    y: &'a Y,
+    node: usize,
+    start_idx: usize, // start index for the elements in `sorted_by_feature` of SplitWorkspace
+    end_idx: usize,   // end index (exclusive) in the same vector(s)
+    level: u16,
+    stats: C::Stats,       // statistics of the samples in this node
+    best_split: BestSplit, // best split found for the node referenced by this NodeVisitor
+    _phantom_tx: PhantomData<TX>,
+    _phantom_ty: PhantomData<TY>,
+}
+
+impl<'a, TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, C: Criterion>
+    NodeVisitor<'a, TX, TY, X, Y, C>
+{
+    fn new(
+        node_id: usize,
+        start_idx: usize,
+        end_idx: usize,
+        x: &'a X,
+        y: &'a Y,
+        level: u16,
+        stats: C::Stats,
+    ) -> Self {
+        NodeVisitor {
+            x,
+            y,
+            node: node_id,
+            start_idx,
+            end_idx,
+            level,
+            stats,
+            best_split: BestSplit::new(),
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+        }
+    }
+}
+
+/// Validates the sample weights
+pub(crate) fn validate_sample_weights(sample_weights: &[f64], n_rows: usize) -> Result<(), Failed> {
+    if sample_weights.len() != n_rows {
+        return Err(Failed::fit(
+            "Number of sample weights must equal number of rows in x",
+        ));
+    }
+    if sample_weights.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        return Err(Failed::fit(
+            "Sample weights must be finite and non-negative",
+        ));
+    }
+    if sample_weights.iter().sum::<f64>() <= 0.0 {
+        return Err(Failed::fit("Sum of sample weights must be positive"));
+    }
+    Ok(())
+}
+
+/// Weighted count of sample `i`. The weight is 1.0 if no weights are given.
+fn mass_of(i: usize, samples: &[usize], sample_weights: Option<&[f64]>) -> f64 {
+    match sample_weights {
+        Some(weights) => samples[i] as f64 * weights[i],
+        None => samples[i] as f64,
+    }
+}
+
+/// Node elements store row indices and counts as `u32`.
+fn check_row_count(n_rows: usize) -> Result<(), Failed> {
+    if u32::try_from(n_rows).is_err() {
+        return Err(Failed::fit(
+            "Number of rows in x must not be larger than u32::MAX",
+        ));
+    }
+    Ok(())
+}
+
+// Trait representing an element that belongs logically to a Node. Implementations of it are stored in SplitWorkspace
+trait NodeElement: Copy + Default {
+    fn new(row: usize, count: usize, mass: f64) -> Self;
+    // The row index in the dataset
+    fn row(&self) -> usize;
+    // The number of times this row was sampled, should always be > 0
+    fn count(&self) -> usize;
+    // The total mass of this element: count * sample_weight of row or count if no sample weights are used
+    fn mass(&self) -> f64;
+}
+
+#[derive(Copy, Clone, Default)]
+struct WeightedElement {
+    row_idx: u32,
+    count: u32,
+    mass: f64,
+}
+
+impl NodeElement for WeightedElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        Self {
+            row_idx: row_idx as u32,
+            count: count as u32,
+            mass,
+        }
+    }
+
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        self.count as usize
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        self.mass
+    }
+}
+
+// implement CountedElement as a single u64, so it can be retrieved in a single read
+#[derive(Copy, Clone, Default)]
+struct CountedElement(u64); // low 32 bits: row, high 32 bits: count
+
+impl NodeElement for CountedElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        // mass() is derived from count, so sample weights must not be used
+        debug_assert_eq!(mass, count as f64);
+        Self(row_idx as u64 | ((count as u64) << 32))
+    }
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.0 as u32 as usize
+    }
+    #[inline(always)]
+    fn count(&self) -> usize {
+        (self.0 >> 32) as usize
+    }
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        (self.0 >> 32) as f64
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+struct UnitElement {
+    row_idx: u32,
+}
+
+impl NodeElement for UnitElement {
+    fn new(row_idx: usize, count: usize, mass: f64) -> Self {
+        // count() and mass() are always 1, so sample weights and counts > 1 must not be used.
+        // A count of 0 is allowed: such elements are overwritten during setup.
+        debug_assert!(count <= 1);
+        debug_assert_eq!(mass, count as f64);
+        Self {
+            row_idx: row_idx as u32,
+        }
+    }
+
+    #[inline(always)]
+    fn row(&self) -> usize {
+        self.row_idx as usize
+    }
+
+    #[inline(always)]
+    fn count(&self) -> usize {
+        1
+    }
+
+    #[inline(always)]
+    fn mass(&self) -> f64 {
+        1.0
+    }
+}
+
+// Checks whether the example indicated by node_element is a "true child" for this node.
+fn is_true_sample<'a, E, TX, TY, X, Y, C>(
+    node_element: &E,
+    visitor: &NodeVisitor<'a, TX, TY, X, Y, C>,
+) -> bool
+where
+    E: NodeElement,
+    TX: Number + PartialOrd,
+    X: Array2<TX>,
+    Y: Array1<TY>,
+    TY: Number,
+    C: Criterion,
+{
+    visitor
+        .x
+        .get((node_element.row(), visitor.best_split.split_feature))
+        .to_f64()
+        .unwrap()
+        <= visitor.best_split.split_value
+}
+
+// slice: slice that will be partitioned
+// scratch: temp buffer
+// is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
+// returns: index of first element of false branch
+#[inline(never)] // inline(never) is faster as seen during profiling
+fn stable_partition<E>(slice: &mut [E], scratch: &mut [E], is_true: &[bool]) -> usize
+where
+    E: NodeElement,
+{
+    // Note: this is intentionally written without an explicit if/else branch in the main loop
+    let n = slice.len();
+    let scratch = &mut scratch[..n];
+    let (mut w, mut f) = (0usize, 0usize);
+    for i in 0..n {
+        let e = slice[i];
+        let t = is_true[e.row()];
+        slice[w] = e; // w <= i, so this never clobbers an unread element
+        scratch[f] = e;
+        // advance only one of the pointers
+        w += t as usize;
+        f += (!t) as usize;
+    }
+    slice[w..].copy_from_slice(&scratch[..f]);
+    w
+}
+
+// slice: slice that will be partitioned
+// node_targets: targets that will be partitioned in the same way
+// is_true: is_true[idx] checks whether element with row idx equal to idx belongs to the true branch
+fn unstable_partition<E, T>(slice: &mut [E], node_targets: &mut [T], is_true: &[bool])
+where
+    E: NodeElement,
+{
+    let mut w = 0;
+    for i in 0..slice.len() {
+        let t = is_true[slice[i].row()];
+        slice.swap(w, i);
+        node_targets.swap(w, i);
+        w += t as usize;
+    }
+}
+
+#[derive(Copy, Clone)]
+struct BestSplit {
+    proxy_score: f64,
+    split_feature: usize,
+    split_value: f64,
+}
+
+impl BestSplit {
+    fn new() -> Self {
+        BestSplit {
+            proxy_score: f64::NEG_INFINITY,
+            split_feature: 0,
+            split_value: f64::NEG_INFINITY,
+        }
+    }
+}
+
+struct SplitWorkspace<E, C: Criterion> {
+    in_true_branch: Vec<bool>, // indexed by row index in X
+    partition_buffer: Vec<E>,
+    columns: Vec<Vec<E>>, // either all features, sorted; or only one column (unsorted)
+    variables: Vec<usize>, // feature indices, shuffled at each node; the order breaks ties between equal splits.
+    true_stats: C::Stats,  // scratch stats for split functions to use
+    false_stats: C::Stats,
+    parent_stats: C::Stats,
+    best_split: BestSplit,        // scratch space for the search in progress
+    presorted: bool,              // columns are sorted by feature (Splitter::Best)
+    column_values: Vec<f64>, // values of the current feature for the node, same order as columns[0][start..end]
+    node_targets: Vec<C::Target>, // targets in the same order as columns[0]; partitioned with it (Splitter::Random only).
+}
+
+impl<E, C> SplitWorkspace<E, C>
+where
+    C: Criterion,
+{
+    fn new(
+        in_true_branch: Vec<bool>,
+        partition_buffer: Vec<E>,
+        columns: Vec<Vec<E>>,
+        n_features: usize,
+        criterion: &C,
+        presorted: bool,
+        random_buffer_len: usize,
+        node_targets: Vec<C::Target>,
+    ) -> Self {
+        Self {
+            in_true_branch,
+            partition_buffer,
+            columns,
+            variables: (0..n_features).collect::<Vec<_>>(),
+            true_stats: criterion.empty_stats(),
+            false_stats: criterion.empty_stats(),
+            parent_stats: criterion.empty_stats(),
+            best_split: BestSplit::new(),
+            presorted,
+            column_values: vec![0f64; random_buffer_len],
+            node_targets,
+        }
+    }
+}
+
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: LeafOutput>
+    BaseTree<TX, TY, X, Y, Out>
+{
+    pub(crate) fn fit_inner<C: Criterion<Output = Out>>(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        criterion: &C,
+        parameters: BaseTreeParameters,
+    ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
+        let (x_nrows, num_attributes) = x.shape();
+        if x_nrows != y.shape() {
+            return Err(Failed::fit("Size of x should equal size of y"));
+        }
+        if x_nrows == 0 || num_attributes == 0 {
+            return Err(Failed::because(
+                FailedError::ParametersError,
+                "Training data must contain at least one sample and one feature.",
+            ));
+        }
+
+        // Compute the order of each attribute once, only for Splitter::Best
+        let order = match parameters.splitter {
+            Splitter::Best => {
+                let mut the_order: Vec<Vec<usize>> = Vec::with_capacity(num_attributes);
+
+                for i in 0..num_attributes {
+                    let mut col_i: Vec<TX> = x.get_col(i).iterator(0).copied().collect();
+                    the_order.push(col_i.argsort_mut());
+                }
+                Some(the_order)
+            }
+            Splitter::Random => None,
+        };
+
+        let samples = vec![1; x_nrows];
+        BaseTree::fit_weak_learner(
+            x,
+            y,
+            sample_weights,
+            samples,
+            num_attributes,
+            order.as_deref(),
+            criterion,
+            parameters,
+        )
+    }
+
+    pub(crate) fn fit_weak_learner<C: Criterion<Output = Out>>(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        samples: Vec<usize>,
+        mtry: usize,
+        order: Option<&[Vec<usize>]>,
+        criterion: &C,
+        parameters: BaseTreeParameters,
+    ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
+        check_row_count(y.shape())?;
+        match sample_weights {
+            Some(_) => Self::grow::<WeightedElement, C>(
+                x,
+                y,
+                sample_weights,
+                samples,
+                mtry,
+                order,
+                criterion,
+                parameters,
+            ),
+            None if samples.iter().all(|&s| s <= 1) => {
+                // Note: if any sample has count zero, it will be filtered out, so we should
+                // use the smallest possible NodeElement
+                Self::grow::<UnitElement, C>(
+                    x, y, None, samples, mtry, order, criterion, parameters,
+                )
+            }
+            None => Self::grow::<CountedElement, C>(
+                x, y, None, samples, mtry, order, criterion, parameters,
+            ),
+        }
+    }
+
+    fn grow<E: NodeElement, C: Criterion<Output = Out>>(
+        x: &X,
+        y: &Y,
+        sample_weights: Option<&[f64]>,
+        samples: Vec<usize>,
+        mtry: usize,
+        order: Option<&[Vec<usize>]>,
+        criterion: &C,
+        parameters: BaseTreeParameters,
+    ) -> Result<BaseTree<TX, TY, X, Y, Out>, Failed> {
+        let mut nodes: Vec<Node<Out>> = Vec::new();
+        let mut leaf_probabilities: Vec<f32> = vec![];
+        let mut rng = get_rng_impl(parameters.seed);
+
+        let mut n = 0usize;
+        let mut root_mass = 0f64;
+        let mut root_stats = criterion.empty_stats();
+
+        let random = matches!(parameters.splitter, Splitter::Random);
+        debug_assert!(
+            random || order.is_some(),
+            "Splitter::Best needs presorted columns"
+        );
+        let order = if random { None } else { order };
+
+        // A row with mass 0 (bootstrap count 0 or sample weight 0) has no effect on
+        // the statistics. Give it count 0, so that it is left out of the node elements and
+        // is not counted towards min_samples_leaf etc.
+        let counts: Vec<u32> = match sample_weights {
+            // Without weights, the mass is the count
+            None => samples.iter().map(|&s| s as u32).collect(),
+            Some(weights) => samples
+                .iter()
+                .zip(weights)
+                .map(|(&s, &w)| if w > 0.0 { s as u32 } else { 0 })
+                .collect(),
+        };
+
+        // number of distinct rows of x in this tree with a positive mass
+        let n_kept = counts.iter().filter(|&&c| c > 0).count();
+        let t0 = criterion.target(*y.get(0));
+        let mut node_targets = vec![t0; if random { n_kept + 1 } else { 0 }];
+        let mut w = 0usize;
+        for (i, &c) in counts.iter().enumerate() {
+            // A row with mass 0 adds 0 to the statistics: no branch is necessary
+            let mass = mass_of(i, &samples, sample_weights);
+            let t = criterion.target(*y.get(i));
+            criterion.add(&mut root_stats, t, mass);
+            if random {
+                // write branchless; rows with count 0 are overwritten.
+                node_targets[w] = t;
+                w += (c > 0) as usize;
+            }
+            root_mass += mass;
+            n += c as usize;
+        }
+        node_targets.truncate(w);
+
+        let root = Node::new_leaf(criterion.leaf_value(&root_stats, 0, &mut leaf_probabilities));
+        nodes.push(root);
+
+        let columns: Vec<Vec<E>> = match order {
+            Some(order) => order
+                .iter()
+                .map(|col_order| {
+                    let mut out = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                    let mut w = 0usize; // index to write to
+                    for &i in col_order {
+                        let c = counts[i];
+                        out[w] = E::new(i, c as usize, mass_of(i, &samples, sample_weights));
+                        w += (c > 0) as usize; // update w in a branchless way
+                    }
+                    out.truncate(n_kept);
+                    out
+                })
+                .collect(),
+            None => {
+                let column: Vec<E> = if n_kept == counts.len() {
+                    // no row to skip, default for extra trees
+                    (0..counts.len())
+                        .map(|i| {
+                            E::new(i, counts[i] as usize, mass_of(i, &samples, sample_weights))
+                        })
+                        .collect()
+                } else {
+                    let mut column = vec![E::default(); n_kept + 1]; // preallocate, one additional place
+                    let mut w = 0usize; // index to write to
+                    for (i, c) in counts.iter().enumerate() {
+                        column[w] = E::new(i, *c as usize, mass_of(i, &samples, sample_weights));
+                        w += (*c > 0) as usize; // update w in a branchless way
+                    }
+                    column.truncate(n_kept);
+                    column
+                };
+                vec![column]
+            }
+        };
+
+        let is_root_pure = match columns[0].split_first() {
+            None => true,
+            Some((first, rest)) => {
+                let t0 = criterion.target(*y.get(first.row()));
+                rest.iter().all(|e| criterion.target(*y.get(e.row())) == t0)
+            }
+        };
+
+        let end_idx = columns[0].len();
+
+        let mut workspace = SplitWorkspace::new(
+            vec![false; x.shape().0],
+            vec![E::default(); if random { 0 } else { end_idx }],
+            columns,
+            x.shape().1,
+            criterion,
+            order.is_some(),
+            if random { end_idx } else { 0 },
+            node_targets,
+        );
+
+        let mut base_tree = BaseTree {
+            nodes,
+            parameters: Some(parameters),
+            depth: 0u16,
+            root_mass,
+            leaf_probabilities,
+            n_leaves: 1,
+            _phantom_tx: PhantomData,
+            _phantom_ty: PhantomData,
+            _phantom_x: PhantomData,
+            _phantom_y: PhantomData,
+        };
+
+        let mut visitor = NodeVisitor::<TX, TY, X, Y, C>::new(0, 0, end_idx, x, y, 1, root_stats);
+
+        let mut visitor_stack: Vec<NodeVisitor<'_, TX, TY, X, Y, C>> = Vec::new();
+
+        if base_tree.parameters().max_depth.unwrap_or(u16::MAX) > 1
+            && n_kept > 0
+            && !is_root_pure
+            && n >= base_tree.parameters().min_samples_split
+            && base_tree.find_best_cutoff(
+                &mut visitor,
+                mtry,
+                &mut rng,
+                &mut workspace,
+                n,
+                criterion,
+            )
+        {
+            visitor_stack.push(visitor);
+        }
+
+        let max_depth = base_tree.parameters().max_depth.unwrap_or(u16::MAX);
+        while let Some(node) = visitor_stack.pop() {
+            if node.level < max_depth {
+                base_tree.split(
+                    node,
+                    mtry,
+                    &mut visitor_stack,
+                    &mut rng,
+                    &mut workspace,
+                    criterion,
+                );
+            }
+        }
+
+        Ok(base_tree)
+    }
+
+    pub(crate) fn leaf_output_for_row(&self, x: &X, row: usize) -> &Out {
+        let mut node_id = 0;
+        loop {
+            match &self.nodes[node_id] {
+                Node::Leaf { output } => return output,
+                Node::Inner {
+                    split_feature,
+                    split_value,
+                    true_child,
+                    ..
+                } => {
+                    let true_child = true_child.get() as usize;
+                    node_id =
+                        if x.get((row, *split_feature as usize)).to_f64().unwrap() <= *split_value {
+                            true_child
+                        } else {
+                            true_child + 1
+                        }
+                }
+            }
+        }
+    }
+
+    fn find_best_cutoff<E: NodeElement, C: Criterion<Output = Out>>(
+        &mut self,
+        visitor: &mut NodeVisitor<'_, TX, TY, X, Y, C>,
+        mtry: usize,
+        rng: &mut impl rand::Rng,
+        workspace: &mut SplitWorkspace<E, C>,
+        n: usize,
+        criterion: &C,
+    ) -> bool {
+        workspace.variables.shuffle(rng);
+        workspace.best_split = BestSplit::new();
+
+        let splitter = self.parameters().splitter;
+
+        for k in 0..mtry.min(workspace.variables.len()) {
+            let variable = workspace.variables[k];
+            match splitter {
+                Splitter::Random => {
+                    self.find_random_split(visitor, n, variable, rng, workspace, criterion);
+                }
+                Splitter::Best => {
+                    self.find_best_split(visitor, n, variable, workspace, criterion);
+                }
+            }
+        }
+
+        visitor.best_split = workspace.best_split;
+
+        // when proxy_score is still negative infinity, no split was found
+        workspace.best_split.proxy_score != f64::NEG_INFINITY
+    }
+
+    fn find_random_split<E: NodeElement, C: Criterion<Output = Out>>(
+        &mut self,
+        visitor: &NodeVisitor<'_, TX, TY, X, Y, C>,
+        n: usize,
+        j: usize,
+        rng: &mut impl rand::Rng,
+        workspace: &mut SplitWorkspace<E, C>,
+        criterion: &C,
+    ) {
+        if visitor.start_idx == visitor.end_idx {
+            return;
+        }
+
+        let n_node = visitor.end_idx - visitor.start_idx;
+        let vals = &mut workspace.column_values[..n_node];
+
+        let mut min_val = TX::max_value();
+        let mut max_val = TX::min_value();
+        let elems = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+        for (dst, e) in vals.iter_mut().zip(elems) {
+            let val = *visitor.x.get((e.row(), j));
+            if val < min_val {
+                min_val = val;
+            }
+            if val > max_val {
+                max_val = val;
+            }
+            *dst = val.to_f64().unwrap();
+        }
+
+        // Convert min_val and max_val to f64 first, so that values that are different in type TX
+        // but equal in f64 do not end up panicking the call to the rng.random_range function.
+        let min_val = min_val.to_f64().unwrap();
+        let max_val = max_val.to_f64().unwrap();
+
+        if min_val >= max_val {
+            return;
+        }
+
+        let split_value = rng.random_range(min_val..max_val);
+
+        let mut true_count = 0;
+        let true_stats = &mut workspace.true_stats;
+        criterion.reset(true_stats);
+
+        let vals = &workspace.column_values[..n_node];
+        for ((elem, &v), &target) in workspace.columns[0][visitor.start_idx..visitor.end_idx]
+            .iter()
+            .zip(vals)
+            .zip(&workspace.node_targets[visitor.start_idx..visitor.end_idx])
+        {
+            if v <= split_value {
+                criterion.add(true_stats, target, elem.mass());
+                true_count += elem.count();
+            }
+        }
+
+        let false_count = n - true_count;
+
+        if true_count < self.parameters().min_samples_leaf
+            || false_count < self.parameters().min_samples_leaf
+        {
+            return;
+        }
+
+        // no need to reset false_stats, will be overwritten by 'difference'
+        let false_stats = &mut workspace.false_stats;
+        criterion.difference(&visitor.stats, true_stats, false_stats);
+        let proxy = criterion.proxy_improvement(true_stats, false_stats);
+
+        if proxy > workspace.best_split.proxy_score {
+            workspace.best_split.proxy_score = proxy;
+            workspace.best_split.split_feature = j;
+            workspace.best_split.split_value = split_value;
+        }
+    }
+
+    fn find_best_split<E: NodeElement, C: Criterion<Output = Out>>(
+        &mut self,
+        visitor: &NodeVisitor<'_, TX, TY, X, Y, C>,
+        n: usize,
+        j: usize,
+        workspace: &mut SplitWorkspace<E, C>,
+        criterion: &C,
+    ) {
+        let mut best_split = workspace.best_split;
+        let mut true_count = 0;
+        let true_stats = &mut workspace.true_stats;
+        criterion.reset(true_stats);
+        // no need to reset false_stats, will be overwritten by 'difference'
+        let false_stats = &mut workspace.false_stats;
+        // set the "previous" element equal to the first one, so we don't have to deal with Option
+        let first_row_idx = workspace.columns[j][visitor.start_idx].row();
+        let mut prevx = visitor.x.get((first_row_idx, j)).to_f64().unwrap();
+
+        let min_samples_leaf = self.parameters().min_samples_leaf;
+
+        for elem in &workspace.columns[j][visitor.start_idx..visitor.end_idx] {
+            // Comparison for equality is done directly on f64 to avoid later problems
+            // with values being unequal in TX but equal in f64.
+            let x_ij = visitor.x.get((elem.row(), j)).to_f64().unwrap();
+
+            if x_ij == prevx {
+                true_count += elem.count();
+                criterion.add(
+                    true_stats,
+                    criterion.target(*visitor.y.get(elem.row())),
+                    elem.mass(),
+                );
+                continue;
+            }
+
+            let false_count = n - true_count;
+
+            if true_count < min_samples_leaf || false_count < min_samples_leaf {
+                prevx = x_ij;
+                true_count += elem.count();
+                criterion.add(
+                    true_stats,
+                    criterion.target(*visitor.y.get(elem.row())),
+                    elem.mass(),
+                );
+                continue;
+            }
+
+            criterion.difference(&visitor.stats, true_stats, false_stats);
+            let proxy = criterion.proxy_improvement(true_stats, false_stats);
+
+            if proxy > best_split.proxy_score {
+                // compute the midpoint in a way that does not overflow when x_ij and prevx have the same sign
+                let mid = prevx + (x_ij - prevx) / 2.0;
+
+                // The midpoint should put prevx in the true branch, and x_ij in the false branch.
+                // However, mid could round up to x_ij, in which case we would also assign x_ij to the true branch.
+                // In this case, we set the midpoint equal to prevx, which is always smaller
+                // than x_ij.
+                let threshold = if mid < x_ij { mid } else { prevx };
+                best_split.proxy_score = proxy;
+                best_split.split_feature = j;
+                best_split.split_value = threshold;
+            }
+
+            prevx = x_ij;
+            true_count += elem.count();
+            criterion.add(
+                true_stats,
+                criterion.target(*visitor.y.get(elem.row())),
+                elem.mass(),
+            );
+        }
+        workspace.best_split = best_split;
+    }
+
+    /// Apply the split that was found for `visitor.node`: add its two child nodes and
+    /// partition the node's range in each `sorted_by_feature` column into a true part
+    /// and a false part. Then find the best cutoff for each child. If a child can be
+    /// split, push it on `visitor_stack`.
+    /// If a branch has fewer than `min_samples_leaf` samples, do not split and keep
+    /// the node as a leaf.
+    fn split<'a, E: NodeElement, C: Criterion<Output = Out>>(
+        &mut self,
+        visitor: NodeVisitor<'a, TX, TY, X, Y, C>,
+        mtry: usize,
+        visitor_stack: &mut Vec<NodeVisitor<'a, TX, TY, X, Y, C>>,
+        rng: &mut impl rand::Rng,
+        workspace: &mut SplitWorkspace<E, C>,
+        criterion: &C,
+    ) -> bool {
+        let parent_stats = &mut workspace.parent_stats;
+        criterion.reset(parent_stats);
+
+        let mut n_true = 0usize;
+        let mut true_count = 0usize;
+        let mut false_count = 0usize;
+        let mut true_first_target = None; // first target of true branch
+        let mut is_true_pure = true;
+        // for each row_index, does it belong in the true branch or not?
+        let in_true_branch = &mut workspace.in_true_branch;
+        let mut false_stats = criterion.empty_stats();
+        let mut false_first_target = None;
+        let mut is_false_pure = true;
+
+        let split_feature = visitor.best_split.split_feature;
+
+        let true_stats = if workspace.presorted {
+            // the column for split_feature is in order, so all the true samples should come first, all the false samples second
+            let col = &workspace.columns[split_feature][visitor.start_idx..visitor.end_idx];
+
+            for e in col {
+                if !is_true_sample(e, &visitor) {
+                    break;
+                }
+                in_true_branch[e.row()] = true;
+                true_count += e.count();
+                criterion.add(
+                    parent_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                n_true += 1;
+                let t = criterion.target(*visitor.y.get(e.row()));
+                match true_first_target {
+                    None => true_first_target = Some(t),
+                    Some(first) => is_true_pure &= first == t,
+                }
+            }
+
+            let true_stats = parent_stats.clone();
+
+            for e in &col[n_true..] {
+                in_true_branch[e.row()] = false;
+                false_count += e.count();
+                criterion.add(
+                    parent_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                criterion.add(
+                    &mut false_stats,
+                    criterion.target(*visitor.y.get(e.row())),
+                    e.mass(),
+                );
+                let t = criterion.target(*visitor.y.get(e.row()));
+                match false_first_target {
+                    None => false_first_target = Some(t),
+                    Some(first) => is_false_pure &= first == t,
+                }
+            }
+            true_stats
+        } else {
+            // presorted is false
+
+            let mut true_stats = criterion.empty_stats();
+            // always use column 0
+            let col = &workspace.columns[0][visitor.start_idx..visitor.end_idx];
+            let targets = &workspace.node_targets[visitor.start_idx..visitor.end_idx];
+            for (e, t) in col.iter().zip(targets) {
+                if is_true_sample(e, &visitor) {
+                    in_true_branch[e.row()] = true;
+                    true_count += e.count();
+                    criterion.add(parent_stats, *t, e.mass());
+                    criterion.add(&mut true_stats, *t, e.mass());
+                    n_true += 1;
+                    match true_first_target {
+                        None => true_first_target = Some(*t),
+                        Some(first) => is_true_pure &= first == *t,
+                    }
+                } else {
+                    in_true_branch[e.row()] = false;
+                    false_count += e.count();
+                    criterion.add(parent_stats, *t, e.mass());
+                    criterion.add(&mut false_stats, *t, e.mass());
+                    match false_first_target {
+                        None => false_first_target = Some(*t),
+                        Some(first) => is_false_pure &= first == *t,
+                    }
+                }
+            }
+            true_stats
+        };
+
+        // Stop early if it is clear that there will be too few examples in the leaf
+        if true_count < self.parameters().min_samples_leaf
+            || false_count < self.parameters().min_samples_leaf
+        {
+            return false;
+        }
+
+        let parent_slot = match &self.nodes[visitor.node] {
+            Node::Leaf { output } => output.slot(),
+            Node::Inner { .. } => unreachable!("only a leaf node is split"),
+        };
+
+        // Store the real (mass-weighted) impurity improvement in split_score, not the proxy.
+        // false_stats is a direct sum, not parent - true: no cancellation for a small false side
+        let true_child_idx = self.nodes.len();
+        self.nodes[visitor.node] = Node::new_inner(
+            visitor.best_split.split_feature,
+            visitor.best_split.split_value,
+            criterion.impurity_improvement(parent_stats, &true_stats, &false_stats),
+            true_child_idx,
+        );
+
+        let split_idx = visitor.start_idx + n_true;
+
+        let false_slot = self.n_leaves;
+        self.n_leaves += 1;
+        // Add the child nodes to the tree
+        self.nodes.push(Node::new_leaf(criterion.leaf_value(
+            &true_stats,
+            parent_slot,
+            &mut self.leaf_probabilities,
+        )));
+        self.nodes.push(Node::new_leaf(criterion.leaf_value(
+            &false_stats,
+            false_slot,
+            &mut self.leaf_probabilities,
+        )));
+
+        let child_level = visitor.level + 1;
+        self.depth = u16::max(self.depth, child_level);
+
+        // If the child nodes can not be split any further, there is no point in partitioning the ranges
+        let max_depth = self.parameters().max_depth.unwrap_or(u16::MAX);
+        let min_split = self.parameters().min_samples_split;
+        let true_can_split = child_level < max_depth && true_count >= min_split && !is_true_pure;
+        let false_can_split = child_level < max_depth && false_count >= min_split && !is_false_pure;
+        if !true_can_split && !false_can_split {
+            return true; // both children are leaves: no partition
+        }
+
+        if workspace.presorted {
+            for j in 0..visitor.x.shape().1 {
+                stable_partition(
+                    &mut workspace.columns[j][visitor.start_idx..visitor.end_idx],
+                    &mut workspace.partition_buffer,
+                    in_true_branch,
+                );
+            }
+        } else {
+            unstable_partition(
+                &mut workspace.columns[0][visitor.start_idx..visitor.end_idx],
+                &mut workspace.node_targets[visitor.start_idx..visitor.end_idx],
+                in_true_branch,
+            );
+        }
+
+        let mut true_visitor = NodeVisitor::<TX, TY, X, Y, C>::new(
+            true_child_idx,
+            visitor.start_idx,
+            split_idx,
+            visitor.x,
+            visitor.y,
+            child_level,
+            true_stats,
+        );
+
+        if true_can_split
+            && self.find_best_cutoff(
+                &mut true_visitor,
+                mtry,
+                rng,
+                workspace,
+                true_count,
+                criterion,
+            )
+        {
+            visitor_stack.push(true_visitor);
+        }
+
+        let mut false_visitor = NodeVisitor::<TX, TY, X, Y, C>::new(
+            true_child_idx + 1,
+            split_idx,
+            visitor.end_idx,
+            visitor.x,
+            visitor.y,
+            child_level,
+            false_stats,
+        );
+
+        if false_can_split
+            && self.find_best_cutoff(
+                &mut false_visitor,
+                mtry,
+                rng,
+                workspace,
+                false_count,
+                criterion,
+            )
+        {
+            visitor_stack.push(false_visitor);
+        }
+
+        true
+    }
+
+    /// Compute the feature importances and store the result in `importances`.
+    /// * `normalize`: when `false` feature importances are the impurity improvements, when `true` they
+    ///   are normalized to sum to one.
+    /// * `importances` must have length (at least) equal to the number of features.
+    ///   The result is stored in this slice.
+    pub fn compute_feature_importances(&self, normalize: bool, importances: &mut [f64]) {
+        importances.fill(0.0);
+        for node in self.nodes().iter() {
+            if let Node::Inner {
+                split_feature,
+                split_score,
+                ..
+            } = node
+            {
+                importances[*split_feature as usize] += split_score;
+            }
+        }
+
+        if normalize {
+            let sum: f64 = importances.iter().sum();
+            if sum > 0.0 {
+                for importance in importances.iter_mut() {
+                    *importance /= sum;
+                }
+            }
+        } else {
+            if self.root_mass > 0.0 {
+                for importance in importances.iter_mut() {
+                    *importance /= self.root_mass;
+                }
+            }
+        }
+    }
+
+    pub(crate) fn add_leaf_value_for_row(&self, x: &X, row: usize, acc: &mut [f64]) {
+        self.leaf_output_for_row(x, row)
+            .add_to(&self.leaf_probabilities, acc);
+    }
+}
+
+impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
+    BaseTree<TX, TY, X, Y, ClassificationOutput>
+{
+    /// Class distribution of the leaf that row of x reaches; one entry per class, sums to 1.
+    /// `n_classes` must be the number of classes the tree was fit on.
+    pub(crate) fn leaf_distribution_for_row(&self, x: &X, row: usize, n_classes: usize) -> &[f32] {
+        debug_assert_eq!(
+            self.leaf_probabilities.len(),
+            n_classes * self.n_leaves as usize
+        );
+        let start = self.leaf_output_for_row(x, row).slot as usize * n_classes;
+        &self.leaf_probabilities[start..start + n_classes]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::linalg::basic::arrays::{Array, ArrayView1};
+    use crate::linalg::basic::matrix::DenseMatrix;
+    use crate::metrics::mean_absolute_error;
+    use crate::tree::criterion::{ClassificationOutput, GiniCriterion, MSECriterion};
+
+    impl<Out: Copy> Node<Out> {
+        /// Index of the true child, or `None` for a leaf.
+        fn true_child(&self) -> Option<usize> {
+            match self {
+                Node::Inner { true_child, .. } => Some(true_child.get() as usize),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        /// Index of the false child, or `None` for a leaf.
+        /// The two children are pushed one after the other, so the false child is the true child + 1.
+        fn false_child(&self) -> Option<usize> {
+            self.true_child().map(|c| c + 1)
+        }
+
+        fn split_feature(&self) -> Option<usize> {
+            match self {
+                Node::Inner { split_feature, .. } => Some(*split_feature as usize),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        fn split_value(&self) -> Option<f64> {
+            match self {
+                Node::Inner { split_value, .. } => Some(*split_value),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        fn split_score(&self) -> Option<f64> {
+            match self {
+                Node::Inner { split_score, .. } => Some(*split_score),
+                Node::Leaf { .. } => None,
+            }
+        }
+
+        fn output(&self) -> Option<Out> {
+            match self {
+                Node::Inner { .. } => None,
+                Node::Leaf { output } => Some(*output),
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn check_row_count_rejects_more_rows_than_u32_max() {
+        assert!(check_row_count(0).is_ok());
+        assert!(check_row_count(u32::MAX as usize).is_ok());
+        assert_eq!(
+            check_row_count(u32::MAX as usize + 1).err(),
+            Some(Failed::fit(
+                "Number of rows in x must not be larger than u32::MAX"
+            ))
+        );
+    }
+
+    #[test]
+    fn test_fit_on_empty_data_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the empty-row case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 2.0], vec![3.0, 4.0]]).unwrap();
+        let empty = full.take(&[] as &[usize], 0);
+        assert_eq!(empty.shape(), (0, 2));
+
+        let y: Vec<f64> = vec![];
+        let result = BaseTree::fit_inner(
+            &empty,
+            &y,
+            None,
+            &MSECriterion,
+            BaseTreeParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                seed: Some(42),
+                splitter: Splitter::Best,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn test_fit_on_zero_features_returns_error() {
+        // 2 rows x 2 features — values are arbitrary; only the zero-feature case is under test
+        let full = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 2.0], vec![3.0, 4.0]]).unwrap();
+        let no_features = full.take(&[] as &[usize], 1);
+        assert_eq!(no_features.shape(), (2, 0));
+
+        let y = vec![1.0_f64, 2.0];
+        let result = BaseTree::fit_inner(
+            &no_features,
+            &y,
+            None,
+            &MSECriterion,
+            BaseTreeParameters {
+                max_depth: None,
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                seed: Some(42),
+                splitter: Splitter::Best,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().error(), FailedError::ParametersError);
+    }
+
+    #[test]
+    fn root_prediction_is_weighted_mean() {
+        // Create a tree with no splits. Assert that the prediction is the weighted mean of the targets.
+
+        // X-values are arbitrary. 3 examples
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]])
+            .unwrap();
+        let y = vec![1.0, 2.0, 3.0];
+        let sample_weights = vec![5.0, 6.0, 7.0];
+
+        let result = BaseTree::fit_inner(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            BaseTreeParameters {
+                max_depth: Some(0),
+                min_samples_leaf: 1,
+                min_samples_split: 2,
+                seed: Some(42),
+                splitter: Splitter::Best,
+            },
+        );
+        assert!(result.is_ok());
+        let tree = result.unwrap();
+        let expected = y
+            .iter()
+            .zip(sample_weights.iter())
+            .map(|(yi, wi)| yi * wi)
+            .sum::<f64>()
+            / sample_weights.iter().sum::<f64>();
+
+        assert!((*tree.leaf_output_for_row(&x, 0) - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn uniform_weights_match_unweighted() {
+        // Test that using no weights is equivalent to using uniform weights
+        let x_rand: DenseMatrix<f64> = DenseMatrix::<f64>::rand(17, 5);
+        let y_rand: Vec<f64> = (0..17).collect::<Vec<_>>().map(|y| *y as f64);
+        let parameters = BaseTreeParameters {
+            max_depth: Some(5),
+            min_samples_leaf: 1,
+            min_samples_split: 1,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree_no_weights =
+            BaseTree::fit_inner(&x_rand, &y_rand, None, &MSECriterion, parameters.clone())
+                .expect("Fit should work");
+        let uniform_weights = vec![1.0f64; 17];
+        let tree_with_weights = BaseTree::fit_inner(
+            &x_rand,
+            &y_rand,
+            Some(&uniform_weights),
+            &MSECriterion,
+            parameters,
+        )
+        .expect("Fit should work");
+
+        let y_pred_no_weights = predict(&tree_no_weights, &x_rand);
+        let y_pred_with_weights = predict(&tree_with_weights, &x_rand);
+        assert!(mean_absolute_error(&y_pred_no_weights, &y_pred_with_weights) < 1e-9);
+    }
+
+    #[test]
+    fn integer_weights_equivalent_to_repeating_sample() {
+        // Test that setting weight to "2" (or "3") is equivalent to having the same sample twice (or trice)
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]])
+            .unwrap();
+        let y = vec![4.0, 5.0, 6.0];
+        let sample_weights = vec![1.0, 2.0, 3.0];
+
+        let x_repeated = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64, 2.0],
+            vec![3.0, 4.0],
+            vec![3.0, 4.0],
+            vec![5.0, 6.0],
+            vec![5.0, 6.0],
+            vec![5.0, 6.0],
+        ])
+        .unwrap();
+        let y_repeated = vec![4.0, 5.0, 5.0, 6.0, 6.0, 6.0];
+
+        let weighted_parameters = BaseTreeParameters {
+            max_depth: Some(1), // tree should not be able to fully separate all the examples
+            min_samples_leaf: 1,
+            min_samples_split: 1,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let repeated_parameters = BaseTreeParameters {
+            max_depth: Some(1),
+            min_samples_leaf: 1,
+            min_samples_split: 1,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree_weighted = BaseTree::fit_inner(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            weighted_parameters,
+        )
+        .expect("Fit should work");
+        let tree_repeated = BaseTree::fit_inner(
+            &x_repeated,
+            &y_repeated,
+            None,
+            &MSECriterion,
+            repeated_parameters,
+        )
+        .expect("Fit should work");
+        // Predict on the same data
+        let y_pred_weighted = predict(&tree_weighted, &x);
+        let y_pred_repeated = predict(&tree_repeated, &x);
+
+        assert!(mean_absolute_error(&y_pred_weighted, &y_pred_repeated) < 1e-9);
+    }
+
+    #[test]
+    fn full_depth() {
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![2.0],
+            vec![3.0],
+            vec![4.0],
+            vec![5.0],
+            vec![6.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 6.0, 7.0, 11., 12.];
+
+        let parameters = BaseTreeParameters {
+            max_depth: Some(3),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree =
+            BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
+        let y_expected = vec![1.0, 2.0, 6.5, 6.5, 11.50, 11.50];
+        let y_hat = predict(&tree, &x);
+        assert_eq!(tree.nodes().len(), 7);
+        assert_eq!(tree.depth, 3);
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+    }
+
+    #[test]
+    fn full_depth_with_weights() {
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![2.0],
+            vec![3.0],
+            vec![4.0],
+            vec![5.0],
+            vec![6.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 6.0, 7.0, 11., 12.];
+        let parameters = BaseTreeParameters {
+            max_depth: Some(3),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let sample_weights = [1.0f64, 1.0, 1.0, 1.0, 10.0, 10.0];
+        let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+            .expect("Fit should work");
+        let x_test: DenseMatrix<f64> =
+            DenseMatrix::from_iterator((1..=12).map(|i| i as f64), 12, 1, 0);
+        let y_expected = vec![
+            1.50, 1.50, 6.50, 6.50, 11.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0,
+        ];
+        let y_hat = predict(&tree, &x_test);
+        assert_eq!(tree.nodes().len(), 7);
+        assert_eq!(tree.depth, 3);
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+    }
+
+    #[test]
+    fn min_samples_split_boundary() {
+        // A node that holds exactly `min_samples_split` samples must still split.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
+        let y = vec![1.0f64, 2.0, 6.0];
+
+        let parameters = BaseTreeParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 3,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree =
+            BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
+        assert_eq!(tree.nodes().len(), 3);
+        assert_eq!(tree.depth, 2);
+
+        // A node with fewer than `min_samples_split` samples must stay a leaf.
+        let parameters = BaseTreeParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 4,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree =
+            BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters).expect("Fit should work");
+        assert_eq!(tree.nodes().len(), 1);
+        assert_eq!(tree.depth, 0);
+    }
+
+    #[test]
+    fn zero_weight_on_true_side_gives_finite_predictions() {
+        // The first candidate split has only zero-weight samples on its true side,
+        // so true_mass is 0 in find_best_split. This must not produce NaN.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
+        let y = vec![1.0f64, 2.0, 3.0];
+        let sample_weights = [0.0f64, 1.0, 1.0];
+
+        let parameters = BaseTreeParameters {
+            max_depth: Some(2),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+            .expect("Fit should work");
+
+        assert!(tree.nodes().iter().all(|node| match node {
+            Node::Leaf { output } => output.is_finite(),
+            Node::Inner {
+                split_value,
+                split_score,
+                ..
+            } => split_value.is_finite() && split_score.is_finite(),
+        }));
+
+        let y_hat = predict(&tree, &x);
+        assert!(y_hat.iter().all(|v| v.is_finite()));
+
+        // The best split separates x=3 from the other rows.
+        let y_expected = vec![2.0, 2.0, 3.0];
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+    }
+
+    #[test]
+    fn zero_weight_on_false_side_gives_finite_predictions() {
+        // The two first rows share x=1, so the only candidate split is between x=1 and x=2.
+        // The false side of that split holds only a zero-weight sample,
+        // so false_mass is 0 in find_best_split. This must not produce NaN.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![1.0], vec![2.0]]).unwrap();
+        let y = vec![1.0f64, 2.0, 3.0];
+        let sample_weights = [1.0f64, 1.0, 0.0];
+
+        let parameters = BaseTreeParameters {
+            max_depth: Some(2),
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTree::fit_inner(&x, &y, Some(&sample_weights), &MSECriterion, parameters)
+            .expect("Fit should work");
+
+        assert!(tree.nodes().iter().all(|node| match node {
+            Node::Leaf { output } => output.is_finite(),
+            Node::Inner {
+                split_value,
+                split_score,
+                ..
+            } => split_value.is_finite() && split_score.is_finite(),
+        }));
+
+        let y_hat = predict(&tree, &x);
+        assert!(y_hat.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn weights_on_tied_feature_values() {
+        // Rows with the same feature value but different weights. The split must keep each
+        // tie group together, and each leaf must give the weighted mean of its group.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![1.0], vec![2.0], vec![2.0]])
+            .unwrap();
+        let y = vec![0.0f64, 10.0, 20.0, 30.0];
+        let sample_weights = [3.0f64, 1.0, 1.0, 3.0];
+
+        let parameters = BaseTreeParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter: Splitter::Best,
+        };
+
+        let tree = BaseTree::fit_inner(
+            &x,
+            &y,
+            Some(&sample_weights),
+            &MSECriterion,
+            parameters.clone(),
+        )
+        .expect("Fit should work");
+
+        assert_eq!(tree.nodes().len(), 3);
+        assert_eq!(tree.depth, 2);
+        let Node::Inner { split_value, .. } = tree.nodes()[0] else {
+            panic!("Root should split");
+        };
+        assert!((split_value - 1.5).abs() < 1e-9); // Split should be at 1.5
+
+        let y_hat = predict(&tree, &x);
+        let y_expected = vec![2.5, 2.5, 27.5, 27.5]; // Expected values are weighted means
+        assert!(mean_absolute_error(&y_expected, &y_hat) < 1e-9);
+
+        // Integer weights must give the same tree as repeated rows.
+        let x_repeated = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![1.0],
+            vec![1.0],
+            vec![1.0],
+            vec![2.0],
+            vec![2.0],
+            vec![2.0],
+            vec![2.0],
+        ])
+        .unwrap();
+        let y_repeated = vec![0.0f64, 0.0, 0.0, 10.0, 20.0, 30.0, 30.0, 30.0];
+        let tree_repeated =
+            BaseTree::fit_inner(&x_repeated, &y_repeated, None, &MSECriterion, parameters)
+                .expect("Fit should work");
+        let y_hat_repeated = predict(&tree_repeated, &x);
+        assert!(mean_absolute_error(&y_hat, &y_hat_repeated) < 1e-9);
+    }
+
+    // Above 2^53, f64 cannot hold every integer. Split search compares values in TX,
+    // but partitioning and predict compare them as f64 against an f64 threshold.
+    const TWO_POW_53: i64 = 1 << 53;
+
+    fn split_value_parameters(splitter: Splitter) -> BaseTreeParameters {
+        BaseTreeParameters {
+            max_depth: None,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    #[test]
+    fn large_integer_midpoint_threshold_separates_values() {
+        // Both values are exact in f64, but the midpoint 2^53 + 3 is not.
+        // It rounds to 2^53 + 4 (ties to even), so both rows go to the true branch.
+        let x =
+            DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53 + 2], vec![TWO_POW_53 + 4]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Best),
+        )
+        .expect("Fit should work");
+
+        let Node::Inner { split_value, .. } = tree.nodes()[0] else {
+            panic!("Root should split");
+        };
+        assert!((TWO_POW_53 + 2) as f64 <= split_value);
+        assert!(((TWO_POW_53 + 4) as f64) > split_value);
+
+        let y_hat = predict(&tree, &x);
+        assert_eq!(y_hat, vec![0.0, 10.0]);
+    }
+
+    #[test]
+    fn large_integer_values_equal_as_f64_do_not_split() {
+        // 2^53 and 2^53 + 1 differ as i64 but are the same f64. No f64 threshold can
+        // separate them, so the tree must not split and must predict the mean.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Best),
+        )
+        .expect("Fit should work");
+
+        let y_hat = predict(&tree, &x);
+        assert_eq!(y_hat, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn large_integer_values_equal_as_f64_random_splitter() {
+        // min_val < max_val as i64, but the f64 range is empty. This must not panic.
+        let x = DenseMatrix::from_2d_vec(&vec![vec![TWO_POW_53], vec![TWO_POW_53 + 1]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Random),
+        )
+        .expect("Fit should work");
+
+        let y_hat = predict(&tree, &x);
+        assert_eq!(y_hat, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn adjacent_f64_midpoint_threshold_separates_values() {
+        // a and b are adjacent f64 values. Their exact midpoint 1 + 1.5 * EPSILON is not
+        // representable. It is a tie, and ties round to the even mantissa, which is b.
+        // So the threshold becomes b, and both rows go to the true branch.
+        let a = 1.0 + f64::EPSILON;
+        let b = 1.0 + 2.0 * f64::EPSILON;
+        assert_eq!((a + b) / 2.0, b); // the rounding that causes the problem
+
+        let x = DenseMatrix::from_2d_vec(&vec![vec![a], vec![b]]).unwrap();
+        let y = vec![0.0f64, 10.0];
+
+        let tree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            split_value_parameters(Splitter::Best),
+        )
+        .expect("Fit should work");
+
+        let Node::Inner { split_value, .. } = tree.nodes()[0] else {
+            panic!("Root should split");
+        };
+        assert!(a <= split_value);
+        assert!(b > split_value);
+
+        let y_hat = predict(&tree, &x);
+        assert_eq!(y_hat, vec![0.0, 10.0]);
+    }
+
+    #[test]
+    fn test_node_element_sizes() {
+        assert_eq!(std::mem::size_of::<UnitElement>(), 4);
+        assert_eq!(std::mem::size_of::<CountedElement>(), 8);
+        assert_eq!(std::mem::size_of::<WeightedElement>(), 16);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn test_leaf_output_sizes() {
+        assert_eq!(std::mem::size_of::<Node<f64>>(), 24);
+        assert_eq!(std::mem::size_of::<Node<ClassificationOutput>>(), 24);
+    }
+
+    type TestTree = BaseTree<f64, f64, DenseMatrix<f64>, Vec<f64>, f64>;
+
+    /// Leaf output of `tree` for each row of `x`.
+    fn predict<TX, TY, X, Y, Out>(tree: &BaseTree<TX, TY, X, Y, Out>, x: &X) -> Vec<Out>
+    where
+        TX: Number + PartialOrd,
+        TY: Number,
+        X: Array2<TX>,
+        Y: Array1<TY>,
+        Out: LeafOutput,
+    {
+        (0..x.shape().0)
+            .map(|i| tree.leaf_output_for_row(x, i).clone())
+            .collect()
+    }
+
+    fn params(
+        max_depth: Option<u16>,
+        min_samples_leaf: usize,
+        min_samples_split: usize,
+        splitter: Splitter,
+    ) -> BaseTreeParameters {
+        BaseTreeParameters {
+            max_depth,
+            min_samples_leaf,
+            min_samples_split,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    /// Row order of each column, computed in the same way as in `fit_inner`.
+    fn order_of(x: &DenseMatrix<f64>) -> Vec<Vec<usize>> {
+        (0..x.shape().1)
+            .map(|j| {
+                let mut col: Vec<f64> = x.get_col(j).iterator(0).copied().collect();
+                col.argsort_mut()
+            })
+            .collect()
+    }
+
+    /// The presorted order for Splitter::Best; the random splitter does not use presorted columns.
+    fn order_for(splitter: Splitter, order: &[Vec<usize>]) -> Option<&[Vec<usize>]> {
+        match splitter {
+            Splitter::Best => Some(order),
+            Splitter::Random => None,
+        }
+    }
+
+    /// Index of the leaf that gets row `row` of `x`. Uses the same rule as `leaf_output_for_row`.
+    fn leaf_of(tree: &TestTree, x: &DenseMatrix<f64>, row: usize) -> usize {
+        let mut node_id = 0;
+        loop {
+            match &tree.nodes[node_id] {
+                Node::Leaf { .. } => return node_id,
+                Node::Inner {
+                    split_feature,
+                    split_value,
+                    true_child,
+                    ..
+                } => {
+                    let true_child = true_child.get() as usize;
+                    node_id = if *x.get((row, *split_feature as usize)) <= *split_value {
+                        true_child
+                    } else {
+                        true_child + 1
+                    };
+                }
+            }
+        }
+    }
+
+    /// Number of training samples in each leaf of `tree`.
+    /// `counts[i]` is the number of times that row `i` of `x` is in the training set.
+    fn leaf_counts(tree: &TestTree, x: &DenseMatrix<f64>, counts: &[usize]) -> Vec<usize> {
+        let mut per_node = vec![0usize; tree.nodes().len()];
+        for (row, &count) in counts.iter().enumerate() {
+            per_node[leaf_of(tree, x, row)] += count;
+        }
+        tree.nodes()
+            .iter()
+            .zip(per_node)
+            .filter(|(node, _)| node.true_child().is_none()) // filter out the leaves
+            .map(|(_, count)| count)
+            .collect()
+    }
+
+    /// Both trees must have the same structure, the same splits and the same outputs.
+    /// `split_score` is not compared, because a different summation order can change it.
+    fn assert_same_tree(a: &TestTree, b: &TestTree) {
+        assert_eq!(a.nodes().len(), b.nodes().len());
+        assert_eq!(a.depth, b.depth);
+        for (na, nb) in a.nodes().iter().zip(b.nodes().iter()) {
+            assert_eq!(na.split_feature(), nb.split_feature());
+            assert_same_split_and_output(na, nb);
+        }
+    }
+
+    /// Both nodes must have the same split value, the same children and the same output.
+    /// The split feature is not compared.
+    fn assert_same_split_and_output(a: &Node<f64>, b: &Node<f64>) {
+        assert_eq!(a.split_value(), b.split_value());
+        assert_eq!(a.true_child(), b.true_child());
+        assert_eq!(a.false_child(), b.false_child());
+        match (a.output(), b.output()) {
+            (Some(oa), Some(ob)) => assert!((oa - ob).abs() < 1e-9),
+            (None, None) => {}
+            _ => panic!("one node is a leaf, the other node is not"),
+        }
+    }
+
+    /// Repeat row `i` of `x`, `y` and `w` `counts[i]` times.
+    fn repeat_rows(
+        x: &[Vec<f64>],
+        y: &[f64],
+        w: &[f64],
+        counts: &[usize],
+    ) -> (DenseMatrix<f64>, Vec<f64>, Vec<f64>) {
+        let mut x_rep = Vec::new();
+        let mut y_rep = Vec::new();
+        let mut w_rep = Vec::new();
+        for (i, &count) in counts.iter().enumerate() {
+            for _ in 0..count {
+                x_rep.push(x[i].clone());
+                y_rep.push(y[i]);
+                w_rep.push(w[i]);
+            }
+        }
+        (DenseMatrix::from_2d_vec(&x_rep).unwrap(), y_rep, w_rep)
+    }
+
+    /// Data for the element path tests: ties in both columns, integer targets.
+    fn element_path_data() -> (Vec<Vec<f64>>, Vec<f64>) {
+        let x = vec![
+            vec![1.0, 4.0],
+            vec![2.0, 4.0],
+            vec![2.0, 1.0],
+            vec![3.0, 3.0],
+            vec![5.0, 2.0],
+            vec![6.0, 1.0],
+            vec![6.0, 5.0],
+            vec![7.0, 3.0],
+        ];
+        let y = vec![3.0, 8.0, 1.0, 9.0, 4.0, 12.0, 7.0, 2.0];
+        (x, y)
+    }
+
+    #[test]
+    fn max_depth_boundary() {
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![0.0f64, 1.0, 10.0, 11.0, 100.0, 101.0, 110.0, 111.0];
+
+        // The root is at level 1. A node at level `max_depth` is not split.
+        // (max_depth, number of nodes, depth)
+        let cases = [
+            (Some(1), 1, 0),
+            (Some(2), 3, 2),
+            (Some(3), 7, 3),
+            (None, 15, 4),
+        ];
+        for (max_depth, n_nodes, depth) in cases {
+            let tree: TestTree = BaseTree::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(max_depth, 1, 2, Splitter::Best),
+            )
+            .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), n_nodes, "max_depth: {max_depth:?}");
+            assert_eq!(tree.depth, depth, "max_depth: {max_depth:?}");
+        }
+
+        // With max_depth = 2 the root split separates the two halves.
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(Some(2), 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value(), Some(4.5));
+        let y_hat = predict(&tree, &x);
+        assert_eq!(y_hat, vec![5.5, 5.5, 5.5, 5.5, 105.5, 105.5, 105.5, 105.5]);
+
+        // No limit is the same as the largest limit, and the leaves memorize y.
+        let tree_none: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        let tree_max: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(Some(u16::MAX), 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_same_tree(&tree_none, &tree_max);
+        assert_eq!(predict(&tree_none, &x), y);
+
+        for max_depth in 1..=4 {
+            let tree: TestTree = BaseTree::fit_inner(
+                &x,
+                &y,
+                None,
+                &MSECriterion,
+                params(Some(max_depth), 1, 2, Splitter::Random),
+            )
+            .expect("Fit should work");
+            assert!(tree.depth <= max_depth, "max_depth: {max_depth}");
+        }
+    }
+
+    #[test]
+    fn min_samples_split_one_child_only() {
+        // The root split gives a true child with 3 samples and a false child with 2 samples.
+        // With min_samples_split = 3, only the true child can split.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64],
+            vec![2.0],
+            vec![3.0],
+            vec![4.0],
+            vec![5.0],
+        ])
+        .unwrap();
+        let y = vec![0.0f64, 1.0, 2.0, 100.0, 101.0];
+
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 3, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value(), Some(3.5));
+        let true_child = tree.nodes()[0].true_child().unwrap();
+        let false_child = tree.nodes()[0].false_child().unwrap();
+        assert!(tree.nodes()[true_child].true_child().is_some());
+        assert!(tree.nodes()[false_child].true_child().is_none());
+        assert_eq!(tree.nodes().len(), 5);
+        assert_eq!(tree.depth, 3);
+
+        // If min_samples_split is larger than the number of samples, the root is a leaf.
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 1, 6, splitter))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+        }
+    }
+
+    #[test]
+    fn min_samples_leaf_boundary() {
+        let x = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0], vec![4.0]])
+            .unwrap();
+        let y = vec![0.0f64, 0.0, 0.0, 100.0];
+
+        // With no limit, the best split isolates the last sample.
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value(), Some(3.5));
+
+        // The best split is not permitted. The split with exactly 2 samples on each side is used.
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 2, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value(), Some(2.5));
+        assert_eq!(tree.nodes().len(), 3);
+        assert_eq!(leaf_counts(&tree, &x, &[1; 4]), vec![2, 2]);
+
+        // No split can give 3 samples on each side.
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 3, 2, splitter))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+            assert_eq!(tree.nodes()[0].output(), Some(25.0));
+        }
+    }
+
+    // Fit many different trees with many different options and check that in each case min_samples_leaf is correct.
+    #[test]
+    fn min_samples_leaf_holds_for_all_element_paths() {
+        let mut rng = get_rng_impl(Some(7));
+        let n = 40;
+        let x_rows: Vec<Vec<f64>> = (0..n)
+            .map(|_| (0..3).map(|_| rng.random_range(0..6) as f64).collect())
+            .collect();
+        let y: Vec<f64> = (0..n).map(|_| rng.random_range(-10.0..10.0)).collect();
+        let counts: Vec<usize> = (0..n).map(|_| rng.random_range(0..4usize)).collect();
+        let weights: Vec<f64> = (0..n).map(|_| rng.random_range(0.1..3.0)).collect();
+        let ones = vec![1usize; n];
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let order = order_of(&x);
+
+        // (weights, counts): UnitElement, CountedElement and WeightedElement
+        let paths = [
+            (None, &ones),
+            (None, &counts),
+            (Some(weights.as_slice()), &counts),
+        ];
+        for (sample_weights, samples) in paths {
+            for splitter in [Splitter::Best, Splitter::Random] {
+                for min_samples_leaf in [1, 3, 5] {
+                    for seed in 0..5 {
+                        let parameters = BaseTreeParameters {
+                            seed: Some(seed),
+                            ..params(None, min_samples_leaf, 2, splitter)
+                        };
+                        let tree: TestTree = BaseTree::fit_weak_learner(
+                            &x,
+                            &y,
+                            sample_weights,
+                            samples.clone(),
+                            3,
+                            order_for(splitter, &order),
+                            &MSECriterion,
+                            parameters,
+                        )
+                        .expect("Fit should work");
+                        let message = format!(
+                            "weights: {}, splitter: {splitter:?}, leaf: {min_samples_leaf}, seed: {seed}",
+                            sample_weights.is_some()
+                        );
+                        assert!(tree.nodes().len() > 1, "{message}"); // make sure the tree has a split
+                        let leaves = leaf_counts(&tree, &x, samples);
+                        assert!(
+                            leaves.iter().all(|&c| c >= min_samples_leaf),
+                            "{message}, leaves: {leaves:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn constant_features_do_not_split() {
+        // all features are constant, so no split is possible
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64, 7.0],
+            vec![1.0, 7.0],
+            vec![1.0, 7.0],
+            vec![1.0, 7.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 3.0, 6.0];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 1, 2, splitter))
+                    .expect("Fit should work");
+            assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+            assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
+            let y_hat = predict(&tree, &x);
+            assert_eq!(y_hat, vec![3.0; 4], "splitter: {splitter:?}");
+        }
+    }
+
+    #[test]
+    fn constant_column_is_skipped() {
+        // Column 0 is constant, so only column 1 can give a split.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![7.0_f64, 1.0],
+            vec![7.0, 2.0],
+            vec![7.0, 3.0],
+            vec![7.0, 4.0],
+        ])
+        .unwrap();
+        let y = vec![0.0f64, 0.0, 10.0, 10.0];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(None, 1, 2, splitter))
+                    .expect("Fit should work");
+            assert!(tree.nodes().len() > 1, "splitter: {splitter:?}");
+            assert!(
+                tree.nodes()
+                    .iter()
+                    .filter(|node| node.true_child().is_some())
+                    .all(|node| node.split_feature() == Some(1)),
+                "splitter: {splitter:?}"
+            );
+        }
+
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value(), Some(2.5));
+    }
+
+    #[test]
+    fn duplicate_columns_pick_random_column() {
+        // Both columns are identical. Their gains are equal. As in sklearn, the attributes
+        // are considered in a random order, thus the column of each split is random.
+        // Apart from the column, the tree is the same as the tree for one column.
+        let values = [1.0_f64, 2.0, 2.0, 3.0, 5.0, 6.0];
+        let y = vec![1.0f64, 4.0, 2.0, 9.0, 3.0, 8.0];
+        let x_single =
+            DenseMatrix::from_2d_vec(&values.iter().map(|&v| vec![v]).collect::<Vec<_>>()).unwrap();
+        let x_double =
+            DenseMatrix::from_2d_vec(&values.iter().map(|&v| vec![v, v]).collect::<Vec<_>>())
+                .unwrap();
+
+        let mut used_columns = [false; 2];
+        for seed in 0..10 {
+            let parameters = BaseTreeParameters {
+                seed: Some(seed),
+                ..params(None, 1, 2, Splitter::Best)
+            };
+            let tree_single: TestTree =
+                BaseTree::fit_inner(&x_single, &y, None, &MSECriterion, parameters.clone())
+                    .expect("Fit should work");
+            let tree_double: TestTree =
+                BaseTree::fit_inner(&x_double, &y, None, &MSECriterion, parameters)
+                    .expect("Fit should work");
+
+            assert!(tree_double.nodes().len() > 1);
+            assert_eq!(tree_single.nodes().len(), tree_double.nodes().len());
+            assert_eq!(tree_single.depth, tree_double.depth);
+            for (a, b) in tree_single.nodes().iter().zip(tree_double.nodes().iter()) {
+                assert_same_split_and_output(a, b);
+                if let Some(feature) = b.split_feature() {
+                    used_columns[feature] = true;
+                }
+            }
+        }
+        assert_eq!(used_columns, [true, true], "both columns must be used");
+    }
+
+    #[test]
+    fn counted_and_unit_elements_match_repeated_rows() {
+        // Checks that repeating rows and giving them a count > 0 yields the same trees.
+        // Do not pose constraints on min_samples_leaf and min_samples_split. At the moment
+        // this should make no difference but it may do in the future.
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let order = order_of(&x);
+        let n = y.len();
+
+        // Counts 0 or 1 use UnitElement. Counts larger than 1 use CountedElement.
+        // Rows with count 0 must have no effect.
+        let all_counts = [vec![1, 0, 1, 1, 0, 1, 1, 0], vec![2, 0, 1, 3, 1, 0, 2, 1]];
+        for counts in all_counts {
+            let (x_rep, y_rep, _) = repeat_rows(&x_rows, &y, &vec![1.0; n], &counts);
+            for splitter in [Splitter::Best, Splitter::Random] {
+                for max_depth in [Some(2), None] {
+                    let parameters = params(max_depth, 1, 2, splitter);
+                    let tree: TestTree = BaseTree::fit_weak_learner(
+                        &x,
+                        &y,
+                        None,
+                        counts.clone(),
+                        2,
+                        order_for(splitter, &order),
+                        &MSECriterion,
+                        parameters.clone(),
+                    )
+                    .expect("Fit should work");
+                    let tree_rep: TestTree =
+                        BaseTree::fit_inner(&x_rep, &y_rep, None, &MSECriterion, parameters)
+                            .expect("Fit should work");
+
+                    assert!(tree.nodes().len() > 1);
+                    assert_same_tree(&tree, &tree_rep);
+                    let y_hat = predict(&tree, &x);
+                    let y_hat_rep = predict(&tree_rep, &x);
+                    assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn weighted_element_with_counts_matches_repeated_rows() {
+        // The mass of a row is count * weight.  Weights are chosen to be perfectly representable (power of two in the fraction denominator).
+        // This keeps all sums exact.
+        // Checks that WeightedElement handles counts different from one correctly.
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let order = order_of(&x);
+        let weights = vec![0.5, 1.5, 2.0, 0.25, 1.0, 3.0, 0.75, 1.25];
+        let counts = vec![2, 0, 1, 3, 1, 0, 2, 1];
+        let (x_rep, y_rep, w_rep) = repeat_rows(&x_rows, &y, &weights, &counts);
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(2), None] {
+                let parameters = params(max_depth, 1, 2, splitter);
+                let tree: TestTree = BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    Some(&weights),
+                    counts.clone(),
+                    2,
+                    order_for(splitter, &order),
+                    &MSECriterion,
+                    parameters.clone(),
+                )
+                .expect("Fit should work");
+                // in this tree, there are no counts but the rows are repeated physically
+                let tree_rep: TestTree =
+                    BaseTree::fit_inner(&x_rep, &y_rep, Some(&w_rep), &MSECriterion, parameters)
+                        .expect("Fit should work");
+
+                assert!(tree.nodes().len() > 1);
+                assert_same_tree(&tree, &tree_rep);
+                let y_hat = predict(&tree, &x);
+                let y_hat_rep = predict(&tree_rep, &x);
+                assert!(mean_absolute_error(&y_hat, &y_hat_rep) < 1e-9);
+            }
+        }
+    }
+
+    /// Data for the split_score tests: 2 features with ties, weights, and bootstrap counts.
+    struct SplitScoreFixture {
+        x: DenseMatrix<f64>,
+        y: Vec<f64>,
+        weights: Vec<f64>,
+        counts: Vec<usize>,
+        order: Vec<Vec<usize>>,
+    }
+
+    fn split_score_fixture() -> SplitScoreFixture {
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![1.0_f64, 7.0],
+            vec![2.0, 3.0],
+            vec![2.0, 5.0],
+            vec![3.0, 1.0],
+            vec![4.0, 8.0],
+            vec![5.0, 2.0],
+            vec![6.0, 6.0],
+            vec![6.0, 4.0],
+            vec![7.0, 9.0],
+            vec![8.0, 0.0],
+        ])
+        .unwrap();
+        let order: Vec<Vec<usize>> = (0..2)
+            .map(|j| {
+                let mut col: Vec<f64> = x.get_col(j).iterator(0).copied().collect();
+                col.argsort_mut()
+            })
+            .collect();
+        SplitScoreFixture {
+            x,
+            y: vec![1.0, 3.0, 2.0, 8.0, 5.0, 9.0, 4.0, 7.0, 6.0, 10.0],
+            weights: vec![1.0, 2.0, 0.5, 1.0, 3.0, 1.0, 1.0, 0.25, 2.0, 1.0],
+            counts: vec![1, 2, 0, 1, 3, 1, 0, 2, 1, 1],
+            order,
+        }
+    }
+
+    /// Fit one tree for each element type. Each tree comes with the mass of each row.
+    fn split_score_trees(
+        f: &SplitScoreFixture,
+        parameters: BaseTreeParameters,
+    ) -> Vec<(&'static str, TestTree, Vec<f64>)> {
+        let n = f.y.len();
+        vec![
+            (
+                "unit",
+                BaseTree::fit_inner(&f.x, &f.y, None, &MSECriterion, parameters.clone()).unwrap(),
+                vec![1.0; n],
+            ),
+            (
+                "weighted",
+                BaseTree::fit_inner(
+                    &f.x,
+                    &f.y,
+                    Some(&f.weights),
+                    &MSECriterion,
+                    parameters.clone(),
+                )
+                .unwrap(),
+                f.weights.clone(),
+            ),
+            (
+                "counted",
+                BaseTree::fit_weak_learner(
+                    &f.x,
+                    &f.y,
+                    None,
+                    f.counts.clone(),
+                    2,
+                    order_for(parameters.splitter, &f.order),
+                    &MSECriterion,
+                    parameters,
+                )
+                .unwrap(),
+                f.counts.iter().map(|&c| c as f64).collect(),
+            ),
+        ]
+    }
+
+    #[test]
+    fn split_score_is_some_only_for_internal_nodes() {
+        // A leaf has no split, so its split_score must be None.
+        // An internal node has a split, so its split_score must be Some.
+        let f = split_score_fixture();
+
+        for max_depth in [Some(0), Some(1), Some(2), Some(3), None] {
+            for min_samples_leaf in [1, 2, 3] {
+                for splitter in [Splitter::Best, Splitter::Random] {
+                    let parameters = params(max_depth, min_samples_leaf, 2, splitter);
+                    for (kind, tree, _) in split_score_trees(&f, parameters) {
+                        for (i, node) in tree.nodes().iter().enumerate() {
+                            let case = format!(
+                                "{kind}, max_depth: {max_depth:?}, min_samples_leaf: {min_samples_leaf}, \
+                                 splitter: {splitter:?}, node: {i}"
+                            );
+                            assert_eq!(
+                                node.true_child().is_some(),
+                                node.false_child().is_some(),
+                                "{case}"
+                            );
+                            if node.true_child().is_some() {
+                                assert!(node.split_score().is_some(), "internal node, {case}");
+                            } else {
+                                assert!(node.split_score().is_none(), "leaf, {case}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn split_scores_add_up_to_total_impurity_decrease() {
+        // Each split_score must be the real impurity improvement, not the proxy.
+        // The improvements of all splits then add up to
+        // weighted SSE(root) - sum of weighted SSE(leaves).
+        // The depths 0 and 1 are covered by split_score_is_some_only_for_internal_nodes.
+
+        // Weighted sum of squared errors around the weighted mean
+        fn weighted_sse(samples: &[(f64, f64)]) -> f64 {
+            let mass: f64 = samples.iter().map(|&(_, m)| m).sum();
+            if mass == 0.0 {
+                return 0.0;
+            }
+            let mean = samples.iter().map(|&(y, m)| m * y).sum::<f64>() / mass;
+            samples
+                .iter()
+                .map(|&(y, m)| m * (y - mean) * (y - mean))
+                .sum()
+        }
+
+        let f = split_score_fixture();
+
+        for max_depth in [Some(2), Some(3), None] {
+            for min_samples_leaf in [1, 2, 3] {
+                for splitter in [Splitter::Best, Splitter::Random] {
+                    let parameters = params(max_depth, min_samples_leaf, 2, splitter);
+                    for (kind, tree, mass) in split_score_trees(&f, parameters) {
+                        let case = format!(
+                            "{kind}, max_depth: {max_depth:?}, min_samples_leaf: {min_samples_leaf}, \
+                             splitter: {splitter:?}"
+                        );
+
+                        let samples: Vec<(f64, f64)> =
+                            f.y.iter().copied().zip(mass.iter().copied()).collect();
+                        let mut leaves: Vec<Vec<(f64, f64)>> = vec![Vec::new(); tree.nodes().len()];
+                        for (row, &sample) in samples.iter().enumerate() {
+                            leaves[leaf_of(&tree, &f.x, row)].push(sample);
+                        }
+                        let expected = weighted_sse(&samples)
+                            - leaves.iter().map(|leaf| weighted_sse(leaf)).sum::<f64>();
+
+                        let total: f64 = tree.nodes().iter().filter_map(|n| n.split_score()).sum();
+
+                        assert!(tree.nodes().len() > 1, "tree has no split, {case}");
+                        assert!(
+                            (total - expected).abs() <= 1e-9 * weighted_sse(&samples),
+                            "sum of split_score: {total}, expected: {expected}, {case}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn zero_weight_rows_do_not_change_the_tree() {
+        // A row with weight 0 has mass 0, so grow() leaves it out. The tree must be the
+        // same as a tree fitted without that row: no zero-mass leaf, and the x value of
+        // the row (2.5, between the other values) must not move a split threshold.
+        // The fractional weights make the sums depend on the order of the additions.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![3.0_f64],
+            vec![1.0],
+            vec![2.5],
+            vec![2.0],
+            vec![4.0],
+        ])
+        .unwrap();
+        let y = vec![1.0f64, 2.0, 10.0, 3.0, 7.0];
+        let weights = vec![0.1f64, 0.2, 0.0, 0.3, 0.4];
+
+        let x_kept =
+            DenseMatrix::from_2d_vec(&vec![vec![3.0_f64], vec![1.0], vec![2.0], vec![4.0]])
+                .unwrap();
+        let y_kept = vec![1.0f64, 2.0, 3.0, 7.0];
+        let weights_kept = vec![0.1f64, 0.2, 0.3, 0.4];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let parameters = params(None, 1, 2, splitter);
+            let tree: TestTree =
+                BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                    .expect("Fit should work");
+            let tree_kept: TestTree = BaseTree::fit_inner(
+                &x_kept,
+                &y_kept,
+                Some(&weights_kept),
+                &MSECriterion,
+                parameters,
+            )
+            .expect("Fit should work");
+
+            assert!(
+                tree == tree_kept,
+                "{splitter:?}: zero-weight row changed the tree"
+            );
+        }
+    }
+
+    #[test]
+    fn split_is_invariant_to_target_offset() {
+        // Adding a constant to y must not change the splits. With a fixed seed, both fits
+        // see the same candidate thresholds, so only the ranking of the candidates can differ.
+        let n = 40;
+        let x = DenseMatrix::from_2d_vec(
+            &(0..n)
+                .map(|i| vec![i as f64, ((i * 7) % n) as f64, ((i * 13) % n) as f64])
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let pattern: Vec<f64> = (0..n)
+            .map(|i| (i / 10) as f64 + 0.1 * (i % 3) as f64)
+            .collect();
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let fit = |offset: f64| -> TestTree {
+                let y: Vec<f64> = pattern.iter().map(|v| offset + v).collect();
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, params(Some(4), 1, 2, splitter))
+                    .expect("Fit should work")
+            };
+            let reference = fit(0.0);
+            for offset in [1e6, 1e8, 1e9] {
+                let shifted = fit(offset);
+                assert_eq!(
+                    reference.nodes().len(),
+                    shifted.nodes().len(),
+                    "{splitter:?} {offset}"
+                );
+                for (a, b) in reference.nodes().iter().zip(shifted.nodes()) {
+                    assert_eq!(
+                        a.split_feature(),
+                        b.split_feature(),
+                        "{splitter:?} {offset}"
+                    );
+                    assert_eq!(a.split_value(), b.split_value(), "{splitter:?} {offset}");
+                }
+            }
+        }
+    }
+
+    /// Weighted variance of `y`: sum w_i (y_i - mean)^2 / sum w_i.
+    fn weighted_variance(y: &[f64], w: &[f64]) -> f64 {
+        let mass: f64 = w.iter().sum();
+        let mean = y.iter().zip(w).map(|(yi, wi)| yi * wi).sum::<f64>() / mass;
+        y.iter()
+            .zip(w)
+            .map(|(yi, wi)| wi * (yi - mean).powi(2))
+            .sum::<f64>()
+            / mass
+    }
+
+    #[test]
+    fn feature_importances_single_split_known_answer() {
+        // Column 1 is constant, so only column 0 can be used for a split.
+        let x = DenseMatrix::from_2d_vec(&vec![
+            vec![0.0_f64, 7.0],
+            vec![1.0, 7.0],
+            vec![2.0, 7.0],
+            vec![3.0, 7.0],
+        ])
+        .unwrap();
+        let y = vec![1.0, 2.0, 5.0, 6.0];
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(Some(2), 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes().len(), 3);
+
+        // Split at 1.5: SSE(root) = 17, SSE(true) = SSE(false) = 0.5, root mass = 4.
+        // Importance = (17 - 0.5 - 0.5) / 4 = 4.
+        let mut importances = vec![0.0; 2];
+        tree.compute_feature_importances(false, &mut importances);
+        assert_eq!(importances.len(), 2);
+        assert!((importances[0] - 4.0).abs() < 1e-12);
+        assert_eq!(importances[1], 0.0);
+
+        let mut normalized = vec![0.0; 2];
+        tree.compute_feature_importances(true, &mut normalized);
+        assert!((normalized[0] - 1.0).abs() < 1e-12);
+        assert_eq!(normalized[1], 0.0);
+    }
+
+    #[test]
+    fn feature_importances_full_depth_sum_to_weighted_variance() {
+        // All rows are different, so at full depth every leaf is pure. The sum of the
+        // unnormalized importances is then the weighted MSE of the root (the weighted variance of y).
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let weights = vec![0.5, 1.5, 2.0, 0.25, 1.0, 3.0, 0.75, 1.25];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for sample_weights in [None, Some(weights.as_slice())] {
+                let tree: TestTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    sample_weights,
+                    &MSECriterion,
+                    params(None, 1, 2, splitter),
+                )
+                .expect("Fit should work");
+                let w = sample_weights.map_or(vec![1.0; y.len()], |w| w.to_vec());
+
+                let mut importances = vec![0.0f64; 2];
+                tree.compute_feature_importances(false, &mut importances);
+                assert!(importances.iter().all(|&v| v >= 0.0));
+                let sum: f64 = importances.iter().sum();
+                assert!((sum - weighted_variance(&y, &w)).abs() < 1e-9);
+
+                let mut normalized = vec![0.0f64; 2];
+                tree.compute_feature_importances(true, &mut normalized);
+                assert!((normalized.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn feature_importances_do_not_depend_on_weight_scale() {
+        // Multiply all weights by 4 (exact in f64). The tree and the importances must not change.
+        let (x_rows, y) = element_path_data();
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+        let weights = vec![0.5, 1.5, 2.0, 0.25, 1.0, 3.0, 0.75, 1.25];
+        let scaled: Vec<f64> = weights.iter().map(|w| 4.0 * w).collect();
+        let mut fi_tree = vec![0f64; x.shape().1];
+        let mut fi_scaled_tree = vec![0f64; x.shape().1];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(2), None] {
+                let parameters = params(max_depth, 1, 2, splitter);
+                let tree: TestTree =
+                    BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                        .expect("Fit should work");
+                let tree_scaled: TestTree =
+                    BaseTree::fit_inner(&x, &y, Some(&scaled), &MSECriterion, parameters)
+                        .expect("Fit should work");
+                assert_same_tree(&tree, &tree_scaled);
+
+                for normalize in [false, true] {
+                    tree.compute_feature_importances(normalize, &mut fi_tree);
+                    tree_scaled.compute_feature_importances(normalize, &mut fi_scaled_tree);
+                    for (ai, bi) in fi_tree.iter().zip(fi_scaled_tree.iter()) {
+                        assert!((ai - bi).abs() < 1e-9);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pure_root_is_not_split() {
+        // All targets are equal: the root is pure and must stay a leaf.
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![3.0f64; 8];
+        let weights = vec![0.5, 2.0, 1.0, 3.0, 0.25, 1.5, 1.0, 2.0];
+        let samples = vec![2, 1, 3, 1, 1, 2, 1, 1];
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let parameters = params(None, 1, 2, splitter);
+            let trees: Vec<TestTree> = vec![
+                BaseTree::fit_inner(&x, &y, None, &MSECriterion, parameters.clone())
+                    .expect("Fit should work"),
+                BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                    .expect("Fit should work"),
+                BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    None,
+                    samples.clone(),
+                    1,
+                    order_for(splitter, &order_of(&x)),
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work"),
+            ];
+            for tree in &trees {
+                assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+                assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
+                assert!(tree.nodes()[0].split_value().is_none());
+                assert!(tree.nodes()[0].split_score().is_none());
+                assert!(predict(tree, &x).iter().all(|&v| (v - 3.0).abs() < 1e-12));
+            }
+        }
+    }
+
+    #[test]
+    fn pure_root_ignores_rows_with_zero_mass() {
+        // Rows 1 and 5 have a different target, but bootstrap count 0 or weight 0.
+        // The rows that are kept all have target 3.0, so the root is pure.
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![3.0f64, 100.0, 3.0, 3.0, 3.0, -50.0, 3.0, 3.0];
+        let weights = vec![1.0, 0.0, 2.0, 1.0, 0.5, 0.0, 1.0, 3.0];
+        let samples = vec![1, 0, 2, 1, 3, 0, 1, 2];
+
+        let order = order_of(&x);
+        for splitter in [Splitter::Best, Splitter::Random] {
+            let parameters = params(None, 1, 2, splitter);
+            let trees: Vec<TestTree> = vec![
+                BaseTree::fit_inner(&x, &y, Some(&weights), &MSECriterion, parameters.clone())
+                    .expect("Fit should work"),
+                BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    None,
+                    samples.clone(),
+                    1,
+                    order_for(splitter, &order),
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work"),
+            ];
+            for tree in &trees {
+                assert_eq!(tree.nodes().len(), 1, "splitter: {splitter:?}");
+                assert_eq!(tree.depth, 0, "splitter: {splitter:?}");
+                assert!((tree.nodes()[0].output().unwrap() - 3.0).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn pure_child_is_not_split() {
+        // The root split at 4.5 gives a pure true child {5, 5, 5, 5} (SSE 0 + 5,
+        // better than 3.5: 0 + 10 and 5.5: 12.8 + 2). The true child must stay a leaf,
+        // the false child {1, 2, 3, 4} is split until its leaves are pure.
+        let x = DenseMatrix::from_iterator((1..=8).map(|i| i as f64), 8, 1, 0);
+        let y = vec![5.0f64, 5.0, 5.0, 5.0, 1.0, 2.0, 3.0, 4.0];
+
+        let tree: TestTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &MSECriterion,
+            params(None, 1, 2, Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.nodes()[0].split_value(), Some(4.5));
+        let true_child = tree.nodes()[0].true_child().unwrap();
+        let false_child = tree.nodes()[0].false_child().unwrap();
+        assert!(tree.nodes()[true_child].true_child().is_none());
+        assert!(tree.nodes()[true_child].split_score().is_none());
+        assert!(tree.nodes()[false_child].true_child().is_some());
+        // root + pure leaf + 7 nodes for the false subtree with 4 distinct targets
+        assert_eq!(tree.nodes().len(), 9);
+        assert_eq!(predict(&tree, &x), y);
+    }
+
+    type ClassTree = BaseTree<f64, usize, DenseMatrix<f64>, Vec<usize>, ClassificationOutput>;
+
+    /// Number of `Node::Leaf` entries in the tree.
+    fn leaf_count<TY: Number, Y: Array1<TY>, Out: LeafOutput>(
+        tree: &BaseTree<f64, TY, DenseMatrix<f64>, Y, Out>,
+    ) -> usize {
+        tree.nodes()
+            .iter()
+            .filter(|node| matches!(node, Node::Leaf { .. }))
+            .count()
+    }
+
+    /// Deterministic data set: 30 rows, 3 features, 3 classes, with overlap so that the
+    /// trees have many leaves of different sizes.
+    fn class_data() -> (DenseMatrix<f64>, Vec<usize>) {
+        let rows: Vec<Vec<f64>> = (0..30)
+            .map(|i| (0..3).map(|j| ((i * 7 + j * 13) % 17) as f64).collect())
+            .collect();
+        let y: Vec<usize> = (0..30).map(|i| (i * 5 + i / 4) % 3).collect();
+        (DenseMatrix::from_2d_vec(&rows).unwrap(), y)
+    }
+
+    fn slot_parameters(max_depth: Option<u16>, splitter: Splitter) -> BaseTreeParameters {
+        BaseTreeParameters {
+            max_depth,
+            min_samples_leaf: 1,
+            min_samples_split: 2,
+            seed: Some(42),
+            splitter,
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn n_leaves_matches_number_of_leaf_nodes() {
+        let (x, y_class) = class_data();
+        let y_reg: Vec<f64> = y_class.iter().map(|&c| c as f64 * 1.5).collect();
+
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let params = slot_parameters(max_depth, splitter);
+
+                let reg = BaseTree::fit_inner(&x, &y_reg, None, &MSECriterion, params.clone())
+                    .expect("Fit should work");
+                assert_eq!(reg.n_leaves as usize, leaf_count(&reg));
+                // A binary tree: number of leaves = number of inner nodes + 1
+                assert_eq!(reg.nodes().len(), 2 * reg.n_leaves as usize - 1);
+
+                let class: ClassTree =
+                    BaseTree::fit_inner(&x, &y_class, None, &GiniCriterion::new(3), params)
+                        .expect("Fit should work");
+                assert_eq!(class.n_leaves as usize, leaf_count(&class));
+                assert_eq!(class.nodes().len(), 2 * class.n_leaves as usize - 1);
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn n_leaves_is_one_for_root_only_tree() {
+        let (x, y) = class_data();
+        let tree: ClassTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &GiniCriterion::new(3),
+            slot_parameters(Some(1), Splitter::Best),
+        )
+        .expect("Fit should work");
+        assert_eq!(tree.n_leaves, 1);
+        assert_eq!(tree.leaf_probabilities.len(), 3);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn regression_tree_has_no_leaf_probabilities() {
+        let (x, y_class) = class_data();
+        let y: Vec<f64> = y_class.iter().map(|&c| c as f64).collect();
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), None] {
+                let tree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &MSECriterion,
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+                // the deep tree must really have split, else the test is trivial
+                assert!(tree.n_leaves > 1 || max_depth == Some(1));
+                assert!(tree.leaf_probabilities.is_empty());
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn classification_leaf_probabilities_have_one_row_per_leaf() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                assert_eq!(
+                    tree.leaf_probabilities.len(),
+                    tree.n_leaves as usize * n_classes
+                );
+
+                // The slots of the leaves are exactly 0..n_leaves (no gaps, no duplicates)
+                let mut slots: Vec<u32> = tree
+                    .nodes()
+                    .iter()
+                    .filter_map(|node| match node {
+                        Node::Leaf { output } => Some(output.slot),
+                        Node::Inner { .. } => None,
+                    })
+                    .collect();
+                slots.sort_unstable();
+                assert_eq!(slots, (0..tree.n_leaves).collect::<Vec<u32>>());
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn slot_rows_sum_to_one() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                for dist in tree.leaf_probabilities.chunks(n_classes) {
+                    assert_eq!(
+                        dist.len(),
+                        n_classes,
+                        "splitter: {splitter:?}, max_depth: {max_depth:?}"
+                    );
+                    assert!(
+                        (dist.iter().map(|p| *p as f64).sum::<f64>() - 1.0).abs()
+                            < f32::EPSILON as f64,
+                        "splitter: {splitter:?}, max_depth: {max_depth:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn class_prediction_equals_argmax() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    None,
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                for node in tree.nodes() {
+                    if let Node::Leaf { output } = node {
+                        let slot = output.slot as usize;
+                        let probs =
+                            &tree.leaf_probabilities[slot * n_classes..(slot + 1) * n_classes];
+                        assert_eq!(
+                            output.class_index,
+                            probs.argmax(),
+                            "splitter: {splitter:?}, max_depth: {max_depth:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn leaf_probabilities_are_weighted_class_frequencies() {
+        let (x, y) = class_data();
+        let n_classes = 3;
+        let sample_weights: Vec<f64> = (0..y.len()).map(|i| (i % 5 + 1) as f64).collect();
+        for splitter in [Splitter::Best, Splitter::Random] {
+            for max_depth in [Some(1), Some(2), Some(4), None] {
+                let tree: ClassTree = BaseTree::fit_inner(
+                    &x,
+                    &y,
+                    Some(&sample_weights),
+                    &GiniCriterion::new(n_classes),
+                    slot_parameters(max_depth, splitter),
+                )
+                .expect("Fit should work");
+
+                // Expected: weighted class counts of the training rows that reach each leaf
+                let n_leaves = tree.n_leaves as usize;
+                let mut counts = vec![0f64; n_leaves * n_classes];
+                for (row, (&yi, &wi)) in y.iter().zip(&sample_weights).enumerate() {
+                    let slot = tree.leaf_output_for_row(&x, row).slot as usize;
+                    counts[slot * n_classes + yi] += wi;
+                }
+
+                for (slot, (got, exp)) in tree
+                    .leaf_probabilities
+                    .chunks(n_classes)
+                    .zip(counts.chunks(n_classes))
+                    .enumerate()
+                {
+                    let mass: f64 = exp.iter().sum();
+                    for c in 0..n_classes {
+                        let expected = exp[c] / mass;
+                        assert!(
+                            (got[c] as f64 - expected).abs() < f32::EPSILON as f64,
+                            "{splitter:?}, {max_depth:?}, slot {slot}, class {c}: {} vs {expected}",
+                            got[c]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Run `unstable_partition` on `elems` and check the result:
+    /// the true elements come first, each target stays with its element,
+    /// and no element is lost or changed.
+    /// The target of an element is `row * 10 + 1`, so a target that moves away from its
+    /// element gives an error.
+    fn check_unstable_partition<E: NodeElement>(elems: Vec<E>, is_true: &[bool]) {
+        let target_of = |row: usize| row * 10 + 1;
+        let mut slice = elems.clone();
+        let mut targets: Vec<usize> = slice.iter().map(|e| target_of(e.row())).collect();
+
+        unstable_partition(&mut slice, &mut targets, is_true);
+
+        let n_true = elems.iter().filter(|e| is_true[e.row()]).count();
+
+        // the true elements first, then the false elements
+        assert!(slice[..n_true].iter().all(|e| is_true[e.row()]));
+        assert!(slice[n_true..].iter().all(|e| !is_true[e.row()]));
+
+        // each target stays with its element
+        assert_eq!(targets.len(), slice.len());
+        for (e, &t) in slice.iter().zip(&targets) {
+            assert_eq!(t, target_of(e.row()));
+        }
+
+        // the same elements (row, count, mass) as before
+        let key = |e: &E| (e.row(), e.count(), e.mass().to_bits());
+        let mut before: Vec<_> = elems.iter().map(&key).collect();
+        let mut after: Vec<_> = slice.iter().map(&key).collect();
+        before.sort_unstable();
+        after.sort_unstable();
+        assert_eq!(before, after);
+    }
+
+    fn unit_elements(rows: &[usize]) -> Vec<UnitElement> {
+        rows.iter().map(|&r| UnitElement::new(r, 1, 1.0)).collect()
+    }
+
+    #[test]
+    fn unstable_partition_edge_cases() {
+        // is_true is indexed by row: rows 0, 2 and 4 are true
+        let mixed = [true, false, true, false, true];
+        let all_true = [true; 5];
+        let all_false = [false; 5];
+
+        check_unstable_partition::<UnitElement>(vec![], &mixed); // empty
+        check_unstable_partition(unit_elements(&[2]), &mixed); // one true element
+        check_unstable_partition(unit_elements(&[3]), &mixed); // one false element
+        check_unstable_partition(unit_elements(&[0, 1, 2, 3, 4]), &all_true);
+        check_unstable_partition(unit_elements(&[0, 1, 2, 3, 4]), &all_false);
+        check_unstable_partition(unit_elements(&[0, 1, 2, 3, 4]), &mixed); // alternating
+        check_unstable_partition(unit_elements(&[1, 3, 0, 2, 4]), &mixed); // false first
+        check_unstable_partition(unit_elements(&[0, 2, 4, 1, 3]), &mixed); // already partitioned
+        check_unstable_partition(unit_elements(&[1, 3, 0, 2, 4]), &all_false);
+    }
+
+    /// `split()` partitions only the range of one node. The elements and targets
+    /// before and after this range must not change.
+    #[test]
+    fn unstable_partition_changes_only_the_sub_slice() {
+        let is_true = [true, false, true, false, true, false, true];
+        let rows = [5, 0, 4, 1, 3, 2, 6];
+        let mut elems = unit_elements(&rows);
+        let mut targets: Vec<usize> = rows.iter().map(|&r| r * 10 + 1).collect();
+        let (start, end) = (2, 5);
+
+        unstable_partition(&mut elems[start..end], &mut targets[start..end], &is_true);
+
+        let rows_after: Vec<usize> = elems.iter().map(|e| e.row()).collect();
+        let targets_before: Vec<usize> = rows.iter().map(|&r| r * 10 + 1).collect();
+        assert_eq!(rows_after[..start], rows[..start]);
+        assert_eq!(rows_after[end..], rows[end..]);
+        assert_eq!(targets[..start], targets_before[..start]);
+        assert_eq!(targets[end..], targets_before[end..]);
+    }
+
+    #[test]
+    fn unstable_partition_random_masks_all_element_types() {
+        let mut rng = get_rng_impl(Some(42));
+        for n in [1, 2, 3, 10, 100] {
+            for _ in 0..20 {
+                // the rows of a node: a random subset of 0..2n in a random order
+                let mut rows: Vec<usize> = (0..2 * n).collect();
+                rows.shuffle(&mut rng);
+                rows.truncate(n);
+                let is_true: Vec<bool> = (0..2 * n).map(|_| rng.random_range(0..2) == 1).collect();
+
+                check_unstable_partition(unit_elements(&rows), &is_true);
+
+                let counted: Vec<CountedElement> = rows
+                    .iter()
+                    .map(|&r| CountedElement::new(r, r % 3 + 1, (r % 3 + 1) as f64))
+                    .collect();
+                check_unstable_partition(counted, &is_true);
+
+                let weighted: Vec<WeightedElement> = rows
+                    .iter()
+                    .map(|&r| WeightedElement::new(r, r % 3 + 1, 0.25 * (r + 1) as f64))
+                    .collect();
+                check_unstable_partition(weighted, &is_true);
+            }
+        }
+    }
+    /// The rows of `x` with a count > 0 that reach each node of `tree`.
+    fn rows_per_node(tree: &TestTree, x: &DenseMatrix<f64>, counts: &[usize]) -> Vec<Vec<usize>> {
+        let mut per_node = vec![Vec::new(); tree.nodes().len()];
+        for (row, _) in counts.iter().enumerate().filter(|&(_, &c)| c > 0) {
+            let mut node_id = 0;
+            loop {
+                per_node[node_id].push(row);
+                match &tree.nodes[node_id] {
+                    Node::Leaf { .. } => break,
+                    Node::Inner {
+                        split_feature,
+                        split_value,
+                        true_child,
+                        ..
+                    } => {
+                        let true_child = true_child.get() as usize;
+                        node_id = if *x.get((row, *split_feature as usize)) <= *split_value {
+                            true_child
+                        } else {
+                            true_child + 1
+                        };
+                    }
+                }
+            }
+        }
+        per_node
+    }
+
+    /// Fit random trees without presorted columns (`order = None`, the path of the forests)
+    /// for all element types. Check each node against the training rows that reach it:
+    /// - an inner node splits on a feature that is not constant in the node,
+    ///   with a threshold in `[min, max)` of that feature;
+    /// - a leaf has the weighted mean of its rows as output. This fails if a target
+    ///   is moved away from its element in the partition;
+    /// - a leaf is pure, or all features are constant in it. With `min_samples_leaf = 1`
+    ///   and `mtry` equal to the number of features, each other node must split.
+    #[test]
+    fn random_splitter_nodes_match_their_rows() {
+        let mut rng = get_rng_impl(Some(11));
+        let n = 40;
+        let n_features = 3;
+        // few distinct values: many features become constant inside a node
+        let x_rows: Vec<Vec<f64>> = (0..n)
+            .map(|_| {
+                (0..n_features)
+                    .map(|_| rng.random_range(0..4) as f64)
+                    .collect()
+            })
+            .collect();
+        // few distinct targets: many nodes become pure
+        let y: Vec<f64> = (0..n).map(|_| rng.random_range(0..3) as f64).collect();
+        // bootstrap counts with duplicates (> 1) and left-out rows (0)
+        let counts: Vec<usize> = (0..n).map(|_| rng.random_range(0..4usize)).collect();
+        let weights: Vec<f64> = (0..n).map(|_| rng.random_range(0.1..3.0)).collect();
+        let ones = vec![1usize; n];
+        let x = DenseMatrix::from_2d_vec(&x_rows).unwrap();
+
+        // (weights, counts): UnitElement, CountedElement and WeightedElement
+        let paths = [
+            (None, &ones),
+            (None, &counts),
+            (Some(weights.as_slice()), &counts),
+        ];
+        for (sample_weights, samples) in paths {
+            for seed in 0..10 {
+                let parameters = BaseTreeParameters {
+                    seed: Some(seed),
+                    ..params(None, 1, 2, Splitter::Random)
+                };
+                let tree: TestTree = BaseTree::fit_weak_learner(
+                    &x,
+                    &y,
+                    sample_weights,
+                    samples.clone(),
+                    n_features,
+                    None,
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work");
+                let message = format!(
+                    "weights: {}, counts: {}, seed: {seed}",
+                    sample_weights.is_some(),
+                    samples != &ones
+                );
+                assert!(tree.nodes().len() > 1, "{message}");
+
+                let mass =
+                    |row: usize| samples[row] as f64 * sample_weights.map_or(1.0, |w| w[row]);
+                for (node_id, rows) in rows_per_node(&tree, &x, samples).iter().enumerate() {
+                    assert!(!rows.is_empty(), "{message}, node {node_id} has no rows");
+                    let node = &tree.nodes()[node_id];
+                    match (node.split_feature(), node.split_value()) {
+                        (Some(j), Some(v)) => {
+                            let values = rows.iter().map(|&r| *x.get((r, j)));
+                            let min = values.clone().fold(f64::INFINITY, f64::min);
+                            let max = values.fold(f64::NEG_INFINITY, f64::max);
+                            assert!(min <= v && v < max, "{message}, node {node_id}");
+                        }
+                        _ => {
+                            let total: f64 = rows.iter().map(|&r| mass(r)).sum();
+                            let mean = rows.iter().map(|&r| mass(r) * y[r]).sum::<f64>() / total;
+                            let output = node.output().unwrap();
+                            assert!((output - mean).abs() < 1e-9, "{message}, node {node_id}");
+
+                            let is_pure = rows.iter().all(|&r| y[r] == y[rows[0]]);
+                            let all_constant = (0..n_features).all(|j| {
+                                rows.iter().all(|&r| x.get((r, j)) == x.get((rows[0], j)))
+                            });
+                            let count: usize = rows.iter().map(|&r| samples[r]).sum();
+                            assert!(
+                                is_pure || all_constant || count < 2,
+                                "{message}, leaf {node_id} can be split"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// With the random splitter, `min_samples_leaf` permits only one interval for the
+    /// threshold. If the random threshold is not in it, the node is not split.
+    /// The counts are numbers of samples, also for `CountedElement` and `WeightedElement`.
+    #[test]
+    fn random_splitter_min_samples_leaf_boundary() {
+        // (x, y, samples, weights, permitted threshold interval)
+        let x4 = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0], vec![4.0]])
+            .unwrap();
+        let x3 = DenseMatrix::from_2d_vec(&vec![vec![1.0_f64], vec![2.0], vec![3.0]]).unwrap();
+        let y4 = vec![0.0f64, 0.0, 0.0, 100.0];
+        let y3 = vec![0.0f64, 50.0, 100.0];
+        let w3 = vec![0.5, 2.0, 1.5];
+        let cases = [
+            // UnitElement: only 2 | 2, thus the threshold is in [2, 3)
+            ("unit", &x4, &y4, vec![1, 1, 1, 1], None, (2.0, 3.0)),
+            // CountedElement: row 0 counts 2 times, only {0} | {1, 2} is 2 | 2
+            ("counted", &x3, &y3, vec![2, 1, 1], None, (1.0, 2.0)),
+            // WeightedElement: the same, the weights do not change the sample counts
+            (
+                "weighted",
+                &x3,
+                &y3,
+                vec![2, 1, 1],
+                Some(w3.as_slice()),
+                (1.0, 2.0),
+            ),
+        ];
+        for (name, x, y, samples, weights, (low, high)) in cases {
+            let mut n_split = 0;
+            for seed in 0..50 {
+                let parameters = BaseTreeParameters {
+                    seed: Some(seed),
+                    ..params(None, 2, 2, Splitter::Random)
+                };
+                let tree: TestTree = BaseTree::fit_weak_learner(
+                    x,
+                    y,
+                    weights,
+                    samples.clone(),
+                    1,
+                    None,
+                    &MSECriterion,
+                    parameters,
+                )
+                .expect("Fit should work");
+                if tree.nodes().len() == 1 {
+                    continue; // the random threshold was not permitted
+                }
+                n_split += 1;
+                assert_eq!(tree.nodes().len(), 3, "{name}, seed: {seed}");
+                let v = tree.nodes()[0].split_value().unwrap();
+                assert!(low <= v && v < high, "{name}, seed: {seed}, threshold: {v}");
+                assert_eq!(leaf_counts(&tree, x, &samples), vec![2, 2], "{name}");
+            }
+            assert!(n_split > 0, "{name}: no seed gives a split");
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_round_trip_keeps_leaf_probabilities() {
+        let (x, y) = class_data();
+        let tree: ClassTree = BaseTree::fit_inner(
+            &x,
+            &y,
+            None,
+            &GiniCriterion::new(3),
+            slot_parameters(Some(2), Splitter::Best),
+        )
+        .expect("Fit should work");
+        // the tree must really have split, else the test is trivial
+        assert!(tree.n_leaves > 1);
+        // a shallow tree has impure leaves, so not all probabilities are 0 or 1
+        assert!(tree.leaf_probabilities.iter().any(|&p| p > 0.0 && p < 1.0));
+
+        let bytes = postcard::to_allocvec(&tree).unwrap();
+        let deserialized: ClassTree = postcard::from_bytes(&bytes).unwrap();
+        assert_eq!(tree, deserialized);
+        assert_eq!(tree.n_leaves, deserialized.n_leaves);
+        assert_eq!(tree.leaf_probabilities, deserialized.leaf_probabilities);
+
+        // Equality must detect a different leaf distribution, also when the nodes are the same
+        let mut changed: ClassTree = postcard::from_bytes(&bytes).unwrap();
+        changed.leaf_probabilities[0] += 0.5;
+        assert_ne!(tree, changed);
+    }
+}

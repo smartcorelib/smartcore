@@ -12,6 +12,7 @@ use crate::model_selection::{cross_validate, BaseKFold, CrossValidationResult};
 
 /// Parameters for GridSearchCV
 #[derive(Debug)]
+#[must_use]
 pub struct GridSearchCVParameters<
     T: Number,
     M: Array2<T>,

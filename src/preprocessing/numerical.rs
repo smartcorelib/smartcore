@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 /// Configure Behaviour of `StandardScaler`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
+#[must_use]
 pub struct StandardScalerParameters {
     /// Optionaly adjust mean to be zero.
     with_mean: bool,
@@ -70,7 +71,7 @@ pub struct StandardScaler<T: Number + RealNumber> {
     _phantom: PhantomData<T>,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 impl<T: Number + RealNumber> StandardScaler<T> {
     fn new(parameters: StandardScalerParameters) -> Self
     where
@@ -107,11 +108,10 @@ impl<T: Number + RealNumber> StandardScaler<T> {
 }
 
 /// Make sure the standard deviation is valid. If it is
-/// negative or zero, it should replaced by the smallest
-/// positive value the type can have. That way we can savely
-/// divide the columns with the resulting scalar.
+/// negative or zero, it should be replaced by one. A constant
+/// column is then only centered and is never divided by zero.
 fn ensure_std_valid<T: Number + RealNumber>(value: T) -> T {
-    value.max(T::min_positive_value())
+    if value > T::zero() { value } else { T::one() }
 }
 
 /// During `fit` the `StandardScaler` computes the column means and standard deviation.
@@ -137,85 +137,50 @@ impl<T: Number + RealNumber, M: Array2<T>> UnsupervisedEstimator<M, StandardScal
 /// standard deviation to one.
 impl<T: Number + RealNumber, M: Array2<T>> Transformer<M> for StandardScaler<T> {
     fn transform(&self, x: &M) -> Result<M, Failed> {
-        let (_, n_cols) = x.shape();
-        if n_cols != self.means.len() {
+        let (nrows, ncols) = x.shape();
+        if ncols != self.means.len() {
             return Err(Failed::because(
                 FailedError::TransformFailed,
                 &format!(
                     "Expected {} columns, but got {} columns instead.",
                     self.means.len(),
-                    n_cols,
+                    ncols,
                 ),
             ));
         }
 
-        Ok(build_matrix_from_columns(
-            self.means
-                .iter()
-                .zip(self.stds.iter())
-                .enumerate()
-                .map(|(column_index, (column_mean, column_std))| {
-                    x.take_column(column_index)
-                        .sub_scalar(T::from(self.adjust_column_mean(*column_mean)).unwrap())
-                        .div_scalar(T::from(self.adjust_column_std(*column_std)).unwrap())
-                })
-                .collect(),
-        )
-        .unwrap())
-    }
-}
-
-/// From a collection of matrices, that contain columns, construct
-/// a matrix by stacking the columns horizontally.
-fn build_matrix_from_columns<T, M>(columns: Vec<M>) -> Option<M>
-where
-    T: Number + RealNumber,
-    M: Array2<T>,
-{
-    columns.first().cloned().map(|output_matrix| {
-        columns
-            .iter()
-            .skip(1)
-            .fold(output_matrix, |current_matrix, new_colum| {
-                current_matrix.h_stack(new_colum)
+        let mut output = M::fill(nrows, ncols, T::zero());
+        let col_params: Vec<(T, T)> = (0..ncols)
+            .map(|j| {
+                let mean = T::from(self.adjust_column_mean(self.means[j])).unwrap();
+                let std = T::from(self.adjust_column_std(self.stds[j])).unwrap();
+                (mean, std)
             })
-    })
+            .collect();
+        for i in 0..nrows {
+            for (j, &(mean, std)) in col_params.iter().enumerate() {
+                let val = *x.get((i, j));
+                output.set((i, j), (val - mean) / std);
+            }
+        }
+        Ok(output)
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
     mod helper_functionality {
-        use super::super::{build_matrix_from_columns, ensure_std_valid};
-        use crate::linalg::basic::matrix::DenseMatrix;
+        use super::super::ensure_std_valid;
 
         #[test]
-        fn combine_three_columns() {
-            assert_eq!(
-                build_matrix_from_columns(vec![
-                    DenseMatrix::from_2d_vec(&vec![vec![1.0], vec![1.0], vec![1.0],]).unwrap(),
-                    DenseMatrix::from_2d_vec(&vec![vec![2.0], vec![2.0], vec![2.0],]).unwrap(),
-                    DenseMatrix::from_2d_vec(&vec![vec![3.0], vec![3.0], vec![3.0],]).unwrap()
-                ]),
-                Some(
-                    DenseMatrix::from_2d_vec(&vec![
-                        vec![1.0, 2.0, 3.0],
-                        vec![1.0, 2.0, 3.0],
-                        vec![1.0, 2.0, 3.0]
-                    ])
-                    .unwrap()
-                )
-            )
+        fn negative_value_should_be_replaced_with_one() {
+            assert_eq!(ensure_std_valid(-1.0), 1.0)
         }
 
         #[test]
-        fn negative_value_should_be_replace_with_minimal_positive_value() {
-            assert_eq!(ensure_std_valid(-1.0), f64::MIN_POSITIVE)
-        }
-
-        #[test]
-        fn zero_should_be_replace_with_minimal_positive_value() {
-            assert_eq!(ensure_std_valid(0.0), f64::MIN_POSITIVE)
+        fn zero_should_be_replaced_with_one() {
+            assert_eq!(ensure_std_valid(0.0), 1.0)
         }
     }
     mod standard_scaler {
@@ -296,16 +261,18 @@ mod tests {
                 .unwrap(),
             );
             println!("{transformed_values}");
-            assert!(transformed_values.approximate_eq(
-                &DenseMatrix::from_2d_array(&[
-                    &[-1.1154020653, -0.4031985330, 0.9284605204, -0.4271473866],
-                    &[-0.7615464283, -0.7076698384, -1.1075452562, 1.2632979631],
-                    &[0.4832504303, -0.6106747444, 1.0630075435, 0.5494084257],
-                    &[1.3936980634, 1.7215431158, -0.8839228078, -1.3855590021],
-                ])
-                .unwrap(),
-                1.0
-            ))
+            assert!(
+                transformed_values.approximate_eq(
+                    &DenseMatrix::from_2d_array(&[
+                        &[-1.1154020653, -0.4031985330, 0.9284605204, -0.4271473866],
+                        &[-0.7615464283, -0.7076698384, -1.1075452562, 1.2632979631],
+                        &[0.4832504303, -0.6106747444, 1.0630075435, 0.5494084257],
+                        &[1.3936980634, 1.7215431158, -0.8839228078, -1.3855590021],
+                    ])
+                    .unwrap(),
+                    1.0
+                )
+            )
         }
 
         /// Test `fit` and `transform` for a column with zero variance.
@@ -318,6 +285,68 @@ mod tests {
                 DenseMatrix::from_2d_array(&[&[0.0], &[0.0], &[0.0], &[0.0]]).unwrap(),
                 "When scaling values with zero variance, zero is expected as return value"
             )
+        }
+
+        /// A constant `f32` column must not be divided by zero.
+        #[test]
+        fn fit_transform_with_zero_variance_f32() {
+            let x = DenseMatrix::from_2d_array(&[&[1.0f32, 1.0], &[1.0, 3.0]]).unwrap();
+            let scaler = StandardScaler::fit(&x, StandardScalerParameters::default()).unwrap();
+            assert_eq!(
+                scaler.transform(&x).unwrap(),
+                DenseMatrix::from_2d_array(&[&[0.0f32, -1.0], &[0.0, 1.0]]).unwrap()
+            );
+        }
+
+        /// New values in a column that was constant during `fit` are only
+        /// centered, as in sklearn.
+        #[test]
+        fn transform_new_values_in_column_with_zero_variance() {
+            let x = DenseMatrix::from_2d_array(&[&[1.0], &[1.0]]).unwrap();
+            let scaler = StandardScaler::fit(&x, StandardScalerParameters::default()).unwrap();
+            assert_eq!(
+                scaler
+                    .transform(&DenseMatrix::from_2d_array(&[&[1.5], &[3.0]]).unwrap())
+                    .unwrap(),
+                DenseMatrix::from_2d_array(&[&[0.5], &[2.0]]).unwrap()
+            );
+        }
+
+        /// The mean of ten times `0.1` is not exactly `0.1`.
+        #[test]
+        fn fit_transform_with_zero_variance_and_rounded_mean() {
+            let x = DenseMatrix::from_2d_array(&[&[0.1][..]; 10]).unwrap();
+            assert!(
+                fit_transform_with_default_standard_scaler(&x).approximate_eq(
+                    &DenseMatrix::from_2d_array(&[&[0.0][..]; 10]).unwrap(),
+                    1e-15
+                )
+            );
+        }
+
+        /// Columns far from zero, for example Unix timestamps. Expected values
+        /// taken from sklearn.
+        #[test]
+        fn fit_transform_with_large_mean() {
+            let x = DenseMatrix::from_2d_array(&[
+                &[1_700_000_001.0],
+                &[1_700_000_002.0],
+                &[1_700_000_003.0],
+                &[1_700_000_004.0],
+            ])
+            .unwrap();
+            assert!(
+                fit_transform_with_default_standard_scaler(&x).approximate_eq(
+                    &DenseMatrix::from_2d_array(&[
+                        &[-1.3416407864998738],
+                        &[-0.4472135954999579],
+                        &[0.4472135954999579],
+                        &[1.3416407864998738],
+                    ])
+                    .unwrap(),
+                    1e-12
+                )
+            );
         }
 
         /// Test `fit` for columns with nice summary statistics.
@@ -365,18 +394,20 @@ mod tests {
                 vec![0.42864544605, 0.2869813741, 0.737752073825, 0.431011663625],
             );
 
-            assert!(&DenseMatrix::<f64>::from_2d_vec(&vec![fitted_scaler.stds])
-                .unwrap()
-                .approximate_eq(
-                    &DenseMatrix::from_2d_array(&[&[
-                        0.29426447500954,
-                        0.16758497615485,
-                        0.20820945786863,
-                        0.23329718831165
-                    ],])
-                    .unwrap(),
-                    0.00000000000001
-                ))
+            assert!(
+                &DenseMatrix::<f64>::from_2d_vec(&vec![fitted_scaler.stds])
+                    .unwrap()
+                    .approximate_eq(
+                        &DenseMatrix::from_2d_array(&[&[
+                            0.29426447500954,
+                            0.16758497615485,
+                            0.20820945786863,
+                            0.23329718831165
+                        ],])
+                        .unwrap(),
+                        0.00000000000001
+                    )
+            )
         }
 
         /// If `with_std` is set to `false` the values should not be
@@ -421,6 +452,128 @@ mod tests {
             )
         }
 
+        /// Verify transform correctness across all parameter combinations.
+        #[test]
+        fn transform_all_parameter_combinations() {
+            let data = DenseMatrix::from_2d_vec(&vec![
+                vec![1.0, 10.0, 100.0],
+                vec![2.0, 20.0, 200.0],
+                vec![3.0, 30.0, 300.0],
+                vec![4.0, 40.0, 400.0],
+            ])
+            .unwrap();
+
+            // Default: with_mean=true, with_std=true
+            // std = population std: sqrt(mean of squared deviations)
+            // For [1,2,3,4]: mean=2.5, pop_std = sqrt(5/4) ≈ 1.1180339887
+            let scaler = StandardScaler::fit(&data, StandardScalerParameters::default()).unwrap();
+            let result = scaler.transform(&data).unwrap();
+            let expected = DenseMatrix::from_2d_vec(&vec![
+                vec![
+                    -1.3416407864998738,
+                    -1.3416407864998738,
+                    -1.3416407864998738,
+                ],
+                vec![
+                    -0.4472135954999579,
+                    -0.4472135954999579,
+                    -0.4472135954999579,
+                ],
+                vec![0.4472135954999579, 0.4472135954999579, 0.4472135954999579],
+                vec![1.3416407864998738, 1.3416407864998738, 1.3416407864998738],
+            ])
+            .unwrap();
+            assert!(
+                result.approximate_eq(&expected, 1e-10),
+                "Default transform failed:\n{result}\nexpected:\n{expected}"
+            );
+
+            // with_mean=true, with_std=false
+            let scaler = StandardScaler::fit(
+                &data,
+                StandardScalerParameters {
+                    with_mean: true,
+                    with_std: false,
+                },
+            )
+            .unwrap();
+            let result = scaler.transform(&data).unwrap();
+            let expected = DenseMatrix::from_2d_vec(&vec![
+                vec![-1.5, -15.0, -150.0],
+                vec![-0.5, -5.0, -50.0],
+                vec![0.5, 5.0, 50.0],
+                vec![1.5, 15.0, 150.0],
+            ])
+            .unwrap();
+            assert!(
+                result.approximate_eq(&expected, 1e-10),
+                "with_mean=true, with_std=false transform failed:\n{result}\nexpected:\n{expected}"
+            );
+
+            // with_mean=false, with_std=true: (x - 0) / std = x / std
+            let scaler = StandardScaler::fit(
+                &data,
+                StandardScalerParameters {
+                    with_mean: false,
+                    with_std: true,
+                },
+            )
+            .unwrap();
+            let result = scaler.transform(&data).unwrap();
+            let expected = DenseMatrix::from_2d_vec(&vec![
+                vec![0.8944271909999159, 0.8944271909999159, 0.8944271909999159],
+                vec![1.7888543819998317, 1.7888543819998317, 1.7888543819998317],
+                vec![2.6832815729997477, 2.6832815729997477, 2.6832815729997477],
+                vec![3.5777087639996634, 3.5777087639996634, 3.5777087639996634],
+            ])
+            .unwrap();
+            assert!(
+                result.approximate_eq(&expected, 1e-10),
+                "with_mean=false, with_std=true transform failed:\n{result}\nexpected:\n{expected}"
+            );
+
+            // with_mean=false, with_std=false (passthrough)
+            let scaler = StandardScaler::fit(
+                &data,
+                StandardScalerParameters {
+                    with_mean: false,
+                    with_std: false,
+                },
+            )
+            .unwrap();
+            let result = scaler.transform(&data).unwrap();
+            assert!(
+                result.approximate_eq(&data, 1e-10),
+                "with_mean=false, with_std=false should return data unchanged:\n{result}\nexpected:\n{data}"
+            );
+
+            // Zero-variance column mixed with normal columns
+            let mixed = DenseMatrix::from_2d_vec(&vec![
+                vec![1.0, 5.0],
+                vec![2.0, 5.0],
+                vec![3.0, 5.0],
+                vec![4.0, 5.0],
+            ])
+            .unwrap();
+            let scaler = StandardScaler::fit(&mixed, StandardScalerParameters::default()).unwrap();
+            let result = scaler.transform(&mixed).unwrap();
+            let expected = DenseMatrix::from_2d_vec(&vec![
+                vec![-1.3416407864998738, 0.0],
+                vec![-0.4472135954999579, 0.0],
+                vec![0.4472135954999579, 0.0],
+                vec![1.3416407864998738, 0.0],
+            ])
+            .unwrap();
+            assert!(
+                result.approximate_eq(&expected, 1e-10),
+                "Zero-variance mixed column transform failed:\n{result}\nexpected:\n{expected}"
+            );
+
+            // Column count mismatch returns error: scaler expects 2 cols, data has 1
+            let narrow = DenseMatrix::from_2d_vec(&vec![vec![1.0]]).unwrap();
+            assert!(scaler.transform(&narrow).is_err());
+        }
+
         /// Same as `fit_for_random_values` test, but using a `StandardScaler` that has been
         /// serialized and deserialized.
         #[cfg_attr(
@@ -450,18 +603,20 @@ mod tests {
                 vec![0.42864544605, 0.2869813741, 0.737752073825, 0.431011663625],
             );
 
-            assert!(&DenseMatrix::from_2d_vec(&vec![deserialized_scaler.stds])
-                .unwrap()
-                .approximate_eq(
-                    &DenseMatrix::from_2d_array(&[&[
-                        0.29426447500954,
-                        0.16758497615485,
-                        0.20820945786863,
-                        0.23329718831165
-                    ],])
-                    .unwrap(),
-                    0.00000000000001
-                ))
+            assert!(
+                &DenseMatrix::from_2d_vec(&vec![deserialized_scaler.stds])
+                    .unwrap()
+                    .approximate_eq(
+                        &DenseMatrix::from_2d_array(&[&[
+                            0.29426447500954,
+                            0.16758497615485,
+                            0.20820945786863,
+                            0.23329718831165
+                        ],])
+                        .unwrap(),
+                        0.00000000000001
+                    )
+            )
         }
     }
 }

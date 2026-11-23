@@ -4,7 +4,7 @@ pub trait QuickArgSort {
     #[allow(dead_code)]
     fn quick_argsort_mut(&mut self) -> Vec<usize>;
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn quick_argsort(&self) -> Vec<usize>;
 }
 
@@ -120,7 +120,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn with_capacity() {
+    fn quick_argsort() {
         let arr1 = vec![0.3, 0.1, 0.2, 0.4, 0.9, 0.5, 0.7, 0.6, 0.8];
         assert_eq!(vec![1, 2, 0, 3, 5, 7, 6, 8, 4], arr1.quick_argsort());
 
@@ -129,8 +129,43 @@ mod tests {
             1.0, 1.3, 1.4,
         ];
         assert_eq!(
-            vec![9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16],
+            vec![
+                9, 7, 1, 8, 0, 2, 4, 3, 6, 5, 17, 18, 15, 13, 19, 10, 14, 11, 12, 16
+            ],
             arr2.quick_argsort()
+        );
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn quick_argsort_is_valid_permutation() {
+        use proptest::prelude::*;
+
+        proptest!(
+            |(arr in proptest::collection::vec(-100.0f64..100.0, 1..=20))|
+            {
+                let n = arr.len();
+                let perm = arr.quick_argsort();
+                prop_assert_eq!(perm.len(), n, "permutation length mismatch");
+
+                // perm must be a permutation of 0..n
+                let mut seen = vec![false; n];
+                for &idx in &perm {
+                    prop_assert!(idx < n, "index {idx} out of range");
+                    prop_assert!(!std::mem::replace(&mut seen[idx], true),
+                        "index {idx} appears twice");
+                }
+
+                // the values visited in permutation order must be non-decreasing
+                for i in 1..n {
+                    prop_assert!(arr[perm[i - 1]] <= arr[perm[i]],
+                        "not sorted at position {i}");
+                }
+            }
         );
     }
 }

@@ -48,6 +48,10 @@ pub fn entropy<T: Number + Ord, V: ArrayView1<T> + ?Sized>(data: &V) -> Option<f
 }
 
 pub fn mutual_info_score(contingency: &[Vec<usize>]) -> f64 {
+    if contingency.len() == 1 || contingency[0].len() == 1 {
+        return 0f64;
+    }
+
     let mut contingency_sum = 0;
     let mut pi = vec![0; contingency.len()];
     let mut pj = vec![0; contingency[0].len()];

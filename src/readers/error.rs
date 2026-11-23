@@ -40,6 +40,7 @@ impl From<std::io::Error> for ReadingError {
 }
 impl ReadingError {
     /// Extract the error-message from a `ReadingError`.
+    #[must_use]
     pub fn message(&self) -> Option<&str> {
         match self {
             ReadingError::InvalidField { msg } => Some(msg),

@@ -85,9 +85,12 @@ impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 
     fn log_likelihood<'a>(&self, class_index: usize, j: &'a Box<dyn ArrayView1<X> + 'a>) -> f64 {
         let mut likelihood = 0f64;
-        for feature in 0..j.shape() {
+        for (feature, &log_prob) in self.feature_log_prob[class_index][..j.shape()]
+            .iter()
+            .enumerate()
+        {
             let value = X::to_f64(j.get(feature)).unwrap();
-            likelihood += value * self.feature_log_prob[class_index][feature];
+            likelihood += value * log_prob;
         }
         likelihood
     }
@@ -100,6 +103,7 @@ impl<X: Number + Unsigned, Y: Number + Ord + Unsigned> NBDistribution<X, Y>
 /// `MultinomialNB` parameters. Use `Default::default()` for default values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct MultinomialNBParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -134,6 +138,7 @@ impl Default for MultinomialNBParameters {
 /// MultinomialNB grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct MultinomialNBSearchParameters {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
@@ -360,34 +365,44 @@ impl<TX: Number + Unsigned, TY: Number + Ord + Unsigned, X: Array2<TX>, Y: Array
     ///
     /// Returns a vector of size N with class estimates.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        self.inner.as_ref().unwrap().predict(x)
+        match &self.inner {
+            Some(inner) => inner.predict(x),
+            None => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Class labels known to the classifier.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn classes(&self) -> &Vec<TY> {
         &self.inner.as_ref().unwrap().distribution.class_labels
     }
 
     /// Number of training samples observed in each class.
     /// Returns a vector of size n_classes.
+    #[must_use]
     pub fn class_count(&self) -> &Vec<usize> {
         &self.inner.as_ref().unwrap().distribution.class_count
     }
 
     /// Empirical log probability of features given a class, P(x_i|y).
     /// Returns a 2d vector of shape (n_classes, n_features)
+    #[must_use]
     pub fn feature_log_prob(&self) -> &Vec<Vec<f64>> {
         &self.inner.as_ref().unwrap().distribution.feature_log_prob
     }
 
     /// Number of features of each sample
+    #[must_use]
     pub fn n_features(&self) -> usize {
         self.inner.as_ref().unwrap().distribution.n_features
     }
 
     /// Number of samples encountered for each (class, feature)
     /// Returns a 2d vector of shape (n_classes, n_features)
+    #[must_use]
     pub fn feature_count(&self) -> &Vec<Vec<usize>> {
         &self.inner.as_ref().unwrap().distribution.feature_count
     }
@@ -565,5 +580,19 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&mnb).unwrap()).unwrap();
 
         assert_eq!(mnb, deserialized_mnb);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let mnb: MultinomialNB<u32, u32, DenseMatrix<u32>, Vec<u32>> = MultinomialNB::new();
+        let x = DenseMatrix::from_2d_array(&[&[1u32]]).expect("Construction of x should work");
+        let yhat = mnb.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
 }

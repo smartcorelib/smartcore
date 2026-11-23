@@ -84,6 +84,7 @@ pub enum RidgeRegressionSolverName {
 /// Ridge Regression parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RidgeRegressionParameters<T: Number + RealNumber> {
     /// Solver to use for estimation of regression coefficients.
     pub solver: RidgeRegressionSolverName,
@@ -97,6 +98,7 @@ pub struct RidgeRegressionParameters<T: Number + RealNumber> {
 /// Ridge Regression grid search parameters
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RidgeRegressionSearchParameters<T: Number + RealNumber> {
     #[cfg_attr(feature = "serde", serde(default))]
     /// Solver to use for estimation of regression coefficients.
@@ -225,11 +227,11 @@ impl<T: Number + RealNumber> Default for RidgeRegressionParameters<T> {
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > PartialEq for RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> PartialEq for RidgeRegression<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
         self.intercept() == other.intercept()
@@ -243,11 +245,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> SupervisedEstimator<X, Y, RidgeRegressionParameters<TX>> for RidgeRegression<TX, TY, X, Y>
 {
     fn new() -> Self {
         Self {
@@ -264,11 +266,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > Predictor<X, Y> for RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> Predictor<X, Y> for RidgeRegression<TX, TY, X, Y>
 {
     fn predict(&self, x: &X) -> Result<Y, Failed> {
         self.predict(x)
@@ -276,11 +278,11 @@ impl<
 }
 
 impl<
-        TX: Number + RealNumber,
-        TY: Number,
-        X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
-        Y: Array1<TY>,
-    > RidgeRegression<TX, TY, X, Y>
+    TX: Number + RealNumber,
+    TY: Number,
+    X: Array2<TX> + CholeskyDecomposable<TX> + SVDDecomposable<TX>,
+    Y: Array1<TY>,
+> RidgeRegression<TX, TY, X, Y>
 {
     /// Fits ridge regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
@@ -391,13 +393,20 @@ impl<
     /// Predict target values from `x`
     /// * `x` - _KxM_ data where _K_ is number of observations and _M_ is number of features.
     pub fn predict(&self, x: &X) -> Result<Y, Failed> {
-        let (nrows, _) = x.shape();
-        let mut y_hat = x.matmul(self.coefficients());
-        y_hat.add_mut(&X::fill(nrows, 1, self.intercept.unwrap()));
-        Ok(Y::from_iterator(
-            y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
-            nrows,
-        ))
+        match (&self.coefficients, &self.intercept) {
+            (Some(coefficients), Some(intercept)) => {
+                let (nrows, _) = x.shape();
+                let mut y_hat = x.matmul(coefficients);
+                y_hat.add_mut(&X::fill(nrows, 1, *intercept));
+                Ok(Y::from_iterator(
+                    y_hat.iterator(0).map(|&v| TY::from(v).unwrap()),
+                    nrows,
+                ))
+            }
+            (_, _) => Err(Failed::predict(
+                "'fit' should be called before calling 'predict'",
+            )),
+        }
     }
 
     /// Get estimates regression coefficients
@@ -492,40 +501,57 @@ mod tests {
         assert!(mean_absolute_error(&y_hat_svd, &y) < 2.0);
     }
 
-    // TODO: implement serialization for new DenseMatrix
-    // #[cfg_attr(all(target_arch = "wasm32", not(target_os = "wasi")), wasm_bindgen_test::wasm_bindgen_test)]
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn serde() {
-    //     let x = DenseMatrix::from_2d_array(&[
-    //         &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
-    //         &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
-    //         &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
-    //         &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
-    //         &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
-    //         &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
-    //         &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
-    //         &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
-    //         &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
-    //         &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
-    //         &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
-    //         &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
-    //         &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
-    //         &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
-    //         &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
-    //         &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
-    //     ]).unwrap();
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[234.289, 235.6, 159.0, 107.608, 1947., 60.323],
+            &[259.426, 232.5, 145.6, 108.632, 1948., 61.122],
+            &[258.054, 368.2, 161.6, 109.773, 1949., 60.171],
+            &[284.599, 335.1, 165.0, 110.929, 1950., 61.187],
+            &[328.975, 209.9, 309.9, 112.075, 1951., 63.221],
+            &[346.999, 193.2, 359.4, 113.270, 1952., 63.639],
+            &[365.385, 187.0, 354.7, 115.094, 1953., 64.989],
+            &[363.112, 357.8, 335.0, 116.219, 1954., 63.761],
+            &[397.469, 290.4, 304.8, 117.388, 1955., 66.019],
+            &[419.180, 282.2, 285.7, 118.734, 1956., 67.857],
+            &[442.769, 293.6, 279.8, 120.445, 1957., 68.169],
+            &[444.546, 468.1, 263.7, 121.950, 1958., 66.513],
+            &[482.704, 381.3, 255.2, 123.366, 1959., 68.655],
+            &[502.601, 393.1, 251.4, 125.368, 1960., 69.564],
+            &[518.173, 480.6, 257.2, 127.852, 1961., 69.331],
+            &[554.894, 400.7, 282.7, 130.081, 1962., 70.551],
+        ])
+        .unwrap();
 
-    //     let y = vec![
-    //         83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
-    //         114.2, 115.7, 116.9,
-    //     ];
+        let y = vec![
+            83.0, 88.5, 88.2, 89.5, 96.2, 98.1, 99.0, 100.0, 101.2, 104.6, 108.4, 110.8, 112.6,
+            114.2, 115.7, 116.9,
+        ];
 
-    //     let lr = RidgeRegression::fit(&x, &y, Default::default()).unwrap();
+        let lr = RidgeRegression::fit(&x, &y, Default::default()).unwrap();
 
-    //     let deserialized_lr: RidgeRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-    //         serde_json::from_str(&serde_json::to_string(&lr).unwrap()).unwrap();
+        let deserialized_lr: RidgeRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+            postcard::from_bytes(&postcard::to_allocvec(&lr).unwrap()).unwrap();
 
-    //     assert_eq!(lr, deserialized_lr);
-    // }
+        assert_eq!(lr, deserialized_lr);
+    }
+
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(target_os = "wasi")),
+        wasm_bindgen_test::wasm_bindgen_test
+    )]
+    #[test]
+    fn predict_without_fit_should_not_panic() {
+        let model: RidgeRegression<f64, f64, DenseMatrix<f64>, Vec<f64>> = RidgeRegression::new();
+        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
+        let yhat = model.predict(&x);
+        assert!(yhat.is_err());
+        let msg = "'fit' should be called before calling 'predict'";
+        assert_eq!(yhat.err(), Some(Failed::predict(msg)));
+    }
 }

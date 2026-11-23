@@ -4,6 +4,178 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - Unreleased
+
+### Added
+- `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` get a `fit_with_weights` method. `RandomForestClassifier` gets a `compute_feature_importances` method.
+- `tree`: `with_seed` on `DecisionTreeRegressorParameters` and `DecisionTreeClassifierParameters`.
+- `ensemble`: `ExtraTreesRegressorParameters` gets a `bootstrap` field and a `with_bootstrap` method. The default is `false`, so each tree still uses the whole dataset.
+- `ensemble`: `ExtraTreesClassifier` added with an API very similar to `ExtraTreesRegressor`
+- `ensemble`: `MaxFeatures` enum (`Sqrt`, `Fraction`, `Count`, `All`) sets the number of features to test at each split in the forest estimators.
+- `ensemble`: `RandomForestClassifier` and `ExtraTreesClassifier` get a `predict_proba` method.
+
+### Fixed
+- `ensemble`: `ExtraTreesRegressor::predict_oob` returns an error when the forest was fitted without bootstrap. Before this change, it returned `NaN` for a float target and panicked for an integer target (#520).
+- `ensemble`: `RandomForestRegressor::predict_oob` and `ExtraTreesRegressor::predict_oob` return an error when a row is in-bag for all trees. Before this change, it returned `NaN` for a float target and panicked for an integer target.
+- `linalg`: `variance` and `std_dev` use a numerically stable formula. Before this change, columns far from zero (for example Unix timestamps) had a variance that was wrong, `0` or negative. This affected `StandardScaler`, `GaussianNB`, `RidgeRegression`, `Lasso` and `ElasticNet`.
+- `preprocessing`: `StandardScaler` divides a column with zero variance by `1`, as scikit-learn does. Before this change, the result was `NaN` for a constant `f32` column, and very large for new values in a constant `f64` column.
+
+### Changed
+- `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` now use `BaseTree` and `BaseForest`, the same code as the regressors. The new `GiniCriterion`, `EntropyCriterion` and `ClassificationErrorCriterion` implement the `Criterion` trait. The entropy improvement uses a numerically stable formula that is never negative. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
+- `tree`: `DecisionTreeClassifier` always shuffles the features, also when `mtry` equals the number of attributes, as the regressors do. Without a fixed `seed`, exactly tied splits can give different trees for each fit. Set `seed` to get reproducible trees.
+- `tree`, `ensemble`: `DecisionTreeClassifier` and `RandomForestClassifier` accept training data with one class, as scikit-learn does. The result is a tree with one leaf that always predicts that class, and `predict_proba` returns one column. Before this change, `fit` returned an error.
+- `ensemble`: `RandomForestClassifier` uses a plain bootstrap sample, as scikit-learn does. Before this change, the bootstrap sample was stratified by class. A forest fitted with a fixed `seed` now returns different predictions. A bootstrap sample can now miss a class; the trees still use the full set of classes.
+- `tree`: `DecisionTreeClassifier::compute_feature_importances` now returns `Result<Vec<f64>, Failed>` instead of `Vec<f64>`. It returns an error when `fit` has not run. Code that uses the result must be updated.
+- `tree`: the error text for an unfitted `DecisionTreeClassifier::predict_proba` changed from "'fit' should be called before calling 'predict'" to "'fit' should be called before calling 'predict_proba'". Code that matched the old string must be updated.
+- **Breaking change:** `tree`, `ensemble`: the fitted `DecisionTreeClassifier` and `RandomForestClassifier` store different fields. Models serialized with an earlier version cannot be deserialized. Fit these models again.
+- **Breaking change:** `tree`, `ensemble`. The `Node` enum is optimised to be smaller. As a result trees and ensembles serialized with older code no longer can be deserialised.
+- **Breaking change:** `ensemble`: `seed` on `RandomForestRegressorParameters`, `RandomForestClassifierParameters` and `ExtraTreesRegressorParameters` is now `Option<u64>`. The search parameters are now `Vec<Option<u64>>`. With `None`, a seed is chosen at fit time (from OS entropy with `std_rand`).
+- `ensemble`: The default seed is now `None`, so default results change. With `std_rand`, they are no longer reproducible. Use `.with_seed(..)` for reproducible results.
+- **Breaking change:** `ensemble`: Postcard/bincode-serialized parameter structs from earlier versions no longer load. JSON still loads.
+- `ensemble`: each forest uses one RNG for bootstrap sampling and for the tree seeds (before: `seed + tree_idx`). Results for a given seed differ from earlier versions.
+- **Breaking change:** `ensemble`: `ExtraTreesRegressorParameters` gets a public `bootstrap` field. Struct literals without `..Default::default()` must add `bootstrap: false` to keep the earlier behavior. Serialized parameters without this field still deserialize, with `bootstrap = false` (#520).
+- `ensemble`: Extra trees do not sort the feature columns. Trees are not bit-identical to the old ones because of different summation order.
+- **Breaking change:** `ensemble`: `m` on the four forest parameter structs is now `MaxFeatures` (was `Option<usize>`). `with_m(3)` still works. `fit` returns an error when `m` is not valid for the data. Parameters serialized with an earlier version that contain `m` no longer deserialize.
+- **Breaking change:** `ensemble`: `m` on `RandomForestClassifierSearchParameters` and `RandomForestRegressorSearchParameters` is now `Vec<MaxFeatures>` (was `Vec<Option<usize>>`). The default grid is `[MaxFeatures::Sqrt]`. Change `vec![None, Some(3)]` to `vec![MaxFeatures::Sqrt, MaxFeatures::Count(3)]`.
+- **Breaking change:** `tree`, `ensemble`: the fitted trees store the number of leaves and, for classification, the class distribution of each leaf. Decision trees, random forests and extra trees serialized with an earlier version cannot be deserialized. Fit these models again.
+- `tree`: `DecisionTreeClassifier::predict_proba` returns the weighted class frequencies of the training samples in the leaf. Before this change, it returned 1 for the predicted class and 0 for the other classes.
+- **Breaking change:** `ensemble`: `RandomForestClassifier::predict` and `ExtraTreesClassifier::predict` return the class with the highest mean probability over the trees (soft voting), as scikit-learn does. Before this change, they returned the class with the most tree votes. Predictions can be different, also with a fixed seed.
+- **Breaking change:** `ensemble`: `keep_samples` and `with_keep_samples` on the forest parameters are replaced by `oob_score` and `with_oob_score`. With `oob_score = true`, `fit` keeps the out-of-bag (OOB) predictions, and `predict_oob()` no longer takes `x`: it returns a `Vec<Option<TY>>` with `None` for a row that is in-bag for all trees. `fit` returns an error when `oob_score` is `true` and `bootstrap` is `false`. Classifiers use soft voting for OOB predictions. Fitted forests serialized with an earlier version still deserialize, and `predict` gives the same results. But the stored `samples` are ignored and `predict_oob()` returns an error. To get OOB results, fit the model again with `oob_score = true`.
+- **Breaking change:** `ensemble`: for an integer target, `RandomForestRegressor::predict_oob` and `ExtraTreesRegressor::predict_oob` compute the mean of the OOB tree values in `f64` and convert it to the target type once. Before this change, each tree value was converted (truncated) first and the mean was computed with integer division. For leaf values 0.9 and 1.9 with an `i32` target, the result is now 1 (was 0). A row gets `None` if the mean cannot be converted to the target type. `predict` still converts each tree value before the mean.
+
+## [0.7.0] - 2026-10-26
+### Added
+- A `Dependency audit` CI workflow runs `cargo deny` and `cargo audit` on each push and pull request, and every week. It fails when a dependency has a known vulnerability, is yanked, uses a license that is not allowed, or comes from an unknown source. The `deny.toml` file holds the rules.
+- Optional `lazy-normalization` support for Lasso and Elastic Net. It applies normalization to a borrowed design and keeps Elastic Net's identity-block augmentation implicit, while retaining the dense Gram workspace. Enable the feature and set `with_lazy_normalization(true)` to select this path. The default remains eager. The new parameter field is available only with the feature and defaults to false during deserialization (#479).
+- `tree`, `ensemble`: `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` get a `compute_feature_importances` method.
+
+### Changed
+- `Cargo.toml`: optional `ndarray` is now `default-features = false`, and the default feature set is `std` (`ndarray?/std`). Ordinary builds still enable ndarray's standard-library support when `ndarray-bindings` is on, while `std` alone does not activate ndarray. The `std` feature only controls ndarray's standard-library support; smartcore itself is not `no_std` (#421).
+  - **Migration:** builds that use `--no-default-features --features ndarray-bindings` (or `default-features = false` with `ndarray-bindings`) no longer get ndarray's `std` feature. Add `std` to the feature list to keep the previous behavior.
+- **Breaking change:** Enabling `lazy-normalization` adds a public `lazy_normalization` field to `LassoParameters`, `LassoSearchParameters`, `ElasticNetParameters`, and `ElasticNetSearchParameters`. Struct literals without `..Default::default()` must add `lazy_normalization: false` to retain the eager path, or `true` to select the lazy path. This also applies when another dependency enables the feature through Cargo feature unification (#479).
+- **Breaking change:** the fitted `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor` store new fields that the feature importances use. Models serialized with an earlier version cannot be deserialized. Fit these models again.
+- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) uses a new internal `Criterion` trait with `MSECriterion`. The MSE split improvement uses a numerically stable formula.  The selected splits do not change when a constant is added to y. Exactly tied splits can be broken in a different way, so fitted trees can differ slightly from earlier versions.
+- `tree`: in the `...Regressor`s, rows with sample weight 0 are removed before the tree grows. They no longer count toward `min_samples_leaf` and `min_samples_split`, and they no longer move a split threshold. A tree fitted with a zero-weight row is the same as a tree fitted without that row.
+- `Cargo.toml`: `ndarray` requires version `0.17.2` or later.
+
+### Added
+- `make_blobs_with_seed`, `make_circles_with_seed` and `make_moons_with_seed` take a `seed: Option<u64>` for the generator RNG. With `Some(seed)` the output is reproducible with all features.
+- `linalg`: `Display` for `VecView` and `VecMutView` (#495).
+
+### Changed
+- In the `...Regressor`s the features are always shuffled even when `mtry` equals the number of attributes. This changes the constructed trees (#494).
+- **Breaking**: the `datasets` feature no longer enables `std_rand` (#416). The toy datasets now compile without `rand/std` and the OS RNG. The generators `make_blobs`, `make_circles` and `make_moons` now use the crate RNG. With `std_rand` the RNG takes its seed from OS entropy, as before. Without `std_rand` the RNG uses a fixed seed, thus the output is the same for each call. To keep the previous behaviour, enable `std_rand` together with `datasets`. This change must go in a minor version bump.
+- `error`: the error module uses `core::error::Error` and `core::fmt` (#498).
+
+### Fixed
+- `linalg`: scan adjacent offsets in the already-sorted vector, adding O(n) work without another allocation or sort (#500).
+
+## [0.6.16]
+### Fixed
+- `predict`, `predict_proba`, `predict_oob`, `predict_matrix` and `decision_function` now return `Err(Failed)` instead of panicking when `fit` has not run (#469, #470). Models return the same unfitted error even after deserialization, when the state fields are `None`. The guarded methods cover the decision trees, the random forests, the extra-trees regressor, the KNN classifier and regressor, `SVC`, `MultiClassSVC`, `SVR`, the linear models, the naive Bayes classifiers and `XGRegressor`.
+- `KNNClassifier::fit` now accepts `k = 1`, as `KNNRegressor` already did (#476). `k = 0` is still rejected.
+- The ndarray implementation of `Array2::from_iterator` now preserves column-major input order, including for rectangular matrices that previously caused a panic. Column-major input produces a column-major array (#482).
+- `ensemble`: `RandomForestRegressor` and `RandomForestClassifier` now give each tree its own seed (`seed + tree index`). Before this change, all trees of a forest used the same seed, so all trees picked the same feature samples (#475). A forest fitted with a fixed `seed` now returns different predictions, because the trees no longer share one feature sample. Fits with the same seed stay reproducible.
+- `ensemble`: sample weights now follow the scikit-learn rules. With `bootstrap = true`, the weights are used in the bootstrap phase only. With `bootstrap = false`, the weights go to each tree (#478). New tests compare `RandomForestRegressor` and `ExtraTreesRegressor` predictions (train, probe and OOB) with reference values from scikit-learn 1.9.1.
+
+### Changed
+- The error text for an unfitted `MultiClassSVC::predict` changed from "MultiClassSVC is not fitted" to the common "'fit' should be called before calling 'predict'". Code that matched the old string must be updated.
+- The error text for an invalid `k` in `KNNClassifier::fit` changed from "k should be > 1" to "k should be > 0", the same text `KNNRegressor` uses. Code that matched the old string must be updated.
+- `tree`: `BaseTreeRegressor` (used by `DecisionTreeRegressor`, `RandomForestRegressor` and `ExtraTreesRegressor`) runs faster: less allocation, less sorting, node rows stored as `(start, end)` spans, and no partition step for child nodes that cannot split (#481). Split values no longer fall between adjacent floating-point numbers, so fitted values can differ slightly from earlier versions. New tests check parity of `RandomForestRegressor` with scikit-learn.
+- `linear`: the `test_logit` fixture now uses a 10000 x 94 random matrix instead of 52181 x 94. The class ratio stays the same (418 of 10000 rows are positive). The test checks the same property and runs much faster, so it stays inside the CI coverage time budget.
+- CI: the coverage job runs cargo-tarpaulin with the LLVM engine, in release mode and with a 600 s timeout, instead of the default engine (#485, fixes #484).
+
+## [0.6.15]
+### Fixed
+- `tree`: regression tests for the tree growth fix from #464. New `min_samples_split_boundary` tests pin the split rule for `DecisionTreeClassifier` and `BaseTreeRegressor`: a node that holds exactly `min_samples_split` samples must still split, and a node with fewer samples must stay a leaf. The `full_depth` tests now also assert the tree `depth` (3), which guards the public `DecisionTreeClassifier::depth` accessor against silent regressions. Library code is unchanged.
+
+## [0.6.14]
+### Added
+- `decomposition/lda.rs`: `LDA`, linear discriminant analysis for supervised dimensionality reduction (#136). It projects the data onto the directions that best separate the classes, keeping `min(n_classes - 1, n_features)` components by default, and implements the `Transformer` interface next to `PCA`. Directions match scikit-learn's `LinearDiscriminantAnalysis(solver="eigen")` up to sign.
+
+## [0.6.13]
+### Fixed
+- `xgboost/xgb_regressor.rs`: `XGRegressor::fit` no longer panics when `subsample` is less than 1.0 on a small dataset (#444). The sample for each tree now keeps a minimum of one row, as scikit-learn does for its own `subsample` parameter. Sample sizes of one row or more are unchanged.
+
+## [0.6.11]
+### Fixed
+- `algorithm/neighbour/cosinepair.rs`: `CosinePair::query_row_top_k` now returns exact nearest neighbours whenever `approximate` is `false` (the default). Previously the query always sampled only `top_k` evenly strided candidate rows without documentation, and the bounded candidate heap evicted its closest entry, so the method could return the farthest of the sampled rows (#442). Strided sampling is now gated behind `CosinePairParameters { approximate: true, .. }` and is documented as approximate.
+- `algorithm/neighbour/cosinepair.rs`: `CosinePair` construction now evaluates each unordered row pair once (symmetric half-scan), precomputes row norms once in O(n·d), and scores pairs through zero-copy row views instead of materialising two `Vec`s per pair (#442). Distances are unchanged (bit-identical formula and operation order as `Cosine::new().distance(...)`); measured build time drops ~3x on a 1500x64 input. Construction remains Theta(n^2) dot products — `top_k` does not make it sub-quadratic; module and method docs now state both facts.
+
+### Changed
+- **Breaking**: `CosinePair` gained a private `row_norms` field holding the precomputed row norms. Construct the structure through `new` / `with_top_k` / `with_parameters` instead of struct literals.
+
+## [0.6.10]
+### Fixed
+- `model_selection`: pinned the `KFold` seed in the `test_cross_val_predict_knn` and `test_cross_validate_knn` unit tests. Under `--all-features` (`std_rand`) an unseeded `KFold` draws OS entropy, so each CI run shuffled the folds differently; a sweep of 20 000 seeds showed 0.17% of shuffles violate the `MAE < 10.0` assertion (worst 12.81) and 0.01% violate `train_score < test_score`, making CI flaky. Library behaviour is unchanged; the entropy-seeded path stays covered by the `rand_custom` tests.
+
+## [0.6.9]
+### Fixed
+- `metrics`: `precision`, `recall`, and `f1` (the free functions, the `Precision` / `Recall` / `F1` metric structs, and the matching `ClassificationMetrics` entry points) now accept any label type that implements `Number`, including ordered integers such as `u16` or `i32`; labels no longer need to implement `RealNumber` or `FloatNumber` (#322). The same integer labels can now feed `RandomForestClassifier::fit` and classification metrics inside `model_selection::cross_validate`. Class keys are derived through a shared `f64` conversion instead of raw float bit transmutation; scores for float inputs are unchanged.
+
+## [0.6.8]
+### Fixed
+- `linear/linear_regression.rs`: `LinearRegression::fit` / `fit_matrix` now return `Err(Failed::fit(...))` instead of panicking when the intercept-augmented system is underdetermined, i.e. `n_features + 1 > n_samples` (#435). Both the default SVD solver and the QR solver are covered.
+- `linalg/traits/svd.rs`: `svd_solve` / `svd_solve_mut` reject systems where _A_ has more columns than rows with `FailedError::SolutionFailed` instead of writing the solution out of `b`'s bounds; `SVD::solve` gained a matching defensive guard.
+- `linalg/traits/qr.rs`: `qr_solve_mut` returns `Err(Failed)` ("Matrix is rank deficient.") for rank-deficient systems (duplicate/collinear columns, underdetermined shapes) instead of panicking.
+
+## [0.6.7]
+### Added
+- `linear/linear_regression.rs`: native multi-output matrix support (#432, #433). `LinearRegression::fit_matrix` fits _N x K_ targets directly (both QR and SVD solvers); `predict_matrix` returns the _K_-column prediction matrix; `intercept_matrix` exposes the _1 x K_ intercept row.
+
+### Changed
+- **Breaking**: `LinearRegression` field `intercept` changed from `Option<TX>` to `Option<X>` (a _1 x K_ matrix) and the struct gained `PhantomData<TX>`. Previously serialized models will not deserialize; re-fit or migrate saved models. `intercept()` still returns a scalar for single-output callers.
+
+## [0.6.4]
+### Added
+- Stage 2 test-coverage push (#393): `proptest` dev-dependency + property-based invariant tests and linalg edge cases.
+  - `linalg/basic/arrays.rs`: proptest invariants — transpose involution `(A^T)^T == A`, matmul with identity `A*I == A`, matmul associativity `(AB)C ≈ A(BC)` (approximate comparison for FP), `(AB)^T == B^T A^T`, reshape preserves element count. Edge cases — 1x1 matmul, row×col matmul, shape-mismatch panic, reshape-incompatible panic, 1xN transpose.
+  - `algorithm/sort/quick_sort.rs`: proptest — `quick_argsort` produces a valid permutation (all indices present exactly once, values non-decreasing in permutation order).
+  - `metrics/distance/euclidian.rs`: proptest — `d(a,a) == 0`, symmetry `d(a,b) == d(b,a)`, triangle inequality `d(a,c) ≤ d(a,b) + d(b,c)`.
+
+### Changed
+- Added `proptest = "1.5"` to `[dev-dependencies]`.
+
+## [0.6.3]
+### Changed
+- Replaced the remaining 4 `unsafe {}` raw-pointer blocks in `linalg/basic/matrix.rs::iterator_mut` / `DenseMatrixMutView::iter_mut` with a safe `split_first_mut`-based helper `ordered_iter_mut` (#368). The traversal order and offset formula are identical to the previous raw-pointer implementation; only the borrow-proving mechanism changed — eliminating `unsafe` from library code entirely.
+- **Performance note**: the cross-axis path (axis ≠ natural storage order) now extracts the needed refs via `split_first_mut` in sorted-offset order and reorders, introducing a small allocation. The fast path (axis matches storage order) shortcuts to `values.iter_mut().take(n)` with zero overhead. Benchmarks to quantify the cross-axis delta are tracked in #407.
+
+## [0.6.2]
+### Changed
+- Ported the crate from Rust edition 2021 to edition 2024 (#401, #402). `cargo fix --edition` made no auto-edits; the only behavioral-adjacent change is `linalg/basic/arrays.rs::approximate_eq`, rewritten to the 2024-safe tail-expr drop-order form (bind the owned intermediate before the borrowing iterator) — numerical logic unchanged.
+- Declared `rust-version = "1.85"` (MSRV) in `Cargo.toml` and added an `msrv` CI job that builds with `dtolnay/rust-toolchain@1.85.0` to verify the claim (#404).
+- Migrated lint suppressions: `#[allow(...)]` → `#[expect(...)]` at sites where the lint still fires under `--all-features`; `#[allow]` retained where the lint genuinely does not fire (avoids `unfulfilled_lint_expectations`) (#403).
+- Added `[lints.rust] unexpected_cfgs` `check-cfg` table in `Cargo.toml` for `cfg(coverage, coverage_nightly)` and `cfg(tarpaulin)` (edition-2024 `unexpected_cfgs` lint).
+- `AGENTS.md`: documented the edition-2024 invariants (no RPIT, explicit `dyn Trait + 'a`, tail-expr drop-order, lint-suppression policy, `unsafe` stance) and the "preserve bespoke numerical-system logic and performance" constraint for non-behavioral refactors.
+
+### Fixed
+- `svm/svc.rs`: removed two redundant `let svc = ...; svc` tail expressions surfaced by the edition-2024 `clippy::let_and_return` lint.
+- `preprocessing/categorical.rs`: kept the nested-`if` form (annotated `#[allow(clippy::collapsible_if)]`) because collapsing to a let-chain requires let-chains, unstable until Rust 1.88 — incompatible with the declared MSRV 1.85.
+
+## [0.6.1]
+### Added
+- Stage 1 test-coverage push (#392): tests for previously-untested modules.
+  - `linalg/traits/high_order.rs`: implemented the `/* TODO */` test module — all 4 `ab` transpose-flag branches, non-square inputs, and a matmul/transpose equivalence check.
+  - `linear/lasso_optimizer.rs`: direct tests for `InteriorPointOptimizer` (`new` shape of `ata`, known-answer l1-regularized least squares with `lambda → 0`).
+  - `error/mod.rs`: tests for all 6 `Failed` constructors, all 8 `FailedError` variants, both `Display` impls, both `PartialEq` impls, and the `Error` trait impl.
+  - `rand_custom.rs`: seeded-RNG determinism and `None`-seed usability tests.
+
+### Changed
+- Revived 6 previously-commented-out serde round-trip tests (migrated to `postcard`, the post-#390 serialization backend) for `LinearRegression`, `RidgeRegression`, `Lasso`, `ElasticNet`, `PCA`, `SVD`.
+- Fixed a latent type mismatch in the revived `SVD` serde test: the original commented-out code deserialized into `SVD<f32, DenseMatrix<f32>>` but `SVD::fit` on the `f64` iris literals produces `SVD<f64, ...>` — corrected to `SVD<f64, DenseMatrix<f64>>`.
+- Renamed two copy-paste-misnamed tests: `dataset::diabetes::boston_dataset` → `diabetes_dataset`; `algorithm::sort::quick_sort::with_capacity` → `quick_argsort`.
+
+## [0.6.0]
+### Changed
+- CI coverage workflow now includes doctests and enforces a strict 44% line-coverage gate via cargo-tarpaulin (#399).
+
+## [0.5.3]
+### Changed
+- Classification metrics refactored: `Precision`, `Recall`, and `F1` now derive per-class scores from a single shared `ConfusionCounts` helper (`src/metrics/confusion.rs`) instead of each re-implementing the per-class tp/predicted/support bookkeeping. `Precision` and `Recall` expose a crate-private `per_class_scores_from_counts` used by `F1`'s multiclass path.
+- `Precision` and `Recall` now early-return `0.0` on empty input and drop the unreachable `classes == 0` / `support.is_empty()` branches.
+- Multiclass macro `F1` (landed in #382, cleaned up in #383) is unchanged behaviourally; it now consumes `Precision`/`Recall::per_class_scores_from_counts` instead of its own `HashMap` bookkeeping.
+
 ## [0.4.8] - 2025-11-29
 - WARNING: Breaking changes!
 - `LassoParameters` and `LassoSearchParameters` have a new field `fit_intercept`. When it is set to false, the `beta_0` term in the formula will be forced to zero, and `intercept` field in `Lasso` will be set to `None`.

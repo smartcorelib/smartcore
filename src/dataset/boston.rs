@@ -24,10 +24,11 @@
 //! | LSTAT, % lower status of the population | Numerical | No |
 //! | MEDV, Median value of owner-occupied homes in $1000's | Numerical | Yes |
 //!
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
+#[must_use]
 pub fn load_dataset() -> Dataset<f32, f32> {
     let (x, y, num_samples, num_features) = match deserialize_data(std::include_bytes!("boston.xy"))
     {

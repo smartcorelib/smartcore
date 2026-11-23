@@ -19,10 +19,11 @@
 //!
 //! ## References:
 //! * ["Least Angle Regression", Efron B., Hastie T., Johnstone I., Tibshirani R., 2004, Annals of Statistics (with discussion), 407-499](http://statweb.stanford.edu/~tibs/ftp/lars.pdf)
-use crate::dataset::deserialize_data;
 use crate::dataset::Dataset;
+use crate::dataset::deserialize_data;
 
 /// Get dataset
+#[must_use]
 pub fn load_dataset() -> Dataset<f32, u32> {
     let (x, y, num_samples, num_features) =
         match deserialize_data(std::include_bytes!("diabetes.xy")) {
@@ -72,7 +73,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn boston_dataset() {
+    fn diabetes_dataset() {
         let dataset = load_dataset();
         assert_eq!(
             dataset.data.len(),
