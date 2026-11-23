@@ -7,21 +7,17 @@
 #[cfg(test)]
 mod metrics_edge_cases {
     use crate::metrics::{
-        accuracy::Accuracy,
-        auc::AUC,
-        f1::F1,
-        mean_absolute_error::MeanAbsoluteError,
-        mean_squared_error::MeanSquaredError,
-        precision::Precision,
-        r2::R2,
-        recall::Recall,
-        Metrics,
+        Metrics, accuracy::Accuracy, auc::AUC, f1::F1, mean_absolute_error::MeanAbsoluteError,
+        mean_squared_error::MeanSquareError, precision::Precision, r2::R2, recall::Recall,
     };
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
     fn assert_close(a: f64, b: f64, tol: f64, label: &str) {
-        assert!((a - b).abs() < tol, "{label}: expected {b}, got {a} (tol {tol})");
+        assert!(
+            (a - b).abs() < tol,
+            "{label}: expected {b}, got {a} (tol {tol})"
+        );
     }
 
     // ── Accuracy ─────────────────────────────────────────────────────────────
@@ -48,7 +44,12 @@ mod metrics_edge_cases {
     fn accuracy_single_sample_correct() {
         let y_true: Vec<i32> = vec![1];
         let y_pred: Vec<i32> = vec![1];
-        assert_close(Accuracy::<i32>::new().get_score(&y_true, &y_pred), 1.0, 1e-10, "single correct");
+        assert_close(
+            Accuracy::<i32>::new().get_score(&y_true, &y_pred),
+            1.0,
+            1e-10,
+            "single correct",
+        );
     }
 
     /// Single sample, wrong → 0.0
@@ -56,7 +57,12 @@ mod metrics_edge_cases {
     fn accuracy_single_sample_wrong() {
         let y_true: Vec<i32> = vec![1];
         let y_pred: Vec<i32> = vec![0];
-        assert_close(Accuracy::<i32>::new().get_score(&y_true, &y_pred), 0.0, 1e-10, "single wrong");
+        assert_close(
+            Accuracy::<i32>::new().get_score(&y_true, &y_pred),
+            0.0,
+            1e-10,
+            "single wrong",
+        );
     }
 
     // ── Precision ────────────────────────────────────────────────────────────
@@ -153,7 +159,10 @@ mod metrics_edge_cases {
         let y_score: Vec<f64> = vec![0.5, 0.5, 0.5, 0.5]; // all tied
         let score = AUC::<f64>::new().get_score(&y_true, &y_score);
         // Tied scores → AUC may be 0.5; accept range [0.0, 1.0] as non-panicking.
-        assert!(score >= 0.0 && score <= 1.0, "auc tied scores out of range: {score}");
+        assert!(
+            (0.0..=1.0).contains(&score),
+            "auc tied scores out of range: {score}"
+        );
     }
 
     // ── R² ───────────────────────────────────────────────────────────────────
@@ -220,7 +229,7 @@ mod metrics_edge_cases {
     #[test]
     fn mse_perfect() {
         let y: Vec<f64> = vec![1.0, 2.0, 3.0];
-        let score = MeanSquaredError::<f64>::new().get_score(&y, &y);
+        let score = MeanSquareError::<f64>::new().get_score(&y, &y);
         assert_close(score, 0.0, 1e-10, "mse perfect");
     }
 
@@ -229,7 +238,7 @@ mod metrics_edge_cases {
     fn mse_known_answer() {
         let y_true: Vec<f64> = vec![1.0, 2.0, 3.0];
         let y_pred: Vec<f64> = vec![2.0, 4.0, 6.0];
-        let score = MeanSquaredError::<f64>::new().get_score(&y_true, &y_pred);
+        let score = MeanSquareError::<f64>::new().get_score(&y_true, &y_pred);
         assert_close(score, 14.0 / 3.0, 1e-10, "mse known");
     }
 
@@ -238,7 +247,7 @@ mod metrics_edge_cases {
     fn mse_single_sample() {
         let y_true: Vec<f64> = vec![0.0];
         let y_pred: Vec<f64> = vec![3.0];
-        let score = MeanSquaredError::<f64>::new().get_score(&y_true, &y_pred);
+        let score = MeanSquareError::<f64>::new().get_score(&y_true, &y_pred);
         assert_close(score, 9.0, 1e-10, "mse single");
     }
 
@@ -247,26 +256,22 @@ mod metrics_edge_cases {
     /// Single cluster: all points in one cluster, any labels.
     #[test]
     fn cluster_hcv_single_cluster_no_panic() {
-        use crate::metrics::cluster_hcv::{
-            homogeneity_score, completeness_score, v_measure_score,
-        };
+        use crate::metrics::{completeness_score, homogeneity_score, v_measure_score};
         let labels_true: Vec<u32> = vec![0, 1, 2, 0, 1];
         let labels_pred: Vec<u32> = vec![0, 0, 0, 0, 0]; // all same cluster
         // Must not panic; homogeneity = 0 (mixed), completeness = 1 (all in one cluster).
         let h = homogeneity_score(&labels_true, &labels_pred);
         let c = completeness_score(&labels_true, &labels_pred);
         let v = v_measure_score(&labels_true, &labels_pred);
-        assert!(h >= 0.0 && h <= 1.0, "h={h}");
+        assert!((0.0..=1.0).contains(&h), "h={h}");
         assert_close(c, 1.0, 1e-6, "completeness single cluster");
-        assert!(v >= 0.0 && v <= 1.0, "v={v}");
+        assert!((0.0..=1.0).contains(&v), "v={v}");
     }
 
     /// Perfect clustering: pred == true → homogeneity = completeness = v = 1.
     #[test]
     fn cluster_hcv_perfect_clustering() {
-        use crate::metrics::cluster_hcv::{
-            homogeneity_score, completeness_score, v_measure_score,
-        };
+        use crate::metrics::{completeness_score, homogeneity_score, v_measure_score};
         let labels: Vec<u32> = vec![0, 0, 1, 1, 2, 2];
         let h = homogeneity_score(&labels, &labels);
         let c = completeness_score(&labels, &labels);
@@ -279,11 +284,11 @@ mod metrics_edge_cases {
     /// All same labels: single-class truth → completeness = 1.
     #[test]
     fn cluster_hcv_all_same_true_labels() {
-        use crate::metrics::cluster_hcv::completeness_score;
+        use crate::metrics::completeness_score;
         let labels_true: Vec<u32> = vec![0, 0, 0, 0];
         let labels_pred: Vec<u32> = vec![0, 1, 0, 1];
         let c = completeness_score(&labels_true, &labels_pred);
         // When all true labels are the same, completeness is undefined / 1.0.
-        assert!(c >= 0.0 && c <= 1.0, "completeness={c}");
+        assert!((0.0..=1.0).contains(&c), "completeness={c}");
     }
 }
