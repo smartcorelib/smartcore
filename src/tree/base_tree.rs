@@ -1212,6 +1212,11 @@ impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>, Out: Lea
             }
         }
     }
+
+    pub(crate) fn add_leaf_value_for_row(&self, x: &X, row: usize, acc: &mut [f64]) {
+        self.leaf_output_for_row(x, row)
+            .add_to(&self.leaf_probabilities, acc);
+    }
 }
 
 impl<TX: Number + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1<TY>>
