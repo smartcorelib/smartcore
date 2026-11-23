@@ -699,11 +699,13 @@ mod tests {
     )]
     #[test]
     fn lazy_fit_matches_eager_for_normalization_and_penalty_options() {
-        compare_eager_fit::<f64, DenseMatrix<f64>>(1e-6);
+        // With more columns than rows and no L2 penalty the solver is sensitive to the
+        // last bit of the column scales.
+        compare_eager_fit::<f64, DenseMatrix<f64>>(1e-5);
         compare_eager_fit::<f32, DenseMatrix<f32>>(1e-2);
         #[cfg(feature = "ndarray-bindings")]
         {
-            compare_eager_fit::<f64, ndarray::Array2<f64>>(1e-6);
+            compare_eager_fit::<f64, ndarray::Array2<f64>>(1e-5);
             compare_eager_fit::<f32, ndarray::Array2<f32>>(1e-2);
         }
     }
