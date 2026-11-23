@@ -309,10 +309,17 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
         let n = self.shape();
 
         // Welford's algorithm. The difference of two large sums of squares is not stable.
+        // The first value is subtracted so that the running mean does not round away
+        // the spread of values far from zero.
+        let offset = if n > 0 {
+            T::to_f64(self.get(0)).unwrap()
+        } else {
+            0f64
+        };
         let mut mu = 0f64;
         let mut sum = 0f64;
         for i in 0..n {
-            let xi = T::to_f64(self.get(i)).unwrap();
+            let xi = T::to_f64(self.get(i)).unwrap() - offset;
             let delta = xi - mu;
             mu += delta / (i + 1) as f64;
             sum += delta * (xi - mu);
@@ -486,14 +493,24 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
         let div = m as f64;
 
         // Welford's algorithm. The difference of two large sums of squares is not stable.
+        // The first value is subtracted so that the running mean does not round away
+        // the spread of values far from zero.
         for (i, x_i) in x.iter_mut().enumerate().take(n) {
+            let offset = if m > 0 {
+                match axis {
+                    0 => T::to_f64(self.get((0, i))).unwrap(),
+                    _ => T::to_f64(self.get((i, 0))).unwrap(),
+                }
+            } else {
+                0f64
+            };
             let mut mu = 0f64;
             let mut sum = 0f64;
             for j in 0..m {
                 let a = match axis {
                     0 => T::to_f64(self.get((j, i))).unwrap(),
                     _ => T::to_f64(self.get((i, j))).unwrap(),
-                };
+                } - offset;
                 let delta = a - mu;
                 mu += delta / (j + 1) as f64;
                 sum += delta * (a - mu);
@@ -1688,6 +1705,9 @@ mod tests {
             1.25
         );
         assert_eq!(vec![0.1; 10].variance(), 0.0);
+        // the mean of these two values is not representable
+        assert_eq!(vec![1e16, 1e16 + 2.].variance(), 1.0);
+        assert_eq!(vec![1e16 + 2., 1e16].variance(), 1.0);
     }
 
     #[test]
@@ -1701,6 +1721,10 @@ mod tests {
         .unwrap();
         assert_eq!(x.variance(0), vec![1.25, 0.0]);
         assert_eq!(x.transpose().variance(1), vec![1.25, 0.0]);
+        // the mean of the two values in each column is not representable
+        let x = DenseMatrix::from_2d_array(&[&[1e16, 1e16 + 2.], &[1e16 + 2., 1e16]]).unwrap();
+        assert_eq!(x.variance(0), vec![1.0, 1.0]);
+        assert_eq!(x.variance(1), vec![1.0, 1.0]);
     }
 
     #[test]

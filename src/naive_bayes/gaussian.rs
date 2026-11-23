@@ -407,13 +407,12 @@ mod tests {
 
         assert_eq!(gnb.class_count(), &[3, 3]);
 
-        assert_eq!(
-            gnb.var(),
-            &[
-                &[0.6666666666666666, 0.22222222222222224],
-                &[0.6666666666666666, 0.22222222222222224]
-            ]
-        );
+        assert_eq!(gnb.var().len(), 2);
+        for var in gnb.var() {
+            assert_eq!(var.len(), 2);
+            assert!((var[0] - 2. / 3.).abs() < 1e-15);
+            assert!((var[1] - 2. / 9.).abs() < 1e-15);
+        }
 
         assert_eq!(gnb.class_priors(), &[0.5, 0.5]);
 
