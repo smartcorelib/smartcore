@@ -308,16 +308,16 @@ pub trait ArrayView1<T: Debug + Display + Copy + Sized>: Array<T, usize> {
     {
         let n = self.shape();
 
+        // Welford's algorithm. The difference of two large sums of squares is not stable.
         let mut mu = 0f64;
         let mut sum = 0f64;
-        let div = n as f64;
         for i in 0..n {
             let xi = T::to_f64(self.get(i)).unwrap();
-            mu += xi;
-            sum += xi * xi;
+            let delta = xi - mu;
+            mu += delta / (i + 1) as f64;
+            sum += delta * (xi - mu);
         }
-        mu /= div;
-        sum / div - mu.powi(2)
+        sum / n as f64
     }
     /// return variance
     fn std_dev(&self) -> f64
@@ -485,6 +485,7 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
 
         let div = m as f64;
 
+        // Welford's algorithm. The difference of two large sums of squares is not stable.
         for (i, x_i) in x.iter_mut().enumerate().take(n) {
             let mut mu = 0f64;
             let mut sum = 0f64;
@@ -493,11 +494,11 @@ pub trait ArrayView2<T: Debug + Display + Copy + Sized>: Array<T, (usize, usize)
                     0 => T::to_f64(self.get((j, i))).unwrap(),
                     _ => T::to_f64(self.get((i, j))).unwrap(),
                 };
-                mu += a;
-                sum += a * a;
+                let delta = a - mu;
+                mu += delta / (j + 1) as f64;
+                sum += delta * (a - mu);
             }
-            mu /= div;
-            *x_i = sum / div - mu.powi(2);
+            *x_i = sum / div;
         }
 
         x
@@ -1681,6 +1682,25 @@ mod tests {
         assert_eq!(vec![1., 2.].std_dev(), 0.5);
         assert_eq!(vec![1.].variance(), 0.0);
         assert_eq!(vec![1.].std_dev(), 0.0);
+        // values far from zero
+        assert_eq!(
+            vec![1e9 + 1., 1e9 + 2., 1e9 + 3., 1e9 + 4.].variance(),
+            1.25
+        );
+        assert_eq!(vec![0.1; 10].variance(), 0.0);
+    }
+
+    #[test]
+    fn test_matrix_variance_far_from_zero() {
+        let x = DenseMatrix::from_2d_array(&[
+            &[1e9 + 1., 0.1],
+            &[1e9 + 2., 0.1],
+            &[1e9 + 3., 0.1],
+            &[1e9 + 4., 0.1],
+        ])
+        .unwrap();
+        assert_eq!(x.variance(0), vec![1.25, 0.0]);
+        assert_eq!(x.transpose().variance(1), vec![1.25, 0.0]);
     }
 
     #[test]

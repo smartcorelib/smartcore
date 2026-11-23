@@ -108,11 +108,10 @@ impl<T: Number + RealNumber> StandardScaler<T> {
 }
 
 /// Make sure the standard deviation is valid. If it is
-/// negative or zero, it should replaced by the smallest
-/// positive value the type can have. That way we can savely
-/// divide the columns with the resulting scalar.
+/// negative or zero, it should be replaced by one. A constant
+/// column is then only centered and is never divided by zero.
 fn ensure_std_valid<T: Number + RealNumber>(value: T) -> T {
-    value.max(T::min_positive_value())
+    if value > T::zero() { value } else { T::one() }
 }
 
 /// During `fit` the `StandardScaler` computes the column means and standard deviation.
@@ -175,13 +174,13 @@ mod tests {
         use super::super::ensure_std_valid;
 
         #[test]
-        fn negative_value_should_be_replace_with_minimal_positive_value() {
-            assert_eq!(ensure_std_valid(-1.0), f64::MIN_POSITIVE)
+        fn negative_value_should_be_replaced_with_one() {
+            assert_eq!(ensure_std_valid(-1.0), 1.0)
         }
 
         #[test]
-        fn zero_should_be_replace_with_minimal_positive_value() {
-            assert_eq!(ensure_std_valid(0.0), f64::MIN_POSITIVE)
+        fn zero_should_be_replaced_with_one() {
+            assert_eq!(ensure_std_valid(0.0), 1.0)
         }
     }
     mod standard_scaler {
@@ -286,6 +285,68 @@ mod tests {
                 DenseMatrix::from_2d_array(&[&[0.0], &[0.0], &[0.0], &[0.0]]).unwrap(),
                 "When scaling values with zero variance, zero is expected as return value"
             )
+        }
+
+        /// A constant `f32` column must not be divided by zero.
+        #[test]
+        fn fit_transform_with_zero_variance_f32() {
+            let x = DenseMatrix::from_2d_array(&[&[1.0f32, 1.0], &[1.0, 3.0]]).unwrap();
+            let scaler = StandardScaler::fit(&x, StandardScalerParameters::default()).unwrap();
+            assert_eq!(
+                scaler.transform(&x).unwrap(),
+                DenseMatrix::from_2d_array(&[&[0.0f32, -1.0], &[0.0, 1.0]]).unwrap()
+            );
+        }
+
+        /// New values in a column that was constant during `fit` are only
+        /// centered, as in sklearn.
+        #[test]
+        fn transform_new_values_in_column_with_zero_variance() {
+            let x = DenseMatrix::from_2d_array(&[&[1.0], &[1.0]]).unwrap();
+            let scaler = StandardScaler::fit(&x, StandardScalerParameters::default()).unwrap();
+            assert_eq!(
+                scaler
+                    .transform(&DenseMatrix::from_2d_array(&[&[1.5], &[3.0]]).unwrap())
+                    .unwrap(),
+                DenseMatrix::from_2d_array(&[&[0.5], &[2.0]]).unwrap()
+            );
+        }
+
+        /// The mean of ten times `0.1` is not exactly `0.1`.
+        #[test]
+        fn fit_transform_with_zero_variance_and_rounded_mean() {
+            let x = DenseMatrix::from_2d_array(&[&[0.1][..]; 10]).unwrap();
+            assert!(
+                fit_transform_with_default_standard_scaler(&x).approximate_eq(
+                    &DenseMatrix::from_2d_array(&[&[0.0][..]; 10]).unwrap(),
+                    1e-15
+                )
+            );
+        }
+
+        /// Columns far from zero, for example Unix timestamps. Expected values
+        /// taken from sklearn.
+        #[test]
+        fn fit_transform_with_large_mean() {
+            let x = DenseMatrix::from_2d_array(&[
+                &[1_700_000_001.0],
+                &[1_700_000_002.0],
+                &[1_700_000_003.0],
+                &[1_700_000_004.0],
+            ])
+            .unwrap();
+            assert!(
+                fit_transform_with_default_standard_scaler(&x).approximate_eq(
+                    &DenseMatrix::from_2d_array(&[
+                        &[-1.3416407864998738],
+                        &[-0.4472135954999579],
+                        &[0.4472135954999579],
+                        &[1.3416407864998738],
+                    ])
+                    .unwrap(),
+                    1e-12
+                )
+            );
         }
 
         /// Test `fit` for columns with nice summary statistics.
