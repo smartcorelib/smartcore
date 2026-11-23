@@ -18,7 +18,7 @@
 //! By default, _m_ is \\(\sqrt{p}\\), where _p_ is the number of predictors.
 //!
 //! By default, no bootstrap samples are used, so there are no out-of-bag samples. To use
-//! `predict_oob`, set both `bootstrap` and `keep_samples` to `true`.
+//! `predict_oob`, set both `bootstrap` and `oob_score` to `true`.
 //!
 //! See [ensemble models](../index.html) for more details.
 //!
@@ -79,7 +79,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
-    BaseForest, BaseForestParameters, predict_class, predict_mode_oob, predict_proba,
+    BaseForest, BaseForestParameters, predict_class, predict_class_oob, predict_proba,
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
@@ -119,8 +119,9 @@ pub struct ExtraTreesClassifierParameters {
     /// Number of features to test at each split. See [`MaxFeatures`].
     pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: bool,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    /// Set `bootstrap` to `true` too, otherwise `fit` returns an error.
+    pub oob_score: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for feature selection and for the random split points of each tree. With `None`, a seed is chosen at fit time (from OS entropy with `std_rand`).
     pub seed: Option<u64>,
@@ -141,8 +142,6 @@ pub struct ExtraTreesClassifier<
 > {
     forest_classifier: Option<BaseForest<TX, usize, X, Vec<usize>, ClassificationOutput>>,
     classes: Option<Vec<TY>>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    bootstrap: bool,
     _phantom: PhantomData<Y>,
 }
 
@@ -182,9 +181,10 @@ impl ExtraTreesClassifierParameters {
         self.seed = Some(seed);
         self
     }
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub fn with_keep_samples(mut self, keep_samples: bool) -> Self {
-        self.keep_samples = keep_samples;
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    /// Set `bootstrap` to `true` too, otherwise `fit` returns an error.
+    pub fn with_oob_score(mut self, oob_score: bool) -> Self {
+        self.oob_score = oob_score;
         self
     }
     /// Whether to use bootstrap samples to build trees. If `false`, each tree uses the whole dataset.
@@ -199,9 +199,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
     PartialEq for ExtraTreesClassifier<TX, TY, X, Y>
 {
     fn eq(&self, other: &Self) -> bool {
-        self.forest_classifier == other.forest_classifier
-            && self.classes == other.classes
-            && self.bootstrap == other.bootstrap
+        self.forest_classifier == other.forest_classifier && self.classes == other.classes
     }
 }
 
@@ -214,7 +212,7 @@ impl Default for ExtraTreesClassifierParameters {
             min_samples_split: 2,
             n_trees: 10,
             m: MaxFeatures::Sqrt,
-            keep_samples: false,
+            oob_score: false,
             seed: Option::None,
             bootstrap: false,
         }
@@ -229,7 +227,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: 
         Self {
             forest_classifier: None,
             classes: None,
-            bootstrap: false,
             _phantom: PhantomData,
         }
     }
@@ -294,7 +291,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             min_samples_split: parameters.min_samples_split,
             n_trees: parameters.n_trees,
             m: parameters.m,
-            keep_samples: parameters.keep_samples,
+            oob_score: parameters.oob_score,
             seed: parameters.seed,
             bootstrap: parameters.bootstrap,
             splitter: Splitter::Random,
@@ -336,7 +333,6 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         Ok(ExtraTreesClassifier {
             forest_classifier: Some(forest_classifier),
             classes: Some(classes),
-            bootstrap: parameters.bootstrap,
             _phantom: PhantomData,
         })
     }
@@ -359,8 +355,13 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
     }
 
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
-    /// The forest must be fitted with `bootstrap` and `keep_samples` set to `true`.
+    /// Predict the class of each training row with only the trees for which the row is
+    /// out-of-bag (OOB). The predicted class has the highest mean probability over these trees.
+    /// The result has one value for each row of the training data, in the same order.
+    /// A row that is in the bootstrap sample of all trees gets `None`.
+    ///
+    /// The forest must be fitted with `bootstrap` and `oob_score` set to `true`.
+    /// If `oob_score` is `false`, this returns an error.
     ///
     /// ```
     /// use smartcore::ensemble::extra_trees_classifier::*;
@@ -372,24 +373,24 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
     /// let parameters = ExtraTreesClassifierParameters::default()
     ///     .with_n_trees(100)
     ///     .with_bootstrap(true)
-    ///     .with_keep_samples(true)
+    ///     .with_oob_score(true)
     ///     .with_seed(42);
     /// let forest = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
-    /// assert_eq!(forest.predict_oob(&x).unwrap().len(), y.len());
+    /// let y_oob = forest.predict_oob().unwrap();
+    /// assert_eq!(y_oob.len(), y.len());
+    /// assert!(y_oob.iter().all(|v| v.is_some()));
     /// ```
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+    pub fn predict_oob(&self) -> Result<Vec<Option<TY>>, Failed> {
         match (&self.forest_classifier, &self.classes) {
-            // Without bootstrap, all rows are in-bag for all trees.
-            (Some(_), Some(_)) if !self.bootstrap => {
-                Err(Failed::predict("OOB prediction needs bootstrap = true"))
-            }
             (Some(forest), Some(classes)) => {
-                let preds_as_usize = predict_mode_oob(forest, x, classes.len())?;
-                let mut result = Y::zeros(x.shape().0);
-                for (i, class_index) in preds_as_usize.iter().enumerate() {
-                    result.set(i, classes[*class_index]);
-                }
-                Ok(result)
+                let preds_as_usize = predict_class_oob(forest)?;
+
+                let predictions = preds_as_usize
+                    .iter()
+                    .map(|u| u.map(|idx| classes[idx]))
+                    .collect();
+
+                Ok(predictions)
             }
             _ => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
@@ -630,8 +631,7 @@ mod tests {
     fn predict_oob_without_fit_should_not_panic() {
         let classifier: ExtraTreesClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
             ExtraTreesClassifier::new();
-        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).unwrap();
-        let yhat = classifier.predict_oob(&x);
+        let yhat = classifier.predict_oob();
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
     }
@@ -641,15 +641,18 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_without_bootstrap_should_fail() {
+    fn fit_with_oob_score_without_bootstrap_should_fail() {
         let (x, y) = iris();
         let parameters = ExtraTreesClassifierParameters::default()
             .with_n_trees(10)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_seed(42);
-        let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
-        let msg = "OOB prediction needs bootstrap = true";
-        assert_eq!(classifier.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let classifier = ExtraTreesClassifier::fit(&x, &y, parameters);
+        assert!(classifier.is_err());
+        assert_eq!(
+            classifier.err().unwrap().error(),
+            FailedError::ParametersError
+        );
     }
 
     #[cfg_attr(
@@ -657,14 +660,14 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_without_keep_samples_should_fail() {
+    fn predict_oob_without_oob_score_should_fail() {
         let (x, y) = iris();
         let parameters = ExtraTreesClassifierParameters::default()
             .with_n_trees(10)
             .with_bootstrap(true)
             .with_seed(42);
         let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
-        let result = classifier.predict_oob(&x);
+        let result = classifier.predict_oob();
         assert_eq!(
             result.err().map(|e| e.error()),
             Some(FailedError::PredictFailed)
@@ -681,11 +684,13 @@ mod tests {
         let parameters = ExtraTreesClassifierParameters::default()
             .with_n_trees(100)
             .with_bootstrap(true)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_seed(42);
         let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
-        let y_oob = classifier.predict_oob(&x).unwrap();
+        let y_oob = classifier.predict_oob().unwrap();
         assert_eq!(y_oob.len(), y.len());
+        assert!(y_oob.iter().all(|yv| yv.is_some()));
+        let y_oob = y_oob.into_iter().flatten().collect();
         assert!(accuracy(&y, &y_oob) >= 0.9, "{y_oob:?}");
     }
 
@@ -700,10 +705,12 @@ mod tests {
         let parameters = ExtraTreesClassifierParameters::default()
             .with_n_trees(100)
             .with_bootstrap(true)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_seed(42);
         let classifier = ExtraTreesClassifier::fit(&x, &y, parameters).unwrap();
-        let y_oob = classifier.predict_oob(&x).unwrap();
+        let y_oob = classifier.predict_oob().unwrap();
+        assert!(y_oob.iter().all(|yv| yv.is_some()));
+        let y_oob = y_oob.into_iter().flatten().collect::<Vec<_>>();
         assert!(y_oob.iter().all(|label| [-7, 12].contains(label)));
     }
 
@@ -878,22 +885,23 @@ mod tests {
         let parameters = ExtraTreesClassifierParameters::default()
             .with_n_trees(n_trees)
             .with_bootstrap(true)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_seed(42);
         let weights: Vec<f64> = (0..20).map(|i| if i < 10 { 100.0 } else { 1.0 }).collect();
         let classifier =
             ExtraTreesClassifier::fit_with_weights(&x, &y, &weights, parameters).unwrap();
 
-        let samples = classifier
+        // A row is in the bag of `n_trees - count` trees.
+        let counts = classifier
             .forest_classifier
             .as_ref()
             .unwrap()
-            .samples()
+            .oob_counts()
             .unwrap();
-        assert_eq!(samples.len(), n_trees);
-        let light_rows_in_bag = samples
+        assert_eq!(counts.len(), 20);
+        let light_rows_in_bag = counts[10..]
             .iter()
-            .map(|in_bag| in_bag[10..].iter().filter(|b| **b).count())
+            .map(|&c| n_trees - c as usize)
             .sum::<usize>();
         // Expected value is about 2 of 100 pairs (tree, light row).
         assert!(
@@ -974,7 +982,7 @@ mod tests {
             serde_json::from_str(r#"{"seed": 42}"#).unwrap();
         assert_eq!(params.seed, Some(42));
         assert!(!params.bootstrap);
-        assert!(!params.keep_samples);
+        assert!(!params.oob_score);
     }
 
     #[cfg_attr(

@@ -93,8 +93,9 @@ pub struct ExtraTreesRegressorParameters {
     /// Number of features to test at each split. See [`MaxFeatures`].
     pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: bool,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    /// Set `bootstrap` to `true` too, otherwise `fit` returns an error.
+    pub oob_score: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub seed: Option<u64>,
@@ -114,8 +115,6 @@ pub struct ExtraTreesRegressor<
     Y: Array1<TY>,
 > {
     forest_regressor: Option<BaseForest<TX, TY, X, Y, f64>>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    bootstrap: bool,
 }
 
 impl ExtraTreesRegressorParameters {
@@ -145,9 +144,10 @@ impl ExtraTreesRegressorParameters {
         self
     }
 
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub fn with_keep_samples(mut self, keep_samples: bool) -> Self {
-        self.keep_samples = keep_samples;
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    /// Set `bootstrap` to `true` too, otherwise `fit` returns an error.
+    pub fn with_oob_score(mut self, oob_score: bool) -> Self {
+        self.oob_score = oob_score;
         self
     }
 
@@ -172,7 +172,7 @@ impl Default for ExtraTreesRegressorParameters {
             min_samples_split: 2,
             n_trees: 10,
             m: MaxFeatures::Sqrt,
-            keep_samples: false,
+            oob_score: false,
             seed: Option::None,
             bootstrap: false,
         }
@@ -185,7 +185,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
     fn new() -> Self {
         Self {
             forest_regressor: Option::None,
-            bootstrap: false,
         }
     }
 
@@ -242,7 +241,7 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
             min_samples_split: parameters.min_samples_split,
             n_trees: parameters.n_trees,
             m: parameters.m,
-            keep_samples: parameters.keep_samples,
+            oob_score: parameters.oob_score,
             seed: parameters.seed,
             bootstrap: parameters.bootstrap,
             splitter: Splitter::Random,
@@ -252,7 +251,6 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
 
         Ok(ExtraTreesRegressor {
             forest_regressor: Some(forest_regressor),
-            bootstrap: parameters.bootstrap,
         })
     }
 
@@ -267,15 +265,20 @@ impl<TX: Number + FloatNumber + PartialOrd, TY: Number, X: Array2<TX>, Y: Array1
         }
     }
 
-    /// Predict OOB values for `x`. `x` is expected to be equal to the dataset used in training.
-    /// The forest must be fitted with `bootstrap` and `keep_samples` set to `true`.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+    /// Predict the value of each training row with only the trees for which the row is
+    /// out-of-bag (OOB). The prediction is the mean of the predictions of these trees.
+    /// The result has one value for each row of the training data, in the same order.
+    /// A row that is in the bootstrap sample of all trees gets `None`.
+    ///
+    /// The mean is computed in `f64` and then converted to `TY` with `TY::from_f64`.
+    /// For an integer `TY`, the conversion truncates toward zero. A row also gets `None`
+    /// if the mean cannot be converted to `TY`, for example when it is out of range.
+    ///
+    /// The forest must be fitted with `bootstrap` and `oob_score` set to `true`.
+    /// If `oob_score` is `false`, this returns an error.
+    pub fn predict_oob(&self) -> Result<Vec<Option<TY>>, Failed> {
         match &self.forest_regressor {
-            // Without bootstrap, all rows are in-bag for all trees.
-            Some(_) if !self.bootstrap => {
-                Err(Failed::predict("OOB prediction needs bootstrap = true"))
-            }
-            Some(forest) => predict_mean_oob(forest, x),
+            Some(forest) => predict_mean_oob(forest),
             None => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
             )),
@@ -503,8 +506,7 @@ mod tests {
     fn predict_oob_without_fit_should_not_panic() {
         let forest: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             ExtraTreesRegressor::new();
-        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
-        let yhat = forest.predict_oob(&x);
+        let yhat = forest.predict_oob();
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
@@ -515,24 +517,24 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_without_bootstrap_should_fail() {
+    fn fit_with_oob_score_needs_bootstrap() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
         let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
         let parameters = ExtraTreesRegressorParameters::default()
             .with_n_trees(10)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_seed(42);
 
-        let forest = ExtraTreesRegressor::fit(&x, &y, parameters.clone()).unwrap();
-        let msg = "OOB prediction needs bootstrap = true";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters.clone());
+        assert!(forest.is_err());
+        assert_eq!(forest.err().unwrap().error(), FailedError::ParametersError);
 
         // With bootstrap, each row is out-of-bag for some trees.
         let parameters = parameters.with_n_trees(50).with_bootstrap(true);
         let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
-        let y_oob = forest.predict_oob(&x).unwrap();
+        let y_oob = forest.predict_oob().unwrap();
         assert_eq!(y_oob.len(), y.len());
-        assert!(y_oob.iter().all(|v| v.is_finite()), "{y_oob:?}");
+        assert!(y_oob.iter().flatten().all(|v| v.is_finite()), "{y_oob:?}");
     }
 
     #[cfg_attr(
@@ -540,37 +542,49 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_row_without_oob_trees_should_fail() {
+    fn predict_oob_row_without_oob_trees_gives_none() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
         let y: Vec<i32> = (0..20).collect();
         // With one tree, the rows in its bootstrap sample have no OOB trees.
         let parameters = ExtraTreesRegressorParameters::default()
             .with_n_trees(1)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_bootstrap(true)
             .with_seed(42);
 
         let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
-        let msg = "A row is in-bag for all trees, so it has no OOB prediction.";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let yhat_oob = forest.predict_oob().unwrap();
+        let counts = forest
+            .forest_regressor
+            .as_ref()
+            .unwrap()
+            .oob_counts()
+            .unwrap();
+        assert_eq!(yhat_oob.len(), 20);
+        // The bootstrap sample must have rows in the bag and rows out of the bag.
+        assert!(counts.contains(&0) && counts.contains(&1));
+        for (i, (yv, &c)) in yhat_oob.iter().zip(counts).enumerate() {
+            assert_eq!(yv.is_some(), c == 1, "row {i}: {yv:?}, OOB count {c}");
+        }
     }
     #[cfg_attr(
         all(target_arch = "wasm32", not(target_os = "wasi")),
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_with_integer_target_without_bootstrap_should_fail() {
-        // #520: before the fix, this panicked with a division by zero.
+    fn fit_with_integer_target_and_oob_score_without_bootstrap_should_fail() {
+        // #520: before the fix, `predict_oob` panicked here with a division by zero.
+        // Now `fit` rejects `oob_score = true` without bootstrap.
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
         let y: Vec<i32> = (0..20).collect();
         let parameters = ExtraTreesRegressorParameters::default()
             .with_n_trees(10)
-            .with_keep_samples(true)
+            .with_oob_score(true)
             .with_seed(42);
 
-        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
-        let msg = "OOB prediction needs bootstrap = true";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters);
+        assert!(forest.is_err());
+        assert_eq!(forest.err().unwrap().error(), FailedError::ParametersError);
     }
 
     #[cfg_attr(
@@ -578,7 +592,7 @@ mod tests {
         wasm_bindgen_test::wasm_bindgen_test
     )]
     #[test]
-    fn predict_oob_without_keep_samples_should_fail() {
+    fn predict_oob_without_oob_score_should_fail() {
         let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
         let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
         let parameters = ExtraTreesRegressorParameters::default()
@@ -586,9 +600,9 @@ mod tests {
             .with_bootstrap(true)
             .with_seed(42);
 
-        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
-        let msg = "Need samples=true for OOB predictions.";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        let forest = ExtraTreesRegressor::fit(&x, &y, parameters).expect("Fit should work");
+        let msg = "oob_score was not set";
+        assert_eq!(forest.predict_oob().err(), Some(Failed::predict(msg)));
     }
 
     #[cfg(feature = "serde")]
@@ -598,17 +612,48 @@ mod tests {
         let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":"Sqrt","n_trees":10,"keep_samples":true,"seed":42}"#;
         let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
         assert!(!parameters.bootstrap);
+    }
 
-        // A fitted regressor serialized before the `bootstrap` field was added.
-        let x: DenseMatrix<f64> = DenseMatrix::from_iterator((0..20).map(|i| i as f64), 20, 1, 0);
-        let y: Vec<f64> = (0..20).map(|i| i as f64).collect();
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_fitted_model_from_before_oob_score_change() {
+        // Before 0.8.0, the fitted regressor stored a `bootstrap` field, and the forest stored
+        // the bootstrap `samples` of each tree instead of `oob_scores`. The tree format did not
+        // change, so this edit of a new JSON gives the JSON shape that 0.7 wrote.
+        // The old `samples` cannot give OOB predictions. The user must fit the model again
+        // with `oob_score = true`.
+        let n_rows = 20;
+        let n_trees = 5;
+        let x: DenseMatrix<f64> =
+            DenseMatrix::from_iterator((0..n_rows).map(|i| i as f64), n_rows, 1, 0);
+        let y: Vec<f64> = (0..n_rows).map(|i| i as f64).collect();
+        let parameters = ExtraTreesRegressorParameters::default()
+            .with_n_trees(n_trees)
+            .with_bootstrap(true)
+            .with_oob_score(true)
+            .with_seed(42);
         let forest = ExtraTreesRegressor::fit(&x, &y, parameters).unwrap();
+        assert!(forest.predict_oob().is_ok());
+
         let mut value = serde_json::to_value(&forest).unwrap();
-        assert!(value.as_object_mut().unwrap().remove("bootstrap").is_some());
-        let forest: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
+        let object = value.as_object_mut().unwrap();
+        let forest_object = object
+            .get_mut("forest_regressor")
+            .and_then(|v| v.as_object_mut())
+            .unwrap();
+        assert!(forest_object.remove("oob_scores").is_some());
+        let samples: Vec<Vec<bool>> = (0..n_trees)
+            .map(|t| (0..n_rows).map(|row| (row + t as usize) % 2 == 0).collect())
+            .collect();
+        forest_object.insert("samples".to_string(), serde_json::json!(samples));
+        assert!(!object.contains_key("bootstrap"));
+        object.insert("bootstrap".to_string(), serde_json::Value::Bool(true));
+
+        let restored: ExtraTreesRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
             serde_json::from_value(value).unwrap();
-        let msg = "OOB prediction needs bootstrap = true";
-        assert_eq!(forest.predict_oob(&x).err(), Some(Failed::predict(msg)));
+        assert_eq!(restored.predict(&x).unwrap(), forest.predict(&x).unwrap());
+        let msg = "oob_score was not set";
+        assert_eq!(restored.predict_oob().err(), Some(Failed::predict(msg)));
     }
 
     #[cfg(feature = "serde")]
@@ -625,8 +670,8 @@ mod tests {
         // Before 0.8.0, `m` was `Option<usize>`. Serde always wrote it, as `null` or as a number.
         // `m` is now `MaxFeatures`, so these old values no longer deserialize (see CHANGELOG).
         let old_formats = [
-            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":null,"n_trees":10,"keep_samples":true,"seed":42}"#,
-            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":3,"n_trees":10,"keep_samples":true,"seed":42}"#,
+            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":null,"n_trees":10,"oob_score":true,"seed":42}"#,
+            r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"m":3,"n_trees":10,"oob_score":true,"seed":42}"#,
         ];
         for json in old_formats {
             let result: Result<ExtraTreesRegressorParameters, _> = serde_json::from_str(json);
@@ -644,6 +689,14 @@ mod tests {
             let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
             assert_eq!(parameters.m, expected, "json = {json}");
         }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_with_old_keep_samples_field_is_ignored() {
+        let json = r#"{"max_depth":null,"min_samples_leaf":1,"min_samples_split":2,"n_trees":10,"keep_samples":true,"seed":42}"#;
+        let parameters: ExtraTreesRegressorParameters = serde_json::from_str(json).unwrap();
+        assert!(!parameters.oob_score);
     }
 
     #[cfg_attr(
@@ -831,7 +884,7 @@ mod tests {
                 .with_m(m)
                 .with_min_samples_leaf(5)
                 .with_min_samples_split(2)
-                .with_keep_samples(true)
+                .with_oob_score(false)
                 .with_seed(42);
             let forest = match sample_weights {
                 None => ExtraTreesRegressor::fit(&x, &y, parameters).unwrap(),

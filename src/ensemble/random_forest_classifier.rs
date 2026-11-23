@@ -55,7 +55,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::{Predictor, SupervisedEstimator};
 use crate::ensemble::base_forest::{
-    BaseForest, BaseForestParameters, predict_class, predict_mode_oob, predict_proba,
+    BaseForest, BaseForestParameters, predict_class, predict_class_oob, predict_proba,
 };
 use crate::ensemble::max_features::MaxFeatures;
 use crate::error::Failed;
@@ -95,8 +95,8 @@ pub struct RandomForestClassifierParameters {
     /// Number of features to test at each split. See [`MaxFeatures`].
     pub m: MaxFeatures,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: bool,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    pub oob_score: bool,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub seed: Option<u64>,
@@ -148,9 +148,9 @@ impl RandomForestClassifierParameters {
         self
     }
 
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub fn with_keep_samples(mut self, keep_samples: bool) -> Self {
-        self.keep_samples = keep_samples;
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    pub fn with_oob_score(mut self, oob_score: bool) -> Self {
+        self.oob_score = oob_score;
         self
     }
 
@@ -178,7 +178,7 @@ impl Default for RandomForestClassifierParameters {
             min_samples_split: 2,
             n_trees: 100,
             m: MaxFeatures::Sqrt,
-            keep_samples: false,
+            oob_score: false,
             seed: Option::None,
         }
     }
@@ -232,8 +232,8 @@ pub struct RandomForestClassifierSearchParameters {
     /// Number of random sample of predictors to use as split candidates.
     pub m: Vec<MaxFeatures>,
     #[cfg_attr(feature = "serde", serde(default))]
-    /// Whether to keep samples used for tree generation. This is required for OOB prediction.
-    pub keep_samples: Vec<bool>,
+    /// Whether to keep the out-of-bag (OOB) predictions of the training data. `predict_oob` needs this.
+    pub oob_score: Vec<bool>,
     #[cfg_attr(feature = "serde", serde(default))]
     /// Seed used for bootstrap sampling and feature selection for each tree. With None, a seed is chosen at fit time (from OS entropy with std_rand).
     pub seed: Vec<Option<u64>>,
@@ -248,7 +248,7 @@ pub struct RandomForestClassifierSearchParametersIterator {
     current_min_samples_split: usize,
     current_n_trees: usize,
     current_m: usize,
-    current_keep_samples: usize,
+    current_oob_score: usize,
     current_seed: usize,
 }
 
@@ -265,7 +265,7 @@ impl IntoIterator for RandomForestClassifierSearchParameters {
             current_min_samples_split: 0,
             current_n_trees: 0,
             current_m: 0,
-            current_keep_samples: 0,
+            current_oob_score: 0,
             current_seed: 0,
         }
     }
@@ -301,10 +301,10 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
                     .n_trees
                     .len()
             && self.current_m == self.random_forest_classifier_search_parameters.m.len()
-            && self.current_keep_samples
+            && self.current_oob_score
                 == self
                     .random_forest_classifier_search_parameters
-                    .keep_samples
+                    .oob_score
                     .len()
             && self.current_seed == self.random_forest_classifier_search_parameters.seed.len()
         {
@@ -325,8 +325,8 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
                 .min_samples_split[self.current_min_samples_split],
             n_trees: self.random_forest_classifier_search_parameters.n_trees[self.current_n_trees],
             m: self.random_forest_classifier_search_parameters.m[self.current_m],
-            keep_samples: self.random_forest_classifier_search_parameters.keep_samples
-                [self.current_keep_samples],
+            oob_score: self.random_forest_classifier_search_parameters.oob_score
+                [self.current_oob_score],
             seed: self.random_forest_classifier_search_parameters.seed[self.current_seed],
         };
 
@@ -382,10 +382,10 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
             self.current_min_samples_split = 0;
             self.current_n_trees = 0;
             self.current_m += 1;
-        } else if self.current_keep_samples + 1
+        } else if self.current_oob_score + 1
             < self
                 .random_forest_classifier_search_parameters
-                .keep_samples
+                .oob_score
                 .len()
         {
             self.current_criterion = 0;
@@ -394,7 +394,7 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
             self.current_min_samples_split = 0;
             self.current_n_trees = 0;
             self.current_m = 0;
-            self.current_keep_samples += 1;
+            self.current_oob_score += 1;
         } else if self.current_seed + 1 < self.random_forest_classifier_search_parameters.seed.len()
         {
             self.current_criterion = 0;
@@ -403,7 +403,7 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
             self.current_min_samples_split = 0;
             self.current_n_trees = 0;
             self.current_m = 0;
-            self.current_keep_samples = 0;
+            self.current_oob_score = 0;
             self.current_seed += 1;
         } else {
             self.current_criterion += 1;
@@ -412,7 +412,7 @@ impl Iterator for RandomForestClassifierSearchParametersIterator {
             self.current_min_samples_split += 1;
             self.current_n_trees += 1;
             self.current_m += 1;
-            self.current_keep_samples += 1;
+            self.current_oob_score += 1;
             self.current_seed += 1;
         }
 
@@ -431,7 +431,7 @@ impl Default for RandomForestClassifierSearchParameters {
             min_samples_split: vec![default_params.min_samples_split],
             n_trees: vec![default_params.n_trees],
             m: vec![default_params.m],
-            keep_samples: vec![default_params.keep_samples],
+            oob_score: vec![default_params.oob_score],
             seed: vec![default_params.seed],
         }
     }
@@ -503,7 +503,7 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
             min_samples_split: parameters.min_samples_split,
             n_trees: parameters.n_trees as usize,
             m: parameters.m,
-            keep_samples: parameters.keep_samples,
+            oob_score: parameters.oob_score,
             seed: parameters.seed,
             bootstrap: true,
             splitter: Splitter::Best,
@@ -567,16 +567,40 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         }
     }
 
-    /// Predict OOB classes for `x`. `x` is expected to be equal to the dataset used in training.
-    pub fn predict_oob(&self, x: &X) -> Result<Y, Failed> {
+    /// Predict the class of each training row with only the trees for which the row is
+    /// out-of-bag (OOB). The predicted class has the highest mean probability over these trees.
+    /// The result has one value for each row of the training data, in the same order.
+    /// A row that is in the bootstrap sample of all trees gets `None`.
+    ///
+    /// The forest must be fitted with `oob_score` set to `true`. If not, this returns an error.
+    ///
+    /// ```
+    /// use smartcore::ensemble::random_forest_classifier::*;
+    /// use smartcore::linalg::basic::matrix::DenseMatrix;
+    ///
+    /// let rows: Vec<Vec<f64>> = (0..40).map(|i| vec![i as f64]).collect();
+    /// let x = DenseMatrix::from_2d_vec(&rows).unwrap();
+    /// let y: Vec<u32> = (0..40).map(|i| if i < 20 { 0 } else { 1 }).collect();
+    /// let parameters = RandomForestClassifierParameters::default()
+    ///     .with_n_trees(100)
+    ///     .with_oob_score(true)
+    ///     .with_seed(42);
+    /// let forest = RandomForestClassifier::fit(&x, &y, parameters).unwrap();
+    /// let y_oob = forest.predict_oob().unwrap();
+    /// assert_eq!(y_oob.len(), y.len());
+    /// assert!(y_oob.iter().all(|v| v.is_some()));
+    /// ```
+    pub fn predict_oob(&self) -> Result<Vec<Option<TY>>, Failed> {
         match (&self.forest_classifier, &self.classes) {
             (Some(forest), Some(classes)) => {
-                let preds_as_usize = predict_mode_oob(forest, x, classes.len())?;
-                let mut result = Y::zeros(x.shape().0);
-                for (i, class_index) in preds_as_usize.iter().enumerate() {
-                    result.set(i, classes[*class_index]);
-                }
-                Ok(result)
+                let preds_as_usize = predict_class_oob(forest)?;
+
+                let predictions = preds_as_usize
+                    .iter()
+                    .map(|u| u.map(|idx| classes[idx]))
+                    .collect();
+
+                Ok(predictions)
             }
             _ => Err(Failed::predict(
                 "'fit' should be called before calling 'predict'",
@@ -817,7 +841,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 100,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(87),
             },
         )
@@ -874,7 +898,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 10,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(87),
             },
             &KFold::default().with_n_splits(5),
@@ -902,7 +926,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 100,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(87),
             },
         );
@@ -928,7 +952,7 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 10,
                 m: MaxFeatures::Sqrt,
-                keep_samples: false,
+                oob_score: false,
                 seed: Some(0),
             },
         );
@@ -993,15 +1017,22 @@ mod tests {
                 min_samples_split: 2,
                 n_trees: 100,
                 m: MaxFeatures::Sqrt,
-                keep_samples: true,
+                oob_score: true,
                 seed: Some(87),
             },
         )
         .unwrap();
 
         assert!(
-            accuracy(&y, &classifier.predict_oob(&x).unwrap())
-                < accuracy(&y, &classifier.predict(&x).unwrap())
+            accuracy(
+                &y,
+                &classifier
+                    .predict_oob()
+                    .unwrap()
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            ) < accuracy(&y, &classifier.predict(&x).unwrap())
         );
     }
 
@@ -1028,8 +1059,7 @@ mod tests {
     fn predict_oob_without_fit_should_not_panic() {
         let tree: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> =
             RandomForestClassifier::new();
-        let x = DenseMatrix::from_2d_array(&[&[1.0f64]]).expect("Construction of x should work");
-        let yhat = tree.predict_oob(&x);
+        let yhat = tree.predict_oob();
         assert!(yhat.is_err());
         let msg = "'fit' should be called before calling 'predict'";
         assert_eq!(yhat.err(), Some(Failed::predict(msg)));
@@ -1159,7 +1189,7 @@ mod tests {
             min_samples_split: 2,
             n_trees: 10,
             m: MaxFeatures::Count(1),
-            keep_samples: false,
+            oob_score: false,
             seed: Some(42),
         };
         let forest = RandomForestClassifier::fit(&x, &y, params).unwrap();
@@ -1199,7 +1229,7 @@ mod tests {
 
         let params = RandomForestClassifierParameters {
             n_trees: 20,
-            keep_samples: true,
+            oob_score: true,
             seed: Some(42),
             ..Default::default()
         };
@@ -1207,7 +1237,8 @@ mod tests {
         assert_eq!(forest.predict(&x).unwrap(), y);
 
         // Each OOB prediction must be one of the original labels
-        let oob = forest.predict_oob(&x).unwrap();
+        let yhat_oob = forest.predict_oob().unwrap();
+        let oob = yhat_oob.iter().flatten().collect::<Vec<_>>();
         assert!(oob.iter().all(|label| [-7, 3, 100].contains(label)));
     }
 
@@ -1231,7 +1262,7 @@ mod tests {
 
         let params = RandomForestClassifierParameters {
             n_trees: 10,
-            keep_samples: true,
+            oob_score: true,
             seed: Some(42),
             ..Default::default()
         };
@@ -1246,7 +1277,12 @@ mod tests {
             DenseMatrix::from_2d_array(&[&[-10.0, 10.0], &[2.5, 2.5], &[100.0, -1.0]]).unwrap();
         assert_eq!(forest.predict(&x).unwrap(), y);
         assert_eq!(forest.predict(&x_new).unwrap(), vec![5; 3]);
-        assert_eq!(forest.predict_oob(&x).unwrap(), y);
+        let yhat_oob: Vec<_> = forest.predict_oob().unwrap();
+        assert!(
+            y.iter()
+                .zip(yhat_oob.iter())
+                .all(|(yv, yv_oob)| yv_oob.is_none_or(|v| *yv == v))
+        );
     }
 
     #[test]
@@ -1303,27 +1339,27 @@ mod tests {
             SplitCriterion::Entropy,
             SplitCriterion::ClassificationError,
         ] {
+            let n_trees = 20;
             let parameters = RandomForestClassifierParameters::default()
                 .with_criterion(criterion.clone())
-                .with_n_trees(20)
-                .with_keep_samples(true)
+                .with_n_trees(n_trees)
+                .with_oob_score(true)
                 .with_seed(42);
             let forest =
                 RandomForestClassifier::fit_with_weights(&x, &y, &sample_weights, parameters)
                     .unwrap();
-            let samples = forest
+            // A row that no tree uses is out of bag in all trees.
+            let counts = forest
                 .forest_classifier
                 .as_ref()
                 .unwrap()
-                .samples()
+                .oob_counts()
                 .unwrap();
-            for tree_samples in samples {
-                for (i, used) in tree_samples.iter().enumerate() {
-                    assert!(
-                        !used || sample_weights[i] > 0.0,
-                        "row {i} has weight 0 but is used (criterion: {criterion:?})"
-                    );
-                }
+            for (i, &c) in counts.iter().enumerate() {
+                assert!(
+                    sample_weights[i] > 0.0 || c == u32::from(n_trees),
+                    "row {i} has weight 0 but is used (criterion: {criterion:?})"
+                );
             }
             // Class 2 has weight 0, so it is never predicted.
             assert!(
